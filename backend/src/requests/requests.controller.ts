@@ -43,6 +43,12 @@ export class RequestsController {
     return this.requests.detail(user, id, contextOf(req));
   }
 
+  /** Employés affectables (responsables : approbation en circuit B, réaffectation). */
+  @Get(':id/assignees')
+  assignees(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Req() req: Request) {
+    return this.requests.assignees(user, id, contextOf(req));
+  }
+
   /** Transition de statut ; renvoie la demande à jour (allowedActions recalculées). */
   @Post(':id/actions')
   @HttpCode(200)

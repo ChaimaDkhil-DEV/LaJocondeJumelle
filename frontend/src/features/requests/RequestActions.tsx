@@ -13,12 +13,14 @@ import { ApiError, apiFetch } from '../../api/client';
 import { STATUS_LABELS } from '../../components/StatusChip';
 import { PhotoCapture, type UploadedPhoto } from '../thread/PhotoCapture';
 import { requestKeys } from './api';
+import { ApprovalDialog } from './ApprovalDialog';
 import { ReasonDialog } from './ReasonDialog';
 import type { RequestDetail } from './types';
 
-/** Actions proposées dans ce lot (approbation, réaffectation et priorité arrivent avec US5 à US7). */
+/** Actions proposées (réaffectation et priorité arrivent avec US6 et US7). */
 const ACTION_LABELS: Record<string, string> = {
   SUBMIT: 'Envoyer la demande',
+  APPROVE: 'Approuver',
   ACCEPT: 'Accepter la demande',
   START: 'Commencer',
   COMPLETE: 'Marquer comme terminée',
@@ -31,14 +33,15 @@ const ACTION_LABELS: Record<string, string> = {
   CANCEL: 'Annuler la demande',
 };
 
-const PRIMARY = new Set(['SUBMIT', 'ACCEPT', 'START', 'COMPLETE', 'RESUME', 'CLOSE', 'VALIDATE_FINAL']);
+const PRIMARY = new Set(['SUBMIT', 'APPROVE', 'ACCEPT', 'START', 'COMPLETE', 'RESUME', 'CLOSE', 'VALIDATE_FINAL']);
 
-type Dialogs = 'refuse' | 'correction' | 'cancel' | 'complete' | null;
+type Dialogs = 'approve' | 'refuse' | 'correction' | 'cancel' | 'complete' | null;
 
 interface ActionBody {
   action: string;
   version: number;
   reason?: string;
+  assigneeId?: string;
   proofFileIds?: string[];
 }
 
@@ -85,7 +88,8 @@ export function RequestActions({ request }: { request: RequestDetail }) {
 
   function onClick(action: string): void {
     mutation.reset();
-    if (action === 'DECLINE' || action === 'REJECT') setDialog('refuse');
+    if (action === 'APPROVE') setDialog('approve');
+    else if (action === 'DECLINE' || action === 'REJECT') setDialog('refuse');
     else if (action === 'REQUEST_CORRECTION') setDialog('correction');
     else if (action === 'CANCEL') setDialog('cancel');
     else if (action === 'COMPLETE' && request.rulesSnapshot.photoRequired) setDialog('complete');
@@ -122,6 +126,14 @@ export function RequestActions({ request }: { request: RequestDetail }) {
         </Box>
       )}
 
+      <ApprovalDialog
+        open={dialog === 'approve'}
+        requestId={request.id}
+        automatic={request.rulesSnapshot.assignmentMode === 'AUTO'}
+        pending={mutation.isPending}
+        onConfirm={(assigneeId) => send('APPROVE', assigneeId ? { assigneeId } : {})}
+        onClose={() => setDialog(null)}
+      />
       <ReasonDialog
         open={dialog === 'refuse'}
         title="Refuser la demande"

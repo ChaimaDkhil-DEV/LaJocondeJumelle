@@ -48,6 +48,7 @@ async function pageAs(
 }
 
 test('V10 — échange texte, vocal, photo et PDF ; confidentialité pour un non-participant', async ({ page, browser, browserName }, testInfo) => {
+  test.slow(); // plusieurs utilisateurs et navigateurs à la suite
   const title = uniqueTitle('Photocopies avec modèle', testInfo);
   await login(page, 'enseignante');
   const id = await createRequest(page, title);

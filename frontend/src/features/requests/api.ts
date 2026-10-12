@@ -7,7 +7,7 @@ import type { CategoryOption, Page, RecipientOption, RequestDetail, RequestScope
 
 export const requestKeys = {
   all: ['requests'] as const,
-  list: (scope: RequestScope) => ['requests', 'list', scope] as const,
+  list: (scope: RequestScope, statuses: readonly string[] = []) => ['requests', 'list', scope, ...statuses] as const,
   detail: (id: string) => ['requests', 'detail', id] as const,
 };
 
@@ -28,15 +28,25 @@ export function useRecipients(categoryId: string | null) {
   });
 }
 
-export function useRequestList(scope: RequestScope) {
+export function useRequestList(scope: RequestScope, statuses: readonly string[] = []) {
+  const statusQuery = statuses.map((s) => `&status=${s}`).join('');
   return useInfiniteQuery({
-    queryKey: requestKeys.list(scope),
+    queryKey: requestKeys.list(scope, statuses),
     queryFn: ({ pageParam }) =>
       apiFetch<Page<RequestSummary>>(
-        `/api/requests?scope=${scope}${pageParam ? `&cursor=${encodeURIComponent(pageParam)}` : ''}`,
+        `/api/requests?scope=${scope}${statusQuery}${pageParam ? `&cursor=${encodeURIComponent(pageParam)}` : ''}`,
       ),
     initialPageParam: '' as string,
     getNextPageParam: (last) => last.nextCursor ?? undefined,
+  });
+}
+
+/** Employés affectables (approbation en circuit B, réaffectation) — réservé aux responsables. */
+export function useAssignees(requestId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ['requests', 'detail', requestId, 'assignees'],
+    queryFn: () => apiFetch<RecipientOption[]>(`/api/requests/${requestId}/assignees`),
+    enabled,
   });
 }
 

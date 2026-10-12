@@ -38,6 +38,7 @@ test('V12 — notification urgente en moins de 5 s sans rechargement, et non lue
   page,
   browser,
 }, testInfo) => {
+  test.slow(); // plusieurs utilisateurs et navigateurs à la suite
   const repro = await pageAs(browser, testInfo, 'reprographie');
   await expect(repro.getByRole('heading', { name: 'Mes demandes' })).toBeVisible();
   const before = await unreadCount(repro);
@@ -75,6 +76,7 @@ test('V12 — notification urgente en moins de 5 s sans rechargement, et non lue
 });
 
 test('V12 — le statut et le fil d’une demande ouverte se mettent à jour en direct', async ({ page, browser }, testInfo) => {
+  test.slow(); // plusieurs utilisateurs et navigateurs à la suite
   const title = uniqueTitle('Mise à jour en direct', testInfo);
   await login(page, 'enseignante');
   const id = await createRequest(page, title, 'NORMAL');

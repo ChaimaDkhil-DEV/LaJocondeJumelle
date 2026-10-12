@@ -56,6 +56,7 @@ Tant que `mustChangePassword` est vrai, seules `/auth/*` répondent ; les autres
 | DELETE | `/requests/:id` | demandeur, statut DRAFT | `204` (T19) |
 | POST | `/requests/:id/actions` | selon la machine à états | `{ action, version, reason?, assigneeId?, proofFileIds? }` → `200 RequestDetail` |
 | PATCH | `/requests/:id/priority` | voir data-model §Machine à états | `{ priority, version }` → `200 RequestDetail` |
+| GET | `/requests/:id/assignees` | utilisateur pouvant approuver ou réaffecter la demande (sinon `403`) | employés actifs parmi les destinataires de la catégorie : `[{ id, displayName, jobTitle }]` |
 | GET | `/requests/:id/history` | lecture autorisée | liste chronologique de `RequestEvent` avec nom de l'acteur |
 
 `action` ∈ `SUBMIT`, `APPROVE`, `REJECT`, `DECLINE`, `CANCEL`, `ACCEPT`, `START`, `COMPLETE`,
@@ -68,7 +69,7 @@ requester{id,displayName}, assignee{id,displayName}|null, createdAt, currentStag
 currentDueAt, warnAt, overdueStage, hasVoice, unreadCount`.
 
 **RequestDetail** : RequestSummary + `description, voice{fileId,durationSeconds}|null,
-rulesSnapshot{circuit, photoRequired, closureMode, finalValidation}, timestamps{…}, version,
+rulesSnapshot{circuit, photoRequired, closureMode, finalValidation, assignmentMode}, timestamps{…}, version,
 rejectionReason, allowedActions[]` (calculé par la politique d'accès pour l'utilisateur
 courant : seule source pour l'affichage des boutons), `proofPhotos[{fileId}]` (photos de preuve),
 `canWriteInThread` (le formulaire de réponse du fil n'est affiché que s'il est vrai).

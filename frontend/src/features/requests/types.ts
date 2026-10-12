@@ -42,7 +42,13 @@ export interface RequestSummary {
 export interface RequestDetail extends RequestSummary {
   description: string | null;
   voice: { fileId: string; durationSeconds: number } | null;
-  rulesSnapshot: { circuit: Circuit; photoRequired: boolean; closureMode: string; finalValidation: boolean };
+  rulesSnapshot: {
+    circuit: Circuit;
+    photoRequired: boolean;
+    closureMode: string;
+    finalValidation: boolean;
+    assignmentMode?: 'MANUAL' | 'AUTO';
+  };
   timestamps: Record<
     | 'createdAt'
     | 'submittedAt'

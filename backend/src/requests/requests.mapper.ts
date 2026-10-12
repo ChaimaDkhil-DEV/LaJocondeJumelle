@@ -60,6 +60,7 @@ export function toRequestDetail(
       photoRequired: rules.photoRequired,
       closureMode: rules.closureMode,
       finalValidation: rules.finalValidation,
+      assignmentMode: rules.assignmentMode,
     },
     timestamps: {
       createdAt: request.createdAt,

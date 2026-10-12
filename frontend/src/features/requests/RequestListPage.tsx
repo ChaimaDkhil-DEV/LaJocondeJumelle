@@ -18,12 +18,30 @@ import { LoadingState } from '../../components/LoadingState';
 import { PriorityChip } from '../../components/PriorityChip';
 import { StatusChip } from '../../components/StatusChip';
 import { OutboxPanel } from '../outbox/OutboxPanel';
+import { useCurrentUser } from '../auth/useCurrentUser';
 import { useRequestList } from './api';
 import type { RequestScope, RequestSummary } from './types';
 
-const TABS: Array<{ key: string; label: string; scope: RequestScope; empty: string }> = [
+interface TabDefinition {
+  key: string;
+  label: string;
+  scope: RequestScope;
+  statuses?: string[];
+  empty: string;
+  managersOnly?: boolean;
+}
+
+const TABS: TabDefinition[] = [
   { key: 'recues', label: 'Reçues', scope: 'assigned', empty: 'Vous n’avez reçu aucune demande.' },
   { key: 'envoyees', label: 'Envoyées', scope: 'mine', empty: 'Vous n’avez envoyé aucune demande.' },
+  {
+    key: 'a-valider',
+    label: 'À valider',
+    scope: 'managed',
+    statuses: ['PENDING_ADMIN_VALIDATION', 'PENDING_FINAL_VALIDATION'],
+    empty: 'Aucune demande ne vous attend.',
+    managersOnly: true,
+  },
 ];
 
 function RequestCard({ request, received }: { request: RequestSummary; received: boolean }) {
@@ -72,8 +90,11 @@ function RequestCard({ request, received }: { request: RequestSummary; received:
 
 export function RequestListPage() {
   const [params, setParams] = useSearchParams();
-  const tab = TABS.find((t) => t.key === params.get('onglet')) ?? TABS[0];
-  const list = useRequestList(tab.scope);
+  const me = useCurrentUser();
+  const isManager = me.data?.role === 'MANAGER' || me.data?.role === 'SUPER_ADMIN';
+  const tabs = TABS.filter((t) => !t.managersOnly || isManager);
+  const tab = tabs.find((t) => t.key === params.get('onglet')) ?? tabs[0];
+  const list = useRequestList(tab.scope, tab.statuses);
   const requests = list.data?.pages.flatMap((p) => p.items) ?? [];
 
   return (
@@ -95,7 +116,7 @@ export function RequestListPage() {
         aria-label="Type de demandes"
         sx={{ mb: 2 }}
       >
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <Tab key={t.key} value={t.key} label={t.label} id={`onglet-${t.key}`} aria-controls="liste-demandes" />
         ))}
       </Tabs>

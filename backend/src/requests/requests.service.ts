@@ -8,7 +8,7 @@ import { PrismaService } from '../common/prisma.service';
 import { FileStorageService } from '../files/file-storage.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { SettingsService } from '../settings/settings.service';
-import { canCreateInCategory, canPickRecipient, canReadRequest } from './domain/access-policy';
+import { allowedActions, canCreateInCategory, canPickRecipient, canReadRequest } from './domain/access-policy';
 import { applyAction, type TransitionResult } from './domain/request-state-machine';
 import { visibleRequestsWhere } from './domain/visibility';
 import { RequestTransitionsService } from './request-transitions.service';
@@ -206,6 +206,40 @@ export class RequestsService {
       items: page.items.map((r) => toRequestSummary(r, unread.get(r.id) ?? 0)),
       nextCursor: page.nextCursor,
     };
+  }
+
+  /**
+   * Employés auxquels un responsable peut confier la demande (approbation en circuit B, réaffectation) :
+   * utilisateurs actifs parmi les destinataires de la catégorie.
+   */
+  async assignees(
+    user: AuthenticatedUser,
+    id: string,
+    ctx: RequestContext,
+  ): Promise<Array<{ id: string; displayName: string; jobTitle: string | null }>> {
+    const request = UUID.test(id) ? await this.prisma.request.findUnique({ where: { id } }) : null;
+    const category = request && (await this.policies.category(request.categoryId));
+    const policyCategory = category && toPolicyCategory(category);
+    if (!request || !policyCategory || !canReadRequest(user, toPolicyRequest(request), policyCategory)) {
+      await this.logDenied(user, id, ctx);
+      throw new AppException('NOT_FOUND');
+    }
+    const actions = allowedActions(user, toPolicyRequest(request), policyCategory);
+    if (!actions.includes('APPROVE') && !actions.includes('REASSIGN')) {
+      await this.audit.log('ACCESS_DENIED', {
+        actorId: user.id,
+        targetType: 'Request',
+        targetId: id,
+        ip: ctx.ip,
+        details: { reason: 'FORBIDDEN_ASSIGNEES', route: ctx.route, method: ctx.method, channel: 'http' },
+      });
+      throw new AppException('FORBIDDEN');
+    }
+    return this.prisma.user.findMany({
+      where: { active: true, recipientOf: { some: { categoryId: request.categoryId } } },
+      select: { id: true, displayName: true, jobTitle: true },
+      orderBy: { displayName: 'asc' },
+    });
   }
 
   // ---------------------------------------------------------------------------
