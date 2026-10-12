@@ -4,7 +4,8 @@ import type { AuthenticatedUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { clientIp, requestPath } from '../auth/request-info';
 import type { Page } from '../common/pagination';
-import { CreateRequestDto, ListRequestsQuery, UpdateDraftDto } from './requests.dto';
+import { RequestTransitionsService } from './request-transitions.service';
+import { CreateRequestDto, ListRequestsQuery, RequestActionDto, UpdateDraftDto } from './requests.dto';
 import type { RequestDetail, RequestSummary } from './requests.mapper';
 import { RequestsService, type RequestContext } from './requests.service';
 
@@ -14,7 +15,10 @@ function contextOf(req: Request): RequestContext {
 
 @Controller('requests')
 export class RequestsController {
-  constructor(private readonly requests: RequestsService) {}
+  constructor(
+    private readonly requests: RequestsService,
+    private readonly transitions: RequestTransitionsService,
+  ) {}
 
   /** 201 à la création ; 200 si le même clientId a déjà été reçu (renvoi idempotent). */
   @Post()
@@ -37,6 +41,20 @@ export class RequestsController {
   @Get(':id')
   detail(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Req() req: Request): Promise<RequestDetail> {
     return this.requests.detail(user, id, contextOf(req));
+  }
+
+  /** Transition de statut ; renvoie la demande à jour (allowedActions recalculées). */
+  @Post(':id/actions')
+  @HttpCode(200)
+  async act(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: RequestActionDto,
+    @Req() req: Request,
+  ): Promise<RequestDetail> {
+    const ctx = contextOf(req);
+    await this.transitions.perform(user, id, dto, ctx);
+    return this.requests.detail(user, id, ctx);
   }
 
   @Patch(':id')

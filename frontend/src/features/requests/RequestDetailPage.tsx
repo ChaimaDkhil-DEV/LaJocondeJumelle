@@ -17,6 +17,7 @@ import { PriorityChip } from '../../components/PriorityChip';
 import { StatusChip } from '../../components/StatusChip';
 import { VoicePlayer } from '../voice/VoicePlayer';
 import { useRequest } from './api';
+import { RequestActions } from './RequestActions';
 import type { RequestDetail } from './types';
 
 const STEP_LABELS: Array<[keyof RequestDetail['timestamps'], string]> = [
@@ -72,10 +73,19 @@ export function RequestDetailPage() {
       <Typography color="text.secondary" gutterBottom>
         {r.reference} · {r.category.name}
       </Typography>
-      <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', mb: 3 }}>
+      <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', mb: 2 }}>
         <StatusChip status={r.status} />
         <PriorityChip priority={r.priority} />
       </Stack>
+      <Box sx={{ mb: 3 }}>
+        <RequestActions request={r} />
+      </Box>
+      {r.autoCloseAt && r.status === 'DONE' && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          Cette demande sera clôturée automatiquement le {formatDateTime(r.autoCloseAt)}, sauf si elle est renvoyée à
+          corriger d’ici là.
+        </Alert>
+      )}
 
       <Stack spacing={3}>
         <Paper variant="outlined" sx={{ p: 2 }}>
@@ -102,6 +112,33 @@ export function RequestDetailPage() {
               Description
             </Typography>
             <Typography sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{r.description}</Typography>
+          </Box>
+        )}
+
+        {r.proofPhotos.length > 0 && (
+          <Box component="section" aria-labelledby="titre-preuves">
+            <Typography id="titre-preuves" component="h2" variant="h6" gutterBottom>
+              Photos de preuve
+            </Typography>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+              {r.proofPhotos.map((photo, index) => (
+                <Box
+                  key={photo.fileId}
+                  component="a"
+                  href={`/api/files/${photo.fileId}`}
+                  target="_blank"
+                  rel="noopener"
+                  aria-label={`Ouvrir la photo de preuve ${index + 1} en grand`}
+                >
+                  <Box
+                    component="img"
+                    src={`/api/files/${photo.fileId}`}
+                    alt={`Photo de preuve ${index + 1}`}
+                    sx={{ width: 140, height: 140, objectFit: 'cover', borderRadius: 1, display: 'block' }}
+                  />
+                </Box>
+              ))}
+            </Box>
           </Box>
         )}
 

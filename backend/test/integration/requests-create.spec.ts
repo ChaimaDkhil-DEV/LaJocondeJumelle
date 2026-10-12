@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import request from 'supertest';
-import { categoryId, loginAs, seedDemo, userId } from '../utils/auth-helpers';
+import { CATEGORIES, categoryId, loginAs, seedDemo, userId } from '../utils/auth-helpers';
 import { createTestApp, TEST_ORIGIN } from '../utils/test-app';
 import { resetDatabase } from '../utils/test-db';
 
@@ -46,8 +46,8 @@ describe('Création de demandes', () => {
     enseignante = await loginAs(app, 'enseignante');
     reprographie = await loginAs(app, 'reprographie');
     responsable = await loginAs(app, 'responsable');
-    photocopies = await categoryId(prisma, 'A_DIRECT');
-    circuitB = await categoryId(prisma, 'B_ADMIN_VALIDATION');
+    photocopies = await categoryId(prisma, CATEGORIES.photocopies);
+    circuitB = await categoryId(prisma, CATEGORIES.circuitB);
     reprographieId = await userId(prisma, 'reprographie');
   });
 

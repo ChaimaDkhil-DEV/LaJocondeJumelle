@@ -13,6 +13,7 @@ import { SettingsService } from '../settings/settings.service';
 import { detectFileType, VOICE_CONTAINERS } from './file-signature';
 import { FileStorageService } from './file-storage.service';
 import type { FileResponse, UploadFileDto } from './files.dto';
+import { processPhoto } from './photo-processing';
 import { processVoice } from './voice-processing';
 
 export interface UploadedTempFile {
@@ -32,6 +33,16 @@ async function readHead(path: string, bytes = 64): Promise<Buffer> {
   } finally {
     await handle.close();
   }
+}
+
+/** Nom affiché d'une photo : nom d'origine nettoyé (sans chemin ni caractères de contrôle), extension .jpg. */
+export function photoName(originalName: string): string {
+  const base = (originalName.split(/[\\/]/).pop() ?? '')
+    .replace(/[\p{Cc}"]/gu, '')
+    .replace(/\.[^.]*$/, '')
+    .trim()
+    .slice(0, 200);
+  return `${base || 'photo'}.jpg`;
 }
 
 export function toFileResponse(file: StoredFile): FileResponse {
@@ -60,8 +71,9 @@ export class FilesService {
     try {
       if (dto.requestId) await this.assertCanAttach(user, dto.requestId);
 
+      if (dto.kind === 'PHOTO') return await this.uploadPhoto(user, temp, dto);
       if (dto.kind !== 'VOICE') {
-        // Photos (US2) et documents (US3) : pas encore acceptés.
+        // Documents : acceptés avec le fil de discussion (US3).
         throw new AppException('FILE_TYPE_NOT_ALLOWED');
       }
 
@@ -92,6 +104,29 @@ export class FilesService {
     } finally {
       await rm(temp.path, { force: true });
     }
+  }
+
+  /** Photo (appareil ou galerie) : taille ≤ attachmentMaxBytes, puis normalisation (photo-processing). */
+  private async uploadPhoto(
+    user: AuthenticatedUser,
+    temp: UploadedTempFile,
+    dto: UploadFileDto,
+  ): Promise<FileResponse> {
+    if (temp.size > (await this.settings.get('attachmentMaxBytes'))) throw new AppException('FILE_TOO_LARGE');
+    const photo = await processPhoto(temp.path, { allowedTypes: await this.settings.get('allowedPhotoTypes') });
+    const storagePath = await this.storage.store(photo.path);
+    const file = await this.prisma.file.create({
+      data: {
+        kind: 'PHOTO',
+        mimeType: photo.mimeType,
+        originalName: photoName(temp.originalname),
+        sizeBytes: photo.sizeBytes,
+        storagePath,
+        uploaderId: user.id,
+        requestId: dto.requestId ?? null,
+      },
+    });
+    return toFileResponse(file);
   }
 
   /**

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, type Notification, type Request } from '@prisma/client';
+import { Prisma, type Request } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import { AppException } from '../common/errors';
@@ -11,6 +11,7 @@ import { SettingsService } from '../settings/settings.service';
 import { canCreateInCategory, canPickRecipient, canReadRequest } from './domain/access-policy';
 import { applyAction, type TransitionResult } from './domain/request-state-machine';
 import { visibleRequestsWhere } from './domain/visibility';
+import { RequestTransitionsService } from './request-transitions.service';
 import {
   RequestPolicyLoader,
   toPolicyCategory,
@@ -52,6 +53,7 @@ export class RequestsService {
     private readonly notifications: NotificationsService,
     private readonly audit: AuditService,
     private readonly storage: FileStorageService,
+    private readonly transitions: RequestTransitionsService,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -128,7 +130,7 @@ export class RequestsService {
         });
         if (voice) await tx.file.update({ where: { id: voice.id }, data: { requestId: request.id } });
         const pending = transition?.ok
-          ? await this.recordSubmission(tx, request, user.id, category, transition)
+          ? await this.transitions.recordTransition(tx, { assigneeId: null }, request, category, transition, user.id)
           : [];
         return { request, pending };
       });
@@ -142,53 +144,6 @@ export class RequestsService {
       }
       throw error;
     }
-  }
-
-  /** Historique et notifications de l'envoi (T1) ou de la soumission à validation (T2). */
-  private async recordSubmission(
-    tx: Prisma.TransactionClient,
-    request: Request,
-    actorId: string,
-    category: CategoryWithMembers,
-    transition: Extract<TransitionResult, { ok: true }>,
-  ): Promise<Notification[]> {
-    await tx.requestEvent.create({
-      data: {
-        requestId: request.id,
-        actorId,
-        type: 'CREATED',
-        toValue: { title: request.title, priority: request.priority, categoryId: request.categoryId },
-      },
-    });
-    await tx.requestEvent.create({
-      data: {
-        requestId: request.id,
-        actorId,
-        type: 'STATUS_CHANGED',
-        fromValue: { status: transition.from },
-        toValue: { status: transition.to },
-      },
-    });
-    if (request.assigneeId) {
-      await tx.requestEvent.create({
-        data: { requestId: request.id, actorId, type: 'ASSIGNED', toValue: { assigneeId: request.assigneeId } },
-      });
-    }
-
-    const urgent = request.priority === 'URGENT';
-    if (transition.to === 'SENT') {
-      return this.notifications.notifyInTx(tx, [request.assigneeId], actorId, {
-        type: urgent ? 'URGENT' : 'REQUEST_NEW',
-        requestId: request.id,
-        priority: request.priority,
-      });
-    }
-    return this.notifications.notifyInTx(
-      tx,
-      category.managers.map((m) => m.userId),
-      actorId,
-      { type: urgent ? 'URGENT' : 'REQUEST_NEW', requestId: request.id, priority: request.priority },
-    );
   }
 
   // ---------------------------------------------------------------------------

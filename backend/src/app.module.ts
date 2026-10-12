@@ -8,6 +8,7 @@ import { FilesModule } from './files/files.module';
 import { HealthController } from './health/health.controller';
 import { NotificationsModule } from './notifications/notifications.module';
 import { RequestsModule } from './requests/requests.module';
+import { SchedulerModule } from './scheduler/scheduler.module';
 import { SettingsModule } from './settings/settings.module';
 
 @Module({
@@ -21,6 +22,7 @@ import { SettingsModule } from './settings/settings.module';
     FilesModule,
     CategoriesModule,
     RequestsModule,
+    SchedulerModule,
   ],
   controllers: [HealthController],
 })

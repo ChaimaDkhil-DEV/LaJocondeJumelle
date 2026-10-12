@@ -144,6 +144,21 @@ export async function runSeed(prisma: PrismaClient, options: SeedOptions = {}): 
     managers: ['responsable'],
   });
 
+  // Démonstration : circuit A, photo de preuve obligatoire, clôture par le demandeur.
+  await seedCategory(prisma, {
+    name: 'Petits travaux (démo photo)',
+    data: {
+      circuit: 'A_DIRECT',
+      creatorRoles: ['EMPLOYEE', 'MANAGER'],
+      closureMode: 'REQUESTER',
+      autoCloseAfterMinutes: 0,
+      photoRequired: true,
+    },
+    deadlines: DEFAULT_DEADLINES,
+    recipients: ['reprographie'],
+    managers: ['responsable'],
+  });
+
   await seedCategory(prisma, {
     name: 'Intervention technique (démo circuit B)',
     data: {

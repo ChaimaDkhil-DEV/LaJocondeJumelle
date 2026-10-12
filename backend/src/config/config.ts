@@ -15,6 +15,8 @@ export interface AppConfig {
   cookieSecure: boolean;
   /** Tentatives de connexion par minute et par (IP, identifiant) ; toujours 5 en production. */
   loginRateLimit: number;
+  /** Jobs planifiés (clôture automatique, retards). Désactivés dans les tests d'intégration. */
+  jobsEnabled: boolean;
   isProduction: boolean;
 }
 
@@ -59,6 +61,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     cookieSecure: env.NODE_ENV === 'production' || env.COOKIE_SECURE !== 'false',
     loginRateLimit:
       env.NODE_ENV !== 'production' && Number(env.LOGIN_RATE_LIMIT) > 0 ? Number(env.LOGIN_RATE_LIMIT) : DEFAULT_LOGIN_RATE_LIMIT,
+    jobsEnabled: env.JOBS_ENABLED !== 'false',
     isProduction: env.NODE_ENV === 'production',
   };
 }

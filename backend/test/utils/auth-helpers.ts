@@ -26,6 +26,12 @@ export async function userId(prisma: PrismaClient, username: string): Promise<st
   return (await prisma.user.findUniqueOrThrow({ where: { username } })).id;
 }
 
-export async function categoryId(prisma: PrismaClient, circuit: 'A_DIRECT' | 'B_ADMIN_VALIDATION'): Promise<string> {
-  return (await prisma.category.findFirstOrThrow({ where: { circuit } })).id;
+export const CATEGORIES = {
+  photocopies: 'Photocopies',
+  petitsTravaux: 'Petits travaux (démo photo)',
+  circuitB: 'Intervention technique (démo circuit B)',
+} as const;
+
+export async function categoryId(prisma: PrismaClient, name: (typeof CATEGORIES)[keyof typeof CATEGORIES]): Promise<string> {
+  return (await prisma.category.findUniqueOrThrow({ where: { name } })).id;
 }

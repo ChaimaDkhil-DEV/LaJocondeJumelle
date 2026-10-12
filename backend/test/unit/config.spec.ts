@@ -34,6 +34,11 @@ describe('loadConfig', () => {
     expect(loadConfig({ ...valid, LOGIN_RATE_LIMIT: '1000', NODE_ENV: 'production' }).loginRateLimit).toBe(5);
   });
 
+  it('active les jobs planifiés sauf si JOBS_ENABLED=false', () => {
+    expect(loadConfig(valid).jobsEnabled).toBe(true);
+    expect(loadConfig({ ...valid, JOBS_ENABLED: 'false' }).jobsEnabled).toBe(false);
+  });
+
   it('refuse un secret de session trop court', () => {
     expect(() => loadConfig({ ...valid, SESSION_SECRET: 'court' })).toThrow(/32 caractères/);
   });

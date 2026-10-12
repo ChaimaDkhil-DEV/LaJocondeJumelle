@@ -1,0 +1,339 @@
+import { Injectable } from '@nestjs/common';
+import type { Notification, NotificationType, Prisma, Request } from '@prisma/client';
+import { AuditService } from '../audit/audit.service';
+import type { AuthenticatedUser } from '../auth/auth.types';
+import { AppException } from '../common/errors';
+import { PrismaService } from '../common/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { actorsFor, canPickRecipient, canReadRequest } from './domain/access-policy';
+import {
+  applyAction,
+  type ActionContext,
+  type RequestAction,
+  type TransitionResult,
+} from './domain/request-state-machine';
+import {
+  RequestPolicyLoader,
+  toPolicyCategory,
+  toPolicyRequest,
+  type CategoryWithMembers,
+} from './request-policy.loader';
+import type { RequestContext } from './requests.service';
+
+type SuccessfulTransition = Extract<TransitionResult, { ok: true }>;
+
+export interface ActionInput {
+  action: RequestAction;
+  version: number;
+  reason?: string;
+  assigneeId?: string;
+  proofFileIds?: string[];
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Libellé du message système qui conserve le motif ou le commentaire dans le fil. */
+const REASON_LABELS: Partial<Record<RequestAction, string>> = {
+  REJECT: 'Motif du refus',
+  DECLINE: 'Motif du refus',
+  REQUEST_CORRECTION: 'À corriger',
+};
+
+function fieldError(field: string, message: string): AppException {
+  return new AppException('VALIDATION_ERROR', { fields: [{ field, messages: [message] }] });
+}
+
+/** Horodatages et champs à mettre à jour pour chaque étape appliquée (FR-028). */
+function updateFor(result: SuccessfulTransition, now: Date): Prisma.RequestUncheckedUpdateManyInput {
+  const data: Prisma.RequestUncheckedUpdateManyInput = {
+    status: result.to,
+    autoCloseAt: result.autoCloseAt,
+  };
+  if (result.assigneeId) {
+    data.assigneeId = result.assigneeId;
+    data.assignedAt = now;
+  }
+  for (const step of result.steps) {
+    switch (step.to) {
+      case 'PENDING_ADMIN_VALIDATION':
+        data.submittedAt = now;
+        break;
+      case 'SENT':
+        if (step.action === 'SUBMIT') data.submittedAt = now;
+        if (step.action === 'APPROVE') data.approvedAt = now;
+        break;
+      case 'ACCEPTED':
+        data.acceptedAt = now;
+        break;
+      case 'IN_PROGRESS':
+        data.startedAt = now;
+        break;
+      case 'DONE':
+        data.doneAt = now;
+        break;
+      case 'CLOSED':
+        data.closedAt = now;
+        if (step.action === 'VALIDATE_FINAL') data.finalValidatedAt = now;
+        break;
+      case 'REJECTED':
+        data.rejectedAt = now;
+        data.rejectionReason = result.reason ?? null;
+        break;
+      case 'CANCELLED':
+        data.cancelledAt = now;
+        break;
+      default:
+        break;
+    }
+  }
+  return data;
+}
+
+/**
+ * Applique les transitions de la machine à états en base : verrouillage optimiste sur `version`,
+ * horodatages, historique (RequestEvent), message du motif, notifications — en une transaction.
+ * Les notifications ne sont diffusées qu'après validation de la transaction.
+ */
+@Injectable()
+export class RequestTransitionsService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly policies: RequestPolicyLoader,
+    private readonly notifications: NotificationsService,
+    private readonly audit: AuditService,
+  ) {}
+
+  /** Action d'un utilisateur (POST /requests/:id/actions). */
+  async perform(user: AuthenticatedUser, id: string, input: ActionInput, ctx: RequestContext): Promise<void> {
+    const request = UUID.test(id) ? await this.prisma.request.findUnique({ where: { id } }) : null;
+    const category = request && (await this.policies.category(request.categoryId));
+    const policyRequest = request && toPolicyRequest(request);
+    if (!request || !category || !policyRequest || !canReadRequest(user, policyRequest, toPolicyCategory(category))) {
+      await this.logDenied(user, id, ctx, 'NOT_VISIBLE');
+      throw new AppException('NOT_FOUND');
+    }
+    if (input.version !== request.version) throw new AppException('STATE_CHANGED');
+
+    const actors = actorsFor(user, policyRequest, toPolicyCategory(category));
+    const now = new Date();
+    const context: ActionContext = {
+      actors,
+      now,
+      reason: input.reason,
+      ...(await this.assigneeContext(request, category, input)),
+      proofPhotoCount: await this.validProofCount(user, request, input.proofFileIds),
+    };
+
+    const result = applyAction(policyRequest, input.action, context);
+    const forbidden =
+      (!result.ok && result.code === 'FORBIDDEN') ||
+      (result.ok && input.action === 'REASSIGN' && !user.permissions.has('REQUEST_REASSIGN'));
+    if (forbidden) {
+      await this.logDenied(user, id, ctx, `FORBIDDEN_${input.action}`);
+      throw new AppException('FORBIDDEN');
+    }
+    if (!result.ok) throw new AppException(result.code);
+
+    await this.commit(request, category, result, user.id, now, input.proofFileIds ?? []);
+  }
+
+  /** Transition déclenchée par le système (job planifié). Renvoie false si elle n'est pas applicable. */
+  async performSystem(requestId: string, action: RequestAction): Promise<boolean> {
+    const request = await this.prisma.request.findUnique({ where: { id: requestId } });
+    const category = request && (await this.policies.category(request.categoryId));
+    if (!request || !category) return false;
+    const now = new Date();
+    const result = applyAction(toPolicyRequest(request), action, { actors: ['SYSTEM'], now });
+    if (!result.ok) return false;
+    try {
+      await this.commit(request, category, result, null, now, []);
+      return true;
+    } catch (error) {
+      if (error instanceof AppException && error.code === 'STATE_CHANGED') return false;
+      throw error;
+    }
+  }
+
+  /**
+   * Historique, message du motif et notifications d'une transition déjà écrite en base.
+   * Utilisé aussi par la création directe d'une demande (SUBMIT depuis le formulaire).
+   */
+  async recordTransition(
+    tx: Prisma.TransactionClient,
+    before: Pick<Request, 'assigneeId'>,
+    after: Request,
+    category: CategoryWithMembers,
+    result: SuccessfulTransition,
+    actorId: string | null,
+  ): Promise<Notification[]> {
+    const action = result.steps[0].action;
+
+    if (action === 'SUBMIT') {
+      await tx.requestEvent.create({
+        data: {
+          requestId: after.id,
+          actorId,
+          type: 'CREATED',
+          toValue: { title: after.title, priority: after.priority, categoryId: after.categoryId },
+        },
+      });
+    }
+    for (const [index, step] of result.steps.entries()) {
+      await tx.requestEvent.create({
+        data: {
+          requestId: after.id,
+          actorId: step.actor === 'SYSTEM' ? null : actorId,
+          type: 'STATUS_CHANGED',
+          fromValue: { status: step.from },
+          toValue: { status: step.to },
+          comment: index === 0 ? (result.reason ?? null) : null,
+        },
+      });
+    }
+    if (result.assigneeId) {
+      await tx.requestEvent.create({
+        data: {
+          requestId: after.id,
+          actorId,
+          type: action === 'REASSIGN' ? 'REASSIGNED' : 'ASSIGNED',
+          fromValue: before.assigneeId ? { assigneeId: before.assigneeId } : undefined,
+          toValue: { assigneeId: result.assigneeId },
+        },
+      });
+    }
+
+    const reasonLabel = REASON_LABELS[action];
+    if (reasonLabel && result.reason) {
+      await tx.message.create({
+        data: { requestId: after.id, authorId: actorId, kind: 'SYSTEM', text: `${reasonLabel} : ${result.reason}` },
+      });
+    }
+
+    return this.notify(tx, before, after, category, result, actorId);
+  }
+
+  // ---------------------------------------------------------------------------
+
+  private async commit(
+    request: Request,
+    category: CategoryWithMembers,
+    result: SuccessfulTransition,
+    actorId: string | null,
+    now: Date,
+    proofFileIds: string[],
+  ): Promise<void> {
+    const pending = await this.prisma.$transaction(async (tx) => {
+      const { count } = await tx.request.updateMany({
+        where: { id: request.id, status: result.from, version: request.version },
+        data: { ...updateFor(result, now), version: { increment: 1 } },
+      });
+      if (count === 0) throw new AppException('STATE_CHANGED');
+
+      if (proofFileIds.length > 0) {
+        await tx.file.updateMany({
+          where: { id: { in: proofFileIds } },
+          data: { requestId: request.id, isCompletionProof: true },
+        });
+      }
+      const after = await tx.request.findUniqueOrThrow({ where: { id: request.id } });
+      return this.recordTransition(tx, request, after, category, result, actorId);
+    });
+    await this.notifications.flushAfterCommit(pending);
+  }
+
+  /** Employé visé par SUBMIT (circuit A), APPROVE ou REASSIGN, et s'il est autorisé dans la catégorie. */
+  private async assigneeContext(
+    request: Request,
+    category: CategoryWithMembers,
+    input: ActionInput,
+  ): Promise<Pick<ActionContext, 'assigneeId' | 'assigneeAllowed'>> {
+    let assigneeId: string | undefined;
+    if (input.action === 'SUBMIT') assigneeId = request.assigneeId ?? undefined;
+    if (input.action === 'REASSIGN') assigneeId = input.assigneeId;
+    if (input.action === 'APPROVE') {
+      assigneeId = category.assignmentMode === 'AUTO' ? (category.autoAssigneeId ?? undefined) : input.assigneeId;
+    }
+    if (!assigneeId) return {};
+    const candidate = await this.prisma.user.findUnique({
+      where: { id: assigneeId },
+      select: { id: true, active: true },
+    });
+    return { assigneeId, assigneeAllowed: canPickRecipient(toPolicyCategory(category), candidate) };
+  }
+
+  /** Photos de preuve : téléversées par l'utilisateur, provisoires ou déjà rattachées à cette demande. */
+  private async validProofCount(
+    user: AuthenticatedUser,
+    request: Request,
+    proofFileIds: string[] | undefined,
+  ): Promise<number> {
+    if (!proofFileIds?.length) return 0;
+    const files = await this.prisma.file.findMany({ where: { id: { in: proofFileIds } } });
+    const valid = files.filter(
+      (f) =>
+        f.kind === 'PHOTO' &&
+        f.uploaderId === user.id &&
+        (f.requestId === null || f.requestId === request.id),
+    );
+    if (valid.length !== new Set(proofFileIds).size) {
+      throw fieldError('proofFileIds', 'Photo introuvable. Reprenez la photo puis réessayez.');
+    }
+    return valid.length;
+  }
+
+  /** Destinataires des notifications — contracts/realtime-events.md §Qui est notifié. */
+  private async notify(
+    tx: Prisma.TransactionClient,
+    before: Pick<Request, 'assigneeId'>,
+    after: Request,
+    category: CategoryWithMembers,
+    result: SuccessfulTransition,
+    actorId: string | null,
+  ): Promise<Notification[]> {
+    const managers = category.managers.map((m) => m.userId);
+    const urgent = after.priority === 'URGENT';
+    const send = (users: Array<string | null>, type: NotificationType) =>
+      this.notifications.notifyInTx(tx, users, actorId, { type, requestId: after.id, priority: after.priority });
+
+    switch (result.steps[0].action) {
+      case 'SUBMIT':
+        return result.to === 'SENT'
+          ? send([after.assigneeId], urgent ? 'URGENT' : 'REQUEST_NEW')
+          : send(managers, urgent ? 'URGENT' : 'REQUEST_NEW');
+      case 'APPROVE':
+      case 'REASSIGN':
+        return [
+          ...(await send([after.requesterId], 'STATUS_CHANGED')),
+          ...(await send([after.assigneeId], urgent ? 'URGENT' : 'ASSIGNED')),
+        ];
+      case 'REJECT':
+      case 'DECLINE':
+        return send([after.requesterId], 'REJECTED');
+      case 'CANCEL':
+        return send(before.assigneeId ? [before.assigneeId] : managers, 'CANCELLED');
+      case 'REQUEST_CORRECTION':
+        return send([after.assigneeId], 'TO_CORRECT');
+      case 'CLOSE':
+      case 'VALIDATE_FINAL':
+        return send([after.requesterId, after.assigneeId], 'CLOSED');
+      case 'COMPLETE':
+        if (result.to === 'CLOSED') return send([after.requesterId, after.assigneeId], 'CLOSED');
+        return [
+          ...(await send([after.requesterId], 'STATUS_CHANGED')),
+          ...(result.to === 'PENDING_FINAL_VALIDATION' ? await send(managers, 'STATUS_CHANGED') : []),
+        ];
+      default:
+        return send([after.requesterId], 'STATUS_CHANGED');
+    }
+  }
+
+  private async logDenied(user: AuthenticatedUser, id: string, ctx: RequestContext, reason: string): Promise<void> {
+    await this.audit.log('ACCESS_DENIED', {
+      actorId: user.id,
+      targetType: 'Request',
+      targetId: id.slice(0, 64),
+      ip: ctx.ip,
+      details: { reason, route: ctx.route, method: ctx.method, channel: 'http' },
+    });
+  }
+}

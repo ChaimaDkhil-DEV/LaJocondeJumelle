@@ -126,7 +126,7 @@ Index : `status`, `categoryId`, `assigneeId`, `requesterId`, `priority`, `create
 |-------|------|--------|
 | id | UUID | |
 | requestId | → Request | |
-| authorId | → User ? | null pour `SYSTEM` |
+| authorId | → User ? | auteur du message ; pour un message `SYSTEM` (motif de refus, commentaire de correction), l’auteur de l’action |
 | clientId | UUID | unique par (authorId, clientId) |
 | kind | MessageKind | |
 | text | texte ? | ≤ 4 000 caractères ; obligatoire si `TEXT` |
@@ -285,6 +285,9 @@ Délais par défaut pour toute nouvelle catégorie (minutes) :
 Catégorie d'exemple créée par le seed : **Photocopies** — circuit A, clôture automatique après
 24 h, photo non obligatoire, Urgente : prise en charge 1 min et réalisation 5 min (exemple de
 la spec, non définitif). Destinataires et responsables à désigner par le client.
+Catégories de démonstration : **Petits travaux (démo photo)** — circuit A, photo de preuve
+obligatoire, clôture par le demandeur ; **Intervention technique (démo circuit B)** — validation
+administrative et validation finale, photo obligatoire.
 
 Permissions par défaut : `EMPLOYEE` → `REQUEST_CREATE`, `PRIORITY_CHANGE_OWN` ;
 `MANAGER` → `REQUEST_CREATE`, `PRIORITY_CHANGE_OWN`, `PRIORITY_CHANGE_MANAGED`,

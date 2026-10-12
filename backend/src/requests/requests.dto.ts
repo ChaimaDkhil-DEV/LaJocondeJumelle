@@ -1,16 +1,21 @@
 import { Priority, RequestStatus } from '@prisma/client';
 import { Transform } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  IsArray,
   IsBoolean,
+  IsInt,
   IsEnum,
   IsIn,
   IsOptional,
   IsString,
   IsUUID,
   MaxLength,
+  Min,
   MinLength,
   ValidateIf,
 } from 'class-validator';
+import { ALL_ACTIONS, type RequestAction } from './domain/request-state-machine';
 
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
 /** Chaîne vide après nettoyage → absente. */
@@ -107,4 +112,30 @@ export class ListRequestsQuery {
   @IsOptional()
   @IsString()
   limit?: string;
+}
+
+/** POST /requests/:id/actions — contracts/rest-api.md §Demandes. */
+export class RequestActionDto {
+  @IsIn(ALL_ACTIONS)
+  action!: RequestAction;
+
+  /** Version lue par le client : verrouillage optimiste (STATE_CHANGED si elle a changé). */
+  @IsInt()
+  @Min(0)
+  version!: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  reason?: string;
+
+  @IsOptional()
+  @IsUUID()
+  assigneeId?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(5)
+  @IsUUID('all', { each: true })
+  proofFileIds?: string[];
 }

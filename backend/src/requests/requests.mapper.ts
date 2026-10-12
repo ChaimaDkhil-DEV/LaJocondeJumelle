@@ -9,6 +9,11 @@ export const REQUEST_INCLUDE = {
   requester: { select: { id: true, displayName: true } },
   assignee: { select: { id: true, displayName: true } },
   voiceFile: { select: { id: true, durationSeconds: true } },
+  files: {
+    where: { isCompletionProof: true },
+    select: { id: true },
+    orderBy: { createdAt: 'asc' },
+  },
 } satisfies Prisma.RequestInclude;
 
 export type RequestWithRelations = Prisma.RequestGetPayload<{ include: typeof REQUEST_INCLUDE }>;
@@ -68,6 +73,7 @@ export function toRequestDetail(
       closedAt: request.closedAt,
       cancelledAt: request.cancelledAt,
     },
+    proofPhotos: request.files.map((f) => ({ fileId: f.id })),
     autoCloseAt: request.autoCloseAt,
     version: request.version,
     rejectionReason: request.rejectionReason,

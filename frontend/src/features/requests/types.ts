@@ -57,6 +57,7 @@ export interface RequestDetail extends RequestSummary {
     | 'cancelledAt',
     string | null
   >;
+  proofPhotos: Array<{ fileId: string }>;
   autoCloseAt: string | null;
   version: number;
   rejectionReason: string | null;
