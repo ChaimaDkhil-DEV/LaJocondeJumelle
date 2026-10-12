@@ -32,6 +32,10 @@ export const theme = createTheme(
       MuiIconButton: { styleOverrides: { root: { minWidth: 44, minHeight: 44 } } },
       MuiListItemButton: { styleOverrides: { root: { minHeight: 44 } } },
       MuiTextField: { defaultProps: { fullWidth: true } },
+      // Un texte d'aide reste lisible (contraste AA) même quand son champ est désactivé.
+      MuiFormHelperText: {
+        styleOverrides: { root: ({ theme }) => ({ '&.Mui-disabled': { color: theme.palette.text.secondary } }) },
+      },
     },
   },
   frFR,

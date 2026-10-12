@@ -26,7 +26,7 @@ test('un identifiant incorrect affiche un message clair', async ({ page }) => {
 
 test('connexion, page d’accueil accessible puis déconnexion', async ({ page }) => {
   await login(page, 'enseignante');
-  await expect(page.getByRole('heading', { name: 'Bonjour, Enseignante' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Mes demandes' })).toBeVisible();
   await expectNoA11yViolations(page);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
@@ -65,5 +65,5 @@ test('le changement de mot de passe est imposé à la première connexion', asyn
   await page.getByLabel('Confirmer le nouveau mot de passe').fill('Nouveau-mot-de-passe-2026');
   await page.getByRole('button', { name: 'Enregistrer le mot de passe' }).click();
 
-  await expect(page.getByRole('heading', { name: 'Bonjour, Nouvel employé' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Mes demandes' })).toBeVisible();
 });

@@ -21,7 +21,10 @@ export interface NavItem {
 }
 
 /** Entrées de navigation ; complétées par les user stories suivantes. */
-export const NAV_ITEMS: NavItem[] = [{ to: '/', label: 'Accueil' }];
+export const NAV_ITEMS: NavItem[] = [
+  { to: '/', label: 'Mes demandes' },
+  { to: '/demandes/nouvelle', label: 'Nouvelle demande' },
+];
 
 /** Lien d'évitement : invisible jusqu'à ce qu'il reçoive le focus clavier. */
 function SkipLink() {

@@ -56,7 +56,9 @@ répondre à la spec et aux huit contraintes du plan.
     par Caddy. Chemin `/{yyyy}/{mm}/{uuid}` sans extension ; le type, la taille, le nom
     d'origine et l'auteur sont en base (`File`).
   - Téléversement en `multipart/form-data` par Multer avec limite de taille, puis :
-    détection du type réel par octets magiques (`file-type`) ; liste blanche de types ;
+    détection du type réel par octets magiques (module interne `files/file-signature.ts`, qui
+    remplace la bibliothèque `file-type`, ESM uniquement et non chargeable par Jest ; écart décidé
+    à l’implémentation le 2026-10-12) ; liste blanche de types ;
     vocaux → ffprobe/ffmpeg (R2) ; photos → sharp (rotation selon EXIF, suppression de toutes
     les métadonnées, ré-encodage JPEG qualité 85, côté long ≤ 2560 px).
   - Formats autorisés par défaut (réglables) : photos JPEG, PNG, WebP ; fichiers PDF. HEIC

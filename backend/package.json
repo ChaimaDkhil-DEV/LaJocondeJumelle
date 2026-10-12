@@ -14,7 +14,8 @@
     "test": "jest -c jest.config.ts",
     "test:integration": "jest -c test/jest-integration.config.ts --runInBand",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "e2e:server": "tsx scripts/e2e-server.ts"
+    "e2e:server": "tsx scripts/e2e-server.ts",
+    "fixtures:generate": "tsx scripts/generate-test-fixtures.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -33,7 +34,7 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "cookie-parser": "^1.4.7",
-    "file-type": "^22.1.1",
+    "multer": "^2.4.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
     "sharp": "^0.35.5",

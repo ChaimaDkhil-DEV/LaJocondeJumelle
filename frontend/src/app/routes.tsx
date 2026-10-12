@@ -2,8 +2,10 @@ import { createBrowserRouter, type RouteObject } from 'react-router';
 import { ChangePasswordPage } from '../features/auth/ChangePasswordPage';
 import { LoginPage } from '../features/auth/LoginPage';
 import { RequireAuth } from '../features/auth/RequireAuth';
+import { CreateRequestPage } from '../features/requests/CreateRequestPage';
+import { RequestDetailPage } from '../features/requests/RequestDetailPage';
+import { RequestListPage } from '../features/requests/RequestListPage';
 import { AppLayout } from './AppLayout';
-import { HomePage } from './HomePage';
 
 export const routes: RouteObject[] = [
   { path: '/connexion', element: <LoginPage /> },
@@ -15,7 +17,11 @@ export const routes: RouteObject[] = [
         <AppLayout />
       </RequireAuth>
     ),
-    children: [{ index: true, element: <HomePage /> }],
+    children: [
+      { index: true, element: <RequestListPage /> },
+      { path: 'demandes/nouvelle', element: <CreateRequestPage /> },
+      { path: 'demandes/:id', element: <RequestDetailPage /> },
+    ],
   },
 ];
 

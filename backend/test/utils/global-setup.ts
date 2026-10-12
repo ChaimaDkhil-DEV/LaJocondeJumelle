@@ -1,5 +1,6 @@
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { loadEnvFile } from '../../src/config/load-env-file';
 import { startTestDatabase, type TestDatabase } from './embedded-db';
 
 declare global {
@@ -21,4 +22,6 @@ export default async function globalSetup(): Promise<void> {
   process.env.COOKIE_SECURE = 'true';
   process.env.TRUST_PROXY = 'loopback';
   process.env.NODE_ENV = 'test';
+  // Complète avec backend/.env (chemins ffmpeg/ffprobe) sans écraser les valeurs ci-dessus.
+  loadEnvFile(join(__dirname, '..', '..'));
 }
