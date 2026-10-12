@@ -94,9 +94,10 @@ forme le parcours minimal viable de bout en bout.
 4. **Given** une demande « Terminée », **When** la demandeuse la renvoie « À corriger » sans
    commentaire, **Then** l'action est refusée ; avec un commentaire, la demande passe « À
    corriger » et l'employé affecté est notifié.
-5. **Given** une catégorie à clôture automatique, **When** la demande passe « Terminée »,
-   **Then** elle est clôturée selon la règle de la catégorie et l'heure de clôture est
-   enregistrée.
+5. **Given** une catégorie à clôture automatique, **When** la demande passe « Terminée » et
+   que la demandeuse ne la renvoie pas « À corriger » dans le délai de grâce de la catégorie
+   (24 h par défaut), **Then** elle est clôturée automatiquement à l'expiration de ce délai et
+   l'heure de clôture est enregistrée.
 6. **Given** une demande « Envoyée » affectée à un employé qui ne peut pas la traiter, **When**
    il la refuse avec un motif, **Then** elle passe « Refusée » et la demandeuse est notifiée
    avec le motif ; sans motif, le refus est bloqué.
@@ -354,11 +355,12 @@ s'applique aux nouvelles demandes.
   | Envoyée / En attente de validation administrative | Annulée | Demandeur |
   | Acceptée | En cours | Employé affecté |
   | En cours | Terminée | Employé affecté (photo jointe si la catégorie l'exige) |
-  | Terminée | Clôturée | Automatique ou personne autorisée, selon la catégorie |
+  | Terminée | Clôturée | Automatique à l'expiration du délai de grâce, ou personne autorisée, selon la catégorie |
   | Terminée | En attente de validation finale | Automatique (catégorie avec validation finale) |
   | En attente de validation finale | Clôturée | Validateur autorisé |
   | Terminée / En attente de validation finale | À corriger | Demandeur ou validateur, avec commentaire obligatoire |
   | À corriger | En cours | Employé affecté |
+  | Envoyée / Acceptée / En cours / À corriger | Envoyée | Responsable autorisé (réaffectation à un destinataire de la catégorie) |
 
 - **FR-015**: Le système DOIT refuser toute autre transition, ainsi que toute transition tentée
   par un utilisateur non autorisé, et journaliser la tentative refusée.
@@ -374,7 +376,9 @@ s'applique aux nouvelles demandes.
 
 - **FR-018**: Chaque catégorie DOIT être configurée avec : circuit (A direct ou B avec
   validation administrative), liste des destinataires possibles (circuit A) ou des
-  responsables valideurs (circuit B), mode de clôture (automatique ou par personne autorisée),
+  responsables valideurs (circuit B), mode de clôture (automatique ou par personne autorisée ;
+  en mode automatique, la demande « Terminée » est clôturée après un délai de grâce
+  paramétrable, 24 h par défaut, pendant lequel le demandeur peut la renvoyer « À corriger »),
   validation finale (oui/non, circuit B), mode d'affectation après approbation (manuel ou
   automatique, circuit B), photo de preuve obligatoire (oui/non).
 - **FR-019**: En circuit B, une demande NE DOIT être visible d'aucun agent exécutant avant son
@@ -400,9 +404,11 @@ s'applique aux nouvelles demandes.
 - **FR-026**: À l'expiration d'un délai, le système DOIT marquer la demande « En retard » en
   précisant l'étape concernée, notifier le responsable concerné, et NE DOIT jamais supprimer ni
   masquer la demande automatiquement.
-- **FR-027**: Le système DOIT permettre à un responsable autorisé de réaffecter une demande en
-  retard ; les règles d'escalade automatique sont hors du périmètre initial tant qu'elles ne
-  sont pas définies.
+- **FR-027**: Le système DOIT permettre à un responsable autorisé de réaffecter une demande
+  « Envoyée », « Acceptée », « En cours » ou « À corriger », en retard ou non, à un autre
+  destinataire de la catégorie ; la demande repasse « Envoyée » pour le nouvel employé affecté
+  et un nouveau délai de prise en charge démarre. Les règles d'escalade automatique sont hors du
+  périmètre initial tant qu'elles ne sont pas définies.
 
 **Horodatage et historique**
 
@@ -462,6 +468,11 @@ s'applique aux nouvelles demandes.
   langage courant.
 - **FR-043**: L'interface DOIT respecter les WCAG 2.2 niveau AA, y compris des alternatives
   textuelles aux contrôles audio et un fonctionnement complet au clavier.
+- **FR-044**: Les messages vocaux sont des contenus produits par les utilisateurs et ne
+  disposent pas d'alternative textuelle dans ce lot (pas de transcription). Le titre
+  obligatoire de chaque demande (FR-001) en donne l'objet sous forme de texte, et une
+  déclaration de conformité partielle WCAG DOIT indiquer que le contenu audio des vocaux n'a
+  pas d'alternative textuelle.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -532,6 +543,29 @@ s'applique aux nouvelles demandes.
 - Sont hors périmètre : gestion des absences, emplois du temps, réclamations, statistiques et
   tableaux de bord, import/export, transcription des vocaux, rôle Parent.
 
+## Données personnelles
+
+**Finalités** (principe IV de la constitution) :
+
+- **Authentification** : identifiant, nom, fonction, rôle, mot de passe haché, sessions et
+  adresse IP de connexion, pour contrôler l'accès à l'application.
+- **Traitement des demandes** : contenu des demandes, messages texte, vocaux, photos et pièces
+  jointes, pour formuler, réaliser et suivre les demandes de travail.
+- **Traçabilité** : historique des demandes et journal d'audit (auteur, action, date et heure,
+  valeurs avant et après), pour rendre les décisions vérifiables et détecter les accès non
+  autorisés.
+
+**Durées de conservation** — *hypothèses provisoires à faire valider par le client avant la
+mise en production* :
+
+| Données | Durée de conservation |
+|---------|-----------------------|
+| Vocaux, photos et pièces jointes | 12 mois après la clôture de la demande (ou son refus ou annulation) |
+| Historique des demandes | 5 ans |
+| Journaux d'audit | 5 ans |
+
+La suppression automatique à l'échéance n'est pas réalisée dans ce lot.
+
 ## Points ouverts (à traiter en clarification)
 
 Le client a demandé de ne pas trancher les points suivants dans cette spécification. Ils sont
@@ -548,4 +582,4 @@ couverts ci-dessus par des exigences paramétrables et seront traités par `/spe
 - Qui clôture (automatique, demandeur, responsable), par catégorie.
 - Durée maximale, format et taille des vocaux ; formats et taille des pièces jointes.
 - Accusé de lecture ou d'écoute des messages et vocaux.
-- Durée de conservation des demandes, vocaux, pièces jointes et journaux (RGPD).
+- Validation des durées de conservation provisoires (section « Données personnelles »).

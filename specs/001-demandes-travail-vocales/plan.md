@@ -65,12 +65,12 @@ environ 15 écrans
 | I. TDD (non négociable) | La machine à états, la politique d'accès, le calcul des délais et la validation des fichiers sont des modules purs dont les tests (tables de cas exhaustives) sont écrits et échouent avant le code. Chaque user story a des tests d'intégration API et un parcours Playwright traçables vers ses scénarios d'acceptation. Aucune fusion si la suite échoue. | ✅ |
 | II. Simplicité / YAGNI | Un seul processus API, pas de Redis, pas de file de messages, pas de microservices ; job planifié en processus ; stockage fichiers sur disque local ; aucune escalade automatique (non spécifiée). Deux ajouts justifiés dans Complexity Tracking : ffmpeg et sharp. | ✅ (avec justifications) |
 | III. Accessibilité et UX | Material UI (composants accessibles), contrôles d'enregistrement et de lecture utilisables au clavier et libellés, tests axe automatisés sur chaque écran livré, tests Playwright à 320 px, états chargement/vide/erreur/succès normalisés. | ✅ |
-| IV. Sécurité et données | DTO avec liste blanche et rejet des champs inconnus ; contrôle de type réel des fichiers (octets magiques + ffprobe) ; secrets par variables d'environnement ; Argon2id ; HTTPS par Caddy (HSTS) ; métadonnées EXIF (dont GPS) supprimées des photos ; `npm audit` bloquant en niveau élevé. **Durée de conservation non encore fixée** (point ouvert de la spec) : aucune purge automatique dans ce lot, décision à documenter avant la mise en production. | ⚠️ point à résoudre avant production, non bloquant pour la conception |
+| IV. Sécurité et données | DTO avec liste blanche et rejet des champs inconnus ; contrôle de type réel des fichiers (octets magiques + ffprobe) ; secrets par variables d'environnement ; Argon2id ; HTTPS par Caddy (HSTS) ; métadonnées EXIF (dont GPS) supprimées des photos ; `npm audit` bloquant en niveau élevé. Finalités et durées de conservation documentées dans la spec (section « Données personnelles ») : vocaux, photos et pièces jointes 12 mois après clôture, historique 5 ans, audit 5 ans. **Ces durées sont des hypothèses provisoires à faire valider par le client avant la mise en production.** | ⚠️ durées provisoires à valider avant la production |
 | V. Workflows et communications | Ensemble fini de 11 statuts et table de transitions unique côté serveur ; historique de demande et journal d'audit en ajout seul, protégés par des triggers PostgreSQL contre UPDATE/DELETE ; RBAC + appartenance aux catégories vérifiés à chaque requête REST, chaque événement Socket.IO et chaque téléchargement de fichier ; refus d'accès journalisé et renvoyé en 404. | ✅ |
 
 **Résultat avant Phase 0** : passe. **Résultat après Phase 1** (re-vérifié sur
-[data-model.md](./data-model.md) et [contracts/](./contracts/)) : passe, avec le même point
-d'attention sur la durée de conservation.
+[data-model.md](./data-model.md) et [contracts/](./contracts/)) : passe, sous réserve de la
+validation par le client des durées de conservation provisoires avant la mise en production.
 
 ## Traitement des contraintes imposées
 

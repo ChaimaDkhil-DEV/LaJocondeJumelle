@@ -219,5 +219,6 @@ répondre à la spec et aux huit contraintes du plan.
 - **Brouillons** : activés par défaut (réglage global) ; un brouillon peut être supprimé par son
   auteur, c'est le seul cas de suppression.
 - **Fuseau horaire** : horodatages stockés en UTC, affichés dans le fuseau du navigateur.
-- **Conservation des données** : aucune purge automatique dans ce lot ; durée à décider avant
-  la mise en production (point ouvert).
+- **Conservation des données** : durées provisoires documentées dans la spec (section
+  « Données personnelles »), à valider avant la mise en production ; aucune purge automatique
+  dans ce lot.
