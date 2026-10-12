@@ -14,6 +14,7 @@ import { STATUS_LABELS } from '../../components/StatusChip';
 import { PhotoCapture, type UploadedPhoto } from '../thread/PhotoCapture';
 import { requestKeys } from './api';
 import { ApprovalDialog } from './ApprovalDialog';
+import { PriorityDialog } from './PriorityDialog';
 import { ReasonDialog } from './ReasonDialog';
 import { ReassignDialog } from './ReassignDialog';
 import type { RequestDetail } from './types';
@@ -37,7 +38,7 @@ const ACTION_LABELS: Record<string, string> = {
 
 const PRIMARY = new Set(['SUBMIT', 'APPROVE', 'ACCEPT', 'START', 'COMPLETE', 'RESUME', 'CLOSE', 'VALIDATE_FINAL']);
 
-type Dialogs = 'approve' | 'reassign' | 'refuse' | 'correction' | 'cancel' | 'complete' | null;
+type Dialogs = 'priority' | 'approve' | 'reassign' | 'refuse' | 'correction' | 'cancel' | 'complete' | null;
 
 interface ActionBody {
   action: string;
@@ -58,6 +59,20 @@ export function RequestActions({ request }: { request: RequestDetail }) {
   const [feedback, setFeedback] = useState('');
 
   const detailKey = requestKeys.detail(request.id);
+
+  const priorityMutation = useMutation({
+    mutationFn: (priority: string) =>
+      apiFetch<RequestDetail>(`/api/requests/${request.id}/priority`, {
+        method: 'PATCH',
+        body: { priority, version: request.version },
+      }),
+    onSuccess: async (updated) => {
+      queryClient.setQueryData(detailKey, updated);
+      setDialog(null);
+      setFeedback('Priorité enregistrée.');
+      await queryClient.invalidateQueries({ queryKey: requestKeys.all, refetchType: 'active' });
+    },
+  });
 
   const mutation = useMutation({
     mutationFn: (body: ActionBody) =>
@@ -100,8 +115,10 @@ export function RequestActions({ request }: { request: RequestDetail }) {
   }
 
   const actions = request.allowedActions.filter((a) => a in ACTION_LABELS);
+  const canChangePriority = request.allowedActions.includes('CHANGE_PRIORITY');
   const refuseAction = actions.includes('REJECT') ? 'REJECT' : 'DECLINE';
-  const error = mutation.error instanceof ApiError ? mutation.error.message : mutation.error ? 'Action impossible.' : null;
+  const anyError = mutation.error ?? priorityMutation.error;
+  const error = anyError instanceof ApiError ? anyError.message : anyError ? 'Action impossible.' : null;
 
   return (
     <Box>
@@ -113,7 +130,7 @@ export function RequestActions({ request }: { request: RequestDetail }) {
           {error}
         </Alert>
       )}
-      {actions.length > 0 && (
+      {(actions.length > 0 || canChangePriority) && (
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
           {actions.map((action) => (
             <Button
@@ -126,9 +143,21 @@ export function RequestActions({ request }: { request: RequestDetail }) {
               {ACTION_LABELS[action]}
             </Button>
           ))}
+          {canChangePriority && (
+            <Button variant="outlined" onClick={() => setDialog('priority')}>
+              Changer la priorité
+            </Button>
+          )}
         </Box>
       )}
 
+      <PriorityDialog
+        open={dialog === 'priority'}
+        current={request.priority}
+        pending={priorityMutation.isPending}
+        onConfirm={(priority) => priorityMutation.mutate(priority)}
+        onClose={() => setDialog(null)}
+      />
       <ApprovalDialog
         open={dialog === 'approve'}
         requestId={request.id}

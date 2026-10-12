@@ -2,9 +2,6 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import List from '@mui/material/List';
-import ListItem from '@mui/material/ListItem';
-import ListItemText from '@mui/material/ListItemText';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
@@ -19,22 +16,9 @@ import { StatusChip } from '../../components/StatusChip';
 import { ThreadPanel } from '../thread/ThreadPanel';
 import { VoicePlayer } from '../voice/VoicePlayer';
 import { useRequest } from './api';
+import { HistoryTimeline } from './HistoryTimeline';
 import { RequestActions } from './RequestActions';
-import type { RequestDetail } from './types';
 
-const STEP_LABELS: Array<[keyof RequestDetail['timestamps'], string]> = [
-  ['createdAt', 'Création'],
-  ['submittedAt', 'Envoi'],
-  ['approvedAt', 'Approbation'],
-  ['rejectedAt', 'Refus'],
-  ['assignedAt', 'Affectation'],
-  ['acceptedAt', 'Acceptation'],
-  ['startedAt', 'Début'],
-  ['doneAt', 'Fin'],
-  ['finalValidatedAt', 'Validation finale'],
-  ['closedAt', 'Clôture'],
-  ['cancelledAt', 'Annulation'],
-];
 
 export function RequestDetailPage() {
   const { id = '' } = useParams();
@@ -56,7 +40,6 @@ export function RequestDetailPage() {
   }
 
   const r = request.data;
-  const steps = STEP_LABELS.filter(([key]) => r.timestamps[key]);
 
   return (
     <>
@@ -153,18 +136,7 @@ export function RequestDetailPage() {
 
         <ThreadPanel requestId={r.id} requestTitle={r.title} canWrite={r.canWriteInThread} />
 
-        <Box component="section" aria-labelledby="titre-etapes">
-          <Typography id="titre-etapes" component="h2" variant="h6">
-            Étapes
-          </Typography>
-          <List dense>
-            {steps.map(([key, label]) => (
-              <ListItem key={key} disableGutters>
-                <ListItemText primary={label} secondary={formatDateTime(r.timestamps[key]!)} />
-              </ListItem>
-            ))}
-          </List>
-        </Box>
+        <HistoryTimeline requestId={r.id} />
       </Stack>
     </>
   );

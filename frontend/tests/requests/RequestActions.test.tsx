@@ -91,7 +91,9 @@ describe('RequestActions', () => {
     expect(screen.getByRole('button', { name: 'Accepter la demande' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Refuser' })).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Commencer' })).not.toBeInTheDocument();
-    expect(screen.getAllByRole('button')).toHaveLength(2);
+    // CHANGE_PRIORITY n'est pas une transition : bouton séparé « Changer la priorité » (US7).
+    expect(screen.getByRole('button', { name: 'Changer la priorité' })).toBeVisible();
+    expect(screen.getAllByRole('button')).toHaveLength(3);
   });
 
   it('n’affiche rien quand aucune action n’est possible', () => {
@@ -204,5 +206,25 @@ describe('RequestActions', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Accepter la demande' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('modifiée entre-temps');
     await waitFor(() => expect(calls.some((c) => c.method === 'GET' && c.url === '/api/requests/r1')).toBe(true));
+  });
+});
+
+describe('Changement de priorité (US7)', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('ouvre un choix de priorité, présélectionne l’actuelle et l’enregistre avec la version', async () => {
+    const calls = setup(detail({ priority: 'NORMAL', allowedActions: ['CANCEL', 'CHANGE_PRIORITY'] }), () =>
+      json(200, detail({ priority: 'URGENT', version: 4 })),
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Changer la priorité' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Changer la priorité' });
+    expect(within(dialog).getByRole('radio', { name: 'Normale' })).toBeChecked();
+    expect(within(dialog).getByRole('button', { name: 'Enregistrer la priorité' })).toBeDisabled();
+
+    await userEvent.click(within(dialog).getByRole('radio', { name: 'Urgente' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Enregistrer la priorité' }));
+    await waitFor(() =>
+      expect(calls.find((c) => c.url === '/api/requests/r1/priority')).toMatchObject({ method: 'PATCH', body: { priority: 'URGENT', version: 3 } }),
+    );
   });
 });

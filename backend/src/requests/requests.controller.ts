@@ -5,7 +5,7 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { clientIp, requestPath } from '../auth/request-info';
 import type { Page } from '../common/pagination';
 import { RequestTransitionsService } from './request-transitions.service';
-import { CreateRequestDto, ListRequestsQuery, RequestActionDto, UpdateDraftDto } from './requests.dto';
+import { ChangePriorityDto, CreateRequestDto, ListRequestsQuery, RequestActionDto, UpdateDraftDto } from './requests.dto';
 import type { RequestDetail, RequestSummary } from './requests.mapper';
 import { RequestsService, type RequestContext } from './requests.service';
 
@@ -41,6 +41,23 @@ export class RequestsController {
   @Get(':id')
   detail(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Req() req: Request): Promise<RequestDetail> {
     return this.requests.detail(user, id, contextOf(req));
+  }
+
+  /** Historique complet de la demande, du plus ancien au plus récent. */
+  @Get(':id/history')
+  history(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Req() req: Request) {
+    return this.requests.history(user, id, contextOf(req));
+  }
+
+  /** Changement de priorité, tracé dans l'historique. */
+  @Patch(':id/priority')
+  changePriority(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: ChangePriorityDto,
+    @Req() req: Request,
+  ): Promise<RequestDetail> {
+    return this.requests.changePriority(user, id, dto, contextOf(req));
   }
 
   /** Employés affectables (responsables : approbation en circuit B, réaffectation). */

@@ -49,15 +49,15 @@ Tant que `mustChangePassword` est vrai, seules `/auth/*` répondent ; les autres
 
 | Méthode | Route | Accès | Corps / réponse |
 |---------|-------|-------|-----------------|
-| GET | `/requests` | connecté (filtre de visibilité) | filtres : `status[]`, `priority[]`, `categoryId[]`, `assigneeId`, `requesterId`, `from`, `to`, `overdue`, `q` (titre), `scope` (`mine`, `assigned`, `managed`, `all`) → liste paginée de `RequestSummary` |
+| GET | `/requests` | connecté (filtre de visibilité) | filtres : `status[]`, `priority[]`, `categoryId[]`, `assigneeId`, `requesterId`, `from`, `to`, `overdue`, `q` (titre, sans tenir compte de la casse, 120 caractères au plus), `scope` (`mine`, `assigned`, `managed`, `all`) ; `from`/`to` en ISO 8601, bornes incluses (une date seule couvre la journée) ; `overdue` = `true`/`false` → liste paginée de `RequestSummary` |
 | POST | `/requests` | `REQUEST_CREATE` + catégorie autorisée | `{ clientId, title, description?, voiceFileId?, categoryId, priority, recipientId?, asDraft? }` → `201 RequestDetail` ; renvoi du même `clientId` → `200` avec la demande existante |
 | GET | `/requests/:id` | lecture autorisée | `RequestDetail` |
 | PATCH | `/requests/:id` | demandeur, statut DRAFT | modification des champs du brouillon |
 | DELETE | `/requests/:id` | demandeur, statut DRAFT | `204` (T19) |
 | POST | `/requests/:id/actions` | selon la machine à états | `{ action, version, reason?, assigneeId?, proofFileIds? }` → `200 RequestDetail` |
-| PATCH | `/requests/:id/priority` | voir data-model §Machine à états | `{ priority, version }` → `200 RequestDetail` |
+| PATCH | `/requests/:id/priority` | `CHANGE_PRIORITY` dans `allowedActions` (voir data-model §Machine à états), sinon `403` | `{ priority, version }` → `200 RequestDetail` ; priorité identique → `400` ; version périmée → `409 STATE_CHANGED` ; échéances en cours non recalculées |
 | GET | `/requests/:id/assignees` | utilisateur pouvant approuver ou réaffecter la demande (sinon `403`) | employés actifs parmi les destinataires de la catégorie : `[{ id, displayName, jobTitle }]` |
-| GET | `/requests/:id/history` | lecture autorisée | liste chronologique de `RequestEvent` avec nom de l'acteur |
+| GET | `/requests/:id/history` | lecture autorisée | liste chronologique `{ id, type, actor{id,displayName}|null (null = système), fromValue, toValue, comment, createdAt }` ; les valeurs contenant `assigneeId` portent aussi `assigneeName` |
 
 `action` ∈ `SUBMIT`, `APPROVE`, `REJECT`, `DECLINE`, `CANCEL`, `ACCEPT`, `START`, `COMPLETE`,
 `CLOSE`, `VALIDATE_FINAL`, `REQUEST_CORRECTION`, `RESUME`, `REASSIGN`.

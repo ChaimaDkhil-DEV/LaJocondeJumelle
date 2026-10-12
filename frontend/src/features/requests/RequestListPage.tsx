@@ -21,6 +21,8 @@ import { StatusChip } from '../../components/StatusChip';
 import { OutboxPanel } from '../outbox/OutboxPanel';
 import { useCurrentUser } from '../auth/useCurrentUser';
 import { useRequestList } from './api';
+import { activeFilterCount, filtersToQuery, readFilters, writeFilters } from './filters';
+import { RequestFilters } from './RequestFilters';
 import type { RequestScope, RequestSummary } from './types';
 
 interface TabDefinition {
@@ -101,7 +103,14 @@ export function RequestListPage() {
   const isManager = me.data?.role === 'MANAGER' || me.data?.role === 'SUPER_ADMIN';
   const tabs = TABS.filter((t) => !t.managersOnly || isManager);
   const tab = tabs.find((t) => t.key === params.get('onglet')) ?? tabs[0];
-  const list = useRequestList(tab.scope, tab.statuses);
+  const filters = readFilters(params);
+  // Les statuts choisis dans les filtres remplacent ceux de l'onglet « À valider ».
+  const list = useRequestList(
+    tab.scope,
+    filters.statuses.length > 0 ? [] : (tab.statuses ?? []),
+    filtersToQuery(filters),
+  );
+  const filtered = activeFilterCount(filters) > 0;
   const requests = list.data?.pages.flatMap((p) => p.items) ?? [];
 
   return (
@@ -119,7 +128,11 @@ export function RequestListPage() {
 
       <Tabs
         value={tab.key}
-        onChange={(_e, key: string) => setParams({ onglet: key }, { replace: true })}
+        onChange={(_e, key: string) => {
+          const next = new URLSearchParams(params);
+          next.set('onglet', key);
+          setParams(next, { replace: true });
+        }}
         aria-label="Type de demandes"
         sx={{ mb: 2 }}
       >
@@ -128,13 +141,18 @@ export function RequestListPage() {
         ))}
       </Tabs>
 
+      <RequestFilters value={filters} onChange={(f) => setParams(writeFilters(params, f), { replace: true })} />
+
       <Box id="liste-demandes" role="tabpanel" aria-labelledby={`onglet-${tab.key}`}>
         {list.isPending ? (
           <LoadingState label="Chargement des demandes" />
         ) : list.error ? (
           <ErrorState message="Impossible de charger les demandes." actionLabel="Réessayer" onAction={() => void list.refetch()} />
         ) : requests.length === 0 ? (
-          <EmptyState title="Aucune demande" description={tab.empty} />
+          <EmptyState
+            title="Aucune demande"
+            description={filtered ? 'Aucune demande ne correspond à ces filtres.' : tab.empty}
+          />
         ) : (
           <Stack spacing={2}>
             {requests.map((r) => (

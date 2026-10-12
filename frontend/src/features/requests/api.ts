@@ -7,7 +7,8 @@ import type { CategoryOption, Page, RecipientOption, RequestDetail, RequestScope
 
 export const requestKeys = {
   all: ['requests'] as const,
-  list: (scope: RequestScope, statuses: readonly string[] = []) => ['requests', 'list', scope, ...statuses] as const,
+  list: (scope: RequestScope, statuses: readonly string[] = [], filters = '') =>
+    ['requests', 'list', scope, ...statuses, filters] as const,
   detail: (id: string) => ['requests', 'detail', id] as const,
 };
 
@@ -28,10 +29,11 @@ export function useRecipients(categoryId: string | null) {
   });
 }
 
-export function useRequestList(scope: RequestScope, statuses: readonly string[] = []) {
-  const statusQuery = statuses.map((s) => `&status=${s}`).join('');
+/** `filters` : paramètres supplémentaires déjà encodés (« &priority=URGENT&q=… »). */
+export function useRequestList(scope: RequestScope, statuses: readonly string[] = [], filters = '') {
+  const statusQuery = statuses.map((s) => `&status=${s}`).join('') + filters;
   return useInfiniteQuery({
-    queryKey: requestKeys.list(scope, statuses),
+    queryKey: requestKeys.list(scope, statuses, filters),
     queryFn: ({ pageParam }) =>
       apiFetch<Page<RequestSummary>>(
         `/api/requests?scope=${scope}${statusQuery}${pageParam ? `&cursor=${encodeURIComponent(pageParam)}` : ''}`,

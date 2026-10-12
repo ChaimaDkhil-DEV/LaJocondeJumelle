@@ -7,6 +7,7 @@ import {
   IsInt,
   IsEnum,
   IsIn,
+  IsISO8601,
   IsOptional,
   IsString,
   IsUUID,
@@ -106,6 +107,45 @@ export class ListRequestsQuery {
   status?: RequestStatus[];
 
   @IsOptional()
+  @Transform(toArray)
+  @IsEnum(Priority, { each: true })
+  priority?: Priority[];
+
+  @IsOptional()
+  @Transform(toArray)
+  @IsUUID('all', { each: true })
+  categoryId?: string[];
+
+  @IsOptional()
+  @IsUUID()
+  assigneeId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  requesterId?: string;
+
+  /** Début de période (date AAAA-MM-JJ ou date-heure ISO 8601), inclus. */
+  @IsOptional()
+  @IsISO8601({ strict: true })
+  from?: string;
+
+  /** Fin de période, incluse ; une date seule couvre toute la journée. */
+  @IsOptional()
+  @IsISO8601({ strict: true })
+  to?: string;
+
+  @IsOptional()
+  @IsIn(['true', 'false'])
+  overdue?: 'true' | 'false';
+
+  /** Recherche dans le titre, sans tenir compte de la casse. */
+  @IsOptional()
+  @Transform(trim)
+  @IsString()
+  @MaxLength(120)
+  q?: string;
+
+  @IsOptional()
   @IsString()
   cursor?: string;
 
@@ -138,4 +178,14 @@ export class RequestActionDto {
   @ArrayMaxSize(5)
   @IsUUID('all', { each: true })
   proofFileIds?: string[];
+}
+
+/** PATCH /requests/:id/priority */
+export class ChangePriorityDto {
+  @IsEnum(Priority)
+  priority!: Priority;
+
+  @IsInt()
+  @Min(0)
+  version!: number;
 }

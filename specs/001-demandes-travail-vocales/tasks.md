@@ -254,19 +254,19 @@ l'implémentation correspondante.
 
 ### Tests for User Story 7 ⚠️
 
-- [ ] T089 [P] [US7] Écrire `backend/test/integration/requests-search.spec.ts` : filtres `status[]`, `priority[]`, `categoryId[]`, `assigneeId`, `requesterId`, `from`, `to`, `overdue`, `q` (ILIKE sur le titre) combinés ; aucune demande non autorisée dans les résultats ni dans les totaux ; pagination par curseur stable
-- [ ] T090 [P] [US7] Écrire `backend/test/integration/history-priority.spec.ts` : `GET /api/requests/:id/history` liste chronologiquement tous les `RequestEvent` avec nom de l'acteur ou « Système » ; `PATCH /api/requests/:id/priority` par le demandeur avec `PRIORITY_CHANGE_OWN` en `DRAFT`/`PENDING_ADMIN_VALIDATION`/`SENT` → `200` et événement `PRIORITY_CHANGED` (avant/après) ; après acceptation → `403` ; par un responsable avec `PRIORITY_CHANGE_MANAGED` tant que non final et non `DONE` → `200` ; échéances en cours non recalculées
-- [ ] T091 [P] [US7] Écrire `backend/test/integration/search-performance.spec.ts` : avec 10 000 demandes générées par `backend/prisma/seed-volume.ts`, une recherche filtrée combinée répond en < 2 s (SC-009)
-- [ ] T092 [P] [US7] Écrire `frontend/tests/requests/RequestFilters.test.tsx` et `frontend/tests/requests/HistoryTimeline.test.tsx` : filtres synchronisés avec l'URL, réinitialisation, état vide ; historique lisible (auteur, action en français, date et heure, avant → après)
-- [ ] T093 [P] [US7] Écrire `e2e/us7-search-history.spec.ts` couvrant V15
+- [X] T089 [P] [US7] Écrire `backend/test/integration/requests-search.spec.ts` : filtres `status[]`, `priority[]`, `categoryId[]`, `assigneeId`, `requesterId`, `from`, `to`, `overdue`, `q` (ILIKE sur le titre) combinés ; aucune demande non autorisée dans les résultats ni dans les totaux ; pagination par curseur stable
+- [X] T090 [P] [US7] Écrire `backend/test/integration/history-priority.spec.ts` : `GET /api/requests/:id/history` liste chronologiquement tous les `RequestEvent` avec nom de l'acteur ou « Système » ; `PATCH /api/requests/:id/priority` par le demandeur avec `PRIORITY_CHANGE_OWN` en `DRAFT`/`PENDING_ADMIN_VALIDATION`/`SENT` → `200` et événement `PRIORITY_CHANGED` (avant/après) ; après acceptation → `403` ; par un responsable avec `PRIORITY_CHANGE_MANAGED` tant que non final et non `DONE` → `200` ; échéances en cours non recalculées
+- [X] T091 [P] [US7] Écrire `backend/test/integration/search-performance.spec.ts` : avec 10 000 demandes générées par `backend/prisma/seed-volume.ts`, une recherche filtrée combinée répond en < 2 s (SC-009)
+- [X] T092 [P] [US7] Écrire `frontend/tests/requests/RequestFilters.test.tsx` et `frontend/tests/requests/HistoryTimeline.test.tsx` : filtres synchronisés avec l'URL, réinitialisation, état vide ; historique lisible (auteur, action en français, date et heure, avant → après)
+- [X] T093 [P] [US7] Écrire `e2e/us7-search-history.spec.ts` couvrant V15
 
 ### Implementation for User Story 7
 
-- [ ] T094 [P] [US7] Écrire `backend/prisma/seed-volume.ts` (10 000 demandes réparties sur catégories, statuts, priorités et 24 mois)
-- [ ] T095 [US7] Compléter les filtres de `GET /api/requests` dans `backend/src/requests/requests.controller.ts` et `requests.service.ts` (REST §Demandes) ; faire passer T089 et T091
-- [ ] T096 [US7] Ajouter `GET /api/requests/:id/history` et `PATCH /api/requests/:id/priority` dans `backend/src/requests/requests.controller.ts` et `requests.service.ts` ; faire passer T090
-- [ ] T097 [P] [US7] Implémenter `frontend/src/features/requests/RequestFilters.tsx` (filtres repliables sur mobile, paramètres d'URL) et l'intégrer dans `RequestListPage.tsx`
-- [ ] T098 [US7] Implémenter `frontend/src/features/requests/HistoryTimeline.tsx` et `PriorityDialog.tsx` et les intégrer dans `RequestDetailPage.tsx` ; faire passer T092 et T093
+- [X] T094 [P] [US7] Écrire `backend/prisma/seed-volume.ts` (10 000 demandes réparties sur catégories, statuts, priorités et 24 mois)
+- [X] T095 [US7] Compléter les filtres de `GET /api/requests` dans `backend/src/requests/requests.controller.ts` et `requests.service.ts` (REST §Demandes) ; faire passer T089 et T091
+- [X] T096 [US7] Ajouter `GET /api/requests/:id/history` et `PATCH /api/requests/:id/priority` dans `backend/src/requests/requests.controller.ts` et `requests.service.ts` ; faire passer T090
+- [X] T097 [P] [US7] Implémenter `frontend/src/features/requests/RequestFilters.tsx` (filtres repliables sur mobile, paramètres d'URL) et l'intégrer dans `RequestListPage.tsx`
+- [X] T098 [US7] Implémenter `frontend/src/features/requests/HistoryTimeline.tsx` et `PriorityDialog.tsx` et les intégrer dans `RequestDetailPage.tsx` ; faire passer T092 et T093
 
 **Checkpoint**: User Stories 1–7 fonctionnent indépendamment
 

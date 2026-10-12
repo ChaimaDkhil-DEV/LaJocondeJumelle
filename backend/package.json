@@ -15,7 +15,8 @@
     "test:integration": "jest -c test/jest-integration.config.ts --runInBand",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "e2e:server": "tsx scripts/e2e-server.ts",
-    "fixtures:generate": "tsx scripts/generate-test-fixtures.ts"
+    "fixtures:generate": "tsx scripts/generate-test-fixtures.ts",
+    "seed:volume": "tsx prisma/seed-volume.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

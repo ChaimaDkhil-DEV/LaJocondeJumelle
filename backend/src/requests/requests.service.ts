@@ -7,6 +7,7 @@ import { buildPage, decodeCursor, parseLimit, type Page } from '../common/pagina
 import { PrismaService } from '../common/prisma.service';
 import { FileStorageService } from '../files/file-storage.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { RealtimeService } from '../realtime/realtime.service';
 import { SettingsService } from '../settings/settings.service';
 import { allowedActions, canCreateInCategory, canPickRecipient, canReadRequest } from './domain/access-policy';
 import { applyAction, type TransitionResult } from './domain/request-state-machine';
@@ -20,7 +21,7 @@ import {
   type CategoryWithMembers,
   type RequestRulesSnapshot,
 } from './request-policy.loader';
-import type { CreateRequestDto, ListRequestsQuery, UpdateDraftDto } from './requests.dto';
+import type { ChangePriorityDto, CreateRequestDto, ListRequestsQuery, UpdateDraftDto } from './requests.dto';
 import {
   REQUEST_INCLUDE,
   toRequestDetail,
@@ -55,6 +56,7 @@ export class RequestsService {
     private readonly audit: AuditService,
     private readonly storage: FileStorageService,
     private readonly transitions: RequestTransitionsService,
+    private readonly realtime: RealtimeService,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -192,6 +194,19 @@ export class RequestsService {
         break;
     }
     if (query.status?.length) conditions.push({ status: { in: query.status } });
+    if (query.priority?.length) conditions.push({ priority: { in: query.priority } });
+    if (query.categoryId?.length) conditions.push({ categoryId: { in: query.categoryId } });
+    if (query.assigneeId) conditions.push({ assigneeId: query.assigneeId });
+    if (query.requesterId) conditions.push({ requesterId: query.requesterId });
+    if (query.from) conditions.push({ createdAt: { gte: new Date(query.from) } });
+    if (query.to) {
+      // Une date seule (AAAA-MM-JJ) inclut toute la journée.
+      const end = new Date(query.to);
+      if (query.to.length === 10) end.setUTCDate(end.getUTCDate() + 1);
+      conditions.push({ createdAt: query.to.length === 10 ? { lt: end } : { lte: end } });
+    }
+    if (query.overdue) conditions.push({ overdueStage: query.overdue === 'true' ? { not: null } : null });
+    if (query.q) conditions.push({ title: { contains: query.q, mode: 'insensitive' } });
     if (query.cursor) {
       const { createdAt, id } = decodeCursor(query.cursor);
       conditions.push({ OR: [{ createdAt: { lt: createdAt } }, { createdAt, id: { lt: id } }] });
@@ -246,6 +261,106 @@ export class RequestsService {
       select: { id: true, displayName: true, jobTitle: true },
       orderBy: { displayName: 'asc' },
     });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Historique et priorité (US7)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Historique complet et chronologique (FR-029) : auteur (null = système), valeurs avant/après ;
+   * les noms des employés affectés sont ajoutés aux identifiants pour l'affichage.
+   */
+  async history(user: AuthenticatedUser, id: string, ctx: RequestContext) {
+    await this.readableRequest(user, id, ctx);
+    const events = await this.prisma.requestEvent.findMany({
+      where: { requestId: id },
+      include: { actor: { select: { id: true, displayName: true } } },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+
+    const assigneeOf = (value: Prisma.JsonValue | null): string | null =>
+      value && typeof value === 'object' && !Array.isArray(value) && typeof value.assigneeId === 'string'
+        ? value.assigneeId
+        : null;
+    const ids = new Set(events.flatMap((e) => [assigneeOf(e.fromValue), assigneeOf(e.toValue)]).filter((v): v is string => v !== null));
+    const names = new Map(
+      (await this.prisma.user.findMany({ where: { id: { in: [...ids] } }, select: { id: true, displayName: true } })).map(
+        (u) => [u.id, u.displayName],
+      ),
+    );
+    const withName = (value: Prisma.JsonValue | null) => {
+      const assigneeId = assigneeOf(value);
+      return assigneeId ? { ...(value as Prisma.JsonObject), assigneeName: names.get(assigneeId) ?? null } : value;
+    };
+
+    return events.map((e) => ({
+      id: e.id,
+      type: e.type,
+      actor: e.actor,
+      fromValue: withName(e.fromValue),
+      toValue: withName(e.toValue),
+      comment: e.comment,
+      createdAt: e.createdAt,
+    }));
+  }
+
+  /**
+   * Changement de priorité (hors machine à états) : demandeur avec PRIORITY_CHANGE_OWN avant
+   * acceptation, responsable avec PRIORITY_CHANGE_MANAGED tant que la demande n'est ni terminée ni
+   * finale. Les échéances en cours ne sont pas recalculées (instantané des règles, FR-022).
+   */
+  async changePriority(user: AuthenticatedUser, id: string, dto: ChangePriorityDto, ctx: RequestContext): Promise<RequestDetail> {
+    const { request, category } = await this.readableRequest(user, id, ctx);
+    if (!allowedActions(user, toPolicyRequest(request), toPolicyCategory(category)).includes('CHANGE_PRIORITY')) {
+      await this.audit.log('ACCESS_DENIED', {
+        actorId: user.id,
+        targetType: 'Request',
+        targetId: id,
+        ip: ctx.ip,
+        details: { reason: 'FORBIDDEN_CHANGE_PRIORITY', route: ctx.route, method: ctx.method, channel: 'http' },
+      });
+      throw new AppException('FORBIDDEN');
+    }
+    if (dto.version !== request.version) throw new AppException('STATE_CHANGED');
+    if (dto.priority === request.priority) throw fieldError('priority', 'Choisissez une priorité différente.');
+
+    await this.prisma.$transaction(async (tx) => {
+      const { count } = await tx.request.updateMany({
+        where: { id, version: request.version },
+        data: { priority: dto.priority, version: { increment: 1 } },
+      });
+      if (count === 0) throw new AppException('STATE_CHANGED');
+      await tx.requestEvent.create({
+        data: {
+          requestId: id,
+          actorId: user.id,
+          type: 'PRIORITY_CHANGED',
+          fromValue: { priority: request.priority },
+          toValue: { priority: dto.priority },
+        },
+      });
+    });
+    this.realtime.emitToUsers(
+      [request.requesterId, request.assigneeId, ...category.managers.map((m) => m.userId)],
+      'request:updated',
+      { requestId: id, status: request.status, version: request.version + 1, overdueStage: request.overdueStage },
+    );
+    return this.detail(user, id, ctx);
+  }
+
+  private async readableRequest(
+    user: AuthenticatedUser,
+    id: string,
+    ctx: RequestContext,
+  ): Promise<{ request: Request; category: CategoryWithMembers }> {
+    const request = UUID.test(id) ? await this.prisma.request.findUnique({ where: { id } }) : null;
+    const category = request && (await this.policies.category(request.categoryId));
+    if (!request || !category || !canReadRequest(user, toPolicyRequest(request), toPolicyCategory(category))) {
+      await this.logDenied(user, id, ctx);
+      throw new AppException('NOT_FOUND');
+    }
+    return { request, category };
   }
 
   // ---------------------------------------------------------------------------
