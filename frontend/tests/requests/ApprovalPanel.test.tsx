@@ -184,3 +184,27 @@ describe('Onglet « À valider »', () => {
     expect(screen.queryByRole('tab', { name: 'À valider' })).not.toBeInTheDocument();
   });
 });
+
+describe('Réaffectation (US6)', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('un responsable confie la demande à un autre employé de la catégorie', async () => {
+    const calls = renderActions(
+      detail({
+        status: 'IN_PROGRESS',
+        assignee: { id: 'e1', displayName: 'Reprographie' },
+        allowedActions: ['REASSIGN', 'CHANGE_PRIORITY'],
+        rulesSnapshot: { circuit: 'A_DIRECT', photoRequired: false, closureMode: 'AUTO', finalValidation: false, assignmentMode: 'MANUAL' },
+      }),
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Réaffecter' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Réaffecter la demande' });
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Réaffecter' }));
+    expect(within(dialog).getByText('Choisissez le nouvel employé.')).toBeVisible();
+
+    await userEvent.click(within(dialog).getByRole('combobox', { name: 'Nouvel employé' }));
+    await userEvent.click(within(await screen.findByRole('listbox')).getByRole('option', { name: 'Agent technique' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Réaffecter' }));
+    await waitFor(() => expect(actionBody(calls)).toEqual({ action: 'REASSIGN', version: 2, assigneeId: 'e2' }));
+  });
+});

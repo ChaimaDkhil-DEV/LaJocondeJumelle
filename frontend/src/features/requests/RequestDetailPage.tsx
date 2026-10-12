@@ -10,6 +10,7 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { Link as RouterLink, useLocation, useNavigate, useParams } from 'react-router';
 import { ApiError } from '../../api/client';
+import { Countdown } from '../../components/Countdown';
 import { ErrorState } from '../../components/ErrorState';
 import { formatDateTime } from '../../components/format';
 import { LoadingState } from '../../components/LoadingState';
@@ -77,6 +78,7 @@ export function RequestDetailPage() {
       <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', mb: 2 }}>
         <StatusChip status={r.status} />
         <PriorityChip priority={r.priority} />
+        <Countdown stage={r.currentStage} dueAt={r.currentDueAt} warnAt={r.warnAt} overdueStage={r.overdueStage} />
       </Stack>
       <Box sx={{ mb: 3 }}>
         <RequestActions request={r} />

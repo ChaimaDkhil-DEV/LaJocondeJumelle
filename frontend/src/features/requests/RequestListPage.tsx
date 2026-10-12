@@ -11,6 +11,7 @@ import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import Typography from '@mui/material/Typography';
 import { Link as RouterLink, useSearchParams } from 'react-router';
+import { Countdown } from '../../components/Countdown';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { formatDateTime } from '../../components/format';
@@ -73,6 +74,12 @@ function RequestCard({ request, received }: { request: RequestSummary; received:
           <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', my: 1 }}>
             <StatusChip status={request.status} />
             <PriorityChip priority={request.priority} />
+            <Countdown
+              stage={request.currentStage}
+              dueAt={request.currentDueAt}
+              warnAt={request.warnAt}
+              overdueStage={request.overdueStage}
+            />
             {request.hasVoice && (
               <Typography component="span" variant="body2" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
                 <MicIcon fontSize="small" aria-hidden="true" /> Message vocal

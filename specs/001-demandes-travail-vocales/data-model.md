@@ -254,6 +254,8 @@ Acteurs : **R** = demandeur ; **E** = employé affecté ; **M** = responsable de
 - Retard : `overdueStage := currentStage` et événement `OVERDUE` (une seule fois par
   occurrence d'étape) ; la demande reste visible ; à la fin de l'étape `overdueStage := null`,
   le retard restant visible dans l'historique (FR-026).
+- Le marquage d'un retard par le job n'incrémente pas `version` : il n'entre pas en conflit avec
+  les actions des utilisateurs (verrouillage optimiste réservé aux changements de statut).
 
 ## Valeurs par défaut provisoires
 

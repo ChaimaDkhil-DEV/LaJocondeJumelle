@@ -10,19 +10,48 @@ import { useId, useState } from 'react';
 import { LoadingState } from '../../components/LoadingState';
 import { useAssignees } from './api';
 
-interface ApprovalDialogProps {
+const TEXTS = {
+  approve: {
+    title: 'Approuver la demande',
+    selectLabel: 'Employé chargé de la demande',
+    required: 'Choisissez l’employé qui réalisera la demande.',
+    confirm: 'Approuver et affecter',
+  },
+  reassign: {
+    title: 'Réaffecter la demande',
+    selectLabel: 'Nouvel employé',
+    required: 'Choisissez le nouvel employé.',
+    confirm: 'Réaffecter',
+  },
+} as const;
+
+interface AssigneeDialogProps {
   open: boolean;
   requestId: string;
-  /** Affectation automatique : l'employé désigné par la catégorie, sans choix. */
-  automatic: boolean;
+  /** Approbation en circuit B, ou réaffectation (US6). */
+  mode?: keyof typeof TEXTS;
+  /** Affectation automatique (approbation) : l'employé désigné par la catégorie, sans choix. */
+  automatic?: boolean;
+  /** Employé actuel, exclu de la liste lors d'une réaffectation. */
+  excludeId?: string;
   pending?: boolean;
   onConfirm: (assigneeId?: string) => void;
   onClose: () => void;
 }
 
-/** Approbation d'une demande en circuit B, avec le choix de l'employé chargé de la réaliser. */
-export function ApprovalDialog({ open, requestId, automatic, pending, onConfirm, onClose }: ApprovalDialogProps) {
+/** Choix de l'employé chargé de la demande : approbation en circuit B ou réaffectation. */
+export function ApprovalDialog({
+  open,
+  requestId,
+  mode = 'approve',
+  automatic = false,
+  excludeId,
+  pending,
+  onConfirm,
+  onClose,
+}: AssigneeDialogProps) {
   const titleId = useId();
+  const texts = TEXTS[mode];
   const assignees = useAssignees(requestId, open && !automatic);
   const [assigneeId, setAssigneeId] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -33,11 +62,13 @@ export function ApprovalDialog({ open, requestId, automatic, pending, onConfirm,
       return;
     }
     if (!assigneeId) {
-      setError('Choisissez l’employé qui réalisera la demande.');
+      setError(texts.required);
       return;
     }
     onConfirm(assigneeId);
   }
+
+  const options = (assignees.data ?? []).filter((a) => a.id !== excludeId);
 
   return (
     <Dialog
@@ -48,7 +79,7 @@ export function ApprovalDialog({ open, requestId, automatic, pending, onConfirm,
       maxWidth="sm"
       slotProps={{ transition: { onExited: () => (setAssigneeId(''), setError(null)) } }}
     >
-      <DialogTitle id={titleId}>Approuver la demande</DialogTitle>
+      <DialogTitle id={titleId}>{texts.title}</DialogTitle>
       <DialogContent>
         {automatic ? (
           <DialogContentText>
@@ -60,7 +91,7 @@ export function ApprovalDialog({ open, requestId, automatic, pending, onConfirm,
           <TextField
             select
             id={`${titleId}-assignee`}
-            label="Employé chargé de la demande"
+            label={texts.selectLabel}
             value={assigneeId}
             onChange={(e) => {
               setAssigneeId(e.target.value);
@@ -70,7 +101,7 @@ export function ApprovalDialog({ open, requestId, automatic, pending, onConfirm,
             helperText={error ?? 'L’employé choisi sera notifié.'}
             sx={{ mt: 1 }}
           >
-            {(assignees.data ?? []).map((a) => (
+            {options.map((a) => (
               <MenuItem key={a.id} value={a.id}>
                 {a.jobTitle ? `${a.displayName} — ${a.jobTitle}` : a.displayName}
               </MenuItem>
@@ -81,7 +112,7 @@ export function ApprovalDialog({ open, requestId, automatic, pending, onConfirm,
       <DialogActions>
         <Button onClick={onClose}>Retour</Button>
         <Button variant="contained" onClick={confirm} loading={pending}>
-          {automatic ? 'Approuver' : 'Approuver et affecter'}
+          {automatic ? 'Approuver' : texts.confirm}
         </Button>
       </DialogActions>
     </Dialog>

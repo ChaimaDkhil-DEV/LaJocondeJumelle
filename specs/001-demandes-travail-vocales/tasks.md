@@ -228,19 +228,19 @@ l'implémentation correspondante.
 
 ### Tests for User Story 6 ⚠️
 
-- [ ] T079 [P] [US6] Écrire `backend/test/unit/deadlines.spec.ts` selon DM §Délais : VALIDATION démarre à T2 et s'arrête à T3/T4/T5 ; TAKEOVER démarre à T1/T3/T18 et s'arrête à T6/T7/T8/T18 ; COMPLETION démarre à T6/T17 et s'arrête à T10/T18 ; durée `null` → étape non suivie ; `warnAt = currentDueAt − durée × deadlineWarnPercent / 100` ; fin d'étape → `overdueStage := null` ; durées lues dans `rulesSnapshot` et non dans la configuration courante
-- [ ] T080 [P] [US6] Écrire `backend/test/integration/overdue-job.spec.ts` : demande dont `currentDueAt` est passé → `overdueStage` = étape courante, un seul `RequestEvent` `OVERDUE` même après plusieurs exécutions, notifications `OVERDUE` aux responsables de la catégorie et à l'affecté ; rattrapage des échéances passées pendant un arrêt ; aucune demande supprimée ni masquée ; marquage en < 30 s après l'échéance (SC-006)
-- [ ] T081 [P] [US6] Écrire `backend/test/integration/reassign.spec.ts` : `REASSIGN` par un responsable avec `REQUEST_REASSIGN` depuis `SENT`, `ACCEPTED`, `IN_PROGRESS`, `TO_CORRECT` → `SENT` pour le nouvel affecté (doit appartenir à `CategoryRecipient`), nouveau délai de prise en charge, `RequestEvent` `REASSIGNED`, ancien affecté sans accès (`404`) ; refusé pour un employé
-- [ ] T082 [P] [US6] Écrire `frontend/tests/components/Countdown.test.tsx` : temps restant calculé avec `serverNow()`, état « proche de l'échéance » à partir de `warnAt`, état « En retard (validation | prise en charge | réalisation) », texte lisible par les lecteurs d'écran sans annonce à chaque seconde
-- [ ] T083 [P] [US6] Écrire `e2e/us6-deadlines.spec.ts` couvrant V14
+- [X] T079 [P] [US6] Écrire `backend/test/unit/deadlines.spec.ts` selon DM §Délais : VALIDATION démarre à T2 et s'arrête à T3/T4/T5 ; TAKEOVER démarre à T1/T3/T18 et s'arrête à T6/T7/T8/T18 ; COMPLETION démarre à T6/T17 et s'arrête à T10/T18 ; durée `null` → étape non suivie ; `warnAt = currentDueAt − durée × deadlineWarnPercent / 100` ; fin d'étape → `overdueStage := null` ; durées lues dans `rulesSnapshot` et non dans la configuration courante
+- [X] T080 [P] [US6] Écrire `backend/test/integration/overdue-job.spec.ts` : demande dont `currentDueAt` est passé → `overdueStage` = étape courante, un seul `RequestEvent` `OVERDUE` même après plusieurs exécutions, notifications `OVERDUE` aux responsables de la catégorie et à l'affecté ; rattrapage des échéances passées pendant un arrêt ; aucune demande supprimée ni masquée ; marquage en < 30 s après l'échéance (SC-006)
+- [X] T081 [P] [US6] Écrire `backend/test/integration/reassign.spec.ts` : `REASSIGN` par un responsable avec `REQUEST_REASSIGN` depuis `SENT`, `ACCEPTED`, `IN_PROGRESS`, `TO_CORRECT` → `SENT` pour le nouvel affecté (doit appartenir à `CategoryRecipient`), nouveau délai de prise en charge, `RequestEvent` `REASSIGNED`, ancien affecté sans accès (`404`) ; refusé pour un employé
+- [X] T082 [P] [US6] Écrire `frontend/tests/components/Countdown.test.tsx` : temps restant calculé avec `serverNow()`, état « proche de l'échéance » à partir de `warnAt`, état « En retard (validation | prise en charge | réalisation) », texte lisible par les lecteurs d'écran sans annonce à chaque seconde
+- [X] T083 [P] [US6] Écrire `e2e/us6-deadlines.spec.ts` couvrant V14
 
 ### Implementation for User Story 6
 
-- [ ] T084 [US6] Implémenter `backend/src/requests/domain/deadlines.ts` (fonctions pures de démarrage et d'arrêt d'étape à partir de la transition et de `rulesSnapshot`) ; faire passer T079
-- [ ] T085 [US6] Brancher `deadlines.ts` dans `applyTransition` et la création de `backend/src/requests/requests.service.ts` (mise à jour de `currentStage`, `currentDueAt`, `warnAt`, `overdueStage`) et ajouter l'action `REASSIGN` (T18) ; faire passer T081
-- [ ] T086 [US6] Implémenter `backend/src/scheduler/overdue.job.ts` (`@Interval(15_000)` : `UPDATE … WHERE "currentDueAt" < now() AND "overdueStage" IS DISTINCT FROM "currentStage" RETURNING …`, puis `RequestEvent` `OVERDUE` et notifications, R4) et l'enregistrer dans `scheduler.module.ts` ; faire passer T080
-- [ ] T087 [P] [US6] Implémenter `frontend/src/components/Countdown.tsx` et les indicateurs de retard dans `RequestListPage.tsx` et `RequestDetailPage.tsx` ; faire passer T082
-- [ ] T088 [US6] Implémenter `frontend/src/features/requests/ReassignDialog.tsx` (choix parmi les destinataires de la catégorie) accessible depuis `RequestActions.tsx` ; faire passer T083
+- [X] T084 [US6] Implémenter `backend/src/requests/domain/deadlines.ts` (fonctions pures de démarrage et d'arrêt d'étape à partir de la transition et de `rulesSnapshot`) ; faire passer T079
+- [X] T085 [US6] Brancher `deadlines.ts` dans `applyTransition` et la création de `backend/src/requests/requests.service.ts` (mise à jour de `currentStage`, `currentDueAt`, `warnAt`, `overdueStage`) et ajouter l'action `REASSIGN` (T18) ; faire passer T081
+- [X] T086 [US6] Implémenter `backend/src/scheduler/overdue.job.ts` (`@Interval(15_000)` : `UPDATE … WHERE "currentDueAt" < now() AND "overdueStage" IS DISTINCT FROM "currentStage" RETURNING …`, puis `RequestEvent` `OVERDUE` et notifications, R4) et l'enregistrer dans `scheduler.module.ts` ; faire passer T080
+- [X] T087 [P] [US6] Implémenter `frontend/src/components/Countdown.tsx` et les indicateurs de retard dans `RequestListPage.tsx` et `RequestDetailPage.tsx` ; faire passer T082
+- [X] T088 [US6] Implémenter `frontend/src/features/requests/ReassignDialog.tsx` (choix parmi les destinataires de la catégorie) accessible depuis `RequestActions.tsx` ; faire passer T083
 
 **Checkpoint**: User Stories 1–6 fonctionnent indépendamment
 

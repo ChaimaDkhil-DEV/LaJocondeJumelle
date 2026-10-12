@@ -15,9 +15,10 @@ import { PhotoCapture, type UploadedPhoto } from '../thread/PhotoCapture';
 import { requestKeys } from './api';
 import { ApprovalDialog } from './ApprovalDialog';
 import { ReasonDialog } from './ReasonDialog';
+import { ReassignDialog } from './ReassignDialog';
 import type { RequestDetail } from './types';
 
-/** Actions proposées (réaffectation et priorité arrivent avec US6 et US7). */
+/** Actions proposées (le changement de priorité arrive avec US7). */
 const ACTION_LABELS: Record<string, string> = {
   SUBMIT: 'Envoyer la demande',
   APPROVE: 'Approuver',
@@ -31,11 +32,12 @@ const ACTION_LABELS: Record<string, string> = {
   DECLINE: 'Refuser',
   REJECT: 'Refuser',
   CANCEL: 'Annuler la demande',
+  REASSIGN: 'Réaffecter',
 };
 
 const PRIMARY = new Set(['SUBMIT', 'APPROVE', 'ACCEPT', 'START', 'COMPLETE', 'RESUME', 'CLOSE', 'VALIDATE_FINAL']);
 
-type Dialogs = 'approve' | 'refuse' | 'correction' | 'cancel' | 'complete' | null;
+type Dialogs = 'approve' | 'reassign' | 'refuse' | 'correction' | 'cancel' | 'complete' | null;
 
 interface ActionBody {
   action: string;
@@ -89,6 +91,7 @@ export function RequestActions({ request }: { request: RequestDetail }) {
   function onClick(action: string): void {
     mutation.reset();
     if (action === 'APPROVE') setDialog('approve');
+    else if (action === 'REASSIGN') setDialog('reassign');
     else if (action === 'DECLINE' || action === 'REJECT') setDialog('refuse');
     else if (action === 'REQUEST_CORRECTION') setDialog('correction');
     else if (action === 'CANCEL') setDialog('cancel');
@@ -132,6 +135,14 @@ export function RequestActions({ request }: { request: RequestDetail }) {
         automatic={request.rulesSnapshot.assignmentMode === 'AUTO'}
         pending={mutation.isPending}
         onConfirm={(assigneeId) => send('APPROVE', assigneeId ? { assigneeId } : {})}
+        onClose={() => setDialog(null)}
+      />
+      <ReassignDialog
+        open={dialog === 'reassign'}
+        requestId={request.id}
+        currentAssigneeId={request.assignee?.id}
+        pending={mutation.isPending}
+        onConfirm={(assigneeId) => send('REASSIGN', { assigneeId })}
         onClose={() => setDialog(null)}
       />
       <ReasonDialog

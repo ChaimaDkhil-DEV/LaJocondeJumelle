@@ -6,6 +6,8 @@ import { AppException } from '../common/errors';
 import { PrismaService } from '../common/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { RealtimeService } from '../realtime/realtime.service';
+import { SettingsService } from '../settings/settings.service';
+import { nextDeadlineState } from './domain/deadlines';
 import { actorsFor, canPickRecipient, canReadRequest } from './domain/access-policy';
 import {
   applyAction,
@@ -14,6 +16,7 @@ import {
   type TransitionResult,
 } from './domain/request-state-machine';
 import {
+  readRulesSnapshot,
   RequestPolicyLoader,
   toPolicyCategory,
   toPolicyRequest,
@@ -103,6 +106,7 @@ export class RequestTransitionsService {
     private readonly notifications: NotificationsService,
     private readonly audit: AuditService,
     private readonly realtime: RealtimeService,
+    private readonly settings: SettingsService,
   ) {}
 
   /** Action d'un utilisateur (POST /requests/:id/actions). */
@@ -224,10 +228,23 @@ export class RequestTransitionsService {
     now: Date,
     proofFileIds: string[],
   ): Promise<void> {
+    // Délais : l'étape suivie démarre, continue ou s'arrête selon la transition (US6).
+    const deadline = nextDeadlineState(
+      {
+        currentStage: request.currentStage,
+        currentDueAt: request.currentDueAt,
+        warnAt: request.warnAt,
+        overdueStage: request.overdueStage,
+      },
+      result.steps,
+      readRulesSnapshot(request),
+      now,
+      await this.settings.get('deadlineWarnPercent'),
+    );
     const { pending, after } = await this.prisma.$transaction(async (tx) => {
       const { count } = await tx.request.updateMany({
         where: { id: request.id, status: result.from, version: request.version },
-        data: { ...updateFor(result, now), version: { increment: 1 } },
+        data: { ...updateFor(result, now), ...deadline, version: { increment: 1 } },
       });
       if (count === 0) throw new AppException('STATE_CHANGED');
 

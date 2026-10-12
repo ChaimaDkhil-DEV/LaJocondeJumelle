@@ -10,6 +10,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { SettingsService } from '../settings/settings.service';
 import { allowedActions, canCreateInCategory, canPickRecipient, canReadRequest } from './domain/access-policy';
 import { applyAction, type TransitionResult } from './domain/request-state-machine';
+import { NO_DEADLINE, nextDeadlineState } from './domain/deadlines';
 import { visibleRequestsWhere } from './domain/visibility';
 import { RequestTransitionsService } from './request-transitions.service';
 import {
@@ -105,6 +106,10 @@ export class RequestsService {
       if (!transition.ok) throw new AppException(transition.code);
     }
 
+    const deadline = transition?.ok
+      ? nextDeadlineState(NO_DEADLINE, transition.steps, rules, now, await this.settings.get('deadlineWarnPercent'))
+      : NO_DEADLINE;
+
     try {
       const { request, pending } = await this.prisma.$transaction(async (tx) => {
         const number = await this.nextNumber(tx);
@@ -126,6 +131,7 @@ export class RequestsService {
             createdAt: now,
             submittedAt: transition ? now : null,
             assignedAt: transition?.ok && transition.assigneeId ? now : null,
+            ...deadline,
           },
         });
         if (voice) await tx.file.update({ where: { id: voice.id }, data: { requestId: request.id } });
