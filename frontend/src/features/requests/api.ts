@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { ApiError, apiFetch } from '../../api/client';
 import type { Priority } from '../../api/types';
+import { uploadFile } from '../../api/uploads';
 import { extensionFor } from '../voice/recorderFormat';
 import type { CategoryOption, Page, RecipientOption, RequestDetail, RequestScope, RequestSummary } from './types';
 
@@ -64,11 +65,7 @@ export interface NewRequestInput {
 }
 
 async function uploadVoice(voice: VoiceInput): Promise<string> {
-  const form = new FormData();
-  form.append('kind', 'VOICE');
-  form.append('file', voice.blob, `message-vocal.${extensionFor(voice.mimeType)}`);
-  const file = await apiFetch<{ id: string }>('/api/files', { method: 'POST', body: form });
-  return file.id;
+  return (await uploadFile('VOICE', voice.blob, `message-vocal.${extensionFor(voice.mimeType)}`)).id;
 }
 
 /** Téléverse le vocal éventuel puis crée la demande. Réutilisé par la boîte d'envoi. */

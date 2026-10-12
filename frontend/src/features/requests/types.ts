@@ -62,6 +62,7 @@ export interface RequestDetail extends RequestSummary {
   version: number;
   rejectionReason: string | null;
   allowedActions: string[];
+  canWriteInThread: boolean;
 }
 
 export interface Page<T> {

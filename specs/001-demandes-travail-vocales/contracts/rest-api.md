@@ -70,14 +70,15 @@ currentDueAt, warnAt, overdueStage, hasVoice, unreadCount`.
 **RequestDetail** : RequestSummary + `description, voice{fileId,durationSeconds}|null,
 rulesSnapshot{circuit, photoRequired, closureMode, finalValidation}, timestamps{…}, version,
 rejectionReason, allowedActions[]` (calculé par la politique d'accès pour l'utilisateur
-courant : seule source pour l'affichage des boutons).
+courant : seule source pour l'affichage des boutons), `proofPhotos[{fileId}]` (photos de preuve),
+`canWriteInThread` (le formulaire de réponse du fil n'est affiché que s'il est vrai).
 
 ## Fil de discussion
 
 | Méthode | Route | Accès | Corps / réponse |
 |---------|-------|-------|-----------------|
-| GET | `/requests/:id/messages` | lecture autorisée | liste paginée `{ id, kind, author{id,displayName}|null, text, voice, attachments[], createdAt }` |
-| POST | `/requests/:id/messages` | participant, statut non final | `{ clientId, text?, voiceFileId?, attachmentFileIds? }` → `201` ; idempotent par `clientId` |
+| GET | `/requests/:id/messages` | lecture autorisée | liste paginée, du plus récent au plus ancien : `{ id, kind, author{id,displayName}|null, text, voice{fileId,durationSeconds}|null, attachments[{fileId,kind,mimeType,originalName,sizeBytes}], createdAt }` |
+| POST | `/requests/:id/messages` | participant, statut ni brouillon ni final (sinon `403`) | `{ clientId, text?, voiceFileId?, attachmentFileIds? }` → `201` ; idempotent par `clientId` ; au moins un texte, un vocal ou une pièce jointe (`422 CONTENT_REQUIRED`) ; au plus `attachmentMaxPerMessage` pièces jointes ; fichiers téléversés par l'auteur et non encore utilisés. Aucune route de modification ni de suppression (FR-012). |
 
 ## Fichiers
 

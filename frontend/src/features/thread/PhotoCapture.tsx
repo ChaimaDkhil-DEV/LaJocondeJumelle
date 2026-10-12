@@ -6,7 +6,8 @@ import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
 import { useState, type ChangeEvent } from 'react';
-import { ApiError, apiFetch } from '../../api/client';
+import { ApiError } from '../../api/client';
+import { uploadFile } from '../../api/uploads';
 import { LoadingState } from '../../components/LoadingState';
 import { FilePickerButton } from './FilePickerButton';
 
@@ -21,13 +22,15 @@ interface PhotoCaptureProps {
   /** Rattache directement la photo à une demande (sinon fichier provisoire). */
   requestId?: string;
   max?: number;
+  /** Début du texte alternatif des aperçus (« Photo de preuve 1 »). */
+  altPrefix?: string;
 }
 
 /**
  * Prise de photo (appareil) ou choix dans la galerie, téléversement immédiat (kind=PHOTO).
  * Le serveur retire les métadonnées (dont la position GPS) et refuse les formats non acceptés.
  */
-export function PhotoCapture({ value, onChange, requestId, max = 5 }: PhotoCaptureProps) {
+export function PhotoCapture({ value, onChange, requestId, max = 5, altPrefix = 'Photo de preuve' }: PhotoCaptureProps) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,11 +41,7 @@ export function PhotoCapture({ value, onChange, requestId, max = 5 }: PhotoCaptu
     setError(null);
     setUploading(true);
     try {
-      const form = new FormData();
-      form.append('kind', 'PHOTO');
-      if (requestId) form.append('requestId', requestId);
-      form.append('file', file, file.name);
-      const uploaded = await apiFetch<{ id: string }>('/api/files', { method: 'POST', body: form });
+      const uploaded = await uploadFile('PHOTO', file, file.name, requestId);
       onChange([...value, { id: uploaded.id, previewUrl: URL.createObjectURL(file) }]);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'La photo n’a pas pu être envoyée. Réessayez.');
@@ -86,7 +85,7 @@ export function PhotoCapture({ value, onChange, requestId, max = 5 }: PhotoCaptu
               <Box
                 component="img"
                 src={photo.previewUrl}
-                alt={`Photo de preuve ${index + 1}`}
+                alt={`${altPrefix} ${index + 1}`}
                 sx={{ width: 96, height: 96, objectFit: 'cover', borderRadius: 1, display: 'block' }}
               />
               <IconButton

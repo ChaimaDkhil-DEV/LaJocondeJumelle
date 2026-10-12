@@ -46,7 +46,7 @@ Types de notification (`type`) : `REQUEST_NEW`, `MESSAGE_NEW`, `ASSIGNED`, `STAT
 | Acceptée, En cours, Terminée, En attente de validation finale | demandeur (`STATUS_CHANGED`) ; responsables si validation finale |
 | À corriger | affecté (`TO_CORRECT`) |
 | Clôture | demandeur et affecté (`CLOSED`) |
-| Nouveau message | autres participants (`MESSAGE_NEW`) |
+| Nouveau message | autres participants directs : demandeur et employé affecté ; tant qu'aucun employé n'est affecté, les responsables de la catégorie (`MESSAGE_NEW`) |
 | Retard | responsables de la catégorie et affecté (`OVERDUE`, étape précisée) |
 
 L'auteur d'une action n'est jamais notifié de sa propre action.

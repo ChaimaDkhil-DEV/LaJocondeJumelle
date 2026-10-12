@@ -136,7 +136,9 @@ test('V7 — refus par l’employé : motif obligatoire, visible par la demandeu
 
   await switchUser(page, 'enseignante');
   await open(page, id, title);
-  await expect(page.getByText('Ces documents sont à imprimer par le secrétariat.')).toBeVisible();
+  const reason = 'Ces documents sont à imprimer par le secrétariat.';
+  await expect(page.getByRole('alert').filter({ hasText: reason })).toBeVisible();
+  await expect(page.getByRole('list', { name: 'Messages' })).toContainText(`Motif du refus : ${reason}`);
   await expectNoA11yViolations(page);
 });
 
@@ -171,7 +173,7 @@ test('V9 — deux actions simultanées : la seconde est expliquée et la demande
 
   await act(page, 'Accepter la demande', 'Acceptée');
   await other.getByRole('button', { name: 'Accepter la demande' }).click();
-  await expect(other.getByRole('alert')).toContainText('modifiée entre-temps');
+  await expect(other.getByRole('alert').filter({ hasText: 'modifiée entre-temps' })).toBeVisible();
   await expect(other.getByText('Acceptée', { exact: true })).toBeVisible();
   await expect(other.getByRole('button', { name: 'Commencer' })).toBeVisible();
   await other.context().close();

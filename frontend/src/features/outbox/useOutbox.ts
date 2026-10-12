@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiError } from '../../api/client';
 import { isRetryableError, requestKeys, submitRequest } from '../requests/api';
+import { submitMessage } from '../thread/api';
 import { listOutbox, removeFromOutbox, saveToOutbox, type OutboxEntry } from './outbox';
 
 export const OUTBOX_KEY = ['outbox'] as const;
@@ -15,7 +16,7 @@ export function useOutbox() {
   const retry = useMutation({
     mutationFn: async (entry: OutboxEntry) => {
       try {
-        const created = await submitRequest(entry.payload);
+        const created = entry.type === 'message' ? await submitMessage(entry.payload) : await submitRequest(entry.payload);
         await removeFromOutbox(entry.id);
         return created;
       } catch (error) {

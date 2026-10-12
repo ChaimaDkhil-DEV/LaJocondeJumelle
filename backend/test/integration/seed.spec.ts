@@ -112,7 +112,7 @@ describe('Seed', () => {
   it('mode e2e : mot de passe fixe, aucun changement imposé sauf pour le compte « nouveau »', async () => {
     await runSeed(prisma, { log: () => undefined, e2ePassword: 'MotDePasse-E2E-2026!' });
     const users = await prisma.user.findMany();
-    expect(users.map((u) => u.username).sort()).toEqual(['enseignante', 'nouveau', 'reprographie', 'responsable', 'superadmin']);
+    expect(users.map((u) => u.username).sort()).toEqual(['autre', 'enseignante', 'nouveau', 'reprographie', 'responsable', 'superadmin']);
     for (const user of users) {
       expect(user.mustChangePassword).toBe(user.username === 'nouveau');
       await expect(verify(user.passwordHash, 'MotDePasse-E2E-2026!')).resolves.toBe(true);

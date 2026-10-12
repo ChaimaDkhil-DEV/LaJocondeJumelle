@@ -13,6 +13,7 @@ import { SettingsService } from '../settings/settings.service';
 import { detectFileType, VOICE_CONTAINERS } from './file-signature';
 import { FileStorageService } from './file-storage.service';
 import type { FileResponse, UploadFileDto } from './files.dto';
+import { documentName, validateDocument } from './document-validation';
 import { processPhoto } from './photo-processing';
 import { processVoice } from './voice-processing';
 
@@ -72,10 +73,7 @@ export class FilesService {
       if (dto.requestId) await this.assertCanAttach(user, dto.requestId);
 
       if (dto.kind === 'PHOTO') return await this.uploadPhoto(user, temp, dto);
-      if (dto.kind !== 'VOICE') {
-        // Documents : acceptés avec le fil de discussion (US3).
-        throw new AppException('FILE_TYPE_NOT_ALLOWED');
-      }
+      if (dto.kind === 'DOCUMENT') return await this.uploadDocument(user, temp, dto);
 
       if (temp.size > (await this.settings.get('voiceMaxBytes'))) throw new AppException('FILE_TOO_LARGE');
       const detected = detectFileType(await readHead(temp.path));
@@ -121,6 +119,31 @@ export class FilesService {
         mimeType: photo.mimeType,
         originalName: photoName(temp.originalname),
         sizeBytes: photo.sizeBytes,
+        storagePath,
+        uploaderId: user.id,
+        requestId: dto.requestId ?? null,
+      },
+    });
+    return toFileResponse(file);
+  }
+
+  /** Document joint (PDF par défaut) : taille ≤ attachmentMaxBytes, type réel vérifié, conservé tel quel. */
+  private async uploadDocument(
+    user: AuthenticatedUser,
+    temp: UploadedTempFile,
+    dto: UploadFileDto,
+  ): Promise<FileResponse> {
+    if (temp.size > (await this.settings.get('attachmentMaxBytes'))) throw new AppException('FILE_TOO_LARGE');
+    const { mimeType } = await validateDocument(temp.path, {
+      allowedTypes: await this.settings.get('allowedDocumentTypes'),
+    });
+    const storagePath = await this.storage.store(temp.path);
+    const file = await this.prisma.file.create({
+      data: {
+        kind: 'DOCUMENT',
+        mimeType,
+        originalName: documentName(temp.originalname),
+        sizeBytes: temp.size,
         storagePath,
         uploaderId: user.id,
         requestId: dto.requestId ?? null,

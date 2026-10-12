@@ -45,6 +45,7 @@ function detail(overrides: Partial<RequestDetail> = {}): RequestDetail {
     version: 3,
     rejectionReason: null,
     allowedActions: [],
+    canWriteInThread: true,
     ...overrides,
   };
 }

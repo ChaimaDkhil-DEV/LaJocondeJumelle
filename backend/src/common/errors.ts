@@ -8,7 +8,7 @@ export const ERROR_CATALOG = {
   VALIDATION_ERROR: { status: 400, message: 'Certaines informations sont manquantes ou invalides.' },
   UNAUTHENTICATED: { status: 401, message: 'Votre session a expiré. Veuillez vous reconnecter.' },
   INVALID_CREDENTIALS: { status: 401, message: 'Identifiant ou mot de passe incorrect.' },
-  FORBIDDEN: { status: 403, message: "Vous n'avez pas le droit d'effectuer cette action." },
+  FORBIDDEN: { status: 403, message: 'Vous n’avez pas le droit d’effectuer cette action.' },
   PASSWORD_CHANGE_REQUIRED: {
     status: 403,
     message: 'Vous devez changer votre mot de passe avant de continuer.',
@@ -17,19 +17,19 @@ export const ERROR_CATALOG = {
   CONFLICT: { status: 409, message: 'Cet élément existe déjà.' },
   INVALID_TRANSITION: {
     status: 409,
-    message: "Cette action n'est pas possible dans le statut actuel de la demande.",
+    message: 'Cette action n’est pas possible dans le statut actuel de la demande.',
   },
   STATE_CHANGED: {
     status: 409,
     message: 'La demande a été modifiée entre-temps. Elle a été rechargée.',
   },
   FILE_TOO_LARGE: { status: 413, message: 'Le fichier est trop volumineux.' },
-  FILE_TYPE_NOT_ALLOWED: { status: 415, message: "Ce type de fichier n'est pas accepté." },
+  FILE_TYPE_NOT_ALLOWED: { status: 415, message: 'Ce type de fichier n’est pas accepté.' },
   RECIPIENT_NOT_ALLOWED: {
     status: 422,
     message: 'Ce destinataire ne peut pas recevoir les demandes de cette catégorie.',
   },
-  ASSIGNEE_REQUIRED: { status: 422, message: "Choisissez l'employé qui réalisera la demande." },
+  ASSIGNEE_REQUIRED: { status: 422, message: 'Choisissez l’employé qui réalisera la demande.' },
   PHOTO_REQUIRED: {
     status: 422,
     message: 'Une photo de preuve est obligatoire pour terminer cette demande.',

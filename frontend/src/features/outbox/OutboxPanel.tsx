@@ -19,8 +19,7 @@ export function OutboxPanel() {
   return (
     <Alert severity="warning" sx={{ mb: 3 }} role="region" aria-label="Boîte d’envoi">
       <AlertTitle>
-        Boîte d’envoi : {entries.length} demande{entries.length > 1 ? 's' : ''} non envoyée
-        {entries.length > 1 ? 's' : ''}
+        Boîte d’envoi : {entries.length} envoi{entries.length > 1 ? 's' : ''} en attente
       </AlertTitle>
       {retryError && <Box sx={{ mb: 1 }}>{retryError}</Box>}
       <List dense disablePadding>
@@ -31,8 +30,8 @@ export function OutboxPanel() {
             sx={{ flexWrap: 'wrap', gap: 1 }}
           >
             <ListItemText
-              primary={entry.payload.title}
-              secondary={`${entry.categoryName} · enregistrée le ${formatDateTime(entry.savedAt)}`}
+              primary={entry.type === 'message' ? `Message : ${entry.payload.text ?? 'message vocal'}` : entry.payload.title}
+              secondary={`${entry.type === 'message' ? `Demande « ${entry.requestTitle} »` : entry.categoryName} · enregistré le ${formatDateTime(entry.savedAt)}`}
               sx={{ minWidth: 0, flex: '1 1 180px' }}
             />
             <Box sx={{ display: 'flex', gap: 1 }}>

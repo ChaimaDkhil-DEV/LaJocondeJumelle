@@ -6,6 +6,7 @@ import { PrismaModule } from './common/prisma.service';
 import { ConfigModule } from './config/config.module';
 import { FilesModule } from './files/files.module';
 import { HealthController } from './health/health.controller';
+import { MessagesModule } from './messages/messages.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { RequestsModule } from './requests/requests.module';
 import { SchedulerModule } from './scheduler/scheduler.module';
@@ -22,6 +23,7 @@ import { SettingsModule } from './settings/settings.module';
     FilesModule,
     CategoriesModule,
     RequestsModule,
+    MessagesModule,
     SchedulerModule,
   ],
   controllers: [HealthController],

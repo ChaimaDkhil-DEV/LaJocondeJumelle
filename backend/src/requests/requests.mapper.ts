@@ -1,6 +1,6 @@
 import type { Prisma } from '@prisma/client';
 import type { AuthenticatedUser } from '../auth/auth.types';
-import { allowedActions, type PolicyAction, type PolicyCategory } from './domain/access-policy';
+import { allowedActions, canWriteInThread, type PolicyAction, type PolicyCategory } from './domain/access-policy';
 import { readRulesSnapshot, toPolicyRequest } from './request-policy.loader';
 
 /** Relations chargées pour construire RequestSummary / RequestDetail (contracts/rest-api.md). */
@@ -47,7 +47,8 @@ export function toRequestDetail(
   unreadCount: number,
 ) {
   const rules = readRulesSnapshot(request);
-  const actions: PolicyAction[] = allowedActions(user, toPolicyRequest(request), category);
+  const policyRequest = toPolicyRequest(request);
+  const actions: PolicyAction[] = allowedActions(user, policyRequest, category);
   return {
     ...toRequestSummary(request, unreadCount),
     description: request.description,
@@ -78,6 +79,8 @@ export function toRequestDetail(
     version: request.version,
     rejectionReason: request.rejectionReason,
     allowedActions: actions,
+    /** Le formulaire de réponse du fil n'est affiché que si l'utilisateur peut écrire. */
+    canWriteInThread: canWriteInThread(user, policyRequest, category),
   };
 }
 

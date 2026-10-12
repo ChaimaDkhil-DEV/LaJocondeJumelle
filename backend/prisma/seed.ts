@@ -40,6 +40,8 @@ const DEMO_USERS: Array<{ username: string; displayName: string; jobTitle: strin
   { username: 'enseignante', displayName: 'Enseignante', jobTitle: 'Professeure des écoles', role: 'EMPLOYEE' },
   { username: 'reprographie', displayName: 'Reprographie', jobTitle: 'Reprographie', role: 'EMPLOYEE' },
   { username: 'nouveau', displayName: 'Nouvel employé', jobTitle: 'Accueil', role: 'EMPLOYEE', e2eOnly: true },
+  // Employé sans lien avec les catégories de démonstration : vérifie la confidentialité des demandes.
+  { username: 'autre', displayName: 'Autre employé', jobTitle: 'Cantine', role: 'EMPLOYEE', e2eOnly: true },
 ];
 
 function temporaryPassword(): string {

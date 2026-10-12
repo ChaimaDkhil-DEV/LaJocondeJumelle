@@ -159,17 +159,17 @@ l'implémentation correspondante.
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T058 [P] [US3] Ajouter `backend/test/fixtures/docs/sample.pdf` et `big.pdf` (> 10 Mo) et écrire `backend/test/unit/document-validation.spec.ts` : PDF accepté ; type hors `allowedDocumentTypes` ou exécutable renommé → `FILE_TYPE_NOT_ALLOWED` ; nom d'origine nettoyé et tronqué à 255 caractères
-- [ ] T059 [P] [US3] Écrire `backend/test/integration/messages.spec.ts` : `POST /api/requests/:id/messages` texte (≤ 4 000 caractères), vocal (`voiceFileId`) et pièces jointes (≤ `attachmentMaxPerMessage` = 5) → `201` avec auteur et `createdAt` ; idempotence par `clientId` ; statut final → `403` ; `RequestEvent` `MESSAGE_ADDED` et `FILE_ADDED` ; notification `MESSAGE_NEW` aux autres participants seulement ; `GET` des messages et `GET /api/files/:id` d'une pièce jointe par un non-participant → `404` + audit `ACCESS_DENIED` (V10) ; aucune route de modification ni de suppression de message (FR-012) ; PDF de 20 Mo → `413` (V11)
-- [ ] T060 [P] [US3] Écrire `frontend/tests/thread/ThreadPanel.test.tsx` : messages avec auteur et date/heure, messages `SYSTEM` distingués, composeur texte/vocal/photo/fichier, erreurs de format et de taille affichées, envoi échoué placé dans la boîte d'envoi
-- [ ] T061 [P] [US3] Écrire `e2e/us3-thread.spec.ts` couvrant V10 et V11 avec contrôle axe du fil
+- [X] T058 [P] [US3] Ajouter `backend/test/fixtures/docs/sample.pdf` et `big.pdf` (> 10 Mo) et écrire `backend/test/unit/document-validation.spec.ts` : PDF accepté ; type hors `allowedDocumentTypes` ou exécutable renommé → `FILE_TYPE_NOT_ALLOWED` ; nom d'origine nettoyé et tronqué à 255 caractères
+- [X] T059 [P] [US3] Écrire `backend/test/integration/messages.spec.ts` : `POST /api/requests/:id/messages` texte (≤ 4 000 caractères), vocal (`voiceFileId`) et pièces jointes (≤ `attachmentMaxPerMessage` = 5) → `201` avec auteur et `createdAt` ; idempotence par `clientId` ; statut final → `403` ; `RequestEvent` `MESSAGE_ADDED` et `FILE_ADDED` ; notification `MESSAGE_NEW` aux autres participants seulement ; `GET` des messages et `GET /api/files/:id` d'une pièce jointe par un non-participant → `404` + audit `ACCESS_DENIED` (V10) ; aucune route de modification ni de suppression de message (FR-012) ; PDF de 20 Mo → `413` (V11)
+- [X] T060 [P] [US3] Écrire `frontend/tests/thread/ThreadPanel.test.tsx` : messages avec auteur et date/heure, messages `SYSTEM` distingués, composeur texte/vocal/photo/fichier, erreurs de format et de taille affichées, envoi échoué placé dans la boîte d'envoi
+- [X] T061 [P] [US3] Écrire `e2e/us3-thread.spec.ts` couvrant V10 et V11 avec contrôle axe du fil
 
 ### Implementation for User Story 3
 
-- [ ] T062 [P] [US3] Accepter `kind=DOCUMENT` dans `backend/src/files/files.service.ts` (octets magiques, `allowedDocumentTypes`, `attachmentMaxBytes`, nom nettoyé) ; faire passer T058
-- [ ] T063 [US3] Implémenter `backend/src/messages/messages.service.ts`, `messages.controller.ts`, `messages.module.ts` : `GET` et `POST /api/requests/:id/messages` (REST §Fil de discussion), contrôle `canWriteInThread`, rattachement des fichiers provisoires à la demande et au message, `RequestEvent`, notifications `MESSAGE_NEW`, en une transaction ; faire passer T059
-- [ ] T064 [P] [US3] Implémenter `frontend/src/features/thread/AttachmentList.tsx` (miniatures d'images avec texte alternatif, lien de téléchargement pour les documents, `VoicePlayer` pour les vocaux)
-- [ ] T065 [US3] Implémenter `frontend/src/features/thread/MessageComposer.tsx` (texte, `VoiceRecorder`, `PhotoCapture`, sélection de fichier, `clientId`, boîte d'envoi en cas d'échec) et `frontend/src/features/thread/ThreadPanel.tsx` (liste paginée, chargement des anciens messages) ; intégrer dans `RequestDetailPage.tsx` ; faire passer T060 et T061
+- [X] T062 [P] [US3] Accepter `kind=DOCUMENT` dans `backend/src/files/files.service.ts` (octets magiques, `allowedDocumentTypes`, `attachmentMaxBytes`, nom nettoyé) ; faire passer T058
+- [X] T063 [US3] Implémenter `backend/src/messages/messages.service.ts`, `messages.controller.ts`, `messages.module.ts` : `GET` et `POST /api/requests/:id/messages` (REST §Fil de discussion), contrôle `canWriteInThread`, rattachement des fichiers provisoires à la demande et au message, `RequestEvent`, notifications `MESSAGE_NEW`, en une transaction ; faire passer T059
+- [X] T064 [P] [US3] Implémenter `frontend/src/features/thread/AttachmentList.tsx` (miniatures d'images avec texte alternatif, lien de téléchargement pour les documents, `VoicePlayer` pour les vocaux)
+- [X] T065 [US3] Implémenter `frontend/src/features/thread/MessageComposer.tsx` (texte, `VoiceRecorder`, `PhotoCapture`, sélection de fichier, `clientId`, boîte d'envoi en cas d'échec) et `frontend/src/features/thread/ThreadPanel.tsx` (liste paginée, chargement des anciens messages) ; intégrer dans `RequestDetailPage.tsx` ; faire passer T060 et T061
 
 **Checkpoint**: User Stories 1–3 fonctionnent indépendamment
 

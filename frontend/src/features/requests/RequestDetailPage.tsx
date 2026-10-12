@@ -15,6 +15,7 @@ import { formatDateTime } from '../../components/format';
 import { LoadingState } from '../../components/LoadingState';
 import { PriorityChip } from '../../components/PriorityChip';
 import { StatusChip } from '../../components/StatusChip';
+import { ThreadPanel } from '../thread/ThreadPanel';
 import { VoicePlayer } from '../voice/VoicePlayer';
 import { useRequest } from './api';
 import { RequestActions } from './RequestActions';
@@ -147,6 +148,8 @@ export function RequestDetailPage() {
             <strong>Motif du refus :</strong> {r.rejectionReason}
           </Alert>
         )}
+
+        <ThreadPanel requestId={r.id} requestTitle={r.title} canWrite={r.canWriteInThread} />
 
         <Box component="section" aria-labelledby="titre-etapes">
           <Typography id="titre-etapes" component="h2" variant="h6">

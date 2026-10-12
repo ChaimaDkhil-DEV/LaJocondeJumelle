@@ -1,18 +1,32 @@
 import { createStore, del, set, values } from 'idb-keyval';
 import type { NewRequestInput } from '../requests/api';
+import type { NewMessageInput } from '../thread/api';
 
 /**
- * Boîte d'envoi (FR-008, research R10) : les demandes dont l'envoi a échoué sont conservées
- * dans IndexedDB, avec leur vocal, pour être renvoyées sans ressaisie (même clientId).
+ * Boîte d'envoi (FR-008, research R10) : les demandes et messages dont l'envoi a échoué sont
+ * conservés dans IndexedDB, avec leur vocal, pour être renvoyés sans ressaisie (même clientId).
  */
-export interface OutboxEntry {
+interface OutboxBase {
   id: string;
   savedAt: string;
-  payload: NewRequestInput;
-  /** Libellés affichés dans la boîte d'envoi. */
-  categoryName: string;
   lastError: string;
 }
+
+/** Nouvelle demande (les entrées enregistrées avant l'ajout des messages n'ont pas de `type`). */
+export interface RequestOutboxEntry extends OutboxBase {
+  type?: 'request';
+  payload: NewRequestInput;
+  categoryName: string;
+}
+
+/** Message du fil de discussion d'une demande. */
+export interface MessageOutboxEntry extends OutboxBase {
+  type: 'message';
+  payload: NewMessageInput;
+  requestTitle: string;
+}
+
+export type OutboxEntry = RequestOutboxEntry | MessageOutboxEntry;
 
 const store = createStore('ljj-boite-envoi', 'envois');
 

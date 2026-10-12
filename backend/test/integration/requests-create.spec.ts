@@ -326,9 +326,8 @@ describe('Création de demandes', () => {
 
     it('un tiers reçoit 404 sur le détail, et le refus est journalisé', async () => {
       const created = await create(enseignante, { title: 'Privée', description: 'x', categoryId: photocopies, recipientId: reprographieId });
-      const autre = await prisma.user.create({
-        data: { username: 'autre', displayName: 'Autre', role: 'EMPLOYEE', passwordHash: (await prisma.user.findUniqueOrThrow({ where: { username: 'enseignante' } })).passwordHash, mustChangePassword: false },
-      });
+      // Compte « autre » du seed : employé sans lien avec la catégorie.
+      const autre = await prisma.user.findUniqueOrThrow({ where: { username: 'autre' } });
       const cookie = await loginAs(app, 'autre');
       const res = await api().get(`/api/requests/${created.body.id}`).set('Cookie', cookie);
       expect(res.status).toBe(404);
