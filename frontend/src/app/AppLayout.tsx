@@ -14,6 +14,8 @@ import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router';
 import { useCurrentUser, useLogout } from '../features/auth/useCurrentUser';
+import { NotificationCenter } from '../features/notifications/NotificationCenter';
+import { SocketProvider } from '../features/notifications/SocketProvider';
 
 export interface NavItem {
   to: string;
@@ -74,50 +76,65 @@ export function AppLayout() {
   );
 
   return (
-    <Box sx={{ minHeight: '100dvh', bgcolor: 'background.default', overflowX: 'hidden' }}>
-      <SkipLink />
-      <AppBar position="sticky" component="header">
-        <Toolbar sx={{ gap: 1 }}>
-          <IconButton
-            color="inherit"
-            edge="start"
-            aria-label="Ouvrir le menu"
-            onClick={() => setDrawerOpen(true)}
-            sx={{ display: { sm: 'none' } }}
-          >
-            <MenuIcon />
-          </IconButton>
-          <Typography component="p" variant="h6" noWrap sx={{ flexGrow: 1, minWidth: 0 }}>
-            Demandes de travail
-          </Typography>
-          <Box component="nav" aria-label="Navigation principale" sx={{ display: { xs: 'none', sm: 'flex' }, gap: 1 }}>
-            {NAV_ITEMS.map((item) => (
-              <Button key={item.to} color="inherit" component={NavLink} to={item.to} end>
-                {item.label}
-              </Button>
-            ))}
-          </Box>
-          {me.data && (
-            <Typography noWrap sx={{ display: { xs: 'none', md: 'block' }, maxWidth: 220 }}>
-              {me.data.displayName}
+    <SocketProvider>
+      <Box sx={{ minHeight: '100dvh', bgcolor: 'background.default', overflowX: 'hidden' }}>
+        <SkipLink />
+        <AppBar position="sticky" component="header">
+          <Toolbar sx={{ gap: 1 }}>
+            <IconButton
+              color="inherit"
+              edge="start"
+              aria-label="Ouvrir le menu"
+              onClick={() => setDrawerOpen(true)}
+              sx={{ display: { sm: 'none' } }}
+            >
+              <MenuIcon />
+            </IconButton>
+            <Typography component="p" variant="h6" noWrap sx={{ flexGrow: 1, minWidth: 0 }}>
+              Demandes de travail
             </Typography>
-          )}
-          <Button color="inherit" onClick={handleLogout} startIcon={<LogoutIcon aria-hidden="true" />}>
-            Se déconnecter
-          </Button>
-        </Toolbar>
-      </AppBar>
-      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} sx={{ display: { sm: 'none' } }}>
-        <Box sx={{ width: 260 }}>{navList}</Box>
-      </Drawer>
-      <Box
-        component="main"
-        id="contenu"
-        tabIndex={-1}
-        sx={{ maxWidth: 960, mx: 'auto', px: 2, py: 3, '&:focus': { outline: 'none' } }}
-      >
-        <Outlet />
+            <Box
+              component="nav"
+              aria-label="Navigation principale"
+              sx={{ display: { xs: 'none', sm: 'flex' }, gap: 1 }}
+            >
+              {NAV_ITEMS.map((item) => (
+                <Button key={item.to} color="inherit" component={NavLink} to={item.to} end>
+                  {item.label}
+                </Button>
+              ))}
+            </Box>
+            {me.data && (
+              <Typography noWrap sx={{ display: { xs: 'none', md: 'block' }, maxWidth: 220 }}>
+                {me.data.displayName}
+              </Typography>
+            )}
+            <NotificationCenter />
+            <Button
+              color="inherit"
+              onClick={handleLogout}
+              startIcon={<LogoutIcon aria-hidden="true" />}
+            >
+              Se déconnecter
+            </Button>
+          </Toolbar>
+        </AppBar>
+        <Drawer
+          open={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          sx={{ display: { sm: 'none' } }}
+        >
+          <Box sx={{ width: 260 }}>{navList}</Box>
+        </Drawer>
+        <Box
+          component="main"
+          id="contenu"
+          tabIndex={-1}
+          sx={{ maxWidth: 960, mx: 'auto', px: 2, py: 3, '&:focus': { outline: 'none' } }}
+        >
+          <Outlet />
+        </Box>
       </Box>
-    </Box>
+    </SocketProvider>
   );
 }

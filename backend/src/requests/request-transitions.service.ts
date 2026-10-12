@@ -5,6 +5,7 @@ import type { AuthenticatedUser } from '../auth/auth.types';
 import { AppException } from '../common/errors';
 import { PrismaService } from '../common/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { RealtimeService } from '../realtime/realtime.service';
 import { actorsFor, canPickRecipient, canReadRequest } from './domain/access-policy';
 import {
   applyAction,
@@ -101,6 +102,7 @@ export class RequestTransitionsService {
     private readonly policies: RequestPolicyLoader,
     private readonly notifications: NotificationsService,
     private readonly audit: AuditService,
+    private readonly realtime: RealtimeService,
   ) {}
 
   /** Action d'un utilisateur (POST /requests/:id/actions). */
@@ -222,7 +224,7 @@ export class RequestTransitionsService {
     now: Date,
     proofFileIds: string[],
   ): Promise<void> {
-    const pending = await this.prisma.$transaction(async (tx) => {
+    const { pending, after } = await this.prisma.$transaction(async (tx) => {
       const { count } = await tx.request.updateMany({
         where: { id: request.id, status: result.from, version: request.version },
         data: { ...updateFor(result, now), version: { increment: 1 } },
@@ -236,9 +238,15 @@ export class RequestTransitionsService {
         });
       }
       const after = await tx.request.findUniqueOrThrow({ where: { id: request.id } });
-      return this.recordTransition(tx, request, after, category, result, actorId);
+      return { after, pending: await this.recordTransition(tx, request, after, category, result, actorId) };
     });
     await this.notifications.flushAfterCommit(pending);
+    // Les lecteurs de la demande rafraîchissent liste et détail (contracts/realtime-events.md).
+    this.realtime.emitToUsers(
+      [after.requesterId, after.assigneeId, ...category.managers.map((m) => m.userId)],
+      'request:updated',
+      { requestId: after.id, status: after.status, version: after.version, overdueStage: after.overdueStage },
+    );
   }
 
   /** Employé visé par SUBMIT (circuit A), APPROVE ou REASSIGN, et s'il est autorisé dans la catégorie. */

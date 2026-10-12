@@ -33,3 +33,11 @@ export function sessionCookie(setCookie: string[] | string | undefined): string 
   if (!sid) throw new Error('Cookie sid absent');
   return sid.split(';')[0];
 }
+
+/** Application à l'écoute sur un port libre (clients Socket.IO réels). */
+export async function createListeningTestApp(): Promise<{ app: INestApplication; baseUrl: string }> {
+  const app = await createTestApp();
+  await app.listen(0);
+  const address = app.getHttpServer().address() as { port: number };
+  return { app, baseUrl: `http://localhost:${address.port}` };
+}

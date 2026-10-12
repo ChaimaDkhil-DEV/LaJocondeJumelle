@@ -12,8 +12,10 @@ worker.
 - Le serveur place le socket dans la seule salle `user:{userId}`. Le client ne peut rejoindre
   aucune salle lui-même et n'émet aucun événement métier : toutes les écritures passent par
   REST.
-- Déconnexion, expiration de session ou désactivation du compte → le serveur ferme les sockets
-  de l'utilisateur.
+- Déconnexion, expiration de session ou désactivation du compte → le serveur envoie
+  `session:ended` puis ferme les sockets concernés. Les sessions des connexions ouvertes sont
+  revérifiées chaque minute (expiration, inactivité, compte désactivé).
+- Un utilisateur qui doit encore changer son mot de passe ne peut pas se connecter au temps réel.
 - À chaque `connect` (y compris reconnexion), le client appelle
   `GET /notifications?unread=true` et invalide ses requêtes en cache, ce qui rattrape tout
   événement manqué.

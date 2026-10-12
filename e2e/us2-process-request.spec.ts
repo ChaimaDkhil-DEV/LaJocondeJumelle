@@ -53,8 +53,18 @@ async function act(page: Page, label: string, expectedStatus: string): Promise<v
   await expect(page.getByText(expectedStatus, { exact: true })).toBeVisible();
 }
 
-async function newUserPage(browser: Browser, testInfo: TestInfo, account: 'reprographie'): Promise<Page> {
+async function newUserPage(
+  browser: Browser,
+  testInfo: TestInfo,
+  account: 'reprographie',
+  { realtime = true }: { realtime?: boolean } = {},
+): Promise<Page> {
   const context = await browser.newContext(testInfo.project.use as BrowserContextOptions);
+  if (!realtime) {
+    // Connexion temps réel coupée (réseau instable) : la page ne reçoit pas request:updated.
+    await context.routeWebSocket(/\/socket\.io\//, (ws) => ws.close());
+    await context.route('**/socket.io/**', (route) => route.abort());
+  }
   const page = await context.newPage();
   await login(page, account);
   return page;
@@ -167,7 +177,9 @@ test('V9 — deux actions simultanées : la seconde est expliquée et la demande
   const id = await createRequest(page, 'Photocopies', title);
   await switchUser(page, 'reprographie');
 
-  const other = await newUserPage(browser, testInfo, 'reprographie');
+  // Avec le temps réel, la seconde page se mettrait à jour d'elle-même (V12) : le conflit ne se produit
+  // que si sa connexion temps réel est coupée, cas que l'on simule ici.
+  const other = await newUserPage(browser, testInfo, 'reprographie', { realtime: false });
   await open(page, id, title);
   await open(other, id, title);
 

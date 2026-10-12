@@ -8,6 +8,8 @@ import { FilesModule } from './files/files.module';
 import { HealthController } from './health/health.controller';
 import { MessagesModule } from './messages/messages.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { RealtimeGatewayModule } from './realtime/realtime-gateway.module';
+import { RealtimeModule } from './realtime/realtime.module';
 import { RequestsModule } from './requests/requests.module';
 import { SchedulerModule } from './scheduler/scheduler.module';
 import { SettingsModule } from './settings/settings.module';
@@ -18,6 +20,7 @@ import { SettingsModule } from './settings/settings.module';
     PrismaModule,
     AuditModule,
     SettingsModule,
+    RealtimeModule,
     NotificationsModule,
     AuthModule,
     FilesModule,
@@ -25,6 +28,7 @@ import { SettingsModule } from './settings/settings.module';
     RequestsModule,
     MessagesModule,
     SchedulerModule,
+    RealtimeGatewayModule,
   ],
   controllers: [HealthController],
 })

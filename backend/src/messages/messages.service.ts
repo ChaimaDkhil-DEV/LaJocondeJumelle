@@ -6,6 +6,7 @@ import { AppException } from '../common/errors';
 import { buildPage, decodeCursor, parseLimit, type Page } from '../common/pagination';
 import { PrismaService } from '../common/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { RealtimeService } from '../realtime/realtime.service';
 import { canReadRequest, canWriteInThread } from '../requests/domain/access-policy';
 import {
   RequestPolicyLoader,
@@ -37,6 +38,7 @@ export class MessagesService {
     private readonly settings: SettingsService,
     private readonly notifications: NotificationsService,
     private readonly audit: AuditService,
+    private readonly realtime: RealtimeService,
   ) {}
 
   async list(
@@ -134,6 +136,12 @@ export class MessagesService {
         return { messageId: message.id, pending };
       });
       await this.notifications.flushAfterCommit(pending);
+      // Tous les lecteurs de la demande sauf l'auteur rechargent le fil.
+      this.realtime.emitToUsers(
+        [request.requesterId, request.assigneeId, ...category.managers.map((m) => m.userId)].filter((id) => id !== user.id),
+        'message:new',
+        { requestId, messageId },
+      );
       const message = await this.prisma.message.findUniqueOrThrow({ where: { id: messageId }, include: MESSAGE_INCLUDE });
       return { created: true, message: toMessageResponse(message) };
     } catch (error) {
