@@ -1,0 +1,7 @@
+import { SetMetadata } from '@nestjs/common';
+
+export const ALLOW_PENDING_PASSWORD_CHANGE = 'allowPendingPasswordChange';
+
+/** Route accessible même si l'utilisateur doit encore changer son mot de passe (routes /auth/*). */
+export const AllowPendingPasswordChange = (): MethodDecorator & ClassDecorator =>
+  SetMetadata(ALLOW_PENDING_PASSWORD_CHANGE, true);

@@ -6,7 +6,8 @@ la [spec](./spec.md). Les détails des routes et des données sont dans
 
 ## Prérequis
 
-- Node.js 24 LTS et npm ; Docker et Docker Compose.
+- Node.js 24 LTS et npm. Docker n'est requis que pour le déploiement : en local, PostgreSQL
+  est fourni par embedded-postgres (base de développement et bases de test jetables).
 - ffmpeg installé localement si l'API est lancée hors Docker.
 - Pour tester sur un vrai téléphone : téléphone sur le même réseau et HTTPS (le micro ne
   fonctionne que dans un contexte sécurisé, sauf sur `localhost`).
@@ -16,7 +17,8 @@ la [spec](./spec.md). Les détails des routes et des données sont dans
 ```bash
 npm install                                  # installe backend/ et frontend/ (workspaces)
 cp backend/.env.example backend/.env         # renseigner DATABASE_URL, SESSION_SECRET, FILES_DIR
-docker compose -f deploy/docker-compose.dev.yml up -d db
+npm run -w backend db:dev                    # PostgreSQL 17 embarqué (port 5433), dans un terminal dédié
+# (ou, avec Docker : docker compose -f deploy/docker-compose.dev.yml up -d db)
 npm run -w backend prisma:migrate            # applique les migrations (dont les triggers d'ajout seul)
 npm run -w backend prisma:seed               # réglages par défaut, catégorie « Photocopies », comptes de démo
 npm run -w backend start:dev                 # API sur http://localhost:3000

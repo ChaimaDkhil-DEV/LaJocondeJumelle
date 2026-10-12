@@ -17,7 +17,8 @@ généré par le backend ; ce document en fixe le contenu attendu.
 - **Format d'erreur** :
   `{ "error": { "code": "INVALID_TRANSITION", "message": "<texte français lisible>", "details": {…} } }`
 - **Codes métier** : `INVALID_TRANSITION` (409), `STATE_CHANGED` (409, verrouillage optimiste),
-  `RECIPIENT_NOT_ALLOWED` (422), `PHOTO_REQUIRED` (422), `REASON_REQUIRED` (422),
+  `RECIPIENT_NOT_ALLOWED` (422), `ASSIGNEE_REQUIRED` (422 : approbation en affectation manuelle
+  sans employé choisi), `PHOTO_REQUIRED` (422), `REASON_REQUIRED` (422),
   `CONTENT_REQUIRED` (422 : ni vocal ni description), `FILE_TYPE_NOT_ALLOWED` (415),
   `FILE_TOO_LARGE` (413), `VOICE_TOO_LONG` (422), `VOICE_TOO_SHORT` (422),
   `PASSWORD_CHANGE_REQUIRED` (403), `RATE_LIMITED` (429).

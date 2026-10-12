@@ -1,0 +1,405 @@
+// Modèle de données du lot 1 — voir specs/001-demandes-travail-vocales/data-model.md
+// Identifiants UUID, horodatages en UTC (timestamptz). Les tables RequestEvent et AuditLog
+// sont en ajout seul : des triggers PostgreSQL (migration 0001_init) bloquent UPDATE,
+// DELETE et TRUNCATE.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  MANAGER
+  EMPLOYEE
+}
+
+enum Priority {
+  NORMAL
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum RequestStatus {
+  DRAFT
+  PENDING_ADMIN_VALIDATION
+  SENT
+  ACCEPTED
+  IN_PROGRESS
+  DONE
+  PENDING_FINAL_VALIDATION
+  TO_CORRECT
+  CLOSED
+  REJECTED
+  CANCELLED
+}
+
+enum Circuit {
+  A_DIRECT
+  B_ADMIN_VALIDATION
+}
+
+enum ClosureMode {
+  AUTO
+  REQUESTER
+  MANAGER
+}
+
+enum AssignmentMode {
+  MANUAL
+  AUTO
+}
+
+enum DeadlineStage {
+  VALIDATION
+  TAKEOVER
+  COMPLETION
+}
+
+enum MessageKind {
+  TEXT
+  VOICE
+  SYSTEM
+}
+
+enum FileKind {
+  VOICE
+  PHOTO
+  DOCUMENT
+}
+
+enum Permission {
+  REQUEST_CREATE
+  PRIORITY_CHANGE_OWN
+  PRIORITY_CHANGE_MANAGED
+  REQUEST_REASSIGN
+  AUDIT_READ
+  ADMIN_MANAGE
+}
+
+enum RequestEventType {
+  CREATED
+  STATUS_CHANGED
+  PRIORITY_CHANGED
+  ASSIGNED
+  REASSIGNED
+  MESSAGE_ADDED
+  FILE_ADDED
+  OVERDUE
+}
+
+enum AuditAction {
+  LOGIN_SUCCESS
+  LOGIN_FAILURE
+  LOGOUT
+  ACCESS_DENIED
+  USER_CREATED
+  USER_UPDATED
+  USER_DEACTIVATED
+  PASSWORD_RESET
+  PASSWORD_CHANGED
+  ROLE_PERMISSIONS_CHANGED
+  CATEGORY_CHANGED
+  DEADLINE_RULE_CHANGED
+  SETTING_CHANGED
+}
+
+enum NotificationType {
+  REQUEST_NEW
+  MESSAGE_NEW
+  ASSIGNED
+  STATUS_CHANGED
+  URGENT
+  TO_CORRECT
+  REJECTED
+  CANCELLED
+  OVERDUE
+  CLOSED
+}
+
+/// Utilisateur. `username` est unique et insensible à la casse : il est toujours
+/// stocké en minuscules (3–64 caractères, contrôlé par les DTO).
+model User {
+  id                 String   @id @default(uuid()) @db.Uuid
+  username           String   @unique @db.VarChar(64)
+  displayName        String   @db.VarChar(100)
+  jobTitle           String?  @db.VarChar(100)
+  role               Role
+  passwordHash       String
+  mustChangePassword Boolean  @default(true)
+  active             Boolean  @default(true)
+  createdAt          DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime @updatedAt @db.Timestamptz(3)
+
+  sessions         Session[]
+  recipientOf      CategoryRecipient[]
+  managerOf        CategoryManager[]
+  autoAssigneeOf   Category[]          @relation("CategoryAutoAssignee")
+  requestsCreated  Request[]           @relation("RequestRequester")
+  requestsAssigned Request[]           @relation("RequestAssignee")
+  messages         Message[]
+  filesUploaded    File[]
+  requestEvents    RequestEvent[]
+  auditEntries     AuditLog[]
+  notifications    Notification[]
+  settingsUpdated  Setting[]
+}
+
+/// Session serveur : `id` est le haché HMAC du jeton aléatoire (256 bits) placé dans le cookie.
+model Session {
+  id         String   @id @db.VarChar(128)
+  userId     String   @db.Uuid
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+  lastSeenAt DateTime @default(now()) @db.Timestamptz(3)
+  expiresAt  DateTime @db.Timestamptz(3)
+  ip         String?  @db.VarChar(64)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+/// Permissions configurables par rôle. SUPER_ADMIN a toujours toutes les permissions (non stocké).
+model RolePermission {
+  role       Role
+  permission Permission
+
+  @@id([role, permission])
+}
+
+model Category {
+  id                    String         @id @default(uuid()) @db.Uuid
+  name                  String         @unique @db.VarChar(60)
+  active                Boolean        @default(true)
+  circuit               Circuit
+  creatorRoles          Role[]
+  closureMode           ClosureMode
+  /// Délai de grâce avant clôture automatique (closureMode = AUTO) ; 0 = immédiat.
+  autoCloseAfterMinutes Int            @default(1440)
+  /// Circuit B uniquement.
+  finalValidation       Boolean        @default(false)
+  /// Circuit B uniquement.
+  assignmentMode        AssignmentMode @default(MANUAL)
+  /// Obligatoire si assignmentMode = AUTO.
+  autoAssigneeId        String?        @db.Uuid
+  photoRequired         Boolean        @default(false)
+  createdAt             DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime       @updatedAt @db.Timestamptz(3)
+
+  autoAssignee  User?               @relation("CategoryAutoAssignee", fields: [autoAssigneeId], references: [id])
+  recipients    CategoryRecipient[]
+  managers      CategoryManager[]
+  deadlineRules DeadlineRule[]
+  requests      Request[]
+}
+
+/// Destinataires possibles (circuit A) et employés affectables (circuit B).
+model CategoryRecipient {
+  categoryId String @db.Uuid
+  userId     String @db.Uuid
+
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id])
+
+  @@id([categoryId, userId])
+  @@index([userId])
+}
+
+/// Responsables de la catégorie (rôle MANAGER ou SUPER_ADMIN).
+model CategoryManager {
+  categoryId String @db.Uuid
+  userId     String @db.Uuid
+
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id])
+
+  @@id([categoryId, userId])
+  @@index([userId])
+}
+
+/// Durées en minutes ; null = étape non suivie.
+model DeadlineRule {
+  id                String   @id @default(uuid()) @db.Uuid
+  categoryId        String   @db.Uuid
+  priority          Priority
+  validationMinutes Int?
+  takeoverMinutes   Int?
+  completionMinutes Int?
+
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([categoryId, priority])
+}
+
+/// Réglage global typé (clé/valeur), modifiable par le super administrateur.
+model Setting {
+  key         String   @id @db.VarChar(64)
+  value       Json
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+  updatedById String?  @db.Uuid
+
+  updatedBy User? @relation(fields: [updatedById], references: [id])
+}
+
+model Request {
+  id               String         @id @default(uuid()) @db.Uuid
+  /// Numéro séquentiel servant à construire `reference` (D-AAAA-NNNNNN).
+  number           Int            @unique @default(autoincrement())
+  reference        String         @unique @db.VarChar(20)
+  /// Idempotence des renvois : unique par (requesterId, clientId).
+  clientId         String         @db.Uuid
+  title            String         @db.VarChar(120)
+  description      String?        @db.VarChar(4000)
+  voiceFileId      String?        @unique @db.Uuid
+  categoryId       String         @db.Uuid
+  priority         Priority
+  requesterId      String         @db.Uuid
+  assigneeId       String?        @db.Uuid
+  status           RequestStatus
+  /// Verrouillage optimiste.
+  version          Int            @default(0)
+  /// Copie des règles de la catégorie à la création (FR-022).
+  rulesSnapshot    Json
+  currentStage     DeadlineStage?
+  currentDueAt     DateTime?      @db.Timestamptz(3)
+  warnAt           DateTime?      @db.Timestamptz(3)
+  overdueStage     DeadlineStage?
+  autoCloseAt      DateTime?      @db.Timestamptz(3)
+  rejectionReason  String?        @db.VarChar(1000)
+  createdAt        DateTime       @default(now()) @db.Timestamptz(3)
+  submittedAt      DateTime?      @db.Timestamptz(3)
+  approvedAt       DateTime?      @db.Timestamptz(3)
+  rejectedAt       DateTime?      @db.Timestamptz(3)
+  assignedAt       DateTime?      @db.Timestamptz(3)
+  acceptedAt       DateTime?      @db.Timestamptz(3)
+  startedAt        DateTime?      @db.Timestamptz(3)
+  doneAt           DateTime?      @db.Timestamptz(3)
+  finalValidatedAt DateTime?      @db.Timestamptz(3)
+  closedAt         DateTime?      @db.Timestamptz(3)
+  cancelledAt      DateTime?      @db.Timestamptz(3)
+  updatedAt        DateTime       @updatedAt @db.Timestamptz(3)
+
+  voiceFile     File?          @relation("RequestVoice", fields: [voiceFileId], references: [id])
+  category      Category       @relation(fields: [categoryId], references: [id])
+  requester     User           @relation("RequestRequester", fields: [requesterId], references: [id])
+  assignee      User?          @relation("RequestAssignee", fields: [assigneeId], references: [id])
+  files         File[]         @relation("RequestFiles")
+  messages      Message[]
+  events        RequestEvent[]
+  notifications Notification[]
+
+  @@unique([requesterId, clientId])
+  @@index([status])
+  @@index([categoryId])
+  @@index([assigneeId])
+  @@index([requesterId])
+  @@index([priority])
+  @@index([createdAt])
+  @@index([currentDueAt])
+}
+
+model Message {
+  id          String      @id @default(uuid()) @db.Uuid
+  requestId   String      @db.Uuid
+  /// null pour les messages SYSTEM.
+  authorId    String?     @db.Uuid
+  clientId    String?     @db.Uuid
+  kind        MessageKind
+  text        String?     @db.VarChar(4000)
+  voiceFileId String?     @unique @db.Uuid
+  createdAt   DateTime    @default(now()) @db.Timestamptz(3)
+
+  request     Request @relation(fields: [requestId], references: [id])
+  author      User?   @relation(fields: [authorId], references: [id])
+  voiceFile   File?   @relation("MessageVoice", fields: [voiceFileId], references: [id])
+  attachments File[]  @relation("MessageAttachments")
+
+  @@unique([authorId, clientId])
+  @@index([requestId, createdAt])
+}
+
+/// Vocal, photo ou document. Stocké sous FILES_DIR ; `storagePath` n'est jamais exposé.
+/// `requestId` est null tant que le fichier est provisoire (supprimé sous 24 h s'il n'est pas rattaché).
+model File {
+  id                String   @id @default(uuid()) @db.Uuid
+  requestId         String?  @db.Uuid
+  messageId         String?  @db.Uuid
+  uploaderId        String   @db.Uuid
+  kind              FileKind
+  mimeType          String   @db.VarChar(100)
+  originalName      String   @db.VarChar(255)
+  sizeBytes         Int
+  durationSeconds   Decimal? @db.Decimal(7, 2)
+  storagePath       String   @db.VarChar(255)
+  isCompletionProof Boolean  @default(false)
+  createdAt         DateTime @default(now()) @db.Timestamptz(3)
+
+  request        Request? @relation("RequestFiles", fields: [requestId], references: [id])
+  message        Message? @relation("MessageAttachments", fields: [messageId], references: [id])
+  uploader       User     @relation(fields: [uploaderId], references: [id])
+  voiceOfRequest Request? @relation("RequestVoice")
+  voiceOfMessage Message? @relation("MessageVoice")
+
+  @@index([requestId])
+  @@index([messageId])
+  @@index([createdAt])
+}
+
+/// Historique d'une demande — ajout seul (trigger).
+model RequestEvent {
+  id        String           @id @default(uuid()) @db.Uuid
+  requestId String           @db.Uuid
+  /// null = acteur SYSTEM (job planifié, règle automatique).
+  actorId   String?          @db.Uuid
+  type      RequestEventType
+  fromValue Json?
+  toValue   Json?
+  comment   String?          @db.VarChar(1000)
+  createdAt DateTime         @default(now()) @db.Timestamptz(3)
+
+  request Request @relation(fields: [requestId], references: [id])
+  actor   User?   @relation(fields: [actorId], references: [id])
+
+  @@index([requestId, createdAt])
+}
+
+/// Journal d'audit des actions sensibles — ajout seul (trigger).
+/// `details` ne contient jamais de mot de passe, jeton ni contenu de message.
+model AuditLog {
+  id         String      @id @default(uuid()) @db.Uuid
+  actorId    String?     @db.Uuid
+  action     AuditAction
+  targetType String?     @db.VarChar(40)
+  targetId   String?     @db.VarChar(64)
+  details    Json?
+  ip         String?     @db.VarChar(64)
+  createdAt  DateTime    @default(now()) @db.Timestamptz(3)
+
+  actor User? @relation(fields: [actorId], references: [id])
+
+  @@index([actorId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+model Notification {
+  id        String           @id @default(uuid()) @db.Uuid
+  userId    String           @db.Uuid
+  type      NotificationType
+  requestId String           @db.Uuid
+  /// Copie de la priorité de la demande, pour l'affichage distinct des urgences.
+  priority  Priority
+  readAt    DateTime?        @db.Timestamptz(3)
+  createdAt DateTime         @default(now()) @db.Timestamptz(3)
+
+  user    User    @relation(fields: [userId], references: [id])
+  request Request @relation(fields: [requestId], references: [id])
+
+  @@index([userId, readAt])
+  @@index([requestId])
+}

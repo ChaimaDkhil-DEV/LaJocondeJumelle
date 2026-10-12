@@ -1,0 +1,47 @@
+{
+  "name": "la-joconde-jumelle",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Lot 1 – demandes de travail et messagerie vocale pour une école privée",
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "test": "npm run -w backend test && npm run -w backend test:integration && npm run -w frontend test",
+    "test:e2e": "playwright test -c e2e/playwright.config.ts",
+    "verify": "npm run lint && npm test && npm audit --audit-level=high"
+  },
+  "allowScripts": {
+    "@prisma/client@6.19.3": true,
+    "argon2@0.45.1": true,
+    "@scarf/scarf": false,
+    "@embedded-postgres/windows-x64@17.10.0-beta.17": true,
+    "prisma@6.19.3": true,
+    "@prisma/engines@6.19.3": true,
+    "esbuild@0.28.2": true,
+    "@parcel/watcher": false,
+    "unrs-resolver": false
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@eslint/js": "^9.39.5",
+    "@playwright/test": "^1.64.0",
+    "eslint": "^9.39.5",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.13.0",
+    "prettier": "^3.9.10",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.71.1"
+  },
+  "overrides": {
+    "deepmerge-ts": "^8.0.0"
+  }
+}

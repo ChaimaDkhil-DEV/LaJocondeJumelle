@@ -1,0 +1,36 @@
+# Dépendances et builds
+node_modules/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# Environnement et secrets
+.env
+.env.*
+!.env.example
+
+# Données locales (base embarquée, fichiers téléversés)
+data/
+backend/.pgdata/
+backend/.pgdata-test/
+backend/.e2e-files/
+
+# Journaux et fichiers temporaires
+*.log
+*.tmp
+*.swp
+
+# Playwright
+e2e/test-results/
+e2e/playwright-report/
+e2e/.auth/
+
+# Client Prisma généré
+backend/src/generated/
+
+# Systèmes et éditeurs
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

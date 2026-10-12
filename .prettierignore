@@ -1,0 +1,12 @@
+node_modules/
+dist/
+build/
+coverage/
+package-lock.json
+backend/src/generated/
+frontend/src/api/schema.d.ts
+e2e/test-results/
+e2e/playwright-report/
+.specify/
+.claude/
+specs/

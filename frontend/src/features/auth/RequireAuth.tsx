@@ -1,0 +1,37 @@
+import type { ReactNode } from 'react';
+import { Navigate, useLocation } from 'react-router';
+import { ApiError } from '../../api/client';
+import { ErrorState } from '../../components/ErrorState';
+import { LoadingState } from '../../components/LoadingState';
+import { useCurrentUser } from './useCurrentUser';
+
+/**
+ * Protège une route : sans session (401) → connexion ;
+ * mot de passe à changer → page de changement ; sinon affiche le contenu.
+ */
+export function RequireAuth({ children }: { children: ReactNode }) {
+  const location = useLocation();
+  const me = useCurrentUser();
+
+  if (me.isPending) return <LoadingState />;
+
+  if (me.error) {
+    if (me.error instanceof ApiError && me.error.status === 401) {
+      return <Navigate to="/connexion" replace state={{ from: location.pathname }} />;
+    }
+    if (me.error instanceof ApiError && me.error.code === 'PASSWORD_CHANGE_REQUIRED') {
+      return <Navigate to="/mot-de-passe" replace />;
+    }
+    return (
+      <ErrorState
+        message={me.error instanceof ApiError ? me.error.message : 'Impossible de charger votre profil.'}
+        actionLabel="Réessayer"
+        onAction={() => void me.refetch()}
+      />
+    );
+  }
+
+  if (me.data.mustChangePassword) return <Navigate to="/mot-de-passe" replace />;
+
+  return <>{children}</>;
+}
