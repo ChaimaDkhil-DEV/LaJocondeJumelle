@@ -11,7 +11,7 @@ async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, { logger: new AppLogger() });
   configureApp(app);
   app.enableShutdownHooks();
-  await app.listen(Number(process.env.PORT ?? 3000));
+  await app.listen(Number(process.env.PORT ?? 3002));
 }
 
 void bootstrap();

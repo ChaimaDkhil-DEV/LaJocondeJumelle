@@ -57,6 +57,7 @@ function summary(overrides: Partial<OpenCoverage> = {}): OpenCoverage {
 }
 
 function detail(overrides: Partial<CoverageDetail> = {}): CoverageDetail {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- canAccept n'existe que dans le résumé
   const { canAccept: _ignored, ...base } = summary();
   return {
     ...base,
