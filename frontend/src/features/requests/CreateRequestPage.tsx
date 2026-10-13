@@ -1,4 +1,5 @@
 import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import FormControl from '@mui/material/FormControl';
 import FormControlLabel from '@mui/material/FormControlLabel';
@@ -7,17 +8,21 @@ import FormLabel from '@mui/material/FormLabel';
 import MenuItem from '@mui/material/MenuItem';
 import Radio from '@mui/material/Radio';
 import RadioGroup from '@mui/material/RadioGroup';
-import Stack from '@mui/material/Stack';
+import Paper from '@mui/material/Paper';
 import TextField from '@mui/material/TextField';
-import Typography from '@mui/material/Typography';
+import { Send, Tag, UserRound } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRef, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router';
 import { ApiError, fieldErrors } from '../../api/client';
 import type { Priority } from '../../api/types';
 import { ErrorState } from '../../components/ErrorState';
+import { fieldIcon } from '../../components/fieldIcon';
 import { LoadingState } from '../../components/LoadingState';
-import { PRIORITY_LABELS } from '../../components/PriorityChip';
+import { PageHeader } from '../../components/PageHeader';
+import { PRIORITY_LABELS, PRIORITY_STYLE } from '../../components/PriorityBadge';
+import { useToast } from '../../components/Toast';
+import { font, fontSize, icon, layout, tokensOf } from '../../design/tokens';
 import { saveToOutbox } from '../outbox/outbox';
 import { useClientSettings } from '../../api/settings';
 import { OUTBOX_KEY } from '../outbox/useOutbox';
@@ -42,6 +47,7 @@ export function CreateRequestPage() {
   const navigate = useNavigate();
   const { voiceMaxSeconds } = useClientSettings();
   const queryClient = useQueryClient();
+  const toast = useToast();
   const categories = useCategories();
   const clientId = useRef(crypto.randomUUID());
 
@@ -59,7 +65,15 @@ export function CreateRequestPage() {
   const isCircuitA = category?.circuit === 'A_DIRECT';
   const recipients = useRecipients(isCircuitA ? categoryId : null);
 
-  if (categories.isPending) return <LoadingState label="Chargement du formulaire" />;
+  const header = (
+    <PageHeader
+      title="Nouvelle demande"
+      description="Décrivez votre besoin : un message vocal suffit, la description écrite est facultative."
+      back={{ to: '/', label: 'Retour aux demandes' }}
+    />
+  );
+
+  if (categories.isPending) return <LoadingState label="Chargement du formulaire" variant="form" />;
   if (categories.error) {
     return (
       <ErrorState
@@ -102,7 +116,8 @@ export function CreateRequestPage() {
     try {
       const created = await submitRequest(input);
       await queryClient.invalidateQueries({ queryKey: requestKeys.all });
-      navigate(`/demandes/${created.id}`, { state: { flash: 'Votre demande a été envoyée.' } });
+      toast.success('Votre demande a été envoyée.');
+      navigate(`/demandes/${created.id}`);
     } catch (error) {
       if (isRetryableError(error)) {
         await saveToOutbox({
@@ -136,61 +151,91 @@ export function CreateRequestPage() {
 
   return (
     <>
-      <Typography component="h1" variant="h4" gutterBottom>
-        Nouvelle demande
-      </Typography>
-      <form noValidate onSubmit={(e) => void handleSubmit(e)}>
-        <Stack spacing={3}>
+      {header}
+      <Box component="form" noValidate onSubmit={(e: FormEvent<HTMLFormElement>) => void handleSubmit(e)} sx={{ maxWidth: layout.readable }}>
+        <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 }, display: 'grid', gap: 3 }}>
           {submitError && <Alert severity="error">{submitError}</Alert>}
 
-          <TextField
-            select
-            id="request-category"
-            label="Catégorie"
-            value={categoryId}
-            onChange={(e) => {
-              setCategoryId(e.target.value);
-              setRecipientId('');
-            }}
-            error={Boolean(errors.categoryId)}
-            helperText={errors.categoryId}
-          >
-            {categories.data.map((c) => (
-              <MenuItem key={c.id} value={c.id}>
-                {c.name}
-              </MenuItem>
-            ))}
-          </TextField>
-
-          {category && !isCircuitA ? (
-            <Alert severity="info">
-              Cette demande sera d’abord validée par un responsable, qui choisira la personne chargée de la réaliser.
-            </Alert>
-          ) : (
+          <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' }, alignItems: 'start' }}>
             <TextField
               select
-              id="request-recipient"
-              label="Destinataire"
-              value={recipientId}
-              disabled={!category}
-              onChange={(e) => setRecipientId(e.target.value)}
-              error={Boolean(errors.recipientId)}
-              helperText={errors.recipientId ?? (!category ? 'Choisissez d’abord une catégorie.' : undefined)}
+              id="request-category"
+              label="Catégorie"
+              value={categoryId}
+              onChange={(e) => {
+                setCategoryId(e.target.value);
+                setRecipientId('');
+              }}
+              error={Boolean(errors.categoryId)}
+              helperText={errors.categoryId}
+              slotProps={{ input: fieldIcon(Tag) }}
             >
-              {(recipients.data ?? []).map((r) => (
-                <MenuItem key={r.id} value={r.id}>
-                  {r.jobTitle ? `${r.displayName} — ${r.jobTitle}` : r.displayName}
+              {categories.data.map((c) => (
+                <MenuItem key={c.id} value={c.id}>
+                  {c.name}
                 </MenuItem>
               ))}
             </TextField>
-          )}
+
+            {category && !isCircuitA ? (
+              <Alert severity="info" sx={{ alignSelf: 'end' }}>
+                Cette demande sera d’abord validée par un responsable, qui choisira la personne chargée de la réaliser.
+              </Alert>
+            ) : (
+              <TextField
+                select
+                id="request-recipient"
+                label="Destinataire"
+                value={recipientId}
+                disabled={!category}
+                onChange={(e) => setRecipientId(e.target.value)}
+                error={Boolean(errors.recipientId)}
+                helperText={errors.recipientId ?? (!category ? 'Choisissez d’abord une catégorie.' : undefined)}
+                slotProps={{ input: fieldIcon(UserRound) }}
+              >
+                {(recipients.data ?? []).map((r) => (
+                  <MenuItem key={r.id} value={r.id}>
+                    {r.jobTitle ? `${r.displayName} — ${r.jobTitle}` : r.displayName}
+                  </MenuItem>
+                ))}
+              </TextField>
+            )}
+          </Box>
 
           <FormControl error={Boolean(errors.priority)} component="fieldset">
-            <FormLabel component="legend">Priorité</FormLabel>
-            <RadioGroup row value={priority} onChange={(e) => setPriority(e.target.value as Priority)}>
-              {PRIORITIES.map((p) => (
-                <FormControlLabel key={p} value={p} control={<Radio />} label={PRIORITY_LABELS[p]} />
-              ))}
+            <FormLabel component="legend" sx={{ mb: 1 }}>
+              Priorité
+            </FormLabel>
+            <RadioGroup row value={priority} onChange={(e) => setPriority(e.target.value as Priority)} sx={{ gap: 1 }}>
+              {PRIORITIES.map((p) => {
+                const Icon = PRIORITY_STYLE[p].icon;
+                return (
+                  <FormControlLabel
+                    key={p}
+                    value={p}
+                    control={<Radio size="small" />}
+                    label={
+                      <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, fontSize: fontSize.sm, fontWeight: font.medium }}>
+                        <Icon size={icon.sm} aria-hidden="true" />
+                        {PRIORITY_LABELS[p]}
+                      </Box>
+                    }
+                    sx={(theme) => ({
+                      m: 0,
+                      pr: 1.5,
+                      pl: 0.5,
+                      minHeight: 40,
+                      border: `1px solid ${tokensOf(theme).borderStrong}`,
+                      borderRadius: 1,
+                      bgcolor: 'background.paper',
+                      transition: 'background-color 150ms, border-color 150ms',
+                      '&:hover': { bgcolor: tokensOf(theme).surfaceMuted },
+                      '&:has(input:checked)': { borderColor: tokensOf(theme).accent.main, bgcolor: tokensOf(theme).accent.soft },
+                      '@media (pointer: coarse)': { minHeight: 44 },
+                    })}
+                  />
+                );
+              })}
             </RadioGroup>
             {errors.priority && <FormHelperText>{errors.priority}</FormHelperText>}
           </FormControl>
@@ -222,12 +267,14 @@ export function CreateRequestPage() {
             minRows={3}
             slotProps={{ htmlInput: { maxLength: 4000 } }}
           />
+        </Paper>
 
-          <Button type="submit" variant="contained" size="large" loading={submitting}>
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+          <Button type="submit" variant="contained" size="large" loading={submitting} startIcon={<Send aria-hidden="true" />}>
             Envoyer la demande
           </Button>
-        </Stack>
-      </form>
+        </Box>
+      </Box>
     </>
   );
 }

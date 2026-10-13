@@ -7,14 +7,15 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import FormGroup from '@mui/material/FormGroup';
 import FormHelperText from '@mui/material/FormHelperText';
 import FormLabel from '@mui/material/FormLabel';
-import Paper from '@mui/material/Paper';
 import TextField from '@mui/material/TextField';
-import Typography from '@mui/material/Typography';
+import { Save, ShieldCheck, SlidersHorizontal } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
 import { ApiError, apiFetch, fieldErrors } from '../../api/client';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
+import { SectionCard } from '../../components/SectionCard';
+import { icon } from '../../design/tokens';
 import { adminKeys, useAdminSettings, useRolePermissions, type AdminSettings, type ConfigurableRole, type RolePermissions } from './api';
 import { PERMISSION_LABELS, ROLE_LABELS } from './labels';
 
@@ -136,11 +137,16 @@ function SettingsForm({ settings }: { settings: AdminSettings }) {
       : null;
 
   return (
-    <Paper component="form" variant="outlined" noValidate onSubmit={submit} sx={{ p: 2, display: 'grid', gap: 2 }} aria-labelledby="titre-reglages">
-      <Typography id="titre-reglages" component="h2" variant="h6">
-        Réglages
-      </Typography>
-      <Typography color="text.secondary">Valeurs par défaut provisoires, à ajuster avec l’établissement.</Typography>
+    <SectionCard
+      component="form"
+      noValidate
+      onSubmit={submit}
+      title="Réglages"
+      titleId="titre-reglages"
+      icon={SlidersHorizontal}
+      description="Valeurs par défaut provisoires, à ajuster avec l’établissement."
+      contentGap={3}
+    >
       <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' } }}>
         {NUMBER_FIELDS.map((field) => (
           <TextField
@@ -189,11 +195,11 @@ function SettingsForm({ settings }: { settings: AdminSettings }) {
         </Alert>
       )}
       <Box>
-        <Button type="submit" variant="contained" loading={mutation.isPending}>
+        <Button type="submit" variant="contained" loading={mutation.isPending} startIcon={<Save size={icon.sm} aria-hidden="true" />}>
           Enregistrer les réglages
         </Button>
       </Box>
-    </Paper>
+    </SectionCard>
   );
 }
 
@@ -219,11 +225,13 @@ function RolePermissionsForm({ permissions }: { permissions: RolePermissions }) 
   }
 
   return (
-    <Paper variant="outlined" component="section" aria-labelledby="titre-permissions" sx={{ p: 2, display: 'grid', gap: 2 }}>
-      <Typography id="titre-permissions" component="h2" variant="h6">
-        Permissions par rôle
-      </Typography>
-      <Typography color="text.secondary">Le super administrateur dispose toujours de toutes les permissions.</Typography>
+    <SectionCard
+      title="Permissions par rôle"
+      titleId="titre-permissions"
+      icon={ShieldCheck}
+      description="Le super administrateur dispose toujours de toutes les permissions."
+      contentGap={3}
+    >
       <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' } }}>
         {ROLES.map((role) => (
           <FormControl key={role} component="fieldset">
@@ -251,11 +259,11 @@ function RolePermissionsForm({ permissions }: { permissions: RolePermissions }) 
         </Alert>
       )}
       <Box>
-        <Button variant="contained" loading={mutation.isPending} onClick={() => mutation.mutate(draft)}>
+        <Button variant="outlined" loading={mutation.isPending} onClick={() => mutation.mutate(draft)} startIcon={<Save size={icon.sm} aria-hidden="true" />}>
           Enregistrer les permissions
         </Button>
       </Box>
-    </Paper>
+    </SectionCard>
   );
 }
 
@@ -267,7 +275,7 @@ export function SettingsAdminPage() {
   return (
     <Box sx={{ display: 'grid', gap: 3 }}>
       {settings.isPending ? (
-        <LoadingState label="Chargement des réglages" />
+        <LoadingState label="Chargement des réglages" variant="form" />
       ) : settings.error ? (
         <ErrorState message="Impossible de charger les réglages." actionLabel="Réessayer" onAction={() => void settings.refetch()} />
       ) : (

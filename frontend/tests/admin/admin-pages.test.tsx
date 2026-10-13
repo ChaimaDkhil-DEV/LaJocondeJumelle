@@ -17,9 +17,10 @@ function json(status: number, body?: unknown): Response {
 const SUPER_ADMIN = { id: 'sa', displayName: 'Super administrateur', role: 'SUPER_ADMIN', permissions: [], mustChangePassword: false };
 
 const USERS = [
-  { id: 'e1', username: 'reprographie', displayName: 'Reprographie', jobTitle: 'Reprographie', role: 'EMPLOYEE', active: true, mustChangePassword: false, createdAt: '2026-09-01T08:00:00.000Z' },
-  { id: 'm1', username: 'responsable', displayName: 'Responsable administratif', jobTitle: 'Direction', role: 'MANAGER', active: true, mustChangePassword: false, createdAt: '2026-09-01T08:00:00.000Z' },
-  { id: 'sa', username: 'superadmin', displayName: 'Super administrateur', jobTitle: null, role: 'SUPER_ADMIN', active: true, mustChangePassword: false, createdAt: '2026-09-01T08:00:00.000Z' },
+  { id: 'e1', username: 'reprographie', displayName: 'Reprographie', jobTitle: 'Reprographie', role: 'EMPLOYEE', active: true, mustChangePassword: false, createdAt: '2026-09-01T08:00:00.000Z', recipientCategories: [{ id: 'c1', name: 'Photocopies' }] },
+  { id: 'm1', username: 'responsable', displayName: 'Responsable administratif', jobTitle: 'Direction', role: 'MANAGER', active: true, mustChangePassword: false, createdAt: '2026-09-01T08:00:00.000Z', recipientCategories: [] },
+  { id: 'sa', username: 'superadmin', displayName: 'Super administrateur', jobTitle: null, role: 'SUPER_ADMIN', active: true, mustChangePassword: false, createdAt: '2026-09-01T08:00:00.000Z', recipientCategories: [] },
+  { id: 'e2', username: 'technicien', displayName: 'Technicien', jobTitle: null, role: 'EMPLOYEE', active: true, mustChangePassword: true, createdAt: '2026-10-13T08:00:00.000Z', recipientCategories: [] },
 ];
 
 const RULES = (['NORMAL', 'MEDIUM', 'HIGH', 'URGENT'] as const).map((priority) => ({
@@ -136,7 +137,7 @@ describe('Comptes', () => {
     await waitFor(() =>
       expect(calls.find((c) => c.method === 'POST')).toMatchObject({
         url: '/api/admin/users',
-        body: { username: 'cuisine.chef', displayName: 'Chef de cuisine', jobTitle: 'Cantine', role: 'EMPLOYEE' },
+        body: { username: 'cuisine.chef', displayName: 'Chef de cuisine', jobTitle: 'Cantine', role: 'EMPLOYEE', recipientCategoryIds: [] },
       }),
     );
 
@@ -149,6 +150,47 @@ describe('Comptes', () => {
 
     await userEvent.click(within(passwordDialog).getByRole('button', { name: 'J’ai noté le mot de passe' }));
     await waitFor(() => expect(screen.queryByDisplayValue('Provisoire-1234abcd')).not.toBeInTheDocument());
+  });
+
+  it('rattache le nouveau compte aux catégories choisies (destinataire, donc affectable)', async () => {
+    const { calls } = setup('/admin/comptes', (url, method) =>
+      url === '/api/admin/users' && method === 'POST'
+        ? json(201, { user: { ...USERS[3], id: 'n2', username: 'agent', displayName: 'Agent', recipientCategories: [{ id: 'c1', name: 'Photocopies' }] }, temporaryPassword: 'Provisoire-5678efgh' })
+        : undefined,
+    );
+    await userEvent.click(await screen.findByRole('button', { name: 'Nouveau compte' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Nouveau compte' });
+    expect(within(dialog).getByText(/ne peut ni en recevoir ni être affecté/)).toBeVisible();
+
+    await userEvent.type(within(dialog).getByLabelText(/Identifiant/), 'agent');
+    await userEvent.type(within(dialog).getByLabelText(/Nom affiché/), 'Agent');
+    await userEvent.click(within(dialog).getByRole('combobox', { name: 'Destinataire des catégories' }));
+    await userEvent.click(await screen.findByRole('option', { name: 'Photocopies' }));
+    expect(within(dialog).getByText(/pourra recevoir les demandes de ces catégories/)).toBeVisible();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Créer le compte' }));
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === 'POST')).toMatchObject({
+        url: '/api/admin/users',
+        body: { username: 'agent', displayName: 'Agent', role: 'EMPLOYEE', recipientCategoryIds: ['c1'] },
+      }),
+    );
+  });
+
+  it('signale les employés destinataires d’aucune catégorie et permet de les rattacher', async () => {
+    const { calls } = setup('/admin/comptes', (url, method) =>
+      url === '/api/admin/users/e2' && method === 'PATCH' ? json(200, { ...USERS[3], recipientCategories: [{ id: 'c1', name: 'Photocopies' }] }) : undefined,
+    );
+    expect(await screen.findByText('Destinataire : Photocopies')).toBeVisible();
+    expect(screen.getByText('Destinataire d’aucune catégorie : ne peut pas être affecté.')).toBeVisible();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Modifier le compte de Technicien' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Modifier : Technicien' });
+    await userEvent.click(within(dialog).getByRole('combobox', { name: 'Destinataire des catégories' }));
+    await userEvent.click(await screen.findByRole('option', { name: 'Photocopies' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Enregistrer' }));
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === 'PATCH')).toMatchObject({ url: '/api/admin/users/e2', body: { recipientCategoryIds: ['c1'] } }),
+    );
   });
 
   it('demande une confirmation avant de désactiver un compte', async () => {

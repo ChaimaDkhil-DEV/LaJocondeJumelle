@@ -11,6 +11,8 @@ export interface AdminUser {
   active: boolean;
   mustChangePassword: boolean;
   createdAt: string;
+  /** Catégories dont le compte est destinataire (sans catégorie : jamais proposé à l'affectation). */
+  recipientCategories: Array<{ id: string; name: string }>;
 }
 
 export type Circuit = 'A_DIRECT' | 'B_ADMIN_VALIDATION';

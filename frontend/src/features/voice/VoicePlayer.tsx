@@ -1,11 +1,12 @@
-import PauseIcon from '@mui/icons-material/Pause';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import Slider from '@mui/material/Slider';
+import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
+import { Pause, Play } from 'lucide-react';
 import { useRef, useState } from 'react';
+import { icon, tokensOf } from '../../design/tokens';
 import { formatDuration } from './recorderFormat';
 
 interface VoicePlayerProps {
@@ -52,10 +53,24 @@ export function VoicePlayer({ src, durationSeconds }: VoicePlayerProps) {
   }
 
   const valueText = (value: number) => `${formatDuration(value)} sur ${formatDuration(duration)}`;
+  const Icon = playing ? Pause : Play;
 
   return (
-    <Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+    <Box sx={{ maxWidth: 480 }}>
+      <Box
+        sx={(theme) => ({
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1.5,
+          minWidth: 0,
+          py: 0.75,
+          pl: 0.75,
+          pr: 2,
+          borderRadius: 1,
+          border: `1px solid ${tokensOf(theme).border}`,
+          bgcolor: tokensOf(theme).surfaceMuted,
+        })}
+      >
         {/* Vocaux produits par les utilisateurs : pas de sous-titres dans ce lot, déclaration de
           conformité partielle WCAG (spec FR-044) ; le titre de la demande en donne l'objet. */}
         {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
@@ -74,13 +89,21 @@ export function VoicePlayer({ src, durationSeconds }: VoicePlayerProps) {
           }}
           onPause={() => setPlaying(false)}
         />
-        <IconButton
-          onClick={toggle}
-          aria-label={playing ? 'Mettre en pause le message vocal' : 'Lire le message vocal'}
-          color="primary"
-        >
-          {playing ? <PauseIcon /> : <PlayArrowIcon />}
-        </IconButton>
+        <Tooltip title={playing ? 'Pause' : 'Lire'}>
+          <IconButton
+            onClick={toggle}
+            aria-label={playing ? 'Mettre en pause le message vocal' : 'Lire le message vocal'}
+            sx={(theme) => ({
+              flex: 'none',
+              borderRadius: '50%',
+              bgcolor: tokensOf(theme).accent.main,
+              color: tokensOf(theme).accent.contrastText,
+              '&:hover': { bgcolor: tokensOf(theme).accent.hover, color: tokensOf(theme).accent.contrastText },
+            })}
+          >
+            <Icon size={icon.md} aria-hidden="true" />
+          </IconButton>
+        </Tooltip>
         <Slider
           size="small"
           min={0}
@@ -90,9 +113,14 @@ export function VoicePlayer({ src, durationSeconds }: VoicePlayerProps) {
           onChange={(_e, value) => seek(value as number)}
           aria-label="Position dans le message vocal"
           getAriaValueText={valueText}
-          sx={{ flexGrow: 1, minWidth: 60, mx: 1 }}
+          sx={{ flexGrow: 1, minWidth: 60 }}
         />
-        <Typography variant="body2" sx={{ whiteSpace: 'nowrap' }} aria-hidden="true">
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}
+          aria-hidden="true"
+        >
           {formatDuration(position)} / {formatDuration(duration)}
         </Typography>
       </Box>

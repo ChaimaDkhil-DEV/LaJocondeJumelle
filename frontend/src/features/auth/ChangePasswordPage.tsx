@@ -2,10 +2,11 @@ import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
-import Typography from '@mui/material/Typography';
+import { KeyRound, LockKeyhole } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { Navigate, useNavigate } from 'react-router';
 import { ApiError, fieldErrors } from '../../api/client';
+import { fieldIcon } from '../../components/fieldIcon';
 import { LoadingState } from '../../components/LoadingState';
 import { AuthLayout } from './AuthLayout';
 import { useChangePassword, useCurrentUser } from './useCurrentUser';
@@ -27,7 +28,7 @@ export function ChangePasswordPage() {
   const [confirmation, setConfirmation] = useState('');
   const [errors, setErrors] = useState<Errors>({});
 
-  if (me.isPending) return <LoadingState />;
+  if (me.isPending) return <LoadingState variant="form" />;
   if (me.error instanceof ApiError && me.error.status === 401) return <Navigate to="/connexion" replace />;
 
   function handleSubmit(event: FormEvent<HTMLFormElement>): void {
@@ -55,14 +56,16 @@ export function ChangePasswordPage() {
     apiError instanceof ApiError && Object.keys(fieldErrors(apiError)).length === 0 ? apiError.message : null;
 
   return (
-    <AuthLayout title="Changer votre mot de passe">
-      {me.data?.mustChangePassword && (
-        <Typography sx={{ mb: 2 }}>
-          Pour sécuriser votre compte, choisissez un nouveau mot de passe d’au moins {MIN_LENGTH} caractères.
-        </Typography>
-      )}
+    <AuthLayout
+      title="Changer votre mot de passe"
+      description={
+        me.data?.mustChangePassword
+          ? `Pour sécuriser votre compte, choisissez un nouveau mot de passe d’au moins ${MIN_LENGTH} caractères.`
+          : undefined
+      }
+    >
       <form noValidate onSubmit={handleSubmit}>
-        <Stack spacing={2}>
+        <Stack spacing={2.5}>
           {generalMessage && <Alert severity="error">{generalMessage}</Alert>}
           <TextField
             id="current-password"
@@ -73,6 +76,7 @@ export function ChangePasswordPage() {
             onChange={(e) => setCurrentPassword(e.target.value)}
             error={Boolean(errors.currentPassword)}
             helperText={errors.currentPassword}
+            slotProps={{ input: fieldIcon(KeyRound) }}
           />
           <TextField
             id="new-password"
@@ -83,6 +87,7 @@ export function ChangePasswordPage() {
             onChange={(e) => setNewPassword(e.target.value)}
             error={Boolean(errors.newPassword)}
             helperText={errors.newPassword ?? `Au moins ${MIN_LENGTH} caractères.`}
+            slotProps={{ input: fieldIcon(LockKeyhole) }}
           />
           <TextField
             id="confirm-password"
@@ -93,8 +98,9 @@ export function ChangePasswordPage() {
             onChange={(e) => setConfirmation(e.target.value)}
             error={Boolean(errors.confirmation)}
             helperText={errors.confirmation}
+            slotProps={{ input: fieldIcon(LockKeyhole) }}
           />
-          <Button type="submit" variant="contained" size="large" loading={changePassword.isPending}>
+          <Button type="submit" variant="contained" size="large" fullWidth loading={changePassword.isPending}>
             Enregistrer le mot de passe
           </Button>
         </Stack>

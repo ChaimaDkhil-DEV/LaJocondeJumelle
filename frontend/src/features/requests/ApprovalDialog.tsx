@@ -86,7 +86,7 @@ export function ApprovalDialog({
             La demande sera affectée automatiquement à l’employé désigné pour cette catégorie, qui en sera notifié.
           </DialogContentText>
         ) : assignees.isPending ? (
-          <LoadingState label="Chargement des employés" />
+          <LoadingState label="Chargement des employés" variant="inline" />
         ) : (
           <TextField
             select

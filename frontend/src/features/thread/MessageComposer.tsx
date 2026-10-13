@@ -1,4 +1,3 @@
-import AttachFileIcon from '@mui/icons-material/AttachFile';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -7,6 +6,7 @@ import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { useQueryClient } from '@tanstack/react-query';
+import { FileText, Paperclip, Send } from 'lucide-react';
 import { useState, type ChangeEvent, type FormEvent } from 'react';
 import { ApiError, fieldErrors } from '../../api/client';
 import { uploadFile } from '../../api/uploads';
@@ -14,6 +14,7 @@ import { saveToOutbox } from '../outbox/outbox';
 import { OUTBOX_KEY } from '../outbox/useOutbox';
 import { isRetryableError } from '../requests/api';
 import { useClientSettings } from '../../api/settings';
+import { icon } from '../../design/tokens';
 import { VoiceRecorder, type VoiceRecording } from '../voice/VoiceRecorder';
 import { messageKeys, submitMessage, type NewMessageInput } from './api';
 import { FilePickerButton } from './FilePickerButton';
@@ -124,7 +125,7 @@ export function MessageComposer({ requestId, requestTitle }: ComposerProps) {
   return (
     <Box component="form" noValidate onSubmit={(e: FormEvent<HTMLFormElement>) => void handleSubmit(e)}>
       <Stack spacing={2}>
-        <Typography component="h3" variant="subtitle1" sx={{ fontWeight: 600 }}>
+        <Typography component="h3" variant="subtitle2">
           Répondre
         </Typography>
         {error && <Alert severity="error">{error}</Alert>}
@@ -144,7 +145,7 @@ export function MessageComposer({ requestId, requestTitle }: ComposerProps) {
         <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
           <FilePickerButton
             label="Joindre un PDF"
-            icon={<AttachFileIcon aria-hidden="true" />}
+            icon={<Paperclip size={icon.md} aria-hidden="true" />}
             accept="application/pdf"
             disabled={uploadingDocument}
             onChange={(e) => void handleDocument(e)}
@@ -152,14 +153,15 @@ export function MessageComposer({ requestId, requestTitle }: ComposerProps) {
           {documents.map((doc) => (
             <Chip
               key={doc.id}
+              icon={<FileText size={icon.sm} aria-hidden="true" />}
               label={doc.name}
               onDelete={() => setDocuments((docs) => docs.filter((d) => d.id !== doc.id))}
               slotProps={{ root: { 'aria-label': doc.name } }}
             />
           ))}
         </Box>
-        <Box>
-          <Button type="submit" variant="contained" loading={sending}>
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <Button type="submit" variant="contained" loading={sending} startIcon={<Send size={icon.sm} aria-hidden="true" />}>
             Envoyer le message
           </Button>
         </Box>

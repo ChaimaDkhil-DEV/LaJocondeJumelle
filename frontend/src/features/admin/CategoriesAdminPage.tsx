@@ -1,7 +1,6 @@
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import Chip from '@mui/material/Chip';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
@@ -9,10 +8,17 @@ import DialogTitle from '@mui/material/DialogTitle';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Camera, CircleOff, FolderPlus, Pencil, Route, Timer } from 'lucide-react';
 import { useId, useState } from 'react';
 import { ApiError, apiFetch } from '../../api/client';
+import { Badge } from '../../components/Badge';
+import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
+import { IconAction } from '../../components/IconAction';
 import { LoadingState } from '../../components/LoadingState';
+import { SectionHeader } from '../../components/SectionHeader';
+import { useToast } from '../../components/Toast';
+import { font, icon } from '../../design/tokens';
 import { adminKeys, useAdminCategories, type AdminCategory, type DeadlineRule } from './api';
 import { CategoryFormDialog } from './CategoryFormDialog';
 import { DeadlineRulesTable, fromDraft, toDraft, type DeadlineDraft, type DeadlineErrors } from './DeadlineRulesTable';
@@ -63,7 +69,7 @@ function DeadlinesDialog({ category, onClose, onSaved }: { category: AdminCatego
     >
       <DialogTitle id={titleId}>Délais : {category?.name}</DialogTitle>
       <DialogContent>
-        <Typography sx={{ mb: 2 }} color="text.secondary">
+        <Typography variant="body2" sx={{ mb: 2 }} color="text.secondary">
           Durées en minutes ; laissez vide pour ne fixer aucun délai. Les demandes déjà créées gardent leurs délais.
         </Typography>
         {category && <DeadlineRulesTable circuit={category.circuit} value={draft} errors={errors} onChange={setDraft} />}
@@ -88,57 +94,71 @@ export function CategoriesAdminPage() {
   const categories = useAdminCategories();
   const [form, setForm] = useState<{ category: AdminCategory | null } | null>(null);
   const [deadlines, setDeadlines] = useState<AdminCategory | null>(null);
-  const [feedback, setFeedback] = useState<string | null>(null);
+  const toast = useToast();
 
   return (
     <Box component="section" aria-labelledby="titre-categories">
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 2 }}>
-        <Typography id="titre-categories" component="h2" variant="h6">
-          Catégories
-        </Typography>
-        <Button variant="contained" onClick={() => setForm({ category: null })}>
-          Nouvelle catégorie
-        </Button>
-      </Box>
-
-      {feedback && (
-        <Alert severity="success" role="status" onClose={() => setFeedback(null)} sx={{ mb: 2 }}>
-          {feedback}
-        </Alert>
-      )}
+      <SectionHeader
+        id="titre-categories"
+        title="Catégories"
+        description="Types de demandes : circuit de validation, destinataires, responsables et délais."
+        action={
+          <Button variant="contained" startIcon={<FolderPlus size={icon.sm} aria-hidden="true" />} onClick={() => setForm({ category: null })}>
+            Nouvelle catégorie
+          </Button>
+        }
+      />
 
       {categories.isPending ? (
         <LoadingState label="Chargement des catégories" />
       ) : categories.error ? (
         <ErrorState message="Impossible de charger les catégories." actionLabel="Réessayer" onAction={() => void categories.refetch()} />
+      ) : categories.data.length === 0 ? (
+        <Paper variant="outlined">
+          <EmptyState title="Aucune catégorie" description="Créez une première catégorie, par exemple « Photocopies »." />
+        </Paper>
       ) : (
-        <Box component="ul" aria-label="Catégories" sx={{ listStyle: 'none', m: 0, p: 0, display: 'grid', gap: 1.5 }}>
-          {categories.data.map((category) => (
-            <Paper component="li" key={category.id} variant="outlined" sx={{ p: 2 }}>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
-                <Typography sx={{ fontWeight: 600, overflowWrap: 'anywhere' }}>{category.name}</Typography>
-                <Chip size="small" label={category.circuit === 'A_DIRECT' ? 'Circuit A' : 'Circuit B'} />
-                {!category.active && <Chip size="small" label="Inactive" />}
-                {category.photoRequired && <Chip size="small" color="info" label="Photo obligatoire" />}
+        <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
+          <Box component="ul" aria-label="Catégories" sx={{ listStyle: 'none', m: 0, p: 0, '& > li + li': { borderTop: 1, borderColor: 'divider' } }}>
+            {categories.data.map((category) => (
+              <Box
+                component="li"
+                key={category.id}
+                sx={{ display: 'flex', flexWrap: { xs: 'wrap', sm: 'nowrap' }, alignItems: 'flex-start', gap: 2, px: { xs: 2, md: 2.5 }, py: 2 }}
+              >
+                <Box sx={{ minWidth: 0, flex: '1 1 auto' }}>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
+                    <Typography sx={{ fontWeight: font.medium, overflowWrap: 'anywhere' }}>{category.name}</Typography>
+                    <Badge tone={category.circuit === 'A_DIRECT' ? 'neutral' : 'accent'} icon={Route}>
+                      {category.circuit === 'A_DIRECT' ? 'Circuit A' : 'Circuit B'}
+                    </Badge>
+                    {!category.active && (
+                      <Badge tone="neutral" icon={CircleOff}>
+                        Inactive
+                      </Badge>
+                    )}
+                    {category.photoRequired && (
+                      <Badge tone="info" icon={Camera}>
+                        Photo obligatoire
+                      </Badge>
+                    )}
+                  </Box>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                    {CIRCUIT_LABELS[category.circuit]} · Clôture : {CLOSURE_LABELS[category.closureMode].toLowerCase()}
+                    {category.finalValidation ? ' · validation finale' : ''}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
+                    Destinataires : {names(category.recipients)} · Responsables : {names(category.managers)}
+                  </Typography>
+                </Box>
+                <Box sx={{ display: 'flex', gap: 0.5, flex: 'none', ml: 'auto' }}>
+                  <IconAction icon={Pencil} label={`Modifier la catégorie ${category.name}`} tooltip="Modifier" onClick={() => setForm({ category })} />
+                  <IconAction icon={Timer} label={`Délais de ${category.name}`} tooltip="Délais" onClick={() => setDeadlines(category)} />
+                </Box>
               </Box>
-              <Typography variant="body2" color="text.secondary">
-                {CIRCUIT_LABELS[category.circuit]} · Clôture : {CLOSURE_LABELS[category.closureMode].toLowerCase()}
-                {category.finalValidation ? ' · validation finale' : ''}
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
-                Destinataires : {names(category.recipients)} · Responsables : {names(category.managers)}
-              </Typography>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
-                <Button size="small" variant="outlined" aria-label={`Modifier la catégorie ${category.name}`} onClick={() => setForm({ category })}>
-                  Modifier
-                </Button>
-                <Button size="small" variant="outlined" aria-label={`Délais de ${category.name}`} onClick={() => setDeadlines(category)}>
-                  Délais
-                </Button>
-              </Box>
-            </Paper>
-          ))}
-        </Box>
+            ))}
+          </Box>
+        </Paper>
       )}
 
       <CategoryFormDialog
@@ -147,7 +167,7 @@ export function CategoriesAdminPage() {
         onClose={() => setForm(null)}
         onSaved={(message) => {
           setForm(null);
-          setFeedback(message);
+          toast.success(message);
         }}
       />
       <DeadlinesDialog
@@ -155,7 +175,7 @@ export function CategoriesAdminPage() {
         onClose={() => setDeadlines(null)}
         onSaved={(message) => {
           setDeadlines(null);
-          setFeedback(message);
+          toast.success(message);
         }}
       />
     </Box>

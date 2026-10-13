@@ -8,9 +8,28 @@ import DialogContentText from '@mui/material/DialogContentText';
 import DialogTitle from '@mui/material/DialogTitle';
 import Typography from '@mui/material/Typography';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  Ban,
+  Check,
+  CircleCheck,
+  CirclePlay,
+  CircleX,
+  ClipboardCheck,
+  Flag,
+  Lock,
+  RotateCcw,
+  RotateCw,
+  Send,
+  ThumbsUp,
+  UserRoundCog,
+  type LucideIcon,
+} from 'lucide-react';
 import { useId, useState } from 'react';
 import { ApiError, apiFetch } from '../../api/client';
-import { STATUS_LABELS } from '../../components/StatusChip';
+import { visuallyHidden } from '../../components/a11y';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
+import { STATUS_LABELS } from '../../components/StatusBadge';
+import { icon } from '../../design/tokens';
 import { PhotoCapture, type UploadedPhoto } from '../thread/PhotoCapture';
 import { requestKeys } from './api';
 import { ApprovalDialog } from './ApprovalDialog';
@@ -36,7 +55,24 @@ const ACTION_LABELS: Record<string, string> = {
   REASSIGN: 'Réaffecter',
 };
 
+const ACTION_ICONS: Record<string, LucideIcon> = {
+  SUBMIT: Send,
+  APPROVE: Check,
+  ACCEPT: ThumbsUp,
+  START: CirclePlay,
+  COMPLETE: CircleCheck,
+  RESUME: RotateCw,
+  CLOSE: Lock,
+  VALIDATE_FINAL: ClipboardCheck,
+  REQUEST_CORRECTION: RotateCcw,
+  DECLINE: CircleX,
+  REJECT: CircleX,
+  CANCEL: Ban,
+  REASSIGN: UserRoundCog,
+};
+
 const PRIMARY = new Set(['SUBMIT', 'APPROVE', 'ACCEPT', 'START', 'COMPLETE', 'RESUME', 'CLOSE', 'VALIDATE_FINAL']);
+const DESTRUCTIVE = new Set(['CANCEL', 'DECLINE', 'REJECT']);
 
 type Dialogs = 'priority' | 'approve' | 'reassign' | 'refuse' | 'correction' | 'cancel' | 'complete' | null;
 
@@ -51,7 +87,6 @@ interface ActionBody {
 /** Boutons d'action d'une demande : uniquement ceux de `allowedActions` (calculés par le serveur). */
 export function RequestActions({ request }: { request: RequestDetail }) {
   const queryClient = useQueryClient();
-  const cancelTitleId = useId();
   const completeTitleId = useId();
   const [dialog, setDialog] = useState<Dialogs>(null);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
@@ -119,10 +154,12 @@ export function RequestActions({ request }: { request: RequestDetail }) {
   const refuseAction = actions.includes('REJECT') ? 'REJECT' : 'DECLINE';
   const anyError = mutation.error ?? priorityMutation.error;
   const error = anyError instanceof ApiError ? anyError.message : anyError ? 'Action impossible.' : null;
+  // Un seul bouton principal : la première action « positive » permise ; les autres restent secondaires.
+  const primaryAction = actions.find((a) => PRIMARY.has(a));
 
   return (
     <Box>
-      <Typography role="status" aria-live="polite" sx={{ position: 'absolute', left: -10_000 }}>
+      <Typography role="status" aria-live="polite" sx={visuallyHidden}>
         {feedback}
       </Typography>
       {error && !dialog && (
@@ -132,19 +169,23 @@ export function RequestActions({ request }: { request: RequestDetail }) {
       )}
       {(actions.length > 0 || canChangePriority) && (
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-          {actions.map((action) => (
-            <Button
-              key={action}
-              variant={PRIMARY.has(action) ? 'contained' : 'outlined'}
-              color={action === 'CANCEL' || action === 'DECLINE' || action === 'REJECT' ? 'error' : 'primary'}
-              onClick={() => onClick(action)}
-              loading={pendingAction === action && !dialog}
-            >
-              {ACTION_LABELS[action]}
-            </Button>
-          ))}
+          {actions.map((action) => {
+            const Icon = ACTION_ICONS[action];
+            return (
+              <Button
+                key={action}
+                variant={action === primaryAction ? 'contained' : 'outlined'}
+                color={DESTRUCTIVE.has(action) ? 'error' : 'primary'}
+                startIcon={Icon && <Icon size={icon.sm} aria-hidden="true" />}
+                onClick={() => onClick(action)}
+                loading={pendingAction === action && !dialog}
+              >
+                {ACTION_LABELS[action]}
+              </Button>
+            );
+          })}
           {canChangePriority && (
-            <Button variant="outlined" onClick={() => setDialog('priority')}>
+            <Button variant="outlined" startIcon={<Flag size={icon.sm} aria-hidden="true" />} onClick={() => setDialog('priority')}>
               Changer la priorité
             </Button>
           )}
@@ -195,18 +236,17 @@ export function RequestActions({ request }: { request: RequestDetail }) {
         onClose={() => setDialog(null)}
       />
 
-      <Dialog open={dialog === 'cancel'} onClose={() => setDialog(null)} aria-labelledby={cancelTitleId}>
-        <DialogTitle id={cancelTitleId}>Annuler cette demande ?</DialogTitle>
-        <DialogContent>
-          <DialogContentText>La demande sera définitivement annulée et le destinataire en sera informé.</DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDialog(null)}>Retour</Button>
-          <Button color="error" variant="contained" onClick={() => send('CANCEL')} loading={mutation.isPending}>
-            Oui, annuler la demande
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <ConfirmDialog
+        open={dialog === 'cancel'}
+        title="Annuler cette demande ?"
+        confirmLabel="Oui, annuler la demande"
+        cancelLabel="Retour"
+        pending={mutation.isPending}
+        onConfirm={() => send('CANCEL')}
+        onClose={() => setDialog(null)}
+      >
+        La demande sera définitivement annulée et le destinataire en sera informé.
+      </ConfirmDialog>
 
       <Dialog
         open={dialog === 'complete'}
@@ -231,6 +271,7 @@ export function RequestActions({ request }: { request: RequestDetail }) {
           <Button onClick={() => setDialog(null)}>Retour</Button>
           <Button
             variant="contained"
+            startIcon={<CircleCheck size={icon.sm} aria-hidden="true" />}
             disabled={photos.length === 0}
             loading={mutation.isPending}
             onClick={() => send('COMPLETE', { proofFileIds: photos.map((p) => p.id) })}

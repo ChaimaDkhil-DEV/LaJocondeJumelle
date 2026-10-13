@@ -188,6 +188,33 @@ describe('Onglet « À valider »', () => {
 describe('Réaffectation (US6)', () => {
   afterEach(() => vi.unstubAllGlobals());
 
+  it('recharge la liste à chaque ouverture : un employé créé entre-temps y figure sans recharger la page', async () => {
+    let assignees = [{ id: 'e1', displayName: 'Reprographie', jobTitle: 'Reprographie' }];
+    const calls = stubFetch((call) =>
+      call.url === '/api/requests/r1/assignees' ? json(200, assignees) : undefined,
+    );
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <RequestActions request={detail({ status: 'SENT', assignee: null, allowedActions: ['REASSIGN'] })} />
+      </QueryClientProvider>,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Réaffecter' }));
+    let dialog = await screen.findByRole('dialog', { name: 'Réaffecter la demande' });
+    await userEvent.click(await within(dialog).findByRole('combobox', { name: 'Nouvel employé' }));
+    expect(within(await screen.findByRole('listbox')).getAllByRole('option').map((o) => o.textContent)).toEqual(['Reprographie — Reprographie']);
+    await userEvent.keyboard('{Escape}');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Retour' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+
+    // Le super administrateur crée un employé rattaché à la catégorie pendant que la page reste ouverte.
+    assignees = [...assignees, { id: 'e3', displayName: 'Nouveau technicien', jobTitle: 'Climatisation' }];
+    await userEvent.click(screen.getByRole('button', { name: 'Réaffecter' }));
+    dialog = await screen.findByRole('dialog', { name: 'Réaffecter la demande' });
+    await waitFor(() => expect(calls.filter((c) => c.url === '/api/requests/r1/assignees')).toHaveLength(2));
+    await userEvent.click(await within(dialog).findByRole('combobox', { name: 'Nouvel employé' }));
+    expect(await screen.findByRole('option', { name: 'Nouveau technicien — Climatisation' })).toBeVisible();
+  });
+
   it('un responsable confie la demande à un autre employé de la catégorie', async () => {
     const calls = renderActions(
       detail({

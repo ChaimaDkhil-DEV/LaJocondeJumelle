@@ -1,14 +1,27 @@
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { useQuery } from '@tanstack/react-query';
+import {
+  AlarmClock,
+  FilePlus,
+  Flag,
+  History,
+  MessageSquare,
+  Paperclip,
+  RefreshCw,
+  UserRound,
+  type LucideIcon,
+} from 'lucide-react';
 import { apiFetch } from '../../api/client';
 import type { Priority, RequestStatus } from '../../api/types';
 import { STAGE_LABELS, type DeadlineStage } from '../../components/Countdown';
 import { ErrorState } from '../../components/ErrorState';
 import { formatDateTime } from '../../components/format';
 import { LoadingState } from '../../components/LoadingState';
-import { PRIORITY_LABELS } from '../../components/PriorityChip';
-import { STATUS_LABELS } from '../../components/StatusChip';
+import { SectionCard } from '../../components/SectionCard';
+import { font, icon, tokensOf } from '../../design/tokens';
+import { PRIORITY_LABELS } from '../../components/PriorityBadge';
+import { STATUS_LABELS } from '../../components/StatusBadge';
 
 type EventValue = Record<string, unknown> | null;
 
@@ -50,6 +63,17 @@ export function describeEvent(e: HistoryEvent): string {
   }
 }
 
+const EVENT_ICONS: Record<string, LucideIcon> = {
+  CREATED: FilePlus,
+  STATUS_CHANGED: RefreshCw,
+  PRIORITY_CHANGED: Flag,
+  ASSIGNED: UserRound,
+  REASSIGNED: UserRound,
+  MESSAGE_ADDED: MessageSquare,
+  FILE_ADDED: Paperclip,
+  OVERDUE: AlarmClock,
+};
+
 /** Historique complet d'une demande (FR-029), du plus ancien au plus récent. */
 export function HistoryTimeline({ requestId }: { requestId: string }) {
   const history = useQuery({
@@ -58,28 +82,62 @@ export function HistoryTimeline({ requestId }: { requestId: string }) {
   });
 
   return (
-    <Box component="section" aria-labelledby="titre-historique">
-      <Typography id="titre-historique" component="h2" variant="h6" gutterBottom>
-        Historique
-      </Typography>
+    <SectionCard title="Historique" icon={History} titleId="titre-historique">
       {history.isPending ? (
-        <LoadingState label="Chargement de l’historique" />
+        <LoadingState label="Chargement de l’historique" rows={2} />
       ) : history.error ? (
         <ErrorState message="Impossible de charger l’historique." actionLabel="Réessayer" onAction={() => void history.refetch()} />
       ) : (
-        <Box component="ol" aria-label="Historique" sx={{ m: 0, pl: 0, listStyle: 'none', borderLeft: 2, borderColor: 'divider' }}>
-          {history.data.map((event) => (
-            <Box component="li" key={event.id} sx={{ pl: 2, pb: 1.5, position: 'relative' }}>
-              <Typography sx={{ fontWeight: 600 }}>{describeEvent(event)}</Typography>
-              {event.comment && <Typography sx={{ overflowWrap: 'anywhere' }}>« {event.comment} »</Typography>}
-              <Typography variant="body2" color="text.secondary">
-                {event.actor ? `par ${event.actor.displayName}` : 'par le système'} ·{' '}
-                <time dateTime={event.createdAt}>{formatDateTime(event.createdAt)}</time>
-              </Typography>
-            </Box>
-          ))}
+        <Box component="ol" aria-label="Historique" sx={{ m: 0, p: 0, listStyle: 'none' }}>
+          {history.data.map((event, index) => {
+            const Icon = EVENT_ICONS[event.type] ?? RefreshCw;
+            const late = event.type === 'OVERDUE';
+            const last = index === history.data.length - 1;
+            return (
+              <Box
+                component="li"
+                key={event.id}
+                sx={{ position: 'relative', display: 'grid', gridTemplateColumns: '28px minmax(0, 1fr)', columnGap: 1.5, pb: last ? 0 : 2 }}
+              >
+                {/* Trait vertical reliant les étapes. */}
+                {!last && (
+                  <Box aria-hidden="true" sx={{ position: 'absolute', left: 13.5, top: 30, bottom: 2, width: '1px', bgcolor: 'divider' }} />
+                )}
+                <Box
+                  aria-hidden="true"
+                  sx={(theme) => ({
+                    width: 28,
+                    height: 28,
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    border: `1px solid ${late ? tokensOf(theme).error.border : tokensOf(theme).border}`,
+                    bgcolor: late ? tokensOf(theme).error.soft : tokensOf(theme).surface,
+                    color: late ? tokensOf(theme).error.main : tokensOf(theme).textSecondary,
+                  })}
+                >
+                  <Icon size={icon.sm - 2} />
+                </Box>
+                <Box sx={{ minWidth: 0, pt: 0.25 }}>
+                  <Typography variant="body2" sx={{ fontWeight: font.medium, overflowWrap: 'anywhere' }}>
+                    {describeEvent(event)}
+                  </Typography>
+                  {event.comment && (
+                    <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere', mt: 0.25 }}>
+                      « {event.comment} »
+                    </Typography>
+                  )}
+                  <Typography variant="caption" color="text.secondary">
+                    {event.actor ? `par ${event.actor.displayName}` : 'par le système'} ·{' '}
+                    <time dateTime={event.createdAt}>{formatDateTime(event.createdAt)}</time>
+                  </Typography>
+                </Box>
+              </Box>
+            );
+          })}
         </Box>
       )}
-    </Box>
+    </SectionCard>
   );
 }

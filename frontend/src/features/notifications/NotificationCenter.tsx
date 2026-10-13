@@ -1,35 +1,99 @@
-import NotificationsIcon from '@mui/icons-material/Notifications';
-import PriorityHighIcon from '@mui/icons-material/PriorityHigh';
 import Alert from '@mui/material/Alert';
 import Badge from '@mui/material/Badge';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
-import ListItemText from '@mui/material/ListItemText';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Snackbar from '@mui/material/Snackbar';
+import Tooltip from '@mui/material/Tooltip';
+import Typography from '@mui/material/Typography';
+import {
+  AlarmClock,
+  Ban,
+  Bell,
+  BellOff,
+  CheckCheck,
+  CircleX,
+  FilePlus,
+  Lock,
+  MessageSquare,
+  RefreshCw,
+  RotateCcw,
+  Siren,
+  UserRound,
+  type LucideIcon,
+} from 'lucide-react';
 import { useId, useState } from 'react';
 import { Link as RouterLink, useNavigate } from 'react-router';
-import { formatDateTime } from '../../components/format';
-import { NOTIFICATION_LABELS, useMarkRead, useUnreadNotifications, type NotificationItem } from './api';
+import { visuallyHidden } from '../../components/a11y';
+import { formatRelative } from '../../components/format';
+import { font, icon, shadow, tokensOf } from '../../design/tokens';
+import { NOTIFICATION_LABELS, useMarkRead, useUnreadNotifications, type NotificationItem, type NotificationType } from './api';
 import { useRealtime } from './SocketProvider';
 
-const visuallyHidden = {
-  position: 'absolute',
-  width: 1,
-  height: 1,
-  overflow: 'hidden',
-  clip: 'rect(0 0 0 0)',
-  whiteSpace: 'nowrap',
-} as const;
+const NOTIFICATION_ICONS: Record<NotificationType, LucideIcon> = {
+  REQUEST_NEW: FilePlus,
+  MESSAGE_NEW: MessageSquare,
+  ASSIGNED: UserRound,
+  STATUS_CHANGED: RefreshCw,
+  URGENT: Siren,
+  TO_CORRECT: RotateCcw,
+  REJECTED: CircleX,
+  CANCELLED: Ban,
+  OVERDUE: AlarmClock,
+  CLOSED: Lock,
+};
 
-function UrgentMark({ testId }: { testId?: string }) {
+function UrgentMark() {
   return (
-    <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25, color: 'error.main', fontWeight: 700 }}>
-      <PriorityHighIcon fontSize="small" aria-hidden="true" data-testid={testId} />
+    <Box
+      component="span"
+      sx={(theme) => ({ display: 'inline-flex', alignItems: 'center', gap: 0.5, color: tokensOf(theme).error.text, fontWeight: font.medium })}
+    >
+      <Siren size={icon.sm - 2} aria-hidden="true" />
       Urgent
+    </Box>
+  );
+}
+
+function NotificationRow({ item }: { item: NotificationItem }) {
+  const urgent = item.priority === 'URGENT';
+  const Icon = NOTIFICATION_ICONS[item.type];
+  return (
+    <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start', width: '100%', minWidth: 0 }}>
+      <Box
+        aria-hidden="true"
+        sx={(theme) => ({
+          width: 32,
+          height: 32,
+          flex: 'none',
+          borderRadius: '50%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          bgcolor: urgent ? tokensOf(theme).error.soft : tokensOf(theme).accent.soft,
+          color: urgent ? tokensOf(theme).error.main : tokensOf(theme).accent.main,
+        })}
+      >
+        <Icon size={icon.sm} />
+      </Box>
+      <Box sx={{ minWidth: 0, flex: 1 }}>
+        <Typography variant="body2" sx={{ fontWeight: font.medium, overflowWrap: 'anywhere' }}>
+          {urgent && (
+            <>
+              <UrgentMark />{' '}
+            </>
+          )}
+          {NOTIFICATION_LABELS[item.type]} — {item.request.title}
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          {item.request.reference} · <time dateTime={item.createdAt}>{formatRelative(item.createdAt)}</time>
+        </Typography>
+      </Box>
+      {/* Non lue : pastille discrète (les notifications listées ici sont toutes non lues). */}
+      <Box aria-hidden="true" sx={{ width: 8, height: 8, mt: 1, flex: 'none', borderRadius: '50%', bgcolor: 'primary.main' }} />
     </Box>
   );
 }
@@ -59,51 +123,51 @@ export function NotificationCenter() {
 
   return (
     <>
-      <IconButton
-        color="inherit"
-        aria-label={`Notifications (${total} non lue${total > 1 ? 's' : ''})`}
-        aria-haspopup="menu"
-        aria-controls={anchor ? menuId : undefined}
-        onClick={(e) => setAnchor(e.currentTarget)}
-      >
-        <Badge badgeContent={total} color="error" max={99}>
-          <NotificationsIcon />
-        </Badge>
-      </IconButton>
+      <Tooltip title="Notifications">
+        <IconButton
+          aria-label={`Notifications (${total} non lue${total > 1 ? 's' : ''})`}
+          aria-haspopup="menu"
+          aria-controls={anchor ? menuId : undefined}
+          onClick={(e) => setAnchor(e.currentTarget)}
+        >
+          <Badge badgeContent={total} color="error" max={99} overlap="circular">
+            <Bell size={icon.lg} aria-hidden="true" />
+          </Badge>
+        </IconButton>
+      </Tooltip>
 
       <Menu
         id={menuId}
         anchorEl={anchor}
         open={Boolean(anchor)}
         onClose={() => setAnchor(null)}
-        slotProps={{ list: { 'aria-label': 'Notifications' }, paper: { sx: { maxWidth: 360, width: '100%' } } }}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        slotProps={{ list: { 'aria-label': 'Notifications' }, paper: { sx: { width: 380, maxWidth: 'calc(100vw - 16px)' } } }}
       >
-        {items.length === 0 && <MenuItem disabled>Aucune notification non lue</MenuItem>}
+        {items.length === 0 && (
+          <MenuItem disabled sx={{ '&.Mui-disabled': { opacity: 1 } }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary' }}>
+              <BellOff size={icon.sm} aria-hidden="true" />
+              Aucune notification non lue
+            </Box>
+          </MenuItem>
+        )}
         {items.map((item) => (
-          <MenuItem key={item.id} onClick={() => open(item)} sx={{ whiteSpace: 'normal', alignItems: 'flex-start' }}>
-            <ListItemText
-              primary={
-                <>
-                  {item.priority === 'URGENT' && (
-                    <>
-                      <UrgentMark />{' '}
-                    </>
-                  )}
-                  {NOTIFICATION_LABELS[item.type]} — {item.request.title}
-                </>
-              }
-              secondary={`${item.request.reference} · ${formatDateTime(item.createdAt)}`}
-            />
+          <MenuItem key={item.id} onClick={() => open(item)} sx={{ whiteSpace: 'normal', alignItems: 'flex-start', py: 1.25 }}>
+            <NotificationRow item={item} />
           </MenuItem>
         ))}
-        {items.length > 0 && <Divider />}
+        {items.length > 0 && <Divider sx={{ my: 0.5 }} />}
         {items.length > 0 && (
           <MenuItem
             onClick={() => {
               setAnchor(null);
               markRead.mutate({ all: true });
             }}
+            sx={{ color: 'text.secondary', gap: 1 }}
           >
+            <CheckCheck size={icon.sm} aria-hidden="true" />
             Tout marquer comme lu
           </MenuItem>
         )}
@@ -121,14 +185,13 @@ export function NotificationCenter() {
         open={Boolean(latest)}
         autoHideDuration={latestUrgent ? null : 8000}
         onClose={(_e, reason) => reason !== 'clickaway' && dismissLatest()}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
         {latest ? (
           <Alert
             severity={latestUrgent ? 'error' : 'info'}
             variant={latestUrgent ? 'filled' : 'standard'}
             role={latestUrgent ? 'alert' : 'status'}
-            icon={latestUrgent ? <PriorityHighIcon data-testid="notification-urgente-icone" /> : undefined}
+            icon={latestUrgent ? <Siren size={icon.lg} data-testid="notification-urgente-icone" /> : undefined}
             onClose={dismissLatest}
             action={
               <Button
@@ -137,11 +200,12 @@ export function NotificationCenter() {
                 component={RouterLink}
                 to={`/demandes/${latest.requestId}`}
                 onClick={dismissLatest}
+                sx={{ color: 'inherit', '&:hover': { bgcolor: 'transparent', textDecoration: 'underline' } }}
               >
                 Voir
               </Button>
             }
-            sx={{ width: '100%' }}
+            sx={{ width: '100%', maxWidth: 480, boxShadow: shadow, ...(!latestUrgent && { bgcolor: 'background.paper' }) }}
           >
             {latestUrgent && <strong>Urgent — </strong>}
             {NOTIFICATION_LABELS[latest.type]} : {latest.title}

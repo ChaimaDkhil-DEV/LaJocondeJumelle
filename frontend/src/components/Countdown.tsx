@@ -1,9 +1,8 @@
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlined';
-import HourglassBottomIcon from '@mui/icons-material/HourglassBottom';
-import ScheduleIcon from '@mui/icons-material/Schedule';
-import Typography from '@mui/material/Typography';
+import Box from '@mui/material/Box';
+import { AlarmClock, Clock, Hourglass } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { serverNow } from '../api/client';
+import { font, fontSize, icon, tokensOf } from '../design/tokens';
 
 export type DeadlineStage = 'VALIDATION' | 'TAKEOVER' | 'COMPLETION';
 
@@ -41,6 +40,7 @@ interface CountdownProps {
 
 /**
  * Temps restant pour l'étape suivie (FR-025, FR-026), calculé avec l'heure du serveur.
+ * Discret tant que le délai est confortable ; orange à l'approche ; badge rouge en retard.
  * Mis à jour chaque seconde à l'écran, sans région aria-live : pas d'annonce répétée.
  */
 export function Countdown({ stage, dueAt, warnAt, overdueStage }: CountdownProps) {
@@ -55,24 +55,48 @@ export function Countdown({ stage, dueAt, warnAt, overdueStage }: CountdownProps
   const lateStage = overdueStage ?? (stage && dueAt && now >= Date.parse(dueAt) ? stage : null);
   if (lateStage) {
     return (
-      <Typography component="span" variant="body2" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, color: 'error.main', fontWeight: 700 }}>
-        <ErrorOutlineIcon fontSize="small" aria-hidden="true" />
+      <Box
+        component="span"
+        sx={(theme) => ({
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 0.5,
+          height: 24,
+          px: 1,
+          borderRadius: '6px',
+          border: `1px solid ${tokensOf(theme).error.border}`,
+          bgcolor: tokensOf(theme).error.soft,
+          color: tokensOf(theme).error.text,
+          fontSize: fontSize.xs,
+          fontWeight: font.medium,
+          whiteSpace: 'nowrap',
+        })}
+      >
+        <AlarmClock size={icon.sm - 2} strokeWidth={2} aria-hidden="true" />
         En retard ({STAGE_LABELS[lateStage]})
-      </Typography>
+      </Box>
     );
   }
   if (!stage || !dueAt) return null;
 
   const remaining = formatRemaining(Date.parse(dueAt) - now);
   const near = warnAt !== null && now >= Date.parse(warnAt);
+  const Icon = near ? Hourglass : Clock;
   return (
-    <Typography
+    <Box
       component="span"
-      variant="body2"
-      sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, color: near ? 'warning.main' : 'text.secondary', fontWeight: near ? 700 : 400 }}
+      sx={(theme) => ({
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 0.5,
+        fontSize: fontSize.xs,
+        fontWeight: near ? font.medium : font.regular,
+        color: near ? tokensOf(theme).warning.text : tokensOf(theme).textSecondary,
+        fontVariantNumeric: 'tabular-nums',
+      })}
     >
-      {near ? <HourglassBottomIcon fontSize="small" aria-hidden="true" /> : <ScheduleIcon fontSize="small" aria-hidden="true" />}
+      <Icon size={icon.sm - 2} strokeWidth={2} aria-hidden="true" />
       {near ? 'Bientôt en retard : reste' : 'Reste'} {remaining} pour la {STAGE_LABELS[stage]}
-    </Typography>
+    </Box>
   );
 }

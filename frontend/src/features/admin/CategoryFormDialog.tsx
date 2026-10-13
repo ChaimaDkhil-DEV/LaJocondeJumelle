@@ -157,7 +157,12 @@ export function CategoryFormDialog({ open, category, onClose, onSaved }: Categor
   const mutation = useMutation({
     mutationFn: (v: Values) => saveCategory(category ?? null, v),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: adminKeys.categories });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: adminKeys.categories }),
+        queryClient.invalidateQueries({ queryKey: adminKeys.users }),
+        queryClient.invalidateQueries({ queryKey: ['categories'] }),
+        queryClient.invalidateQueries({ queryKey: ['requests', 'detail'] }),
+      ]);
       onSaved(category ? 'Catégorie enregistrée.' : 'Catégorie créée.');
     },
     onError: async (error) => {

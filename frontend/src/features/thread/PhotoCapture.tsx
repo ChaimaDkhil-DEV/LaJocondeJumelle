@@ -1,14 +1,13 @@
-import CloseIcon from '@mui/icons-material/Close';
-import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
-import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
-import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
+import { Camera, Images, X } from 'lucide-react';
 import { useState, type ChangeEvent } from 'react';
 import { ApiError } from '../../api/client';
 import { uploadFile } from '../../api/uploads';
+import { IconAction } from '../../components/IconAction';
 import { LoadingState } from '../../components/LoadingState';
+import { icon } from '../../design/tokens';
 import { FilePickerButton } from './FilePickerButton';
 
 export interface UploadedPhoto {
@@ -62,7 +61,7 @@ export function PhotoCapture({ value, onChange, requestId, max = 5, altPrefix = 
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
         <FilePickerButton
           label="Prendre une photo"
-          icon={<PhotoCameraIcon aria-hidden="true" />}
+          icon={<Camera size={icon.md} aria-hidden="true" />}
           accept="image/*"
           capture="environment"
           disabled={full || uploading}
@@ -70,13 +69,13 @@ export function PhotoCapture({ value, onChange, requestId, max = 5, altPrefix = 
         />
         <FilePickerButton
           label="Choisir dans la galerie"
-          icon={<PhotoLibraryIcon aria-hidden="true" />}
+          icon={<Images size={icon.md} aria-hidden="true" />}
           accept="image/*"
           disabled={full || uploading}
           onChange={(e) => void handleFile(e)}
         />
       </Box>
-      {uploading && <LoadingState label="Envoi de la photo…" />}
+      {uploading && <LoadingState label="Envoi de la photo…" variant="inline" />}
       {error && <Alert severity="error">{error}</Alert>}
       {value.length > 0 && (
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
@@ -86,16 +85,24 @@ export function PhotoCapture({ value, onChange, requestId, max = 5, altPrefix = 
                 component="img"
                 src={photo.previewUrl}
                 alt={`${altPrefix} ${index + 1}`}
-                sx={{ width: 96, height: 96, objectFit: 'cover', borderRadius: 1, display: 'block' }}
+                sx={{ width: 96, height: 96, objectFit: 'cover', borderRadius: 1, display: 'block', border: 1, borderColor: 'divider' }}
               />
-              <IconButton
+              <IconAction
+                icon={X}
                 size="small"
-                aria-label={`Retirer la photo ${index + 1}`}
+                label={`Retirer la photo ${index + 1}`}
+                tooltip="Retirer"
                 onClick={() => remove(index)}
-                sx={{ position: 'absolute', top: 0, right: 0, bgcolor: 'background.paper' }}
-              >
-                <CloseIcon fontSize="small" />
-              </IconButton>
+                sx={{
+                  position: 'absolute',
+                  top: 4,
+                  right: 4,
+                  bgcolor: 'background.paper',
+                  border: 1,
+                  borderColor: 'divider',
+                  '&:hover': { bgcolor: 'background.paper' },
+                }}
+              />
             </Box>
           ))}
         </Box>
