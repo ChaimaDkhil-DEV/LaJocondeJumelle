@@ -13,7 +13,7 @@ import { uploadFile } from '../../api/uploads';
 import { saveToOutbox } from '../outbox/outbox';
 import { OUTBOX_KEY } from '../outbox/useOutbox';
 import { isRetryableError } from '../requests/api';
-import { VOICE_MAX_SECONDS } from '../requests/CreateRequestPage';
+import { useClientSettings } from '../../api/settings';
 import { VoiceRecorder, type VoiceRecording } from '../voice/VoiceRecorder';
 import { messageKeys, submitMessage, type NewMessageInput } from './api';
 import { FilePickerButton } from './FilePickerButton';
@@ -34,6 +34,7 @@ const EMPTY_MESSAGE = 'Écrivez un message, enregistrez un vocal ou joignez un f
 /** Réponse dans le fil : texte, vocal, photos et documents PDF. */
 export function MessageComposer({ requestId, requestTitle }: ComposerProps) {
   const queryClient = useQueryClient();
+  const { voiceMaxSeconds } = useClientSettings();
   const [clientId, setClientId] = useState(() => crypto.randomUUID());
   const [text, setText] = useState('');
   const [voice, setVoice] = useState<VoiceRecording | null>(null);
@@ -138,7 +139,7 @@ export function MessageComposer({ requestId, requestTitle }: ComposerProps) {
           helperText={emptyError ? EMPTY_MESSAGE : undefined}
           slotProps={{ htmlInput: { maxLength: 4000 } }}
         />
-        <VoiceRecorder key={voiceKey} maxSeconds={VOICE_MAX_SECONDS} value={voice} onChange={setVoice} />
+        <VoiceRecorder key={voiceKey} maxSeconds={voiceMaxSeconds} value={voice} onChange={setVoice} />
         <PhotoCapture value={photos} onChange={setPhotos} requestId={requestId} altPrefix="Photo à joindre" />
         <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
           <FilePickerButton

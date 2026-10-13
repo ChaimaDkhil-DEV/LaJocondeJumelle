@@ -24,15 +24,58 @@ export type SettingKey = keyof Settings;
 
 export const SETTING_KEYS = Object.keys(SETTING_DEFAULTS) as SettingKey[];
 
-function isValidValue<K extends SettingKey>(key: K, value: unknown): value is Settings[K] {
+/** Plafond technique d'envoi (files.controller MAX_UPLOAD_BYTES) : un réglage ne peut pas le dépasser. */
+const TECHNICAL_MAX_BYTES = 25 * 1024 * 1024;
+
+type Rule =
+  | { kind: 'int'; min: number; max: number; label: string }
+  | { kind: 'boolean' }
+  | { kind: 'subset'; allowed: readonly string[] };
+
+/** Bornes de chaque réglage (administration, US8). */
+export const SETTING_RULES: Record<SettingKey, Rule> = {
+  voiceMaxSeconds: { kind: 'int', min: 10, max: 600, label: 'entre 10 et 600 secondes' },
+  voiceMaxBytes: { kind: 'int', min: 100 * 1024, max: TECHNICAL_MAX_BYTES, label: 'entre 100 Ko et 25 Mo' },
+  attachmentMaxBytes: { kind: 'int', min: 100 * 1024, max: TECHNICAL_MAX_BYTES, label: 'entre 100 Ko et 25 Mo' },
+  attachmentMaxPerMessage: { kind: 'int', min: 1, max: 10, label: 'entre 1 et 10' },
+  allowedPhotoTypes: { kind: 'subset', allowed: ['image/jpeg', 'image/png', 'image/webp'] },
+  allowedDocumentTypes: { kind: 'subset', allowed: ['application/pdf'] },
+  draftsEnabled: { kind: 'boolean' },
+  deadlineWarnPercent: { kind: 'int', min: 1, max: 99, label: 'entre 1 et 99 %' },
+  sessionIdleMinutes: { kind: 'int', min: 5, max: 1440, label: 'entre 5 et 1440 minutes' },
+  sessionMaxHours: { kind: 'int', min: 1, max: 72, label: 'entre 1 et 72 heures' },
+};
+
+/** Message d'erreur si la valeur est invalide pour ce réglage, sinon null. */
+export function settingError(key: SettingKey, value: unknown): string | null {
+  const rule = SETTING_RULES[key];
+  switch (rule.kind) {
+    case 'int':
+      return Number.isInteger(value) && (value as number) >= rule.min && (value as number) <= rule.max
+        ? null
+        : `Nombre entier ${rule.label} attendu.`;
+    case 'boolean':
+      return typeof value === 'boolean' ? null : 'Oui ou non attendu.';
+    case 'subset':
+      return Array.isArray(value) &&
+        value.length > 0 &&
+        value.every((v) => typeof v === 'string' && rule.allowed.includes(v)) &&
+        new Set(value).size === value.length
+        ? null
+        : `Au moins un type parmi : ${rule.allowed.join(', ')}.`;
+  }
+}
+
+/** Lecture en base : seul le type est contrôlé (les bornes s'appliquent aux modifications). */
+function hasExpectedType<K extends SettingKey>(key: K, value: unknown): value is Settings[K] {
   const reference = SETTING_DEFAULTS[key];
-  if (Array.isArray(reference)) {
-    return Array.isArray(value) && value.every((v) => typeof v === 'string');
-  }
-  if (typeof reference === 'number') {
-    return typeof value === 'number' && Number.isFinite(value) && value >= 0;
-  }
+  if (Array.isArray(reference)) return Array.isArray(value) && value.every((v) => typeof v === 'string');
+  if (typeof reference === 'number') return typeof value === 'number' && Number.isFinite(value) && value >= 0;
   return typeof value === typeof reference;
+}
+
+export function isSettingKey(key: string): key is SettingKey {
+  return Object.hasOwn(SETTING_DEFAULTS, key);
 }
 
 @Injectable()
@@ -47,7 +90,7 @@ export class SettingsService {
     const settings: Settings = structuredClone(SETTING_DEFAULTS);
     for (const row of rows) {
       const key = row.key as SettingKey;
-      if (key in SETTING_DEFAULTS && isValidValue(key, row.value)) {
+      if (key in SETTING_DEFAULTS && hasExpectedType(key, row.value)) {
         (settings as Record<SettingKey, unknown>)[key] = row.value;
       }
     }
@@ -59,14 +102,15 @@ export class SettingsService {
     return (await this.getAll())[key];
   }
 
-  /** Écriture (administration, US8) : valide le type et invalide le cache. */
+  /** Écriture (administration, US8) : valide le type et les bornes, puis invalide le cache. */
   async set<K extends SettingKey>(
     key: K,
     value: Settings[K],
     updatedById: string | null,
     tx: Prisma.TransactionClient = this.prisma,
   ): Promise<void> {
-    if (!isValidValue(key, value)) throw new TypeError(`Valeur invalide pour le réglage ${key}`);
+    const error = settingError(key, value);
+    if (error) throw new TypeError(`Valeur invalide pour le réglage ${key} : ${error}`);
     const json = value as unknown as Prisma.InputJsonValue;
     await tx.setting.upsert({
       where: { key },

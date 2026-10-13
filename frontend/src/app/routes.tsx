@@ -1,4 +1,5 @@
 import { createBrowserRouter, type RouteObject } from 'react-router';
+import { adminRoutes } from '../features/admin/adminRoutes';
 import { ChangePasswordPage } from '../features/auth/ChangePasswordPage';
 import { LoginPage } from '../features/auth/LoginPage';
 import { RequireAuth } from '../features/auth/RequireAuth';
@@ -21,6 +22,7 @@ export const routes: RouteObject[] = [
       { index: true, element: <RequestListPage /> },
       { path: 'demandes/nouvelle', element: <CreateRequestPage /> },
       { path: 'demandes/:id', element: <RequestDetailPage /> },
+      ...adminRoutes,
     ],
   },
 ];

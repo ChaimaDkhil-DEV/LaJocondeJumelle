@@ -22,11 +22,14 @@ export interface NavItem {
   label: string;
 }
 
-/** Entrées de navigation ; complétées par les user stories suivantes. */
+/** Entrées de navigation communes. */
 export const NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Mes demandes' },
   { to: '/demandes/nouvelle', label: 'Nouvelle demande' },
 ];
+
+/** Entrée réservée au super administrateur (le serveur refuse aussi /api/admin aux autres rôles). */
+const ADMIN_ITEM: NavItem = { to: '/admin', label: 'Administration' };
 
 /** Lien d'évitement : invisible jusqu'à ce qu'il reçoive le focus clavier. */
 function SkipLink() {
@@ -54,6 +57,7 @@ export function AppLayout() {
   const me = useCurrentUser();
   const logout = useLogout();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const navItems = me.data?.role === 'SUPER_ADMIN' ? [...NAV_ITEMS, ADMIN_ITEM] : NAV_ITEMS;
 
   function handleLogout(): void {
     logout.mutate(undefined, { onSettled: () => navigate('/connexion', { replace: true }) });
@@ -61,12 +65,12 @@ export function AppLayout() {
 
   const navList = (
     <List component="nav" aria-label="Navigation principale">
-      {NAV_ITEMS.map((item) => (
+      {navItems.map((item) => (
         <ListItemButton
           key={item.to}
           component={NavLink}
           to={item.to}
-          end
+          end={item.to === '/'}
           onClick={() => setDrawerOpen(false)}
         >
           <ListItemText primary={item.label} />
@@ -98,8 +102,8 @@ export function AppLayout() {
               aria-label="Navigation principale"
               sx={{ display: { xs: 'none', sm: 'flex' }, gap: 1 }}
             >
-              {NAV_ITEMS.map((item) => (
-                <Button key={item.to} color="inherit" component={NavLink} to={item.to} end>
+              {navItems.map((item) => (
+                <Button key={item.to} color="inherit" component={NavLink} to={item.to} end={item.to === '/'}>
                   {item.label}
                 </Button>
               ))}

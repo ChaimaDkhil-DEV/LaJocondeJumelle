@@ -31,7 +31,7 @@ contiennent que des identifiants et des métadonnées ; le client relit les donn
 | `notification:new` | `{ id, type, priority, requestId, reference, title, createdAt }` | destinataire de la notification | badge et liste mis à jour ; annonce `aria-live` ; style distinct si `priority = URGENT` |
 | `request:updated` | `{ requestId, status, version, overdueStage }` | demandeur, affecté, responsables de la catégorie | invalide la liste et le détail de la demande |
 | `message:new` | `{ requestId, messageId }` | participants autorisés sauf l'auteur | invalide le fil ; nouveau message affiché sans rechargement |
-| `session:ended` | `{ reason: "LOGOUT" \| "EXPIRED" \| "DEACTIVATED" }` | sockets de l'utilisateur | retour à la page de connexion |
+| `session:ended` | `{ reason: "LOGOUT" \| "EXPIRED" \| "DEACTIVATED" \| "PASSWORD_RESET" }` | sockets de l'utilisateur | retour à la page de connexion |
 
 Types de notification (`type`) : `REQUEST_NEW`, `MESSAGE_NEW`, `ASSIGNED`, `STATUS_CHANGED`,
 `URGENT`, `TO_CORRECT`, `REJECTED`, `CANCELLED`, `OVERDUE`, `CLOSED`.

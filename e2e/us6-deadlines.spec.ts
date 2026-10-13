@@ -63,6 +63,8 @@ test('V14 — compte à rebours, alerte, puis « En retard (prise en charge) » 
   };
   expect(notifications.items.some((n) => n.type === 'OVERDUE' && n.request.id === id)).toBe(true);
   await manager.goto(`/demandes/${id}`);
-  await expect(manager.getByText('En retard (prise en charge)')).toBeVisible();
+  // Signalé à la fois par l'indicateur de la demande et par l'historique (US7).
+  await expect(manager.getByRole('list', { name: 'Historique' }).getByText('En retard (prise en charge)')).toBeVisible();
+  await expect(manager.getByText('En retard (prise en charge)')).toHaveCount(2);
   await manager.context().close();
 });

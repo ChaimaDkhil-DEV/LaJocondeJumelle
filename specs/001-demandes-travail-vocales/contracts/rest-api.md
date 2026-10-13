@@ -115,5 +115,31 @@ document → contrôle d'octets magiques uniquement. Erreurs : `FILE_TYPE_NOT_AL
 | GET, PUT | `/admin/settings` | réglages globaux |
 | GET | `/admin/audit` | filtres `actorId`, `action`, `from`, `to` ; lecture seule |
 
+Toutes ces routes renvoient `403 FORBIDDEN` (audit `ACCESS_DENIED`, motif `NOT_SUPER_ADMIN`) à tout autre rôle.
+
+Précisions :
+
+- **Comptes** : `username` normalisé en minuscules, 3–64 caractères `[a-z0-9._-]`, unique (`409`).
+  La création et la réinitialisation renvoient `{ temporaryPassword }` une seule fois ; le compte doit
+  le changer à la connexion suivante. La désactivation et la réinitialisation ferment toutes les sessions
+  du compte (`session:ended`). Le super administrateur ne peut ni se désactiver, ni perdre son rôle,
+  ni réinitialiser son propre mot de passe (`400`).
+- **Catégories** : `name` unique sans tenir compte de la casse (1–60). En circuit A, `finalValidation`
+  doit être faux, `assignmentMode` `MANUAL` et aucun délai de validation n'est accepté.
+  `assignmentMode = AUTO` exige `autoAssigneeId` parmi les destinataires (définir les destinataires
+  d'abord). Une nouvelle catégorie reçoit les délais par défaut provisoires.
+- **Délais** : `PUT` attend exactement 4 règles (une par priorité), chaque durée entière de 1 à 525 600
+  minutes ou `null` (pas de délai).
+- **Permissions par rôle** : `{ EMPLOYEE: Permission[], MANAGER: Permission[] }` parmi `REQUEST_CREATE`,
+  `PRIORITY_CHANGE_OWN`, `PRIORITY_CHANGE_MANAGED`, `REQUEST_REASSIGN` ; le super administrateur a toujours tout.
+- **Réglages** : mise à jour partielle ; clé inconnue ou valeur hors bornes → `400` sur l'ensemble.
+  Un audit `SETTING_CHANGED` par réglage réellement modifié.
+- **Audit** : pagination par curseur (`limit` ≤ 100), les plus récentes d'abord ; `to` sous forme de date
+  seule couvre toute la journée.
+
+| Méthode | Route | Objet |
+|---------|-------|-------|
+| GET | `/settings/client` | tout utilisateur connecté : `voiceMaxSeconds`, `attachmentMaxBytes`, `attachmentMaxPerMessage`, `draftsEnabled` |
+
 Chaque écriture d'administration produit une entrée `AuditLog` avec les valeurs avant/après.
 Les modifications de catégorie et de délais ne s'appliquent qu'aux nouvelles demandes.

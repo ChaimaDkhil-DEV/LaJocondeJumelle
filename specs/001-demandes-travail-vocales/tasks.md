@@ -280,20 +280,20 @@ l'implémentation correspondante.
 
 ### Tests for User Story 8 ⚠️
 
-- [ ] T099 [P] [US8] Écrire `backend/test/integration/admin-users.spec.ts` : création (mot de passe provisoire renvoyé une seule fois, `mustChangePassword` vrai), modification du rôle, désactivation (sessions supprimées, sockets fermés), réinitialisation du mot de passe, `username` dupliqué à la casse près → `409` ; audit `USER_CREATED`, `USER_UPDATED`, `USER_DEACTIVATED`, `PASSWORD_RESET` ; toute route `/api/admin/*` par un non super admin → `403` + audit `ACCESS_DENIED`
-- [ ] T100 [P] [US8] Écrire `backend/test/integration/admin-categories.spec.ts` : création et modification de catégorie (`name` unique 1–60 caractères ; `autoAssigneeId` obligatoire si `assignmentMode = AUTO` ; `finalValidation` et `assignmentMode` ignorés ou refusés en circuit A), `PUT` destinataires et responsables (responsables de rôle `MANAGER` ou `SUPER_ADMIN` uniquement), règles de délai (entiers > 0 ou `null`), permissions par rôle, réglages (valeurs typées) ; chaque écriture produit un `AuditLog` avant/après ; une demande créée avant la modification garde son `rulesSnapshot` (FR-022)
-- [ ] T101 [P] [US8] Écrire `backend/test/integration/admin-audit.spec.ts` : `GET /api/admin/audit` filtré par `actorId`, `action`, période ; lecture seule ; aucune donnée sensible dans `details`
-- [ ] T102 [P] [US8] Écrire `frontend/tests/admin/admin-pages.test.tsx` (formulaires validés, mot de passe provisoire affiché une seule fois avec bouton copier, confirmation avant désactivation) et `e2e/us8-admin.spec.ts` couvrant V16 avec contrôle axe
+- [X] T099 [P] [US8] Écrire `backend/test/integration/admin-users.spec.ts` : création (mot de passe provisoire renvoyé une seule fois, `mustChangePassword` vrai), modification du rôle, désactivation (sessions supprimées, sockets fermés), réinitialisation du mot de passe, `username` dupliqué à la casse près → `409` ; audit `USER_CREATED`, `USER_UPDATED`, `USER_DEACTIVATED`, `PASSWORD_RESET` ; toute route `/api/admin/*` par un non super admin → `403` + audit `ACCESS_DENIED`
+- [X] T100 [P] [US8] Écrire `backend/test/integration/admin-categories.spec.ts` : création et modification de catégorie (`name` unique 1–60 caractères ; `autoAssigneeId` obligatoire si `assignmentMode = AUTO` ; `finalValidation` et `assignmentMode` ignorés ou refusés en circuit A), `PUT` destinataires et responsables (responsables de rôle `MANAGER` ou `SUPER_ADMIN` uniquement), règles de délai (entiers > 0 ou `null`), permissions par rôle, réglages (valeurs typées) ; chaque écriture produit un `AuditLog` avant/après ; une demande créée avant la modification garde son `rulesSnapshot` (FR-022)
+- [X] T101 [P] [US8] Écrire `backend/test/integration/admin-audit.spec.ts` : `GET /api/admin/audit` filtré par `actorId`, `action`, période ; lecture seule ; aucune donnée sensible dans `details`
+- [X] T102 [P] [US8] Écrire `frontend/tests/admin/admin-pages.test.tsx` (formulaires validés, mot de passe provisoire affiché une seule fois avec bouton copier, confirmation avant désactivation) et `e2e/us8-admin.spec.ts` couvrant V16 avec contrôle axe
 
 ### Implementation for User Story 8
 
-- [ ] T103 [US8] Implémenter `backend/src/users/admin-users.controller.ts`, `users.service.ts`, `users.module.ts` (REST §Administration : utilisateurs et réinitialisation) avec garde `SuperAdminGuard` dans `backend/src/common/super-admin.guard.ts` ; faire passer T099
-- [ ] T104 [US8] Implémenter `backend/src/categories/admin-categories.controller.ts` (catégories, destinataires, responsables, délais) et `backend/src/settings/admin-settings.controller.ts` (réglages, permissions par rôle) avec audit avant/après ; faire passer T100
-- [ ] T105 [US8] Implémenter `backend/src/audit/admin-audit.controller.ts` (`GET /api/admin/audit`, pagination, filtres) ; faire passer T101
-- [ ] T106 [P] [US8] Implémenter `frontend/src/features/admin/UsersAdminPage.tsx` et `UserFormDialog.tsx`
-- [ ] T107 [P] [US8] Implémenter `frontend/src/features/admin/CategoriesAdminPage.tsx`, `CategoryFormDialog.tsx` (circuit, modes, photo, destinataires, responsables) et `DeadlineRulesTable.tsx` (4 priorités × 3 délais)
-- [ ] T108 [P] [US8] Implémenter `frontend/src/features/admin/SettingsAdminPage.tsx` (réglages et permissions par rôle) et `AuditLogPage.tsx` (filtres, lecture seule)
-- [ ] T109 [US8] Ajouter les routes `/admin/*` réservées au super administrateur dans `frontend/src/app/routes.tsx` et le menu d'administration dans `AppLayout.tsx` ; faire passer T102
+- [X] T103 [US8] Implémenter `backend/src/users/admin-users.controller.ts`, `users.service.ts`, `users.module.ts` (REST §Administration : utilisateurs et réinitialisation) avec garde `SuperAdminGuard` dans `backend/src/common/super-admin.guard.ts` ; faire passer T099
+- [X] T104 [US8] Implémenter `backend/src/categories/admin-categories.controller.ts` (catégories, destinataires, responsables, délais) et `backend/src/settings/admin-settings.controller.ts` (réglages, permissions par rôle) avec audit avant/après ; faire passer T100
+- [X] T105 [US8] Implémenter `backend/src/audit/admin-audit.controller.ts` (`GET /api/admin/audit`, pagination, filtres) ; faire passer T101
+- [X] T106 [P] [US8] Implémenter `frontend/src/features/admin/UsersAdminPage.tsx` et `UserFormDialog.tsx`
+- [X] T107 [P] [US8] Implémenter `frontend/src/features/admin/CategoriesAdminPage.tsx`, `CategoryFormDialog.tsx` (circuit, modes, photo, destinataires, responsables) et `DeadlineRulesTable.tsx` (4 priorités × 3 délais)
+- [X] T108 [P] [US8] Implémenter `frontend/src/features/admin/SettingsAdminPage.tsx` (réglages et permissions par rôle) et `AuditLogPage.tsx` (filtres, lecture seule)
+- [X] T109 [US8] Ajouter les routes `/admin/*` réservées au super administrateur dans `frontend/src/app/routes.tsx` et le menu d'administration dans `AppLayout.tsx` ; faire passer T102
 
 **Checkpoint**: All user stories should now be independently functional
 

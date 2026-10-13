@@ -13,6 +13,7 @@ export const theme = createTheme(
       error: { main: '#b3261e' },
       warning: { main: '#8a4b00' },
       success: { main: '#2e6b30' },
+      info: { main: '#01579b' },
       background: { default: '#f6f7f9' },
     },
     typography: {

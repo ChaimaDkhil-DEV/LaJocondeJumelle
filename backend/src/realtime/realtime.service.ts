@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { Server } from 'socket.io';
 
-export type SessionEndReason = 'LOGOUT' | 'EXPIRED' | 'DEACTIVATED';
+export type SessionEndReason = 'LOGOUT' | 'EXPIRED' | 'DEACTIVATED' | 'PASSWORD_RESET';
 
 /** Vérifie qu'une session est toujours valide ; renvoie la raison de fin, ou null. */
 export type SessionChecker = (sessionId: string) => Promise<'EXPIRED' | 'DEACTIVATED' | null>;

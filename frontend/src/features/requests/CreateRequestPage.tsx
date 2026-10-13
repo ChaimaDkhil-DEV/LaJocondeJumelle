@@ -19,6 +19,7 @@ import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
 import { PRIORITY_LABELS } from '../../components/PriorityChip';
 import { saveToOutbox } from '../outbox/outbox';
+import { useClientSettings } from '../../api/settings';
 import { OUTBOX_KEY } from '../outbox/useOutbox';
 import { VoiceRecorder, type VoiceRecording } from '../voice/VoiceRecorder';
 import {
@@ -31,7 +32,6 @@ import {
 } from './api';
 
 /** Durée maximale des vocaux : valeur par défaut provisoire (data-model.md), revérifiée par le serveur. */
-export const VOICE_MAX_SECONDS = 180;
 
 const PRIORITIES: Priority[] = ['NORMAL', 'MEDIUM', 'HIGH', 'URGENT'];
 
@@ -40,6 +40,7 @@ type Errors = Partial<Record<Field, string>>;
 
 export function CreateRequestPage() {
   const navigate = useNavigate();
+  const { voiceMaxSeconds } = useClientSettings();
   const queryClient = useQueryClient();
   const categories = useCategories();
   const clientId = useRef(crypto.randomUUID());
@@ -208,7 +209,7 @@ export function CreateRequestPage() {
             <FormLabel component="legend" sx={{ mb: 1 }}>
               Message vocal
             </FormLabel>
-            <VoiceRecorder maxSeconds={VOICE_MAX_SECONDS} value={voice} onChange={setVoice} />
+            <VoiceRecorder maxSeconds={voiceMaxSeconds} value={voice} onChange={setVoice} />
             {errors.content && <FormHelperText>{errors.content}</FormHelperText>}
           </FormControl>
 
