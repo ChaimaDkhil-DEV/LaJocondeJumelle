@@ -8,3 +8,8 @@
 *.png binary
 *.webp binary
 *.heic binary
+
+# Scripts et fichiers lus dans des conteneurs Linux : toujours LF.
+*.sh text eol=lf
+Caddyfile text eol=lf
+*.Dockerfile text eol=lf

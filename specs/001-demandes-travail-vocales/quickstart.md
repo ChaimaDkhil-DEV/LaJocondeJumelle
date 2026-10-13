@@ -38,7 +38,7 @@ accepter le certificat sur le téléphone.
 npm run -w backend test            # unitaires : machine à états, politique d'accès, délais, fichiers
 npm run -w backend test:integration  # API + PostgreSQL de test
 npm run -w frontend test           # composants (Vitest)
-npx playwright test                # bout en bout + axe, navigateurs Chromium, WebKit, Firefox, profils mobiles
+npm run test:e2e                   # bout en bout + axe : Chromium, Firefox, WebKit, iPhone 13, Pixel 7, 320 px
 npm audit --audit-level=high       # bloque en cas de vulnérabilité élevée ou critique
 ```
 
@@ -69,13 +69,34 @@ Résultat attendu : tout au vert, aucune violation axe de niveau A ou AA.
 
 ## Déploiement (VPS)
 
+Depuis la racine du dépôt, sur le VPS (Docker et Docker Compose installés, DNS du domaine
+pointant vers le VPS, ports 80 et 443 ouverts) :
+
 ```bash
-cp deploy/.env.example deploy/.env     # domaine, secrets, chemin des sauvegardes
-docker compose -f deploy/docker-compose.yml up -d --build
-docker compose -f deploy/docker-compose.yml logs -f api   # migrations appliquées au démarrage
+cp deploy/.env.example deploy/.env     # domaine, e-mail ACME, secrets, sauvegardes
+docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build
+docker compose -f deploy/docker-compose.yml --env-file deploy/.env logs -f api   # migrations appliquées au démarrage
+# Premier super administrateur (mot de passe provisoire affiché une seule fois) :
+docker compose -f deploy/docker-compose.yml --env-file deploy/.env exec api node dist/cli/bootstrap.js admin "Direction"
 ```
 
-Contrôles : certificat HTTPS valide ; `https://<domaine>/api/files/<id>` sans cookie → `401` ;
-aucun port PostgreSQL exposé (`docker compose ps`) ; sauvegarde nocturne présente dans le
-dossier de sauvegarde ; **restauration testée** sur une machine de test
-(`deploy/backup/restore.sh <archive>`) avant la mise en production.
+`bootstrap.js` est idempotent : il crée les réglages et permissions par défaut sans écraser
+les valeurs existantes, et le super administrateur seulement s'il n'en existe aucun. Aucune
+donnée de démonstration n'est créée en production.
+
+Contrôles : certificat HTTPS valide ; en-têtes `Strict-Transport-Security`,
+`Content-Security-Policy` et `Permissions-Policy` présents (`curl -I https://<domaine>`) ;
+`https://<domaine>/api/files/<id>` sans cookie → `401` ; aucun port PostgreSQL ni API exposé
+(`docker compose ps`) ; journaux de l'API au format JSON sans secret
+(`docker compose logs api`) ; sauvegarde quotidienne présente dans `BACKUP_DIR`
+(`db-<horodatage>.dump` et `files-<horodatage>.tar.gz`).
+
+**Test de restauration** (obligatoire avant la mise en production, sur une machine de test) :
+
+1. Déployer, créer quelques demandes avec vocal et photo, puis lancer une sauvegarde
+   immédiate : `docker compose -f deploy/docker-compose.yml --env-file deploy/.env exec backup bash /scripts/backup.sh`.
+2. Modifier des données (nouvelle demande, message).
+3. Restaurer : `deploy/backup/restore.sh <horodatage>` (confirmation « RESTAURER » demandée).
+4. Vérifier : connexion, demandes de l'étape 1 présentes avec leur vocal lisible et leur photo,
+   données de l'étape 2 absentes, journal d'audit consultable.
+5. Consigner la date, la durée de la restauration et le résultat.

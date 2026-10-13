@@ -1,0 +1,46 @@
+# Production : HTTPS automatique (Let's Encrypt) pour {$DOMAIN}.
+# Variables : DOMAIN, ACME_EMAIL (voir deploy/.env.example) ; API_UPSTREAM et SITE_ROOT
+# (défauts api:3000 et /srv) ne servent qu’aux tests locaux de cette configuration.
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		# 'unsafe-inline' pour les styles uniquement : MUI (Emotion) injecte des balises <style>.
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; media-src 'self' blob:; connect-src 'self' wss:; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+		# Micro (vocaux) et appareil photo (preuves) autorisés pour l'application elle-même seulement.
+		Permissions-Policy "microphone=(self), camera=(self), geolocation=(), payment=(), usb=()"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	# API REST : corps limité au plafond technique des envois (25 Mo, files.controller) + marge
+	# multipart. Le réglage attachmentMaxBytes (25 Mo au plus) est ensuite appliqué par l'API.
+	handle /api/* {
+		request_body {
+			max_size 26MB
+		}
+		reverse_proxy {$API_UPSTREAM:api:3000}
+	}
+
+	# Temps réel (Socket.IO, WebSocket).
+	handle /socket.io/* {
+		reverse_proxy {$API_UPSTREAM:api:3000}
+	}
+
+	# SPA : fichiers versionnés mis en cache longtemps ; repli sur index.html pour les routes du client.
+	handle {
+		root * {$SITE_ROOT:/srv}
+		@assets path /assets/*
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+		@pages not path /assets/*
+		header @pages Cache-Control "no-cache"
+		try_files {path} /index.html
+		file_server
+	}
+}

@@ -303,18 +303,18 @@ l'implémentation correspondante.
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T110 [P] Écrire `backend/test/integration/orphan-files-job.spec.ts` puis implémenter `backend/src/scheduler/orphan-files.job.ts` : suppression (disque et base) des fichiers provisoires non rattachés depuis plus de 24 h
-- [ ] T111 [P] Écrire `e2e/a11y-responsive.spec.ts` (V18) : parcours de création, de traitement et du fil à 320 px, au clavier seul, sans défilement horizontal, contrôle axe sur chaque écran livré (liste, détail, création, notifications, administration)
-- [ ] T112 [P] Créer `deploy/api.Dockerfile` (Node 24, ffmpeg installé, build multi-étapes, utilisateur non root, `prisma migrate deploy` au démarrage) et `deploy/web.Dockerfile` ou étape de build de la SPA copiée dans l'image Caddy
-- [ ] T113 [P] Créer `deploy/docker-compose.yml` (services `caddy`, `api`, `db` sans port exposé, `backup` ; volumes `pgdata`, `files` monté uniquement dans `api`, `caddy_data`) et `deploy/.env.example`
-- [ ] T114 [P] Créer `deploy/Caddyfile` : HTTPS automatique, HSTS, CSP stricte (`default-src 'self'`, `media-src 'self' blob:`, `img-src 'self' blob: data:`, `connect-src 'self' wss:`), `Permissions-Policy` autorisant `microphone=(self)` et `camera=(self)`, `request_body max_size` aligné sur `attachmentMaxBytes`, SPA avec repli sur `index.html`, proxy `/api/*` et `/socket.io/*`
-- [ ] T115 [P] Créer `deploy/backup/backup.sh` (pg_dump compressé + archive du volume `files`, rotation 14 jours, copie hors VPS configurable) et `deploy/backup/restore.sh` ; documenter un test de restauration
-- [ ] T116 [P] Vérifier la journalisation dans `backend/src/main.ts` : journaux JSON sur la sortie standard, sans mot de passe, jeton, cookie ni contenu de message (test `backend/test/unit/log-redaction.spec.ts`)
-- [ ] T117 Écrire le `README.md` racine (présentation, liens vers `specs/001-demandes-travail-vocales/quickstart.md`, commandes principales, rappel des points ouverts et de la durée de conservation à fixer avant production)
-- [ ] T118 [P] Écrire `e2e/sc001-create-timing.spec.ts` (SC-001) : sur les profils Pixel 7 et iPhone 13, mesurer le parcours complet de création d'une demande vocale (ouverture du formulaire, catégorie, destinataire, priorité, titre, enregistrement de 10 s, réécoute, envoi, confirmation « Envoyée ») et échouer s'il dépasse 60 s
+- [X] T110 [P] Écrire `backend/test/integration/orphan-files-job.spec.ts` puis implémenter `backend/src/scheduler/orphan-files.job.ts` : suppression (disque et base) des fichiers provisoires non rattachés depuis plus de 24 h
+- [X] T111 [P] Écrire `e2e/a11y-responsive.spec.ts` (V18) : parcours de création, de traitement et du fil à 320 px, au clavier seul, sans défilement horizontal, contrôle axe sur chaque écran livré (liste, détail, création, notifications, administration)
+- [X] T112 [P] Créer `deploy/api.Dockerfile` (Node 24, ffmpeg installé, build multi-étapes, utilisateur non root, `prisma migrate deploy` au démarrage) et `deploy/web.Dockerfile` ou étape de build de la SPA copiée dans l'image Caddy
+- [X] T113 [P] Créer `deploy/docker-compose.yml` (services `caddy`, `api`, `db` sans port exposé, `backup` ; volumes `pgdata`, `files` monté uniquement dans `api`, `caddy_data`) et `deploy/.env.example`
+- [X] T114 [P] Créer `deploy/Caddyfile` : HTTPS automatique, HSTS, CSP stricte (`default-src 'self'`, `media-src 'self' blob:`, `img-src 'self' blob: data:`, `connect-src 'self' wss:`), `Permissions-Policy` autorisant `microphone=(self)` et `camera=(self)`, `request_body max_size` aligné sur `attachmentMaxBytes`, SPA avec repli sur `index.html`, proxy `/api/*` et `/socket.io/*`
+- [X] T115 [P] Créer `deploy/backup/backup.sh` (pg_dump compressé + archive du volume `files`, rotation 14 jours, copie hors VPS configurable) et `deploy/backup/restore.sh` ; documenter un test de restauration
+- [X] T116 [P] Vérifier la journalisation dans `backend/src/main.ts` : journaux JSON sur la sortie standard, sans mot de passe, jeton, cookie ni contenu de message (test `backend/test/unit/log-redaction.spec.ts`)
+- [X] T117 Écrire le `README.md` racine (présentation, liens vers `specs/001-demandes-travail-vocales/quickstart.md`, commandes principales, rappel des points ouverts et de la durée de conservation à fixer avant production)
+- [X] T118 [P] Écrire `e2e/sc001-create-timing.spec.ts` (SC-001) : sur les profils Pixel 7 et iPhone 13, mesurer le parcours complet de création d'une demande vocale (ouverture du formulaire, catégorie, destinataire, priorité, titre, enregistrement de 10 s, réécoute, envoi, confirmation « Envoyée ») et échouer s'il dépasse 60 s
 - [ ] T119 Vérification manuelle sur un vrai iPhone (Safari iOS 17 ou plus récent, en HTTPS) : autorisation du micro, enregistrement, réécoute, refaire, envoi, lecture d'un vocal enregistré sur Chrome Android, prise de photo avec l'appareil et depuis la galerie ; consigner le modèle, la version d'iOS et le résultat dans `docs/validation/iphone-manuel.md`
 - [ ] T120 Organiser une séance de test d'utilisabilité avec 5 employés non techniques (SC-002) : protocole (tâches : créer une demande vocale, la réécouter, l'envoyer ; traiter une demande avec photo), observation sans aide, mesure du taux de réussite et des durées ; consigner protocole et résultats dans `docs/validation/test-utilisabilite-lot1.md` (avec 5 participants, l'objectif de 90 % impose 5 réussites sur 5)
-- [ ] T121 Exécuter `npm run verify` puis tous les scénarios V1–V18 de `specs/001-demandes-travail-vocales/quickstart.md` et consigner le résultat
+- [X] T121 Exécuter `npm run verify` puis tous les scénarios V1–V18 de `specs/001-demandes-travail-vocales/quickstart.md` et consigner le résultat
 
 ---
 

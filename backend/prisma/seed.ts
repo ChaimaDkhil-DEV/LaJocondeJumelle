@@ -8,10 +8,11 @@
  *  - SEED_E2E_PASSWORD=<mdp> : mode tests de bout en bout (mot de passe fixe, voir e2e/support).
  * Le seed est idempotent : il ne recrée ni ne réinitialise ce qui existe déjà.
  */
-import { PrismaClient, type Permission, type Prisma, type Priority, type Role } from '@prisma/client';
+import { PrismaClient, type Prisma, type Priority, type Role } from '@prisma/client';
 import { argon2id, hash } from 'argon2';
 import { randomBytes } from 'node:crypto';
 import { DEFAULT_DEADLINES, type DeadlineDurations } from '../src/categories/category-defaults';
+import { DEFAULT_PERMISSIONS } from '../src/settings/default-permissions';
 import { SETTING_DEFAULTS } from '../src/settings/settings.service';
 
 export interface SeedOptions {
@@ -19,11 +20,6 @@ export interface SeedOptions {
   e2ePassword?: string;
   log?: (message: string) => void;
 }
-
-const DEFAULT_PERMISSIONS: Record<Exclude<Role, 'SUPER_ADMIN'>, Permission[]> = {
-  EMPLOYEE: ['REQUEST_CREATE', 'PRIORITY_CHANGE_OWN'],
-  MANAGER: ['REQUEST_CREATE', 'PRIORITY_CHANGE_OWN', 'PRIORITY_CHANGE_MANAGED', 'REQUEST_REASSIGN'],
-};
 
 type Durations = DeadlineDurations;
 export { DEFAULT_DEADLINES };
