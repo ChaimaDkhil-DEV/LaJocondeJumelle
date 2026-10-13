@@ -1,23 +1,21 @@
-import AddIcon from '@mui/icons-material/Add';
-import MicIcon from '@mui/icons-material/Mic';
-import Badge from '@mui/material/Badge';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import Card from '@mui/material/Card';
-import CardActionArea from '@mui/material/CardActionArea';
-import CardContent from '@mui/material/CardContent';
-import Stack from '@mui/material/Stack';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import Typography from '@mui/material/Typography';
+import { Hourglass, Inbox, Mic, Plus, SearchX, Send } from 'lucide-react';
 import { Link as RouterLink, useSearchParams } from 'react-router';
+import { visuallyHidden } from '../../components/a11y';
 import { Countdown } from '../../components/Countdown';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
-import { formatDateTime } from '../../components/format';
 import { LoadingState } from '../../components/LoadingState';
-import { PriorityChip } from '../../components/PriorityChip';
-import { StatusChip } from '../../components/StatusChip';
+import { PageHeader } from '../../components/PageHeader';
+import { PriorityBadge } from '../../components/PriorityBadge';
+import { RelativeTime } from '../../components/RelativeTime';
+import { StatusBadge } from '../../components/StatusBadge';
+import { UserAvatar } from '../../components/UserAvatar';
+import { font, fontSize, icon, motion, tokensOf } from '../../design/tokens';
 import { OutboxPanel } from '../outbox/OutboxPanel';
 import { useCurrentUser } from '../auth/useCurrentUser';
 import { useRequestList } from './api';
@@ -47,53 +45,109 @@ const TABS: TabDefinition[] = [
   },
 ];
 
-function RequestCard({ request, received }: { request: RequestSummary; received: boolean }) {
+/** Avatar de l'interlocuteur, ou pastille « en attente » quand personne n'est encore affecté. */
+function CounterpartAvatar({ person }: { person: { id: string; displayName: string } | null }) {
+  if (person) return <UserAvatar name={person.displayName} id={person.id} size={32} />;
+  return (
+    <Box
+      aria-hidden="true"
+      sx={(theme) => ({
+        width: 32,
+        height: 32,
+        borderRadius: '50%',
+        border: `1px dashed ${tokensOf(theme).borderStrong}`,
+        color: tokensOf(theme).textMuted,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      })}
+    >
+      <Hourglass size={icon.sm - 2} />
+    </Box>
+  );
+}
+
+/** Ligne de la liste : toute la ligne est un lien vers la demande. */
+function RequestRow({ request, received }: { request: RequestSummary; received: boolean }) {
+  const person = received ? request.requester : request.assignee;
   const counterpart = received
     ? `De : ${request.requester.displayName}`
     : request.assignee
       ? `Pour : ${request.assignee.displayName}`
       : 'En attente d’affectation';
+  const unread = request.unreadCount;
+
   return (
-    <Card variant="outlined">
-      <CardActionArea component={RouterLink} to={`/demandes/${request.id}`}>
-        <CardContent>
-          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-            <Typography component="h2" variant="subtitle1" sx={{ fontWeight: 600, flexGrow: 1, minWidth: 0, overflowWrap: 'anywhere' }}>
-              {request.title}
+    <Box
+      component={RouterLink}
+      to={`/demandes/${request.id}`}
+      sx={(theme) => ({
+        display: 'grid',
+        gridTemplateColumns: 'auto minmax(0, 1fr)',
+        columnGap: 1.5,
+        px: { xs: 2, sm: 2.5 },
+        py: 1.75,
+        color: 'inherit',
+        textDecoration: 'none',
+        transition: `background-color ${motion.fast}ms`,
+        '&:hover': { bgcolor: tokensOf(theme).surfaceMuted },
+        '&:focus-visible': { outlineOffset: -2 },
+      })}
+    >
+      <Box sx={{ pt: 0.25 }}>
+        <CounterpartAvatar person={person} />
+      </Box>
+      <Box sx={{ minWidth: 0 }}>
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+          <Typography component="h2" variant="body1" sx={{ fontWeight: font.medium, flexGrow: 1, minWidth: 0, overflowWrap: 'anywhere' }}>
+            {request.title}
+          </Typography>
+          {unread > 0 && (
+            <Box
+              component="span"
+              sx={(theme) => ({
+                flex: 'none',
+                mt: 0.25,
+                minWidth: 20,
+                height: 20,
+                px: 0.75,
+                borderRadius: 10,
+                bgcolor: tokensOf(theme).accent.main,
+                color: tokensOf(theme).accent.contrastText,
+                fontSize: fontSize.xs,
+                fontWeight: font.medium,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              })}
+            >
+              {unread}
+              <Box component="span" sx={visuallyHidden}>
+                {` notification${unread > 1 ? 's' : ''} non lue${unread > 1 ? 's' : ''}`}
+              </Box>
+            </Box>
+          )}
+        </Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25, overflowWrap: 'anywhere' }}>
+          {counterpart} · {request.category.name} · {request.reference} · <RelativeTime value={request.createdAt} />
+        </Typography>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, mt: 1 }}>
+          <StatusBadge status={request.status} />
+          <PriorityBadge priority={request.priority} />
+          <Countdown stage={request.currentStage} dueAt={request.currentDueAt} warnAt={request.warnAt} overdueStage={request.overdueStage} />
+          {request.hasVoice && (
+            <Typography
+              component="span"
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}
+            >
+              <Mic size={icon.sm - 2} aria-hidden="true" /> Message vocal
             </Typography>
-            {request.unreadCount > 0 && (
-              <Badge
-                color="primary"
-                badgeContent={request.unreadCount}
-                aria-label={`${request.unreadCount} notification${request.unreadCount > 1 ? 's' : ''} non lue${request.unreadCount > 1 ? 's' : ''}`}
-                sx={{ mt: 1.5, mr: 1 }}
-              />
-            )}
-          </Box>
-          <Typography variant="body2" color="text.secondary">
-            {request.reference} · {request.category.name}
-          </Typography>
-          <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', my: 1 }}>
-            <StatusChip status={request.status} />
-            <PriorityChip priority={request.priority} />
-            <Countdown
-              stage={request.currentStage}
-              dueAt={request.currentDueAt}
-              warnAt={request.warnAt}
-              overdueStage={request.overdueStage}
-            />
-            {request.hasVoice && (
-              <Typography component="span" variant="body2" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
-                <MicIcon fontSize="small" aria-hidden="true" /> Message vocal
-              </Typography>
-            )}
-          </Stack>
-          <Typography variant="body2">
-            {counterpart} · {formatDateTime(request.createdAt)}
-          </Typography>
-        </CardContent>
-      </CardActionArea>
-    </Card>
+          )}
+        </Box>
+      </Box>
+    </Box>
   );
 }
 
@@ -112,17 +166,19 @@ export function RequestListPage() {
   );
   const filtered = activeFilterCount(filters) > 0;
   const requests = list.data?.pages.flatMap((p) => p.items) ?? [];
+  const count = `${requests.length}${list.hasNextPage ? '+' : ''}`;
 
   return (
     <>
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 2, mb: 2 }}>
-        <Typography component="h1" variant="h4">
-          Mes demandes
-        </Typography>
-        <Button component={RouterLink} to="/demandes/nouvelle" variant="contained" startIcon={<AddIcon aria-hidden="true" />}>
-          Nouvelle demande
-        </Button>
-      </Box>
+      <PageHeader
+        title="Mes demandes"
+        description="Les demandes que vous avez reçues, celles que vous avez envoyées et celles qui attendent votre validation."
+        actions={
+          <Button component={RouterLink} to="/demandes/nouvelle" variant="contained" startIcon={<Plus aria-hidden="true" />}>
+            Nouvelle demande
+          </Button>
+        }
+      />
 
       <OutboxPanel />
 
@@ -134,6 +190,8 @@ export function RequestListPage() {
           setParams(next, { replace: true });
         }}
         aria-label="Type de demandes"
+        variant="scrollable"
+        scrollButtons={false}
         sx={{ mb: 2 }}
       >
         {tabs.map((t) => (
@@ -149,21 +207,54 @@ export function RequestListPage() {
         ) : list.error ? (
           <ErrorState message="Impossible de charger les demandes." actionLabel="Réessayer" onAction={() => void list.refetch()} />
         ) : requests.length === 0 ? (
-          <EmptyState
-            title="Aucune demande"
-            description={filtered ? 'Aucune demande ne correspond à ces filtres.' : tab.empty}
-          />
+          <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1.5, bgcolor: 'background.paper' }}>
+            <EmptyState
+              icon={filtered ? SearchX : tab.scope === 'mine' ? Send : Inbox}
+              title="Aucune demande"
+              description={filtered ? 'Aucune demande ne correspond à ces filtres.' : tab.empty}
+              action={
+                !filtered && tab.scope === 'mine' ? (
+                  <Button component={RouterLink} to="/demandes/nouvelle" variant="outlined" startIcon={<Plus aria-hidden="true" />}>
+                    Créer une demande
+                  </Button>
+                ) : undefined
+              }
+            />
+          </Box>
         ) : (
-          <Stack spacing={2}>
-            {requests.map((r) => (
-              <RequestCard key={r.id} request={r} received={tab.scope === 'assigned'} />
-            ))}
+          <>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              {count} demande{requests.length > 1 || list.hasNextPage ? 's' : ''}
+              {filtered ? ' correspondant aux filtres' : ''}
+            </Typography>
+            <Box
+              component="ul"
+              sx={{
+                listStyle: 'none',
+                m: 0,
+                p: 0,
+                border: 1,
+                borderColor: 'divider',
+                borderRadius: 1.5,
+                bgcolor: 'background.paper',
+                overflow: 'hidden',
+                '& > li + li': { borderTop: 1, borderColor: 'divider' },
+              }}
+            >
+              {requests.map((r) => (
+                <li key={r.id}>
+                  <RequestRow request={r} received={tab.scope === 'assigned'} />
+                </li>
+              ))}
+            </Box>
             {list.hasNextPage && (
-              <Button onClick={() => void list.fetchNextPage()} loading={list.isFetchingNextPage}>
-                Afficher plus de demandes
-              </Button>
+              <Box sx={{ mt: 2, textAlign: 'center' }}>
+                <Button variant="outlined" onClick={() => void list.fetchNextPage()} loading={list.isFetchingNextPage}>
+                  Afficher plus de demandes
+                </Button>
+              </Box>
             )}
-          </Stack>
+          </>
         )}
       </Box>
     </>

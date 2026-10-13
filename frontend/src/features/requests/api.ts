@@ -20,12 +20,12 @@ export function useCategories() {
   });
 }
 
+/** Sans cache prolongé : un destinataire ajouté par le super administrateur apparaît dès la prochaine ouverture. */
 export function useRecipients(categoryId: string | null) {
   return useQuery({
     queryKey: ['categories', categoryId, 'recipients'],
     queryFn: () => apiFetch<RecipientOption[]>(`/api/categories/${categoryId}/recipients`),
     enabled: Boolean(categoryId),
-    staleTime: 5 * 60_000,
   });
 }
 
@@ -49,6 +49,9 @@ export function useAssignees(requestId: string, enabled: boolean) {
     queryKey: ['requests', 'detail', requestId, 'assignees'],
     queryFn: () => apiFetch<RecipientOption[]>(`/api/requests/${requestId}/assignees`),
     enabled,
+    // Rechargée à chaque ouverture : un employé créé ou rattaché entre-temps doit y figurer.
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 }
 

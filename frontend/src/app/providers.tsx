@@ -1,8 +1,11 @@
 import CssBaseline from '@mui/material/CssBaseline';
 import { ThemeProvider } from '@mui/material/styles';
 import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { LucideProvider } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { ApiError } from '../api/client';
+import { ToastProvider } from '../components/Toast';
+import { icon } from '../design/tokens';
 import { ME_QUERY_KEY } from '../features/auth/useCurrentUser';
 import { theme } from './theme';
 
@@ -37,7 +40,10 @@ export function AppProviders({ children }: { children: ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        {children}
+        {/* Icônes Lucide : même taille et même épaisseur de trait partout, sauf mention contraire. */}
+        <LucideProvider size={icon.md} strokeWidth={icon.stroke}>
+          <ToastProvider>{children}</ToastProvider>
+        </LucideProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );

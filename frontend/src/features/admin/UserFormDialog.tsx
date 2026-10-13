@@ -1,4 +1,5 @@
 import Alert from '@mui/material/Alert';
+import Autocomplete from '@mui/material/Autocomplete';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
@@ -11,7 +12,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useId, useState, type FormEvent } from 'react';
 import { ApiError, apiFetch, fieldErrors } from '../../api/client';
 import type { Role } from '../../api/types';
-import { adminKeys, type AdminUser } from './api';
+import { adminKeys, useAdminCategories, type AdminUser } from './api';
 import { ROLE_LABELS } from './labels';
 
 interface UserFormDialogProps {
@@ -30,6 +31,12 @@ interface Values {
   displayName: string;
   jobTitle: string;
   role: Role;
+  recipientCategories: CategoryOption[];
+}
+
+interface CategoryOption {
+  id: string;
+  name: string;
 }
 
 const USERNAME_FORMAT = /^[a-z0-9._-]+$/;
@@ -57,7 +64,10 @@ export function UserFormDialog({ open, user, isSelf, onClose, onCreated, onSaved
     displayName: user?.displayName ?? '',
     jobTitle: user?.jobTitle ?? '',
     role: user?.role ?? 'EMPLOYEE',
+    recipientCategories: user?.recipientCategories ?? [],
   });
+  const categories = useAdminCategories();
+  const categoryOptions: CategoryOption[] = (categories.data ?? []).map((c) => ({ id: c.id, name: c.name }));
   const [values, setValues] = useState<Values>(initial);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -66,14 +76,31 @@ export function UserFormDialog({ open, user, isSelf, onClose, onCreated, onSaved
       creating
         ? apiFetch<{ user: AdminUser; temporaryPassword: string }>('/api/admin/users', {
             method: 'POST',
-            body: { username: v.username.trim().toLowerCase(), displayName: v.displayName.trim(), jobTitle: v.jobTitle.trim() || null, role: v.role },
+            body: {
+              username: v.username.trim().toLowerCase(),
+              displayName: v.displayName.trim(),
+              jobTitle: v.jobTitle.trim() || null,
+              role: v.role,
+              recipientCategoryIds: v.recipientCategories.map((c) => c.id),
+            },
           })
         : apiFetch<AdminUser>(`/api/admin/users/${user.id}`, {
             method: 'PATCH',
-            body: { displayName: v.displayName.trim(), jobTitle: v.jobTitle.trim() || null, ...(isSelf ? {} : { role: v.role }) },
+            body: {
+              displayName: v.displayName.trim(),
+              jobTitle: v.jobTitle.trim() || null,
+              ...(isSelf ? {} : { role: v.role }),
+              recipientCategoryIds: v.recipientCategories.map((c) => c.id),
+            },
           }),
     onSuccess: async (result) => {
-      await queryClient.invalidateQueries({ queryKey: adminKeys.users });
+      // Les destinataires changent aussi côté catégories et listes d'affectation.
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: adminKeys.users }),
+        queryClient.invalidateQueries({ queryKey: adminKeys.categories }),
+        queryClient.invalidateQueries({ queryKey: ['categories'] }),
+        queryClient.invalidateQueries({ queryKey: ['requests', 'detail'] }),
+      ]);
       if (creating) onCreated(result as { user: AdminUser; temporaryPassword: string });
       else onSaved('Compte enregistré.');
     },
@@ -165,6 +192,30 @@ export function UserFormDialog({ open, user, isSelf, onClose, onCreated, onSaved
               </MenuItem>
             ))}
           </TextField>
+          <Autocomplete
+            multiple
+            id="compte-categories"
+            options={categoryOptions}
+            value={values.recipientCategories}
+            onChange={(_e, recipientCategories) => set({ recipientCategories })}
+            getOptionLabel={(o) => o.name}
+            isOptionEqualToValue={(a, b) => a.id === b.id}
+            loading={categories.isPending}
+            noOptionsText="Aucune catégorie"
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Destinataire des catégories"
+                error={Boolean(errors.recipientCategoryIds)}
+                helperText={
+                  errors.recipientCategoryIds ??
+                  (values.recipientCategories.length === 0 && values.role === 'EMPLOYEE'
+                    ? 'Sans catégorie, ce compte peut créer des demandes mais ne peut ni en recevoir ni être affecté.'
+                    : 'Ce compte pourra recevoir les demandes de ces catégories et y être affecté par leurs responsables.')
+                }
+              />
+            )}
+          />
           {generalError && (
             <Alert severity="error" role="alert">
               {generalError}

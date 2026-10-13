@@ -2,7 +2,8 @@ import Box from '@mui/material/Box';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import type { Priority } from '../../api/types';
-import { PRIORITY_LABELS } from '../../components/PriorityChip';
+import { PRIORITY_LABELS, PRIORITY_STYLE } from '../../components/PriorityBadge';
+import { font, icon } from '../../design/tokens';
 import type { Circuit, DeadlineRule } from './api';
 import { formatMinutes } from './labels';
 
@@ -80,37 +81,41 @@ export function DeadlineRulesTable({ circuit, value, errors, onChange }: Deadlin
 
   return (
     <Box sx={{ display: 'grid', gap: 2 }}>
-      {PRIORITIES.map((priority) => (
-        <Box
-          component="fieldset"
-          key={priority}
-          sx={{ border: 1, borderColor: 'divider', borderRadius: 1, m: 0, p: 2, minWidth: 0 }}
-        >
-          <Typography component="legend" sx={{ px: 0.5, fontWeight: 600 }}>
-            {PRIORITY_LABELS[priority]}
-          </Typography>
-          <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: `repeat(${fields.length}, minmax(0, 1fr))` } }}>
-            {fields.map((field) => {
-              const raw = value[priority][field];
-              const error = errors[`${priority}.${field}`];
-              const parsed = parse(raw);
-              return (
-                <TextField
-                  key={field}
-                  id={`delai-${priority}-${field}`}
-                  label={FIELD_LABELS[field]}
-                  value={raw}
-                  inputMode="numeric"
-                  onChange={(e) => onChange({ ...value, [priority]: { ...value[priority], [field]: e.target.value } })}
-                  error={Boolean(error)}
-                  helperText={error ?? (parsed === null ? 'Aucun délai' : parsed !== undefined ? formatMinutes(parsed) : ' ')}
-                  slotProps={{ htmlInput: { inputMode: 'numeric', pattern: '[0-9]*' } }}
-                />
-              );
-            })}
+      {PRIORITIES.map((priority) => {
+        const Icon = PRIORITY_STYLE[priority].icon;
+        return (
+          <Box
+            component="fieldset"
+            key={priority}
+            sx={{ border: 1, borderColor: 'divider', borderRadius: 1.5, m: 0, p: 2, minWidth: 0 }}
+          >
+            <Typography component="legend" variant="body2" sx={{ px: 0.5, fontWeight: font.medium, display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
+              <Icon size={icon.sm} aria-hidden="true" />
+              {PRIORITY_LABELS[priority]}
+            </Typography>
+            <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: `repeat(${fields.length}, minmax(0, 1fr))` } }}>
+              {fields.map((field) => {
+                const raw = value[priority][field];
+                const error = errors[`${priority}.${field}`];
+                const parsed = parse(raw);
+                return (
+                  <TextField
+                    key={field}
+                    id={`delai-${priority}-${field}`}
+                    label={FIELD_LABELS[field]}
+                    value={raw}
+                    inputMode="numeric"
+                    onChange={(e) => onChange({ ...value, [priority]: { ...value[priority], [field]: e.target.value } })}
+                    error={Boolean(error)}
+                    helperText={error ?? (parsed === null ? 'Aucun délai' : parsed !== undefined ? formatMinutes(parsed) : ' ')}
+                    slotProps={{ htmlInput: { inputMode: 'numeric', pattern: '[0-9]*' } }}
+                  />
+                );
+              })}
+            </Box>
           </Box>
-        </Box>
-      ))}
+        );
+      })}
     </Box>
   );
 }

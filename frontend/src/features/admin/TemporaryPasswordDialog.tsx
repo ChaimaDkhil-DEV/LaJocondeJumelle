@@ -6,7 +6,9 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
+import { Check, Copy } from 'lucide-react';
 import { useId, useState } from 'react';
+import { icon } from '../../design/tokens';
 
 interface TemporaryPasswordDialogProps {
   /** Mot de passe et nom du compte ; null : fenêtre fermée. Le parent l'oublie à la fermeture. */
@@ -42,7 +44,9 @@ export function TemporaryPasswordDialog({ value, onClose }: TemporaryPasswordDia
       <DialogTitle id={titleId}>Mot de passe provisoire</DialogTitle>
       {value && (
         <DialogContent>
-          <Typography gutterBottom>Mot de passe provisoire de {value.displayName} :</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Mot de passe provisoire de {value.displayName} :
+          </Typography>
           <TextField
             id="mot-de-passe-provisoire"
             label="Mot de passe"
@@ -60,7 +64,13 @@ export function TemporaryPasswordDialog({ value, onClose }: TemporaryPasswordDia
         </DialogContent>
       )}
       <DialogActions sx={{ flexWrap: 'wrap', gap: 1 }}>
-        <Button onClick={() => void copyPassword()}>Copier le mot de passe</Button>
+        <Button
+          variant="outlined"
+          startIcon={copy === 'done' ? <Check size={icon.sm} aria-hidden="true" /> : <Copy size={icon.sm} aria-hidden="true" />}
+          onClick={() => void copyPassword()}
+        >
+          Copier le mot de passe
+        </Button>
         <Button variant="contained" onClick={onClose}>
           J’ai noté le mot de passe
         </Button>

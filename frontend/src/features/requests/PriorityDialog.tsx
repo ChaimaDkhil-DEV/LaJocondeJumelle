@@ -10,7 +10,9 @@ import Radio from '@mui/material/Radio';
 import RadioGroup from '@mui/material/RadioGroup';
 import { useId, useState } from 'react';
 import type { Priority } from '../../api/types';
-import { PRIORITY_LABELS } from '../../components/PriorityChip';
+import Box from '@mui/material/Box';
+import { PRIORITY_LABELS, PRIORITY_STYLE } from '../../components/PriorityBadge';
+import { icon } from '../../design/tokens';
 
 interface PriorityDialogProps {
   open: boolean;
@@ -37,9 +39,22 @@ export function PriorityDialog({ open, current, pending, onConfirm, onClose }: P
         <FormControl component="fieldset">
           <FormLabel component="legend">Priorité</FormLabel>
           <RadioGroup value={priority} onChange={(e) => setPriority(e.target.value as Priority)}>
-            {(Object.keys(PRIORITY_LABELS) as Priority[]).map((p) => (
-              <FormControlLabel key={p} value={p} control={<Radio />} label={PRIORITY_LABELS[p]} />
-            ))}
+            {(Object.keys(PRIORITY_LABELS) as Priority[]).map((p) => {
+              const Icon = PRIORITY_STYLE[p].icon;
+              return (
+                <FormControlLabel
+                  key={p}
+                  value={p}
+                  control={<Radio />}
+                  label={
+                    <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+                      <Icon size={icon.sm} aria-hidden="true" />
+                      {PRIORITY_LABELS[p]}
+                    </Box>
+                  }
+                />
+              );
+            })}
           </RadioGroup>
         </FormControl>
       </DialogContent>

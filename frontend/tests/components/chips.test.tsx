@@ -4,8 +4,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { EmptyState } from '../../src/components/EmptyState';
 import { ErrorState } from '../../src/components/ErrorState';
 import { LoadingState } from '../../src/components/LoadingState';
-import { PriorityChip, PRIORITY_LABELS } from '../../src/components/PriorityChip';
-import { StatusChip, STATUS_LABELS } from '../../src/components/StatusChip';
+import { PriorityBadge as PriorityChip, PRIORITY_LABELS } from '../../src/components/PriorityBadge';
+import { StatusBadge as StatusChip, STATUS_LABELS } from '../../src/components/StatusBadge';
 
 describe('StatusChip', () => {
   it('a un libellé français pour chacun des 11 statuts', () => {
