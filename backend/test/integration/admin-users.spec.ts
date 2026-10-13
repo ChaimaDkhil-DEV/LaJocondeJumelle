@@ -47,6 +47,7 @@ describe('Administration des comptes', () => {
       active: expect.any(Boolean),
       mustChangePassword: expect.any(Boolean),
       createdAt: expect.any(String),
+      recipientCategories: expect.any(Array),
     });
     expect(JSON.stringify(res.body)).not.toContain('argon2');
   });

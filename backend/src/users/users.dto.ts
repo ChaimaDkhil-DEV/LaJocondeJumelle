@@ -1,6 +1,19 @@
 import { Role } from '@prisma/client';
 import { Transform } from 'class-transformer';
-import { IsBoolean, IsEnum, IsOptional, IsString, Matches, MaxLength, MinLength, ValidateIf } from 'class-validator';
+import {
+  ArrayMaxSize,
+  ArrayUnique,
+  IsArray,
+  IsBoolean,
+  IsEnum,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Matches,
+  MaxLength,
+  MinLength,
+  ValidateIf,
+} from 'class-validator';
 
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
 const normalizeUsername = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim().toLowerCase() : value);
@@ -30,6 +43,17 @@ export class CreateUserDto {
 
   @IsEnum(Role, { message: 'Rôle inconnu.' })
   role!: Role;
+
+  /**
+   * Catégories dont le compte est destinataire : seuls ces comptes peuvent recevoir une demande
+   * (circuit A) ou y être affectés par un responsable (circuit B, réaffectation).
+   */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(200)
+  @ArrayUnique()
+  @IsUUID('all', { each: true, message: 'Catégorie inconnue.' })
+  recipientCategoryIds?: string[];
 }
 
 export class UpdateUserDto {
@@ -54,4 +78,15 @@ export class UpdateUserDto {
   @IsOptional()
   @IsBoolean()
   active?: boolean;
+
+  /**
+   * Catégories dont le compte est destinataire : seuls ces comptes peuvent recevoir une demande
+   * (circuit A) ou y être affectés par un responsable (circuit B, réaffectation).
+   */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(200)
+  @ArrayUnique()
+  @IsUUID('all', { each: true, message: 'Catégorie inconnue.' })
+  recipientCategoryIds?: string[];
 }

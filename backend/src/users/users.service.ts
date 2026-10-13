@@ -22,6 +22,8 @@ export interface AdminUser {
   active: boolean;
   mustChangePassword: boolean;
   createdAt: Date;
+  /** Catégories dont le compte est destinataire : sans catégorie, il ne peut être ni destinataire ni affecté. */
+  recipientCategories: Array<{ id: string; name: string }>;
 }
 
 const ADMIN_USER_SELECT = {
@@ -33,7 +35,21 @@ const ADMIN_USER_SELECT = {
   active: true,
   mustChangePassword: true,
   createdAt: true,
+  recipientOf: { select: { category: { select: { id: true, name: true } } } },
 } satisfies Prisma.UserSelect;
+
+type AdminUserRow = Prisma.UserGetPayload<{ select: typeof ADMIN_USER_SELECT }>;
+
+function toAdminUser({ recipientOf, ...user }: AdminUserRow): AdminUser {
+  return {
+    ...user,
+    recipientCategories: recipientOf.map((r) => r.category).sort((a, b) => a.name.localeCompare(b.name, 'fr')),
+  };
+}
+
+function sameIds(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((id, i) => id === b[i]);
+}
 
 /** Champs modifiables tracés avant/après dans l'audit. */
 const AUDITED_FIELDS = ['displayName', 'jobTitle', 'role', 'active'] as const;
@@ -62,15 +78,21 @@ export class UsersService {
     private readonly realtime: RealtimeService,
   ) {}
 
-  list(): Promise<AdminUser[]> {
-    return this.prisma.user.findMany({ select: ADMIN_USER_SELECT, orderBy: [{ active: 'desc' }, { displayName: 'asc' }] });
+  async list(): Promise<AdminUser[]> {
+    const rows = await this.prisma.user.findMany({ select: ADMIN_USER_SELECT, orderBy: [{ active: 'desc' }, { displayName: 'asc' }] });
+    return rows.map(toAdminUser);
   }
 
-  /** Crée un compte ; le mot de passe provisoire n'est renvoyé qu'ici, une seule fois. */
+  /**
+   * Crée un compte ; le mot de passe provisoire n'est renvoyé qu'ici, une seule fois.
+   * Les catégories choisies le rendent immédiatement destinataire, donc affectable par leurs responsables.
+   */
   async create(dto: CreateUserDto, ctx: AdminContext): Promise<{ user: AdminUser; temporaryPassword: string }> {
     if (await this.prisma.user.findUnique({ where: { username: dto.username } })) {
       throw new AppException('CONFLICT', { fields: [{ field: 'username', messages: ['Cet identifiant est déjà utilisé.'] }] }, 'Cet identifiant est déjà utilisé.');
     }
+    const categoryIds = [...(dto.recipientCategoryIds ?? [])].sort();
+    await this.checkCategories(categoryIds);
     const password = temporaryPassword();
     let user: AdminUser;
     try {
@@ -83,6 +105,7 @@ export class UsersService {
             role: dto.role,
             passwordHash: await this.auth.hashPassword(password),
             mustChangePassword: true,
+            recipientOf: { create: categoryIds.map((categoryId) => ({ categoryId })) },
           },
           select: ADMIN_USER_SELECT,
         });
@@ -93,11 +116,19 @@ export class UsersService {
             ip: ctx.ip,
             targetType: 'User',
             targetId: created.id,
-            details: { after: { username: created.username, displayName: created.displayName, jobTitle: created.jobTitle, role: created.role } },
+            details: {
+              after: {
+                username: created.username,
+                displayName: created.displayName,
+                jobTitle: created.jobTitle,
+                role: created.role,
+                recipientCategoryIds: categoryIds,
+              },
+            },
           },
           tx,
         );
-        return created;
+        return toAdminUser(created);
       });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
@@ -109,7 +140,7 @@ export class UsersService {
   }
 
   /**
-   * Modifie nom, fonction, rôle ou activation. La désactivation ferme immédiatement les sessions
+   * Modifie nom, fonction, rôle, activation ou catégories destinataires. La désactivation ferme immédiatement les sessions
    * et les connexions temps réel du compte. Le super administrateur ne peut ni se désactiver
    * ni perdre son rôle (il resterait sans administrateur).
    */
@@ -129,11 +160,25 @@ export class UsersService {
         after[field] = next;
       }
     }
-    if (Object.keys(after).length === 0) return this.toAdminUser(current);
+    const userData = { ...after };
+
+    const categories = await this.recipientCategoryChange(current, dto);
+    if (categories) {
+      before.recipientCategoryIds = categories.before;
+      after.recipientCategoryIds = categories.after;
+    }
+    if (Object.keys(after).length === 0) return this.get(id);
 
     const deactivated = after.active === false;
-    const updated = await this.prisma.$transaction(async (tx) => {
-      const user = await tx.user.update({ where: { id }, data: after, select: ADMIN_USER_SELECT });
+    await this.prisma.$transaction(async (tx) => {
+      if (categories) {
+        await tx.categoryRecipient.deleteMany({ where: { userId: id, categoryId: { notIn: categories.after } } });
+        await tx.categoryRecipient.createMany({
+          data: categories.after.map((categoryId) => ({ categoryId, userId: id })),
+          skipDuplicates: true,
+        });
+      }
+      if (Object.keys(userData).length > 0) await tx.user.update({ where: { id }, data: userData });
       if (deactivated) await tx.session.deleteMany({ where: { userId: id } });
 
       const otherFields = Object.keys(after).filter((f) => f !== 'active' || !deactivated);
@@ -153,10 +198,9 @@ export class UsersService {
           tx,
         );
       }
-      return user;
     });
     if (deactivated) this.realtime.endUserSessions(id, 'DEACTIVATED');
-    return updated;
+    return this.get(id);
   }
 
   /** Nouveau mot de passe provisoire (renvoyé une seule fois) ; toutes les sessions du compte sont fermées. */
@@ -182,17 +226,44 @@ export class UsersService {
     return user;
   }
 
-  private toAdminUser(user: User): AdminUser {
-    return {
-      id: user.id,
-      username: user.username,
-      displayName: user.displayName,
-      jobTitle: user.jobTitle,
-      role: user.role,
-      active: user.active,
-      mustChangePassword: user.mustChangePassword,
-      createdAt: user.createdAt,
-    };
+  private async get(id: string): Promise<AdminUser> {
+    return toAdminUser(await this.prisma.user.findUniqueOrThrow({ where: { id }, select: ADMIN_USER_SELECT }));
+  }
+
+  private async checkCategories(categoryIds: string[]): Promise<void> {
+    if (categoryIds.length === 0) return;
+    const found = await this.prisma.category.count({ where: { id: { in: categoryIds } } });
+    if (found !== categoryIds.length) throw invalid('recipientCategoryIds', 'Une des catégories choisies est introuvable.');
+  }
+
+  /**
+   * Catégories dont le compte devient (ou cesse d'être) destinataire ; null si inchangées.
+   * Mêmes règles que l'édition des destinataires depuis la catégorie : compte actif, et l'employé
+   * désigné pour l'affectation automatique ne peut pas être retiré.
+   */
+  private async recipientCategoryChange(user: User, dto: UpdateUserDto): Promise<{ before: string[]; after: string[] } | null> {
+    if (dto.recipientCategoryIds === undefined) return null;
+    const after = [...dto.recipientCategoryIds].sort();
+    const current = await this.prisma.categoryRecipient.findMany({ where: { userId: user.id }, select: { categoryId: true } });
+    const before = current.map((r) => r.categoryId).sort();
+    if (sameIds(before, after)) return null;
+
+    await this.checkCategories(after);
+    const added = after.filter((c) => !before.includes(c));
+    if (added.length > 0 && (dto.active ?? user.active) === false) {
+      throw invalid('recipientCategoryIds', 'Un compte désactivé ne peut pas devenir destinataire d’une catégorie.');
+    }
+    const locked = await this.prisma.category.findFirst({
+      where: { id: { in: before.filter((c) => !after.includes(c)) }, assignmentMode: 'AUTO', autoAssigneeId: user.id },
+      select: { name: true },
+    });
+    if (locked) {
+      throw invalid(
+        'recipientCategoryIds',
+        `Ce compte reçoit automatiquement les demandes de « ${locked.name} » : changez d’abord l’employé désigné de cette catégorie.`,
+      );
+    }
+    return { before, after };
   }
 }
 
