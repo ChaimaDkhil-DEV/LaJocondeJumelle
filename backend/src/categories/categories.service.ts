@@ -16,7 +16,8 @@ export class CategoriesService {
   ) {}
 
   async creatableCategories(user: AuthenticatedUser): Promise<CategoryOption[]> {
-    const categories = await this.policies.categories({ active: true });
+    // Les catégories de couverture se créent depuis les écrans « Gardes », jamais ici.
+    const categories = await this.policies.categories({ active: true, kind: 'WORK' });
     return categories
       .filter((category) => canCreateInCategory(user, toPolicyCategory(category)))
       .map((c) => ({ id: c.id, name: c.name, circuit: c.circuit, photoRequired: c.photoRequired }));
@@ -24,7 +25,9 @@ export class CategoriesService {
 
   async recipients(user: AuthenticatedUser, categoryId: string): Promise<RecipientOption[]> {
     const category = UUID.test(categoryId) ? await this.policies.category(categoryId) : null;
-    if (!category || !canCreateInCategory(user, toPolicyCategory(category))) throw new AppException('NOT_FOUND');
+    if (!category || category.kind !== 'WORK' || !canCreateInCategory(user, toPolicyCategory(category))) {
+      throw new AppException('NOT_FOUND');
+    }
     if (category.circuit !== 'A_DIRECT') return [];
 
     return this.prisma.user.findMany({

@@ -50,7 +50,7 @@ export class NotificationsController {
     const [rows, unreadTotal] = await Promise.all([
       this.prisma.notification.findMany({
         where,
-        include: { request: { select: { id: true, reference: true, title: true } } },
+        include: { request: { select: { id: true, reference: true, title: true, kind: true } } },
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         take: limit + 1,
       }),

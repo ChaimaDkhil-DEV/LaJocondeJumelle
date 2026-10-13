@@ -119,7 +119,7 @@ describe('Temps réel (Socket.IO)', () => {
       const notification = await pending;
 
       expect(Date.now() - started).toBeLessThan(1000);
-      expect(Object.keys(notification).sort()).toEqual(['createdAt', 'id', 'priority', 'reference', 'requestId', 'title', 'type']);
+      expect(Object.keys(notification).sort()).toEqual(['createdAt', 'id', 'kind', 'priority', 'reference', 'requestId', 'title', 'type']);
       expect(notification).toMatchObject({ type: 'URGENT', priority: 'URGENT', requestId: created.id, title: 'Photocopies temps réel' });
 
       await pause(300);

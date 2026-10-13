@@ -7,6 +7,8 @@ import { AppException } from '../common/errors';
 import { PrismaService } from '../common/prisma.service';
 import type { AppConfig } from '../config/config';
 import { APP_CONFIG } from '../config/config.module';
+import { CoverageAccessLoader } from '../coverage/coverage-access.loader';
+import { canReadPresenceProof, coverageAccess } from '../coverage/domain/coverage-policy';
 import { canReadRequest, canWriteInThread } from '../requests/domain/access-policy';
 import { RequestPolicyLoader, toPolicyCategory, toPolicyRequest } from '../requests/request-policy.loader';
 import { SettingsService } from '../settings/settings.service';
@@ -64,6 +66,7 @@ export class FilesService {
     private readonly settings: SettingsService,
     private readonly policies: RequestPolicyLoader,
     private readonly audit: AuditService,
+    private readonly coverage: CoverageAccessLoader,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
@@ -154,7 +157,8 @@ export class FilesService {
 
   /**
    * Fichier lisible par l'utilisateur, sinon null : fichier provisoire → son auteur uniquement ;
-   * fichier rattaché → mêmes droits que la demande parente.
+   * fichier rattaché → mêmes droits que la demande parente. Couverture de classe : la photo de
+   * preuve n'est lisible que par son auteur, les responsables et le super administrateur.
    */
   async findReadable(user: AuthenticatedUser, fileId: string): Promise<StoredFile | null> {
     if (!UUID.test(fileId)) return null;
@@ -165,6 +169,14 @@ export class FilesService {
     const request = await this.prisma.request.findUnique({ where: { id: file.requestId } });
     const category = request && (await this.policies.category(request.categoryId));
     if (!request || !category) return null;
+    if (request.kind === 'COVERAGE') {
+      const facts = await this.coverage.facts(request, user.id);
+      if (!facts) return null;
+      const isProof =
+        file.isCompletionProof || (await this.prisma.coveragePresence.count({ where: { fileId: file.id } })) > 0;
+      if (isProof) return canReadPresenceProof(user, facts, file.uploaderId) ? file : null;
+      return coverageAccess(user, facts) === 'full' ? file : null;
+    }
     return canReadRequest(user, toPolicyRequest(request), toPolicyCategory(category)) ? file : null;
   }
 

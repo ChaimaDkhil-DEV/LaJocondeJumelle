@@ -25,7 +25,8 @@ interface OverdueRow {
  * l'événement OVERDUE et notifie les responsables de la catégorie et l'employé affecté. La demande
  * n'est jamais supprimée ni masquée. L'état étant lu en base, les échéances manquées pendant un
  * arrêt sont rattrapées au redémarrage. La version n'est pas incrémentée : marquer un retard
- * n'entre pas en conflit avec les actions des utilisateurs.
+ * n'entre pas en conflit avec les actions des utilisateurs. Les couvertures de classe ont leur
+ * propre tâche (coverage/coverage-deadlines.job.ts).
  */
 @Injectable()
 export class OverdueJob {
@@ -57,7 +58,8 @@ export class OverdueJob {
     const rows = await this.prisma.$queryRaw<OverdueRow[]>`
       UPDATE "Request"
       SET "overdueStage" = "currentStage", "updatedAt" = now()
-      WHERE "currentStage" IS NOT NULL
+      WHERE "kind" = 'WORK'
+        AND "currentStage" IS NOT NULL
         AND "currentDueAt" < now()
         AND "overdueStage" IS DISTINCT FROM "currentStage"
       RETURNING "id", "currentStage", "status", "version", "priority", "requesterId", "assigneeId", "categoryId"`;

@@ -1,4 +1,4 @@
-import { AssignmentMode, Circuit, ClosureMode, Priority, Role } from '@prisma/client';
+import { AssignmentMode, Circuit, ClosureMode, Priority, ProofMode, RequestKind, Role } from '@prisma/client';
 import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize,
@@ -65,6 +65,16 @@ export class CreateCategoryDto {
   @IsOptional()
   @IsBoolean()
   photoRequired?: boolean;
+
+  /** WORK (par défaut) ou COVERAGE ; ne peut plus être modifié ensuite. */
+  @IsOptional()
+  @IsEnum(RequestKind)
+  kind?: RequestKind;
+
+  /** Couverture : preuve de présence exigée. */
+  @IsOptional()
+  @IsEnum(ProofMode)
+  proofMode?: ProofMode;
 }
 
 export class UpdateCategoryDto {
@@ -116,6 +126,15 @@ export class UpdateCategoryDto {
   @IsOptional()
   @IsBoolean()
   photoRequired?: boolean;
+
+  /** Accepté uniquement s'il est identique au type actuel (le type est figé à la création). */
+  @IsOptional()
+  @IsEnum(RequestKind)
+  kind?: RequestKind;
+
+  @IsOptional()
+  @IsEnum(ProofMode)
+  proofMode?: ProofMode;
 }
 
 export class MembersDto {
@@ -147,6 +166,14 @@ export class DeadlineRuleDto {
   @Min(1, { message: 'Un délai doit être d’au moins 1 minute.' })
   @Max(MAX_MINUTES)
   completionMinutes!: number | null;
+
+  /** Couverture uniquement (vide pour les demandes de travail). */
+  @IsOptional()
+  @ValidateIf((_o, v) => v !== null)
+  @IsInt({ message: 'Nombre entier de minutes attendu (ou vide).' })
+  @Min(1, { message: 'Un délai doit être d’au moins 1 minute.' })
+  @Max(MAX_MINUTES)
+  arrivalMinutes?: number | null;
 }
 
 export class DeadlineRulesDto {

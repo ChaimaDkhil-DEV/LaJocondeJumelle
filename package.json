@@ -11,6 +11,9 @@
     "node": ">=24"
   },
   "scripts": {
+    "dev": "concurrently -k -n BACKEND,FRONTEND npm:dev:backend npm:dev:frontend",
+    "dev:backend": "npm run -w backend start",
+    "dev:frontend": "npm run -w frontend dev",
     "lint": "eslint .",
     "format": "prettier --write .",
     "test": "npm run -w backend test && npm run -w backend test:integration && npm run -w frontend test",
@@ -32,6 +35,7 @@
     "@axe-core/playwright": "^4.13.0",
     "@eslint/js": "^9.39.5",
     "@playwright/test": "^1.64.0",
+    "concurrently": "^9.2.1",
     "eslint": "^9.39.5",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-jsx-a11y": "^6.10.2",

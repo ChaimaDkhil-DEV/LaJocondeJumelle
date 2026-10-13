@@ -41,6 +41,15 @@ export const ERROR_CATALOG = {
     message: 'Le message vocal dépasse la durée maximale autorisée.',
   },
   VOICE_TOO_SHORT: { status: 422, message: 'Le message vocal est trop court.' },
+  ALREADY_TAKEN: { status: 409, message: 'Cette garde a déjà été prise.' },
+  NOT_AVAILABLE: {
+    status: 409,
+    message: 'Cet employé n’est pas disponible : il a déjà une garde en cours sur ce créneau ou est indisponible.',
+  },
+  PROOF_REQUIRED: { status: 422, message: 'La preuve de présence demandée est manquante (photo ou QR code de la classe).' },
+  QR_INVALID: { status: 422, message: 'Ce QR code n’est pas valide ou a été révoqué. Demandez le QR code à jour.' },
+  QR_CLASS_MISMATCH: { status: 422, message: 'Ce QR code correspond à une autre classe que celle de votre garde.' },
+  INVALID_DURATION: { status: 422, message: 'Durée invalide.' },
   RATE_LIMITED: {
     status: 429,
     message: 'Trop de tentatives. Patientez une minute avant de réessayer.',

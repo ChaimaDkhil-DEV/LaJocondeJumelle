@@ -39,6 +39,9 @@ function minutesFor(stage: DeadlineStage, durations: DeadlineDurations): number 
       return durations.takeoverMinutes;
     case 'COMPLETION':
       return durations.completionMinutes;
+    case 'ARRIVAL':
+      // Étape propre aux couvertures de classe (coverage/domain), jamais démarrée ici.
+      return null;
   }
 }
 

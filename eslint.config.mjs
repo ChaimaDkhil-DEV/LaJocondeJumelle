@@ -12,7 +12,10 @@ export default tseslint.config(
       '**/node_modules/**',
       '**/dist/**',
       '**/build/**',
-      '**/coverage/**',
+      // Rapports de couverture de tests (le module métier « coverage » reste analysé).
+      'coverage/**',
+      'backend/coverage/**',
+      'frontend/coverage/**',
       '**/*.min.js',
       'backend/src/generated/**',
       'frontend/src/api/schema.d.ts',

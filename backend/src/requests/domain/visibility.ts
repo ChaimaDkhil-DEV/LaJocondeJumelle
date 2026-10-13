@@ -6,7 +6,8 @@ import type { PolicyUser } from './access-policy';
  * - brouillons : auteur uniquement ;
  * - autres statuts : demandeur, employé affecté actuel, responsables de la catégorie ;
  * - super administrateur : toutes les demandes hors brouillons des autres.
- * Un compte désactivé ne voit rien.
+ * Un compte désactivé ne voit rien. Les couvertures de classe (kind = COVERAGE) sont exclues :
+ * elles ont leurs propres écrans et leur propre politique (coverage/).
  */
 export function visibleRequestsWhere(user: Pick<PolicyUser, 'id' | 'role' | 'active'>): Prisma.RequestWhereInput {
   if (!user.active) return { id: { in: [] } };
@@ -15,10 +16,11 @@ export function visibleRequestsWhere(user: Pick<PolicyUser, 'id' | 'role' | 'act
     OR: [{ status: { not: 'DRAFT' } }, { requesterId: user.id }],
   };
 
-  if (user.role === 'SUPER_ADMIN') return notOthersDrafts;
+  if (user.role === 'SUPER_ADMIN') return { AND: [{ kind: 'WORK' }, notOthersDrafts] };
 
   return {
     AND: [
+      { kind: 'WORK' },
       notOthersDrafts,
       {
         OR: [

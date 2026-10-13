@@ -60,6 +60,7 @@ const rules: RulesSnapshot = {
 
 function request(status: RequestStatus, extra: Partial<PolicyRequest> = {}): PolicyRequest {
   return {
+    kind: 'WORK',
     status,
     rules,
     hasVoice: true,

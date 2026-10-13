@@ -20,6 +20,10 @@ const ALLOWED_DETAIL_KEYS = new Set([
   'requestId',
   'fileId',
   'permissions',
+  // Couverture de classe
+  'action',
+  'forced',
+  'groupId',
 ]);
 
 /** Clés jamais conservées, à tout niveau : secrets et contenus de messages. */

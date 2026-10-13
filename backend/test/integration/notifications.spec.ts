@@ -58,7 +58,7 @@ describe('Notifications', () => {
       id: expect.any(String),
       type: 'REQUEST_NEW',
       priority: 'NORMAL',
-      request: { id: expect.any(String), reference: expect.stringMatching(/^D-/), title: 'Demande C' },
+      request: { id: expect.any(String), reference: expect.stringMatching(/^D-/), title: 'Demande C', kind: 'WORK' },
       createdAt: expect.any(String),
       readAt: null,
     });
