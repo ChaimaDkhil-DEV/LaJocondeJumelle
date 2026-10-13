@@ -52,6 +52,7 @@ export function SocketProvider({
     socket.on('connect', () => {
       invalidate(NOTIFICATIONS_KEY);
       invalidate(requestKeys.all);
+      invalidate(['coverage']);
     });
     socket.on('notification:new', (event?: NotificationEvent) => {
       invalidate(NOTIFICATIONS_KEY);
@@ -62,6 +63,9 @@ export function SocketProvider({
       if (event) invalidate(requestKeys.detail(event.requestId));
       invalidate(['requests', 'list']);
     });
+    // Couvertures de classe : listes « À prendre », « Ma garde », suivi en direct (relues par REST).
+    socket.on('coverage:updated', () => invalidate(['coverage']));
+    socket.on('coverage:taken', () => invalidate(['coverage']));
     socket.on('message:new', (event?: { requestId: string }) => {
       if (event) invalidate(messageKeys.thread(event.requestId));
     });

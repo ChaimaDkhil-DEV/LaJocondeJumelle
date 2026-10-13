@@ -2,7 +2,9 @@
 node_modules/
 dist/
 build/
-coverage/
+/coverage/
+backend/coverage/
+frontend/coverage/
 *.tsbuildinfo
 
 # Environnement et secrets

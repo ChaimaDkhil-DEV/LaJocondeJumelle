@@ -112,7 +112,16 @@ describe('Seed', () => {
   it('mode e2e : mot de passe fixe, aucun changement imposé sauf pour le compte « nouveau »', async () => {
     await runSeed(prisma, { log: () => undefined, e2ePassword: 'MotDePasse-E2E-2026!' });
     const users = await prisma.user.findMany();
-    expect(users.map((u) => u.username).sort()).toEqual(['autre', 'enseignante', 'nouveau', 'reprographie', 'responsable', 'superadmin']);
+    expect(users.map((u) => u.username).sort()).toEqual([
+      'autre',
+      'enseignante',
+      'nouveau',
+      'remplacant',
+      'reprographie',
+      'responsable',
+      'superadmin',
+      'surveillant',
+    ]);
     for (const user of users) {
       expect(user.mustChangePassword).toBe(user.username === 'nouveau');
       await expect(verify(user.passwordHash, 'MotDePasse-E2E-2026!')).resolves.toBe(true);
@@ -125,7 +134,10 @@ describe('Seed', () => {
     await runSeed(prisma, { log: () => undefined });
     const after = await prisma.user.findMany({ orderBy: { username: 'asc' } });
     expect(after.map((u) => u.passwordHash)).toEqual(before.map((u) => u.passwordHash));
-    await expect(prisma.category.count()).resolves.toBe(3);
-    await expect(prisma.deadlineRule.count()).resolves.toBe(12);
+    // 3 catégories de demandes de travail + « Garde de classe » (couverture), 4 priorités chacune.
+    await expect(prisma.category.count()).resolves.toBe(4);
+    await expect(prisma.deadlineRule.count()).resolves.toBe(16);
+    await expect(prisma.employeeGroup.count()).resolves.toBe(1);
+    await expect(prisma.schoolClass.count()).resolves.toBe(2);
   });
 });

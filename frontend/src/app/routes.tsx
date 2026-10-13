@@ -3,6 +3,10 @@ import { adminRoutes } from '../features/admin/adminRoutes';
 import { ChangePasswordPage } from '../features/auth/ChangePasswordPage';
 import { LoginPage } from '../features/auth/LoginPage';
 import { RequireAuth } from '../features/auth/RequireAuth';
+import { CoverageDetailPage } from '../features/coverage/CoverageDetailPage';
+import { CoveragePage } from '../features/coverage/CoveragePage';
+import { CreateCoveragePage } from '../features/coverage/CreateCoveragePage';
+import { PresencePage } from '../features/coverage/PresencePage';
 import { CreateRequestPage } from '../features/requests/CreateRequestPage';
 import { RequestDetailPage } from '../features/requests/RequestDetailPage';
 import { RequestListPage } from '../features/requests/RequestListPage';
@@ -22,6 +26,12 @@ export const routes: RouteObject[] = [
       { index: true, element: <RequestListPage /> },
       { path: 'demandes/nouvelle', element: <CreateRequestPage /> },
       { path: 'demandes/:id', element: <RequestDetailPage /> },
+      // Couverture de classe (garde / remplacement).
+      { path: 'gardes', element: <CoveragePage /> },
+      { path: 'gardes/nouvelle', element: <CreateCoveragePage /> },
+      // Lien encodé dans le QR code de la classe : n'enregistre rien sans confirmation explicite.
+      { path: 'gardes/presence', element: <PresencePage /> },
+      { path: 'gardes/:id', element: <CoverageDetailPage /> },
       ...adminRoutes,
     ],
   },

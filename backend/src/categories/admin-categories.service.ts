@@ -5,7 +5,12 @@ import { AppException } from '../common/errors';
 import { PrismaService } from '../common/prisma.service';
 import type { AdminContext } from '../users/users.service';
 import type { CreateCategoryDto, DeadlineRulesDto, UpdateCategoryDto } from './admin-categories.dto';
-import { DEFAULT_DEADLINES, PRIORITY_ORDER, type DeadlineDurations } from './category-defaults';
+import {
+  DEFAULT_COVERAGE_DEADLINES,
+  DEFAULT_DEADLINES,
+  PRIORITY_ORDER,
+  type DeadlineDurations,
+} from './category-defaults';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -27,6 +32,8 @@ export interface AdminCategory
     | 'assignmentMode'
     | 'autoAssigneeId'
     | 'photoRequired'
+    | 'kind'
+    | 'proofMode'
   > {
   recipients: Array<{ id: string; displayName: string }>;
   managers: Array<{ id: string; displayName: string }>;
@@ -54,6 +61,7 @@ const CATEGORY_FIELDS = [
   'assignmentMode',
   'autoAssigneeId',
   'photoRequired',
+  'proofMode',
 ] as const;
 type CategoryField = (typeof CATEGORY_FIELDS)[number];
 type CategoryValues = Pick<Category, CategoryField>;
@@ -79,6 +87,8 @@ function toAdminCategory(row: CategoryRow): AdminCategory {
     assignmentMode: row.assignmentMode,
     autoAssigneeId: row.autoAssigneeId,
     photoRequired: row.photoRequired,
+    kind: row.kind,
+    proofMode: row.proofMode,
     recipients: row.recipients.map((r) => r.user).sort(byName),
     managers: row.managers.map((m) => m.user).sort(byName),
     deadlineRules: [...row.deadlineRules]
@@ -88,6 +98,7 @@ function toAdminCategory(row: CategoryRow): AdminCategory {
         validationMinutes: r.validationMinutes,
         takeoverMinutes: r.takeoverMinutes,
         completionMinutes: r.completionMinutes,
+        arrivalMinutes: r.arrivalMinutes,
       })),
   };
 }
@@ -120,24 +131,32 @@ export class AdminCategoriesService {
       assignmentMode: dto.assignmentMode ?? 'MANUAL',
       autoAssigneeId: dto.autoAssigneeId ?? null,
       photoRequired: dto.photoRequired ?? false,
+      proofMode: dto.proofMode ?? 'PHOTO',
     };
-    this.checkCircuitRules(values, new Set());
+    const kind = dto.kind ?? 'WORK';
+    this.checkCircuitRules(values, new Set(), kind);
     await this.checkNameAvailable(values.name);
 
     const id = await this.write(async (tx) => {
       const created = await tx.category.create({
         data: {
           ...values,
+          kind,
           deadlineRules: {
-            create: PRIORITY_ORDER.map((priority) => ({
-              priority,
-              ...DEFAULT_DEADLINES[priority],
-              validationMinutes: values.circuit === 'B_ADMIN_VALIDATION' ? DEFAULT_DEADLINES[priority].validationMinutes : null,
-            })),
+            create: PRIORITY_ORDER.map((priority) =>
+              kind === 'COVERAGE'
+                ? { priority, ...DEFAULT_COVERAGE_DEADLINES }
+                : {
+                    priority,
+                    ...DEFAULT_DEADLINES[priority],
+                    validationMinutes:
+                      values.circuit === 'B_ADMIN_VALIDATION' ? DEFAULT_DEADLINES[priority].validationMinutes : null,
+                  },
+            ),
           },
         },
       });
-      await this.logChange(tx, ctx, created.id, { after: values });
+      await this.logChange(tx, ctx, created.id, { after: { ...values, kind } });
       return created.id;
     });
     return this.get(id);
@@ -145,12 +164,15 @@ export class AdminCategoriesService {
 
   async update(id: string, dto: UpdateCategoryDto, ctx: AdminContext): Promise<AdminCategory> {
     const current = await this.find(id);
+    if (dto.kind !== undefined && dto.kind !== current.kind) {
+      throw invalid('kind', 'Le type de catégorie (travail ou couverture) ne peut pas être modifié après sa création.');
+    }
     const next: CategoryValues = { ...pickValues(current) };
     for (const field of CATEGORY_FIELDS) {
       const value = dto[field];
       if (value !== undefined) (next as Record<CategoryField, unknown>)[field] = value;
     }
-    this.checkCircuitRules(next, new Set(current.recipients.map((r) => r.user.id)));
+    this.checkCircuitRules(next, new Set(current.recipients.map((r) => r.user.id)), current.kind);
     if (next.name.toLowerCase() !== current.name.toLowerCase()) await this.checkNameAvailable(next.name);
 
     const changed = CATEGORY_FIELDS.filter((f) => JSON.stringify(next[f]) !== JSON.stringify(current[f]));
@@ -210,10 +232,22 @@ export class AdminCategoriesService {
     if (current.circuit === 'A_DIRECT' && dto.rules.some((r) => r.validationMinutes !== null)) {
       throw invalid('rules', 'Le circuit direct n’a pas de délai de validation administrative.');
     }
+    if (current.kind === 'WORK' && dto.rules.some((r) => r.arrivalMinutes != null)) {
+      throw invalid('rules', 'Le délai d’arrivée en classe ne concerne que les couvertures.');
+    }
+    if (current.kind === 'COVERAGE' && dto.rules.some((r) => r.completionMinutes !== null)) {
+      throw invalid('rules', 'Une couverture n’a pas de délai de réalisation : utilisez le délai d’arrivée en classe.');
+    }
     const before = toAdminCategory(current).deadlineRules;
     const after = PRIORITY_ORDER.map((priority) => {
       const r = dto.rules.find((rule) => rule.priority === priority)!;
-      return { priority, validationMinutes: r.validationMinutes, takeoverMinutes: r.takeoverMinutes, completionMinutes: r.completionMinutes };
+      return {
+        priority,
+        validationMinutes: r.validationMinutes,
+        takeoverMinutes: r.takeoverMinutes,
+        completionMinutes: r.completionMinutes,
+        arrivalMinutes: r.arrivalMinutes ?? null,
+      };
     });
     await this.prisma.$transaction(async (tx) => {
       for (const rule of after) {
@@ -246,7 +280,16 @@ export class AdminCategoriesService {
   }
 
   /** Règles de cohérence entre circuit, mode d'affectation et validation finale. */
-  private checkCircuitRules(values: CategoryValues, recipientIds: ReadonlySet<string>): void {
+  private checkCircuitRules(values: CategoryValues, recipientIds: ReadonlySet<string>, kind: Category['kind']): void {
+    if (kind === 'COVERAGE') {
+      // Couverture : diffusion à des groupes d'employés, validation finale facultative, jamais d'affectation automatique.
+      if (values.circuit !== 'A_DIRECT') throw invalid('circuit', 'Une catégorie de couverture utilise le circuit direct.');
+      if (values.assignmentMode === 'AUTO') throw invalid('assignmentMode', 'Une couverture est prise par le premier employé disponible.');
+      if (values.creatorRoles.includes('EMPLOYEE')) {
+        throw invalid('creatorRoles', 'Seuls les responsables et le super administrateur créent des demandes de couverture.');
+      }
+      return;
+    }
     if (values.circuit === 'A_DIRECT') {
       if (values.finalValidation) throw invalid('finalValidation', 'La validation finale n’existe qu’en circuit B.');
       if (values.assignmentMode === 'AUTO') throw invalid('assignmentMode', 'L’affectation automatique n’existe qu’en circuit B.');

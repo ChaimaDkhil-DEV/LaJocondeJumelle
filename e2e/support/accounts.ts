@@ -10,6 +10,9 @@ export const accounts = {
   nouveau: 'nouveau',
   /** Employé sans lien avec les demandes de test (confidentialité). */
   autre: 'autre',
+  /** Couverture de classe : membres du groupe « Surveillants/Remplaçants ». */
+  surveillant: 'surveillant',
+  remplacant: 'remplacant',
 } as const;
 
 export type AccountName = keyof typeof accounts;

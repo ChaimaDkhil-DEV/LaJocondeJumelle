@@ -15,7 +15,7 @@ export class SocketNotificationPublisher implements NotificationPublisher {
   async publish(notifications: Notification[]): Promise<void> {
     const requests = await this.prisma.request.findMany({
       where: { id: { in: [...new Set(notifications.map((n) => n.requestId))] } },
-      select: { id: true, reference: true, title: true },
+      select: { id: true, reference: true, title: true, kind: true },
     });
     const byId = new Map(requests.map((r) => [r.id, r]));
     for (const n of notifications) {
@@ -27,6 +27,8 @@ export class SocketNotificationPublisher implements NotificationPublisher {
         requestId: n.requestId,
         reference: request?.reference ?? '',
         title: request?.title ?? '',
+        // Demande de travail ou couverture de classe : le client choisit la page à ouvrir.
+        kind: request?.kind ?? 'WORK',
         createdAt: n.createdAt,
       });
     }

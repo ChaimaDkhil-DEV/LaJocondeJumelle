@@ -11,7 +11,7 @@
 import { PrismaClient, type Prisma, type Priority, type Role } from '@prisma/client';
 import { argon2id, hash } from 'argon2';
 import { randomBytes } from 'node:crypto';
-import { DEFAULT_DEADLINES, type DeadlineDurations } from '../src/categories/category-defaults';
+import { DEFAULT_COVERAGE_DEADLINES, DEFAULT_DEADLINES, PRIORITY_ORDER, type DeadlineDurations } from '../src/categories/category-defaults';
 import { DEFAULT_PERMISSIONS } from '../src/settings/default-permissions';
 import { SETTING_DEFAULTS } from '../src/settings/settings.service';
 
@@ -32,7 +32,53 @@ const DEMO_USERS: Array<{ username: string; displayName: string; jobTitle: strin
   { username: 'nouveau', displayName: 'Nouvel employé', jobTitle: 'Accueil', role: 'EMPLOYEE', e2eOnly: true },
   // Employé sans lien avec les catégories de démonstration : vérifie la confidentialité des demandes.
   { username: 'autre', displayName: 'Autre employé', jobTitle: 'Cantine', role: 'EMPLOYEE', e2eOnly: true },
+  // Couverture de classe : deux membres du groupe « Surveillants/Remplaçants ».
+  { username: 'surveillant', displayName: 'Surveillant', jobTitle: 'Surveillance', role: 'EMPLOYEE', e2eOnly: true },
+  { username: 'remplacant', displayName: 'Remplaçante', jobTitle: 'Remplacement', role: 'EMPLOYEE', e2eOnly: true },
 ];
+
+/**
+ * Couverture de classe : catégorie, groupe et classes de démonstration (mêmes valeurs par défaut que la
+ * migration 0002_coverage : preuve QR + photo, prise en charge 2 min, arrivée 5 min).
+ */
+async function seedCoverage(prisma: PrismaClient): Promise<void> {
+  const responsable = await prisma.user.findUnique({ where: { username: 'responsable' } });
+  // La migration 0002_coverage crée déjà la catégorie (sans responsable si les comptes n'existaient pas encore).
+  let category = await prisma.category.findUnique({ where: { name: 'Garde de classe' } });
+  if (!category) {
+    category = await prisma.category.create({
+      data: {
+        name: 'Garde de classe',
+        kind: 'COVERAGE',
+        circuit: 'A_DIRECT',
+        creatorRoles: ['MANAGER'],
+        closureMode: 'MANAGER',
+        autoCloseAfterMinutes: 0,
+        proofMode: 'BOTH',
+        deadlineRules: { create: PRIORITY_ORDER.map((priority) => ({ priority, ...DEFAULT_COVERAGE_DEADLINES })) },
+      },
+    });
+  }
+  if (responsable && category.kind === 'COVERAGE') {
+    await prisma.categoryManager.createMany({ data: [{ categoryId: category.id, userId: responsable.id }], skipDuplicates: true });
+  }
+  const group = await prisma.employeeGroup.upsert({
+    where: { name: 'Surveillants/Remplaçants' },
+    create: { name: 'Surveillants/Remplaçants' },
+    update: {},
+  });
+  const members = await prisma.user.findMany({ where: { username: { in: ['surveillant', 'remplacant'] } } });
+  await prisma.employeeGroupMember.createMany({
+    data: members.map((m) => ({ groupId: group.id, userId: m.id })),
+    skipDuplicates: true,
+  });
+  for (const schoolClass of [
+    { name: '1ère année Violet', room: 'Salle 12' },
+    { name: '2e année Bleu', room: 'Salle 14' },
+  ]) {
+    await prisma.schoolClass.upsert({ where: { name: schoolClass.name }, create: schoolClass, update: {} });
+  }
+}
 
 function temporaryPassword(): string {
   return randomBytes(12).toString('base64url'); // 16 caractères
@@ -166,6 +212,8 @@ export async function runSeed(prisma: PrismaClient, options: SeedOptions = {}): 
     recipients: ['reprographie'],
     managers: ['responsable'],
   });
+
+  await seedCoverage(prisma);
 
   if (!options.e2ePassword) {
     for (const [username, password] of Object.entries(passwords)) {

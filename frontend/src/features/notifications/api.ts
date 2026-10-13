@@ -12,13 +12,27 @@ export type NotificationType =
   | 'REJECTED'
   | 'CANCELLED'
   | 'OVERDUE'
-  | 'CLOSED';
+  | 'CLOSED'
+  // Couverture de classe
+  | 'COVERAGE_NEW'
+  | 'COVERAGE_TAKEN'
+  | 'COVERAGE_ACCEPTED'
+  | 'COVERAGE_PRESENCE'
+  | 'COVERAGE_RELEASED'
+  | 'COVERAGE_RELIEF_REQUESTED'
+  | 'COVERAGE_LATE'
+  | 'COVERAGE_UNFILLED'
+  | 'COVERAGE_EXTENDED'
+  | 'COVERAGE_RELIEVED';
+
+/** Demande de travail ou couverture de classe : détermine la page ouverte. */
+export type RequestKind = 'WORK' | 'COVERAGE';
 
 export interface NotificationItem {
   id: string;
   type: NotificationType;
   priority: Priority;
-  request: { id: string; reference: string; title: string };
+  request: { id: string; reference: string; title: string; kind?: RequestKind };
   createdAt: string;
   readAt: string | null;
 }
@@ -31,6 +45,7 @@ export interface NotificationEvent {
   requestId: string;
   reference: string;
   title: string;
+  kind?: RequestKind;
   createdAt: string;
 }
 
@@ -45,7 +60,22 @@ export const NOTIFICATION_LABELS: Record<NotificationType, string> = {
   CANCELLED: 'Demande annulée',
   OVERDUE: 'Demande en retard',
   CLOSED: 'Demande clôturée',
+  COVERAGE_NEW: 'Garde à prendre',
+  COVERAGE_TAKEN: 'Garde déjà prise',
+  COVERAGE_ACCEPTED: 'Garde acceptée',
+  COVERAGE_PRESENCE: 'Présence confirmée en classe',
+  COVERAGE_RELEASED: 'Désistement',
+  COVERAGE_RELIEF_REQUESTED: 'Relève demandée',
+  COVERAGE_LATE: 'Garde en retard',
+  COVERAGE_UNFILLED: 'Garde non pourvue',
+  COVERAGE_EXTENDED: 'Garde prolongée',
+  COVERAGE_RELIEVED: 'Garde terminée',
 };
+
+/** Page de la demande liée : les couvertures ont leurs propres écrans. */
+export function requestPath(requestId: string, kind: RequestKind | undefined): string {
+  return kind === 'COVERAGE' ? `/gardes/${requestId}` : `/demandes/${requestId}`;
+}
 
 export const NOTIFICATIONS_KEY = ['notifications'] as const;
 

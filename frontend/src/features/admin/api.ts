@@ -18,12 +18,17 @@ export interface AdminUser {
 export type Circuit = 'A_DIRECT' | 'B_ADMIN_VALIDATION';
 export type ClosureMode = 'AUTO' | 'REQUESTER' | 'MANAGER';
 export type AssignmentMode = 'MANUAL' | 'AUTO';
+/** Demandes de travail ou couverture de classe ; fixé à la création. */
+export type CategoryKind = 'WORK' | 'COVERAGE';
+export type ProofMode = 'PHOTO' | 'QR' | 'BOTH';
 
 export interface DeadlineRule {
   priority: Priority;
   validationMinutes: number | null;
   takeoverMinutes: number | null;
   completionMinutes: number | null;
+  /** Couverture : arrivée en classe après acceptation. */
+  arrivalMinutes?: number | null;
 }
 
 export interface Member {
@@ -43,6 +48,8 @@ export interface AdminCategory {
   assignmentMode: AssignmentMode;
   autoAssigneeId: string | null;
   photoRequired: boolean;
+  kind: CategoryKind;
+  proofMode: ProofMode;
   recipients: Member[];
   managers: Member[];
   deadlineRules: DeadlineRule[];

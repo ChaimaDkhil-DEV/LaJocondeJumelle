@@ -40,7 +40,7 @@ export class AutoCloseJob {
   /** Un passage complet ; renvoie le nombre de demandes clôturées. */
   async runOnce(now = new Date()): Promise<number> {
     const due = await this.prisma.request.findMany({
-      where: { status: 'DONE', autoCloseAt: { lte: now } },
+      where: { kind: 'WORK', status: 'DONE', autoCloseAt: { lte: now } },
       select: { id: true },
       orderBy: { autoCloseAt: 'asc' },
       take: 200,

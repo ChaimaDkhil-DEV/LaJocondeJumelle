@@ -1,0 +1,98 @@
+# Migration 0002_coverage : couverture de classe
+
+Cette migration ajoute le module de couverture de classe (garde ou remplacement).
+
+## Contenu
+
+Elle est **additive** : aucune table ni colonne existante n'est supprimée ou renommée.
+
+- **Énumérations existantes** : de nouvelles valeurs sont ajoutées.
+  - `RequestStatus` : `BROADCAST`, `UNFILLED`, `EN_ROUTE`, `LATE`, `ON_DUTY`, `RELIEF_PENDING`.
+  - `DeadlineStage` : `ARRIVAL`.
+  - `RequestEventType`, `AuditAction` et `NotificationType` : valeurs propres au module.
+- **Nouvelles colonnes**, avec une valeur par défaut pour les données existantes :
+  - `Request.kind` (`WORK` par défaut) ;
+  - `Category.kind` (`WORK`) et `Category.proofMode` (`PHOTO`) ;
+  - `DeadlineRule.arrivalMinutes` (vide) ;
+  - `User.availability` (`AVAILABLE`).
+- **Nouvelles tables** : `SchoolClass`, `EmployeeGroup`, `EmployeeGroupMember`, `CoverageDetail`, `CoverageTarget`, `CoveragePresence`.
+- **Données par défaut**, toutes modifiables ensuite depuis l'administration :
+  - catégorie « Garde de classe » :
+    - preuve exigée : QR code et photo ;
+    - délais : prise en charge 2 min, arrivée en classe 5 min ;
+    - pas de validation finale ;
+    - créée par les responsables ;
+    - responsables : les comptes MANAGER actifs au moment de la migration ;
+  - groupe « Surveillants/Remplaçants », vide.
+
+Aucune demande de travail existante n'est modifiée : toutes prennent `kind = WORK`.
+
+## Avant d'exécuter : sauvegarde
+
+Faites une sauvegarde de la base **et** des fichiers juste avant la mise à jour :
+
+```bash
+docker compose -f deploy/docker-compose.yml --env-file deploy/.env exec backup /bin/bash /scripts/backup.sh
+```
+
+Notez l'horodatage affiché (par exemple `20261013T173000Z`), puis vérifiez que les deux fichiers `db-<horodatage>.dump` et `files-<horodatage>.tar.gz` sont bien présents dans le dossier des sauvegardes.
+
+## Exécution
+
+En production, il n'y a rien à lancer à la main. Au démarrage du conteneur, l'API applique `prisma migrate deploy` (`deploy/api-entrypoint.sh`) :
+
+```bash
+docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build api
+```
+
+En développement, ou pour appliquer explicitement :
+
+```bash
+npm run -w backend prisma:deploy     # = prisma migrate deploy
+npm run -w backend prisma:generate   # client Prisma à jour
+```
+
+Pour vérifier que la base correspond exactement au schéma :
+
+```bash
+cd backend && npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel prisma/schema.prisma --exit-code
+```
+
+La commande doit répondre « No difference detected ».
+
+Cas particulier d'une base neuve : la migration s'exécute avant que les comptes existent, et la catégorie « Garde de classe » n'a donc aucun responsable. Ajoutez-les dans Administration › Catégories. Le super administrateur a toujours tous les droits.
+
+## Retour arrière
+
+### Cas général : restaurer la sauvegarde
+
+C'est la méthode recommandée dès que le module a servi :
+
+```bash
+deploy/backup/restore.sh <horodatage de la sauvegarde prise avant la migration>
+```
+
+Redéployez ensuite la version précédente de l'application.
+
+### Base où le module n'a jamais servi : script inverse
+
+Utilisez `prisma/migrations/0002_coverage/down.sql` :
+
+```bash
+cd backend
+npx prisma db execute --file prisma/migrations/0002_coverage/down.sql --schema prisma/schema.prisma
+```
+
+Redéployez ensuite la version précédente de l'application. Le script :
+
+- **s'arrête sans rien modifier** si une donnée du module existe, que ce soit une demande de couverture, un historique, une notification ou une entrée du journal d'audit. L'historique et le journal sont en ajout seul et ne doivent jamais être réécrits : dans ce cas, restaurez la sauvegarde ;
+- sinon :
+  - supprime les tables et colonnes ajoutées ;
+  - recrée les énumérations avec leurs valeurs d'origine ;
+  - retire la ligne `0002_coverage` de `_prisma_migrations`, ce qui permet de réappliquer la migration plus tard avec `prisma migrate deploy`.
+
+L'enchaînement up → down → up a été vérifié sur une base jetable : après chaque étape, `prisma migrate diff` ne détecte aucune différence avec le schéma attendu.
+
+## Clé des QR codes
+
+Les QR codes des classes sont signés avec une clé dérivée de `SESSION_SECRET`. Changer `SESSION_SECRET` invalide tous les QR imprimés : il faut alors les réimprimer depuis Administration › Classes.

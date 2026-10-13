@@ -73,7 +73,7 @@ export class RequestsService {
     if (existing) return { created: false, detail: await this.detail(user, existing.id, ctx) };
 
     const category = await this.policies.category(dto.categoryId);
-    if (!category) throw fieldError('categoryId', 'Catégorie introuvable.');
+    if (!category || category.kind !== 'WORK') throw fieldError('categoryId', 'Catégorie introuvable.');
     const policyCategory = toPolicyCategory(category);
     if (!canCreateInCategory(user, policyCategory)) throw new AppException('FORBIDDEN');
 
@@ -377,7 +377,7 @@ export class RequestsService {
 
     const categoryId = dto.categoryId ?? draft.categoryId;
     const category = await this.policies.category(categoryId);
-    if (!category) throw fieldError('categoryId', 'Catégorie introuvable.');
+    if (!category || category.kind !== 'WORK') throw fieldError('categoryId', 'Catégorie introuvable.');
     if (!canCreateInCategory(user, toPolicyCategory(category))) throw new AppException('FORBIDDEN');
 
     const recipientId = dto.recipientId === undefined ? draft.assigneeId : dto.recipientId;

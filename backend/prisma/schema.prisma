@@ -37,6 +37,38 @@ enum RequestStatus {
   CLOSED
   REJECTED
   CANCELLED
+  // Couverture de classe (lot 2) — voir src/coverage/domain/coverage-state-machine.ts
+  BROADCAST
+  UNFILLED
+  EN_ROUTE
+  LATE
+  ON_DUTY
+  RELIEF_PENDING
+}
+
+/// Nature d'une demande ou d'une catégorie : demande de travail (lot 1) ou couverture de classe (lot 2).
+enum RequestKind {
+  WORK
+  COVERAGE
+}
+
+/// Preuve de présence exigée pour une couverture : photo, QR code de la classe, ou les deux.
+enum ProofMode {
+  PHOTO
+  QR
+  BOTH
+}
+
+enum PresenceMethod {
+  PHOTO
+  QR
+}
+
+/// Disponibilité déclarée d'un employé pour les couvertures. ABSENT : réservé aux responsables.
+enum Availability {
+  AVAILABLE
+  UNAVAILABLE
+  ABSENT
 }
 
 enum Circuit {
@@ -59,6 +91,8 @@ enum DeadlineStage {
   VALIDATION
   TAKEOVER
   COMPLETION
+  /// Couverture : arrivée en classe après acceptation.
+  ARRIVAL
 }
 
 enum MessageKind {
@@ -91,6 +125,12 @@ enum RequestEventType {
   MESSAGE_ADDED
   FILE_ADDED
   OVERDUE
+  // Couverture de classe
+  GROUP_ADDED
+  RELEASED
+  RELIEF_REQUESTED
+  PRESENCE_CONFIRMED
+  EXTENDED
 }
 
 enum AuditAction {
@@ -107,6 +147,12 @@ enum AuditAction {
   CATEGORY_CHANGED
   DEADLINE_RULE_CHANGED
   SETTING_CHANGED
+  // Couverture de classe
+  GROUP_CHANGED
+  CLASS_CHANGED
+  QR_REVOKED
+  AVAILABILITY_CHANGED
+  COVERAGE_MANAGED
 }
 
 enum NotificationType {
@@ -120,34 +166,49 @@ enum NotificationType {
   CANCELLED
   OVERDUE
   CLOSED
+  // Couverture de classe
+  COVERAGE_NEW
+  COVERAGE_TAKEN
+  COVERAGE_ACCEPTED
+  COVERAGE_PRESENCE
+  COVERAGE_RELEASED
+  COVERAGE_RELIEF_REQUESTED
+  COVERAGE_LATE
+  COVERAGE_UNFILLED
+  COVERAGE_EXTENDED
+  COVERAGE_RELIEVED
 }
 
 /// Utilisateur. `username` est unique et insensible à la casse : il est toujours
 /// stocké en minuscules (3–64 caractères, contrôlé par les DTO).
 model User {
-  id                 String   @id @default(uuid()) @db.Uuid
-  username           String   @unique @db.VarChar(64)
-  displayName        String   @db.VarChar(100)
-  jobTitle           String?  @db.VarChar(100)
+  id                 String       @id @default(uuid()) @db.Uuid
+  username           String       @unique @db.VarChar(64)
+  displayName        String       @db.VarChar(100)
+  jobTitle           String?      @db.VarChar(100)
   role               Role
   passwordHash       String
-  mustChangePassword Boolean  @default(true)
-  active             Boolean  @default(true)
-  createdAt          DateTime @default(now()) @db.Timestamptz(3)
-  updatedAt          DateTime @updatedAt @db.Timestamptz(3)
+  mustChangePassword Boolean      @default(true)
+  active             Boolean      @default(true)
+  /// Couverture de classe : disponibilité déclarée (les gardes en cours sont calculées à part).
+  availability       Availability @default(AVAILABLE)
+  createdAt          DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime     @updatedAt @db.Timestamptz(3)
 
   sessions         Session[]
   recipientOf      CategoryRecipient[]
   managerOf        CategoryManager[]
-  autoAssigneeOf   Category[]          @relation("CategoryAutoAssignee")
-  requestsCreated  Request[]           @relation("RequestRequester")
-  requestsAssigned Request[]           @relation("RequestAssignee")
+  autoAssigneeOf   Category[]            @relation("CategoryAutoAssignee")
+  requestsCreated  Request[]             @relation("RequestRequester")
+  requestsAssigned Request[]             @relation("RequestAssignee")
   messages         Message[]
   filesUploaded    File[]
   requestEvents    RequestEvent[]
   auditEntries     AuditLog[]
   notifications    Notification[]
   settingsUpdated  Setting[]
+  groupMemberships EmployeeGroupMember[]
+  presences        CoveragePresence[]
 }
 
 /// Session serveur : `id` est le haché HMAC du jeton aléatoire (256 bits) placé dans le cookie.
@@ -188,6 +249,10 @@ model Category {
   /// Obligatoire si assignmentMode = AUTO.
   autoAssigneeId        String?        @db.Uuid
   photoRequired         Boolean        @default(false)
+  /// WORK ou COVERAGE ; fixé à la création, jamais modifiable.
+  kind                  RequestKind    @default(WORK)
+  /// Couverture uniquement : preuve de présence exigée.
+  proofMode             ProofMode      @default(PHOTO)
   createdAt             DateTime       @default(now()) @db.Timestamptz(3)
   updatedAt             DateTime       @updatedAt @db.Timestamptz(3)
 
@@ -230,6 +295,8 @@ model DeadlineRule {
   validationMinutes Int?
   takeoverMinutes   Int?
   completionMinutes Int?
+  /// Couverture : délai d'arrivée en classe après acceptation.
+  arrivalMinutes    Int?
 
   category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
@@ -248,6 +315,8 @@ model Setting {
 
 model Request {
   id               String         @id @default(uuid()) @db.Uuid
+  /// WORK : demande de travail ; COVERAGE : couverture de classe (détail dans CoverageDetail).
+  kind             RequestKind    @default(WORK)
   /// Numéro séquentiel servant à construire `reference` (D-AAAA-NNNNNN).
   number           Int            @unique @default(autoincrement())
   reference        String         @unique @db.VarChar(20)
@@ -284,16 +353,20 @@ model Request {
   cancelledAt      DateTime?      @db.Timestamptz(3)
   updatedAt        DateTime       @updatedAt @db.Timestamptz(3)
 
-  voiceFile     File?          @relation("RequestVoice", fields: [voiceFileId], references: [id])
-  category      Category       @relation(fields: [categoryId], references: [id])
-  requester     User           @relation("RequestRequester", fields: [requesterId], references: [id])
-  assignee      User?          @relation("RequestAssignee", fields: [assigneeId], references: [id])
-  files         File[]         @relation("RequestFiles")
+  voiceFile     File?              @relation("RequestVoice", fields: [voiceFileId], references: [id])
+  category      Category           @relation(fields: [categoryId], references: [id])
+  requester     User               @relation("RequestRequester", fields: [requesterId], references: [id])
+  assignee      User?              @relation("RequestAssignee", fields: [assigneeId], references: [id])
+  files         File[]             @relation("RequestFiles")
   messages      Message[]
   events        RequestEvent[]
   notifications Notification[]
+  coverage      CoverageDetail?
+  reliefOf      CoverageDetail[]   @relation("CoverageRelief")
+  presences     CoveragePresence[]
 
   @@unique([requesterId, clientId])
+  @@index([kind, status])
   @@index([status])
   @@index([categoryId])
   @@index([assigneeId])
@@ -339,11 +412,12 @@ model File {
   isCompletionProof Boolean  @default(false)
   createdAt         DateTime @default(now()) @db.Timestamptz(3)
 
-  request        Request? @relation("RequestFiles", fields: [requestId], references: [id])
-  message        Message? @relation("MessageAttachments", fields: [messageId], references: [id])
-  uploader       User     @relation(fields: [uploaderId], references: [id])
-  voiceOfRequest Request? @relation("RequestVoice")
-  voiceOfMessage Message? @relation("MessageVoice")
+  request        Request?          @relation("RequestFiles", fields: [requestId], references: [id])
+  message        Message?          @relation("MessageAttachments", fields: [messageId], references: [id])
+  uploader       User              @relation(fields: [uploaderId], references: [id])
+  voiceOfRequest Request?          @relation("RequestVoice")
+  voiceOfMessage Message?          @relation("MessageVoice")
+  presence       CoveragePresence?
 
   @@index([requestId])
   @@index([messageId])
@@ -401,5 +475,108 @@ model Notification {
   request Request @relation(fields: [requestId], references: [id])
 
   @@index([userId, readAt])
+  @@index([requestId])
+}
+
+// ---------------------------------------------------------------------------
+// Couverture de classe (lot 2)
+// ---------------------------------------------------------------------------
+
+/// Classe ou salle. Le QR code imprimé encode un jeton HMAC (classe + qrVersion) ;
+/// incrémenter qrVersion révoque tous les QR déjà imprimés.
+model SchoolClass {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @unique @db.VarChar(80)
+  room      String?  @db.VarChar(80)
+  active    Boolean  @default(true)
+  qrVersion Int      @default(1)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  coverages CoverageDetail[]
+}
+
+/// Groupe d'employés ciblé par les couvertures (ex. Surveillants/Remplaçants).
+model EmployeeGroup {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @unique @db.VarChar(60)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  members EmployeeGroupMember[]
+  targets CoverageTarget[]
+}
+
+model EmployeeGroupMember {
+  groupId String @db.Uuid
+  userId  String @db.Uuid
+
+  group EmployeeGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User          @relation(fields: [userId], references: [id])
+
+  @@id([groupId, userId])
+  @@index([userId])
+}
+
+/// Détail 1-1 d'une demande de couverture (Request.kind = COVERAGE).
+/// Toutes les heures sont posées par le serveur.
+model CoverageDetail {
+  requestId        String    @id @db.Uuid
+  classId          String    @db.Uuid
+  absentTeacher    String?   @db.VarChar(100)
+  startAt          DateTime  @db.Timestamptz(3)
+  /// null = jusqu'à l'arrivée de l'enseignant.
+  estimatedMinutes Int?
+  /// startAt + estimatedMinutes (recalculé à chaque prolongation) ; null = fin ouverte.
+  plannedEndAt     DateTime? @db.Timestamptz(3)
+  broadcastAt      DateTime? @db.Timestamptz(3)
+  departedAt       DateTime? @db.Timestamptz(3)
+  presenceAt       DateTime? @db.Timestamptz(3)
+  relievedAt       DateTime? @db.Timestamptz(3)
+  /// Durée de garde (présence → relève), en minutes.
+  durationMinutes  Int?
+  releaseCount     Int       @default(0)
+  extensionCount   Int       @default(0)
+  cancelReason     String?   @db.VarChar(1000)
+  /// Demande de relève : garde d'origine à relever quand le remplaçant confirme sa présence.
+  reliefForId      String?   @db.Uuid
+
+  request   Request          @relation(fields: [requestId], references: [id])
+  class     SchoolClass      @relation(fields: [classId], references: [id])
+  reliefFor Request?         @relation("CoverageRelief", fields: [reliefForId], references: [id])
+  targets   CoverageTarget[]
+
+  @@index([classId])
+  @@index([startAt])
+  @@index([reliefForId])
+}
+
+/// Groupes ciblés par une couverture (plusieurs après élargissement).
+model CoverageTarget {
+  requestId String   @db.Uuid
+  groupId   String   @db.Uuid
+  addedAt   DateTime @default(now()) @db.Timestamptz(3)
+
+  coverage CoverageDetail @relation(fields: [requestId], references: [requestId], onDelete: Cascade)
+  group    EmployeeGroup  @relation(fields: [groupId], references: [id])
+
+  @@id([requestId, groupId])
+  @@index([groupId])
+}
+
+/// Preuve de présence : heure serveur (jamais l'heure du client ni l'EXIF de la photo).
+model CoveragePresence {
+  id        String         @id @default(uuid()) @db.Uuid
+  requestId String         @db.Uuid
+  userId    String         @db.Uuid
+  method    PresenceMethod
+  fileId    String?        @unique @db.Uuid
+  createdAt DateTime       @default(now()) @db.Timestamptz(3)
+
+  request Request @relation(fields: [requestId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+  file    File?   @relation(fields: [fileId], references: [id])
+
   @@index([requestId])
 }

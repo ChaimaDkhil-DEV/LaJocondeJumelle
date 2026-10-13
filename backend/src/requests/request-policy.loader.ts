@@ -38,10 +38,19 @@ export function readRulesSnapshot(request: Pick<Request, 'rulesSnapshot'>): Requ
 export function toPolicyRequest(
   request: Pick<
     Request,
-    'status' | 'rulesSnapshot' | 'voiceFileId' | 'description' | 'assigneeId' | 'autoCloseAt' | 'requesterId' | 'categoryId'
+    | 'kind'
+    | 'status'
+    | 'rulesSnapshot'
+    | 'voiceFileId'
+    | 'description'
+    | 'assigneeId'
+    | 'autoCloseAt'
+    | 'requesterId'
+    | 'categoryId'
   >,
 ): PolicyRequest {
   return {
+    kind: request.kind,
     status: request.status,
     rules: readRulesSnapshot(request),
     hasVoice: request.voiceFileId !== null,

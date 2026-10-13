@@ -1,4 +1,4 @@
-import type { Permission, RequestStatus, Role } from '@prisma/client';
+import type { Permission, RequestKind, RequestStatus, Role } from '@prisma/client';
 import { availableActions, type Actor, type MachineRequest, type RequestAction } from './request-state-machine';
 
 /**
@@ -34,6 +34,8 @@ export interface PolicyCategory {
 }
 
 export interface PolicyRequest extends MachineRequest {
+  /** Les couvertures de classe (COVERAGE) ont leur propre politique : coverage/domain/coverage-policy.ts. */
+  kind: RequestKind;
   requesterId: string;
   categoryId: string;
 }
@@ -65,6 +67,8 @@ export function actorsFor(user: PolicyUser, req: PolicyRequest, category: Policy
 
 export function canReadRequest(user: PolicyUser, req: PolicyRequest, category: PolicyCategory): boolean {
   if (!user.active) return false;
+  // Les couvertures ne sont jamais exposées par les routes des demandes de travail.
+  if (req.kind !== 'WORK') return false;
   // Un brouillon n'est visible que de son auteur.
   if (req.status === 'DRAFT') return req.requesterId === user.id;
   return actorsFor(user, req, category).length > 0;
