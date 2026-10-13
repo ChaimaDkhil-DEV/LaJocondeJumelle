@@ -19,9 +19,16 @@ import {
   FilePlus,
   Lock,
   MessageSquare,
+  DoorOpen,
+  Hand,
+  LifeBuoy,
   RefreshCw,
   RotateCcw,
+  School,
   Siren,
+  Timer,
+  UserCheck,
+  UserMinus,
   UserRound,
   type LucideIcon,
 } from 'lucide-react';
@@ -30,7 +37,14 @@ import { Link as RouterLink, useNavigate } from 'react-router';
 import { visuallyHidden } from '../../components/a11y';
 import { formatRelative } from '../../components/format';
 import { font, icon, shadow, tokensOf } from '../../design/tokens';
-import { NOTIFICATION_LABELS, useMarkRead, useUnreadNotifications, type NotificationItem, type NotificationType } from './api';
+import {
+  NOTIFICATION_LABELS,
+  requestPath,
+  useMarkRead,
+  useUnreadNotifications,
+  type NotificationItem,
+  type NotificationType,
+} from './api';
 import { useRealtime } from './SocketProvider';
 
 const NOTIFICATION_ICONS: Record<NotificationType, LucideIcon> = {
@@ -44,6 +58,16 @@ const NOTIFICATION_ICONS: Record<NotificationType, LucideIcon> = {
   CANCELLED: Ban,
   OVERDUE: AlarmClock,
   CLOSED: Lock,
+  COVERAGE_NEW: School,
+  COVERAGE_TAKEN: Hand,
+  COVERAGE_ACCEPTED: UserCheck,
+  COVERAGE_PRESENCE: DoorOpen,
+  COVERAGE_RELEASED: UserMinus,
+  COVERAGE_RELIEF_REQUESTED: LifeBuoy,
+  COVERAGE_LATE: AlarmClock,
+  COVERAGE_UNFILLED: AlarmClock,
+  COVERAGE_EXTENDED: Timer,
+  COVERAGE_RELIEVED: Lock,
 };
 
 function UrgentMark() {
@@ -118,7 +142,7 @@ export function NotificationCenter() {
   function open(item: NotificationItem): void {
     setAnchor(null);
     markRead.mutate({ ids: [item.id] });
-    navigate(`/demandes/${item.request.id}`);
+    navigate(requestPath(item.request.id, item.request.kind));
   }
 
   return (
@@ -198,7 +222,7 @@ export function NotificationCenter() {
                 color="inherit"
                 size="small"
                 component={RouterLink}
-                to={`/demandes/${latest.requestId}`}
+                to={requestPath(latest.requestId, latest.kind)}
                 onClick={dismissLatest}
                 sx={{ color: 'inherit', '&:hover': { bgcolor: 'transparent', textDecoration: 'underline' } }}
               >

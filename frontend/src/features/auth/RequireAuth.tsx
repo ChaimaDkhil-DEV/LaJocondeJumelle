@@ -24,7 +24,8 @@ export function RequireAuth({ children }: { children: ReactNode }) {
 
   if (me.error) {
     if (me.error instanceof ApiError && me.error.status === 401) {
-      return <Navigate to="/connexion" replace state={{ from: location.pathname }} />;
+      // La recherche est conservée : le lien d'un QR code de classe (?c=…) doit survivre à la connexion.
+      return <Navigate to="/connexion" replace state={{ from: location.pathname + location.search }} />;
     }
     if (me.error instanceof ApiError && me.error.code === 'PASSWORD_CHANGE_REQUIRED') {
       return <Navigate to="/mot-de-passe" replace />;

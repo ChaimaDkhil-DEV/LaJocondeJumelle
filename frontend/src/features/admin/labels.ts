@@ -1,5 +1,5 @@
 import type { Role } from '../../api/types';
-import type { AssignmentMode, Circuit, ClosureMode } from './api';
+import type { AssignmentMode, CategoryKind, Circuit, ClosureMode, ProofMode } from './api';
 
 export const ROLE_LABELS: Record<Role, string> = {
   EMPLOYEE: 'Employé',
@@ -16,6 +16,17 @@ export const CLOSURE_LABELS: Record<ClosureMode, string> = {
   AUTO: 'Automatique après un délai',
   REQUESTER: 'Par le demandeur',
   MANAGER: 'Par un responsable',
+};
+
+export const KIND_LABELS: Record<CategoryKind, string> = {
+  WORK: 'Demandes de travail',
+  COVERAGE: 'Couverture de classe (garde, remplacement)',
+};
+
+export const PROOF_MODE_LABELS: Record<ProofMode, string> = {
+  PHOTO: 'Photo de la classe',
+  QR: 'QR code de la classe',
+  BOTH: 'QR code et photo',
 };
 
 export const ASSIGNMENT_LABELS: Record<AssignmentMode, string> = {
@@ -44,6 +55,11 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   CATEGORY_CHANGED: 'Catégorie modifiée',
   DEADLINE_RULE_CHANGED: 'Délais modifiés',
   SETTING_CHANGED: 'Réglage modifié',
+  GROUP_CHANGED: 'Groupe d’employés modifié',
+  CLASS_CHANGED: 'Classe modifiée',
+  QR_REVOKED: 'QR code révoqué',
+  AVAILABILITY_CHANGED: 'Disponibilité modifiée',
+  COVERAGE_MANAGED: 'Garde gérée par un responsable',
 };
 
 /** Durée en minutes, lisible (« 1 h 30 », « 2 j »). */

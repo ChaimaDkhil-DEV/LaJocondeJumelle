@@ -4,12 +4,12 @@ import Typography from '@mui/material/Typography';
 import type { Priority } from '../../api/types';
 import { PRIORITY_LABELS, PRIORITY_STYLE } from '../../components/PriorityBadge';
 import { font, icon } from '../../design/tokens';
-import type { Circuit, DeadlineRule } from './api';
+import type { CategoryKind, Circuit, DeadlineRule } from './api';
 import { formatMinutes } from './labels';
 
 export const PRIORITIES: readonly Priority[] = ['NORMAL', 'MEDIUM', 'HIGH', 'URGENT'];
 
-type Field = 'validationMinutes' | 'takeoverMinutes' | 'completionMinutes';
+type Field = 'validationMinutes' | 'takeoverMinutes' | 'completionMinutes' | 'arrivalMinutes';
 
 /** Saisie : chaînes (vide = pas de délai). */
 export type DeadlineDraft = Record<Priority, Record<Field, string>>;
@@ -19,7 +19,14 @@ const FIELD_LABELS: Record<Field, string> = {
   validationMinutes: 'Validation administrative (minutes)',
   takeoverMinutes: 'Prise en charge (minutes)',
   completionMinutes: 'Réalisation (minutes)',
+  arrivalMinutes: 'Arrivée en classe après acceptation (minutes)',
 };
+
+/** Délais saisis selon le type de catégorie et le circuit. */
+function fieldsFor(circuit: Circuit, kind: CategoryKind): Field[] {
+  if (kind === 'COVERAGE') return ['takeoverMinutes', 'arrivalMinutes'];
+  return circuit === 'B_ADMIN_VALIDATION' ? ['validationMinutes', 'takeoverMinutes', 'completionMinutes'] : ['takeoverMinutes', 'completionMinutes'];
+}
 
 const MAX_MINUTES = 525_600;
 const INVALID = 'Au moins 1 minute, ou vide pour aucun délai.';
@@ -32,6 +39,7 @@ export function toDraft(rules: DeadlineRule[]): DeadlineDraft {
       validationMinutes: rule?.validationMinutes?.toString() ?? '',
       takeoverMinutes: rule?.takeoverMinutes?.toString() ?? '',
       completionMinutes: rule?.completionMinutes?.toString() ?? '',
+      arrivalMinutes: rule?.arrivalMinutes?.toString() ?? '',
     };
   }
   return draft;
@@ -46,11 +54,16 @@ function parse(value: string): number | null | undefined {
 }
 
 /** Vérifie la saisie ; renvoie les règles prêtes à envoyer, ou les erreurs par champ. */
-export function fromDraft(draft: DeadlineDraft, circuit: Circuit): { rules: DeadlineRule[]; errors: DeadlineErrors } {
+export function fromDraft(
+  draft: DeadlineDraft,
+  circuit: Circuit,
+  kind: CategoryKind = 'WORK',
+): { rules: DeadlineRule[]; errors: DeadlineErrors } {
   const errors: DeadlineErrors = {};
+  const fields = fieldsFor(circuit, kind);
   const rules = PRIORITIES.map((priority) => {
     const read = (field: Field): number | null => {
-      if (field === 'validationMinutes' && circuit === 'A_DIRECT') return null;
+      if (!fields.includes(field)) return null;
       const parsed = parse(draft[priority][field]);
       if (parsed === undefined) {
         errors[`${priority}.${field}`] = INVALID;
@@ -63,6 +76,7 @@ export function fromDraft(draft: DeadlineDraft, circuit: Circuit): { rules: Dead
       validationMinutes: read('validationMinutes'),
       takeoverMinutes: read('takeoverMinutes'),
       completionMinutes: read('completionMinutes'),
+      ...(kind === 'COVERAGE' ? { arrivalMinutes: read('arrivalMinutes') } : {}),
     };
   });
   return { rules, errors };
@@ -70,14 +84,15 @@ export function fromDraft(draft: DeadlineDraft, circuit: Circuit): { rules: Dead
 
 interface DeadlineRulesTableProps {
   circuit: Circuit;
+  kind?: CategoryKind;
   value: DeadlineDraft;
   errors: DeadlineErrors;
   onChange: (value: DeadlineDraft) => void;
 }
 
 /** Délais par priorité (4 priorités × 2 ou 3 délais), présentés en groupes pour rester lisibles à 320 px. */
-export function DeadlineRulesTable({ circuit, value, errors, onChange }: DeadlineRulesTableProps) {
-  const fields: Field[] = circuit === 'B_ADMIN_VALIDATION' ? ['validationMinutes', 'takeoverMinutes', 'completionMinutes'] : ['takeoverMinutes', 'completionMinutes'];
+export function DeadlineRulesTable({ circuit, kind = 'WORK', value, errors, onChange }: DeadlineRulesTableProps) {
+  const fields = fieldsFor(circuit, kind);
 
   return (
     <Box sx={{ display: 'grid', gap: 2 }}>

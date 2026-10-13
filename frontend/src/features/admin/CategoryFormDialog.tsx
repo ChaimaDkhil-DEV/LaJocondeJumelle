@@ -20,12 +20,24 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useId, useState, type FormEvent } from 'react';
 import { ApiError, apiFetch, fieldErrors } from '../../api/client';
 import type { Role } from '../../api/types';
-import { adminKeys, useAdminUsers, type AdminCategory, type AssignmentMode, type Circuit, type ClosureMode, type Member } from './api';
-import { ASSIGNMENT_LABELS, CIRCUIT_LABELS, CLOSURE_LABELS, formatMinutes, ROLE_LABELS } from './labels';
+import {
+  adminKeys,
+  useAdminUsers,
+  type AdminCategory,
+  type AssignmentMode,
+  type CategoryKind,
+  type Circuit,
+  type ClosureMode,
+  type Member,
+  type ProofMode,
+} from './api';
+import { ASSIGNMENT_LABELS, CIRCUIT_LABELS, CLOSURE_LABELS, formatMinutes, KIND_LABELS, PROOF_MODE_LABELS, ROLE_LABELS } from './labels';
 
 interface Values {
   name: string;
   active: boolean;
+  kind: CategoryKind;
+  proofMode: ProofMode;
   circuit: Circuit;
   creatorRoles: Role[];
   closureMode: ClosureMode;
@@ -42,6 +54,8 @@ function initialValues(category: AdminCategory | null | undefined): Values {
   return {
     name: category?.name ?? '',
     active: category?.active ?? true,
+    kind: category?.kind ?? 'WORK',
+    proofMode: category?.proofMode ?? 'BOTH',
     circuit: category?.circuit ?? 'A_DIRECT',
     creatorRoles: category?.creatorRoles ?? ['EMPLOYEE', 'MANAGER'],
     closureMode: category?.closureMode ?? 'REQUESTER',
@@ -58,6 +72,7 @@ function initialValues(category: AdminCategory | null | undefined): Values {
 function validate(v: Values): Record<string, string> {
   const errors: Record<string, string> = {};
   if (!v.name.trim()) errors.name = 'Le nom est obligatoire.';
+  if (v.kind === 'COVERAGE') return errors;
   if (v.creatorRoles.length === 0) errors.creatorRoles = 'Choisissez au moins un rôle.';
   if (v.closureMode === 'AUTO' && !/^\d+$/.test(v.autoCloseAfterMinutes.trim()))
     errors.autoCloseAfterMinutes = 'Nombre entier de minutes attendu (0 = immédiat).';
@@ -77,6 +92,7 @@ const same = (a: string[], b: string[]) => a.length === b.length && a.every((x, 
  * L'affectation automatique exige que l'employé désigné soit déjà destinataire : l'ordre des appels en tient compte.
  */
 async function saveCategory(current: AdminCategory | null, v: Values): Promise<AdminCategory> {
+  if (v.kind === 'COVERAGE') return saveCoverageCategory(current, v);
   const circuitB = v.circuit === 'B_ADMIN_VALIDATION';
   const auto = circuitB && v.assignmentMode === 'AUTO';
   const fields = {
@@ -132,6 +148,34 @@ async function saveCategory(current: AdminCategory | null, v: Values): Promise<A
   return saved;
 }
 
+/**
+ * Catégorie de couverture : créée par les responsables, diffusée à des groupes d'employés (pas de
+ * destinataires), preuve de présence et validation finale configurables. Le type ne change plus ensuite.
+ */
+async function saveCoverageCategory(current: AdminCategory | null, v: Values): Promise<AdminCategory> {
+  const fields = {
+    name: v.name.trim(),
+    circuit: 'A_DIRECT' as const,
+    creatorRoles: ['MANAGER'] as Role[],
+    closureMode: 'MANAGER' as const,
+    autoCloseAfterMinutes: 0,
+    finalValidation: v.finalValidation,
+    photoRequired: false,
+    proofMode: v.proofMode,
+  };
+  const managerIds = ids(v.managers);
+  const putManagers = (id: string) =>
+    apiFetch<AdminCategory>(`/api/admin/categories/${id}/managers`, { method: 'PUT', body: { userIds: managerIds } });
+  if (!current) {
+    let saved = await apiFetch<AdminCategory>('/api/admin/categories', { method: 'POST', body: { ...fields, kind: 'COVERAGE' } });
+    if (managerIds.length > 0) saved = await putManagers(saved.id);
+    return saved;
+  }
+  let saved = await apiFetch<AdminCategory>(`/api/admin/categories/${current.id}`, { method: 'PATCH', body: { ...fields, active: v.active } });
+  if (!same(managerIds, ids(current.managers))) saved = await putManagers(current.id);
+  return saved;
+}
+
 interface CategoryFormDialogProps {
   open: boolean;
   category?: AdminCategory | null;
@@ -182,6 +226,7 @@ export function CategoryFormDialog({ open, category, onClose, onSaved }: Categor
   const generalError =
     mutation.error instanceof ApiError ? mutation.error.message : mutation.error ? 'Enregistrement impossible.' : null;
   const circuitB = values.circuit === 'B_ADMIN_VALIDATION';
+  const coverage = values.kind === 'COVERAGE';
 
   return (
     <Dialog
@@ -221,120 +266,155 @@ export function CategoryFormDialog({ open, category, onClose, onSaved }: Categor
             />
           )}
 
-          <FormControl component="fieldset">
-            <FormLabel component="legend">Circuit</FormLabel>
-            <RadioGroup value={values.circuit} onChange={(e) => set({ circuit: e.target.value as Circuit })}>
-              {(Object.keys(CIRCUIT_LABELS) as Circuit[]).map((c) => (
-                <FormControlLabel key={c} value={c} control={<Radio />} label={CIRCUIT_LABELS[c]} />
-              ))}
-            </RadioGroup>
-          </FormControl>
+          {category ? (
+            <FormHelperText sx={{ mt: -1 }}>Type : {KIND_LABELS[values.kind]} (non modifiable)</FormHelperText>
+          ) : (
+            <FormControl component="fieldset">
+              <FormLabel component="legend">Type de catégorie</FormLabel>
+              <RadioGroup value={values.kind} onChange={(e) => set({ kind: e.target.value as CategoryKind })}>
+                {(Object.keys(KIND_LABELS) as CategoryKind[]).map((k) => (
+                  <FormControlLabel key={k} value={k} control={<Radio />} label={KIND_LABELS[k]} />
+                ))}
+              </RadioGroup>
+              <FormHelperText>Le type ne pourra plus être modifié après la création.</FormHelperText>
+            </FormControl>
+          )}
 
-          {circuitB && (
+          {coverage && (
             <>
-              <FormControlLabel
-                control={<Checkbox checked={values.finalValidation} onChange={(e) => set({ finalValidation: e.target.checked })} />}
-                label="Validation finale par un responsable"
-              />
               <FormControl component="fieldset">
-                <FormLabel component="legend">Affectation après approbation</FormLabel>
-                <RadioGroup value={values.assignmentMode} onChange={(e) => set({ assignmentMode: e.target.value as AssignmentMode })}>
-                  {(Object.keys(ASSIGNMENT_LABELS) as AssignmentMode[]).map((m) => (
-                    <FormControlLabel key={m} value={m} control={<Radio />} label={ASSIGNMENT_LABELS[m]} />
+                <FormLabel component="legend">Preuve de présence exigée</FormLabel>
+                <RadioGroup value={values.proofMode} onChange={(e) => set({ proofMode: e.target.value as ProofMode })}>
+                  {(Object.keys(PROOF_MODE_LABELS) as ProofMode[]).map((p) => (
+                    <FormControlLabel key={p} value={p} control={<Radio />} label={PROOF_MODE_LABELS[p]} />
                   ))}
                 </RadioGroup>
               </FormControl>
+              <FormControlLabel
+                control={<Checkbox checked={values.finalValidation} onChange={(e) => set({ finalValidation: e.target.checked })} />}
+                label="Validation finale de la garde par l’administration"
+              />
             </>
           )}
 
-          <FormControl component="fieldset" error={Boolean(errors.creatorRoles)}>
-            <FormLabel component="legend">Qui peut créer une demande</FormLabel>
-            <FormGroup>
-              {(Object.keys(ROLE_LABELS) as Role[]).map((role) => (
-                <FormControlLabel
-                  key={role}
-                  label={ROLE_LABELS[role]}
-                  control={
-                    <Checkbox
-                      checked={values.creatorRoles.includes(role)}
-                      onChange={(e) =>
-                        set({ creatorRoles: e.target.checked ? [...values.creatorRoles, role] : values.creatorRoles.filter((r) => r !== role) })
+          {!coverage && (
+            <>
+              <FormControl component="fieldset">
+                <FormLabel component="legend">Circuit</FormLabel>
+                <RadioGroup value={values.circuit} onChange={(e) => set({ circuit: e.target.value as Circuit })}>
+                  {(Object.keys(CIRCUIT_LABELS) as Circuit[]).map((c) => (
+                    <FormControlLabel key={c} value={c} control={<Radio />} label={CIRCUIT_LABELS[c]} />
+                  ))}
+                </RadioGroup>
+              </FormControl>
+
+              {circuitB && (
+                <>
+                  <FormControlLabel
+                    control={<Checkbox checked={values.finalValidation} onChange={(e) => set({ finalValidation: e.target.checked })} />}
+                    label="Validation finale par un responsable"
+                  />
+                  <FormControl component="fieldset">
+                    <FormLabel component="legend">Affectation après approbation</FormLabel>
+                    <RadioGroup value={values.assignmentMode} onChange={(e) => set({ assignmentMode: e.target.value as AssignmentMode })}>
+                      {(Object.keys(ASSIGNMENT_LABELS) as AssignmentMode[]).map((m) => (
+                        <FormControlLabel key={m} value={m} control={<Radio />} label={ASSIGNMENT_LABELS[m]} />
+                      ))}
+                    </RadioGroup>
+                  </FormControl>
+                </>
+              )}
+
+              <FormControl component="fieldset" error={Boolean(errors.creatorRoles)}>
+                <FormLabel component="legend">Qui peut créer une demande</FormLabel>
+                <FormGroup>
+                  {(Object.keys(ROLE_LABELS) as Role[]).map((role) => (
+                    <FormControlLabel
+                      key={role}
+                      label={ROLE_LABELS[role]}
+                      control={
+                        <Checkbox
+                          checked={values.creatorRoles.includes(role)}
+                          onChange={(e) =>
+                            set({ creatorRoles: e.target.checked ? [...values.creatorRoles, role] : values.creatorRoles.filter((r) => r !== role) })
+                          }
+                        />
                       }
                     />
-                  }
-                />
-              ))}
-            </FormGroup>
-            {errors.creatorRoles && <FormHelperText>{errors.creatorRoles}</FormHelperText>}
-          </FormControl>
+                  ))}
+                </FormGroup>
+                {errors.creatorRoles && <FormHelperText>{errors.creatorRoles}</FormHelperText>}
+              </FormControl>
 
-          <TextField
-            select
-            id="categorie-cloture"
-            label="Clôture"
-            value={values.closureMode}
-            onChange={(e) => set({ closureMode: e.target.value as ClosureMode })}
-          >
-            {(Object.keys(CLOSURE_LABELS) as ClosureMode[]).map((m) => (
-              <MenuItem key={m} value={m}>
-                {CLOSURE_LABELS[m]}
-              </MenuItem>
-            ))}
-          </TextField>
-          {values.closureMode === 'AUTO' && (
-            <TextField
-              id="categorie-delai-cloture"
-              label="Délai avant clôture automatique (minutes)"
-              value={values.autoCloseAfterMinutes}
-              onChange={(e) => set({ autoCloseAfterMinutes: e.target.value })}
-              error={Boolean(errors.autoCloseAfterMinutes)}
-              helperText={
-                errors.autoCloseAfterMinutes ??
-                (/^\d+$/.test(values.autoCloseAfterMinutes) ? `Le demandeur peut contester pendant ${formatMinutes(Number(values.autoCloseAfterMinutes))}.` : ' ')
-              }
-              slotProps={{ htmlInput: { inputMode: 'numeric', pattern: '[0-9]*' } }}
-            />
-          )}
-
-          <FormControlLabel
-            control={<Checkbox checked={values.photoRequired} onChange={(e) => set({ photoRequired: e.target.checked })} />}
-            label="Photo de preuve obligatoire"
-          />
-
-          <Autocomplete
-            multiple
-            id="categorie-destinataires"
-            options={recipientOptions}
-            value={values.recipients}
-            onChange={(_e, recipients) => set({ recipients })}
-            getOptionLabel={(o) => o.displayName}
-            isOptionEqualToValue={(a, b) => a.id === b.id}
-            loading={users.isPending}
-            noOptionsText="Aucun compte"
-            renderInput={(params) => (
               <TextField
-                {...params}
-                label="Destinataires"
-                helperText={circuitB ? 'Employés qui peuvent réaliser les demandes après approbation.' : 'Personnes à qui un demandeur peut adresser une demande.'}
+                select
+                id="categorie-cloture"
+                label="Clôture"
+                value={values.closureMode}
+                onChange={(e) => set({ closureMode: e.target.value as ClosureMode })}
+              >
+                {(Object.keys(CLOSURE_LABELS) as ClosureMode[]).map((m) => (
+                  <MenuItem key={m} value={m}>
+                    {CLOSURE_LABELS[m]}
+                  </MenuItem>
+                ))}
+              </TextField>
+              {values.closureMode === 'AUTO' && (
+                <TextField
+                  id="categorie-delai-cloture"
+                  label="Délai avant clôture automatique (minutes)"
+                  value={values.autoCloseAfterMinutes}
+                  onChange={(e) => set({ autoCloseAfterMinutes: e.target.value })}
+                  error={Boolean(errors.autoCloseAfterMinutes)}
+                  helperText={
+                    errors.autoCloseAfterMinutes ??
+                    (/^\d+$/.test(values.autoCloseAfterMinutes) ? `Le demandeur peut contester pendant ${formatMinutes(Number(values.autoCloseAfterMinutes))}.` : ' ')
+                  }
+                  slotProps={{ htmlInput: { inputMode: 'numeric', pattern: '[0-9]*' } }}
+                />
+              )}
+
+              <FormControlLabel
+                control={<Checkbox checked={values.photoRequired} onChange={(e) => set({ photoRequired: e.target.checked })} />}
+                label="Photo de preuve obligatoire"
               />
-            )}
-          />
-          {circuitB && values.assignmentMode === 'AUTO' && (
-            <TextField
-              select
-              id="categorie-employe-designe"
-              label="Employé désigné"
-              value={values.autoAssigneeId}
-              onChange={(e) => set({ autoAssigneeId: e.target.value })}
-              error={Boolean(errors.autoAssigneeId)}
-              helperText={errors.autoAssigneeId ?? 'Choisi parmi les destinataires.'}
-            >
-              {values.recipients.map((r) => (
-                <MenuItem key={r.id} value={r.id}>
-                  {r.displayName}
-                </MenuItem>
-              ))}
-            </TextField>
+
+              <Autocomplete
+                multiple
+                id="categorie-destinataires"
+                options={recipientOptions}
+                value={values.recipients}
+                onChange={(_e, recipients) => set({ recipients })}
+                getOptionLabel={(o) => o.displayName}
+                isOptionEqualToValue={(a, b) => a.id === b.id}
+                loading={users.isPending}
+                noOptionsText="Aucun compte"
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Destinataires"
+                    helperText={circuitB ? 'Employés qui peuvent réaliser les demandes après approbation.' : 'Personnes à qui un demandeur peut adresser une demande.'}
+                  />
+                )}
+              />
+              {circuitB && values.assignmentMode === 'AUTO' && (
+                <TextField
+                  select
+                  id="categorie-employe-designe"
+                  label="Employé désigné"
+                  value={values.autoAssigneeId}
+                  onChange={(e) => set({ autoAssigneeId: e.target.value })}
+                  error={Boolean(errors.autoAssigneeId)}
+                  helperText={errors.autoAssigneeId ?? 'Choisi parmi les destinataires.'}
+                >
+                  {values.recipients.map((r) => (
+                    <MenuItem key={r.id} value={r.id}>
+                      {r.displayName}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              )}
+            </>
           )}
           <Autocomplete
             multiple

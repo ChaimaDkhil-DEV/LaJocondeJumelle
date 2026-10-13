@@ -5,7 +5,7 @@ import Link from '@mui/material/Link';
 import Typography from '@mui/material/Typography';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
-import { ClipboardList, Inbox, LogOut, Menu, Settings, SquarePen, type LucideIcon } from 'lucide-react';
+import { ClipboardList, Inbox, LogOut, Menu, School, Settings, SquarePen, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 import { Link as RouterLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { IconAction } from '../components/IconAction';
@@ -13,6 +13,7 @@ import { Person } from '../components/UserAvatar';
 import { font, fontSize, icon, layout, motion, tokensOf } from '../design/tokens';
 import { ROLE_LABELS } from '../features/admin/labels';
 import { useCurrentUser, useLogout } from '../features/auth/useCurrentUser';
+import { useCoverageProfile } from '../features/coverage/api';
 import { NotificationCenter } from '../features/notifications/NotificationCenter';
 import { SocketProvider } from '../features/notifications/SocketProvider';
 
@@ -34,6 +35,9 @@ export const NAV_ITEMS: NavItem[] = [
   },
   { to: '/demandes/nouvelle', label: 'Nouvelle demande', icon: SquarePen, matches: (p) => p === '/demandes/nouvelle' },
 ];
+
+/** Gardes de classe : membres d'un groupe de remplacement, responsables et super administrateur. */
+const COVERAGE_ITEM: NavItem = { to: '/gardes', label: 'Gardes', icon: School, matches: (p) => p.startsWith('/gardes') };
 
 /** Entrée réservée au super administrateur (le serveur refuse aussi /api/admin aux autres rôles). */
 const ADMIN_ITEM: NavItem = { to: '/admin', label: 'Administration', icon: Settings, matches: (p) => p.startsWith('/admin') };
@@ -139,7 +143,13 @@ export function AppLayout() {
   const me = useCurrentUser();
   const logout = useLogout();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const navItems = me.data?.role === 'SUPER_ADMIN' ? [...NAV_ITEMS, ADMIN_ITEM] : NAV_ITEMS;
+  const coverage = useCoverageProfile();
+  const showCoverage = Boolean(coverage.data && (coverage.data.inGroup || coverage.data.canManage));
+  const navItems = [
+    ...NAV_ITEMS,
+    ...(showCoverage ? [COVERAGE_ITEM] : []),
+    ...(me.data?.role === 'SUPER_ADMIN' ? [ADMIN_ITEM] : []),
+  ];
 
   function handleLogout(): void {
     logout.mutate(undefined, { onSettled: () => navigate('/connexion', { replace: true }) });

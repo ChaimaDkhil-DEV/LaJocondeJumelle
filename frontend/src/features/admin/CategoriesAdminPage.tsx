@@ -8,7 +8,7 @@ import DialogTitle from '@mui/material/DialogTitle';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Camera, CircleOff, FolderPlus, Pencil, Route, Timer } from 'lucide-react';
+import { Camera, CircleOff, FolderPlus, Pencil, Route, School, Timer } from 'lucide-react';
 import { useId, useState } from 'react';
 import { ApiError, apiFetch } from '../../api/client';
 import { Badge } from '../../components/Badge';
@@ -22,7 +22,7 @@ import { font, icon } from '../../design/tokens';
 import { adminKeys, useAdminCategories, type AdminCategory, type DeadlineRule } from './api';
 import { CategoryFormDialog } from './CategoryFormDialog';
 import { DeadlineRulesTable, fromDraft, toDraft, type DeadlineDraft, type DeadlineErrors } from './DeadlineRulesTable';
-import { CIRCUIT_LABELS, CLOSURE_LABELS } from './labels';
+import { CIRCUIT_LABELS, CLOSURE_LABELS, PROOF_MODE_LABELS } from './labels';
 
 function names(members: Array<{ displayName: string }>): string {
   return members.length > 0 ? members.map((m) => m.displayName).join(', ') : 'aucun';
@@ -45,7 +45,7 @@ function DeadlinesDialog({ category, onClose, onSaved }: { category: AdminCatego
 
   function save(): void {
     if (!category) return;
-    const { rules, errors: found } = fromDraft(draft, category.circuit);
+    const { rules, errors: found } = fromDraft(draft, category.circuit, category.kind);
     setErrors(found);
     if (Object.keys(found).length === 0) mutation.mutate(rules);
   }
@@ -72,7 +72,7 @@ function DeadlinesDialog({ category, onClose, onSaved }: { category: AdminCatego
         <Typography variant="body2" sx={{ mb: 2 }} color="text.secondary">
           Durées en minutes ; laissez vide pour ne fixer aucun délai. Les demandes déjà créées gardent leurs délais.
         </Typography>
-        {category && <DeadlineRulesTable circuit={category.circuit} value={draft} errors={errors} onChange={setDraft} />}
+        {category && <DeadlineRulesTable circuit={category.circuit} kind={category.kind} value={draft} errors={errors} onChange={setDraft} />}
         {mutation.error && (
           <Alert severity="error" role="alert" sx={{ mt: 2 }}>
             {mutation.error instanceof ApiError ? mutation.error.message : 'Enregistrement impossible.'}
@@ -129,9 +129,15 @@ export function CategoriesAdminPage() {
                 <Box sx={{ minWidth: 0, flex: '1 1 auto' }}>
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
                     <Typography sx={{ fontWeight: font.medium, overflowWrap: 'anywhere' }}>{category.name}</Typography>
-                    <Badge tone={category.circuit === 'A_DIRECT' ? 'neutral' : 'accent'} icon={Route}>
-                      {category.circuit === 'A_DIRECT' ? 'Circuit A' : 'Circuit B'}
-                    </Badge>
+                    {category.kind === 'COVERAGE' ? (
+                      <Badge tone="accent" icon={School}>
+                        Couverture de classe
+                      </Badge>
+                    ) : (
+                      <Badge tone={category.circuit === 'A_DIRECT' ? 'neutral' : 'accent'} icon={Route}>
+                        {category.circuit === 'A_DIRECT' ? 'Circuit A' : 'Circuit B'}
+                      </Badge>
+                    )}
                     {!category.active && (
                       <Badge tone="neutral" icon={CircleOff}>
                         Inactive
@@ -143,13 +149,27 @@ export function CategoriesAdminPage() {
                       </Badge>
                     )}
                   </Box>
-                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                    {CIRCUIT_LABELS[category.circuit]} · Clôture : {CLOSURE_LABELS[category.closureMode].toLowerCase()}
-                    {category.finalValidation ? ' · validation finale' : ''}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
-                    Destinataires : {names(category.recipients)} · Responsables : {names(category.managers)}
-                  </Typography>
+                  {category.kind === 'COVERAGE' ? (
+                    <>
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                        Preuve de présence : {PROOF_MODE_LABELS[category.proofMode].toLowerCase()}
+                        {category.finalValidation ? ' · validation finale par l’administration' : ''}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
+                        Responsables : {names(category.managers)}
+                      </Typography>
+                    </>
+                  ) : (
+                    <>
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                        {CIRCUIT_LABELS[category.circuit]} · Clôture : {CLOSURE_LABELS[category.closureMode].toLowerCase()}
+                        {category.finalValidation ? ' · validation finale' : ''}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
+                        Destinataires : {names(category.recipients)} · Responsables : {names(category.managers)}
+                      </Typography>
+                    </>
+                  )}
                 </Box>
                 <Box sx={{ display: 'flex', gap: 0.5, flex: 'none', ml: 'auto' }}>
                   <IconAction icon={Pencil} label={`Modifier la catégorie ${category.name}`} tooltip="Modifier" onClick={() => setForm({ category })} />
