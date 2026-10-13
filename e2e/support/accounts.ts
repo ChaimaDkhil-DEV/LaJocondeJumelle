@@ -8,6 +8,8 @@ export const accounts = {
   reprographie: 'reprographie',
   /** Seul compte e2e devant changer son mot de passe à la première connexion. */
   nouveau: 'nouveau',
+  /** Employé sans lien avec les demandes de test (confidentialité). */
+  autre: 'autre',
 } as const;
 
 export type AccountName = keyof typeof accounts;

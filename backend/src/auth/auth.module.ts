@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
+import type { AppConfig } from '../config/config';
+import { APP_CONFIG } from '../config/config.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { LoginThrottlerGuard } from './login-throttler.guard';
@@ -9,7 +11,12 @@ import { SessionGuard } from './session.guard';
 import { SessionService } from './session.service';
 
 @Module({
-  imports: [ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 5 }])],
+  imports: [
+    ThrottlerModule.forRootAsync({
+      inject: [APP_CONFIG],
+      useFactory: (config: AppConfig) => [{ name: 'default', ttl: 60_000, limit: config.loginRateLimit }],
+    }),
+  ],
   controllers: [AuthController],
   providers: [
     AuthService,

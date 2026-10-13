@@ -12,6 +12,21 @@ const MINUTE_MS = 60_000;
 /** Évite une écriture en base à chaque requête : lastSeenAt n'est rafraîchi qu'au-delà de ce délai. */
 const TOUCH_INTERVAL_MS = MINUTE_MS;
 
+type SessionProblem = 'USER_INACTIVE' | 'EXPIRED' | 'IDLE_EXPIRED';
+
+/** Raison pour laquelle une session n'est plus valide, ou null (règle commune HTTP et WebSocket). */
+export function sessionProblem(
+  session: Pick<Session, 'expiresAt' | 'lastSeenAt'>,
+  userActive: boolean,
+  idleMinutes: number,
+  now: number,
+): SessionProblem | null {
+  if (!userActive) return 'USER_INACTIVE';
+  if (session.expiresAt.getTime() <= now) return 'EXPIRED';
+  if (session.lastSeenAt.getTime() + idleMinutes * MINUTE_MS <= now) return 'IDLE_EXPIRED';
+  return null;
+}
+
 export type SessionValidation =
   | { ok: true; session: Session; user: AuthenticatedUser }
   | { ok: false; reason: 'MISSING' | 'UNKNOWN' | 'IDLE_EXPIRED' | 'EXPIRED' | 'USER_INACTIVE' };
@@ -55,18 +70,11 @@ export class SessionService {
     if (!session) return { ok: false, reason: 'UNKNOWN' };
 
     const now = Date.now();
-    if (!session.user.active) {
-      await this.revokeAllForUser(session.userId);
-      return { ok: false, reason: 'USER_INACTIVE' };
-    }
-    if (session.expiresAt.getTime() <= now) {
-      await this.revoke(session.id);
-      return { ok: false, reason: 'EXPIRED' };
-    }
-    const idleMinutes = await this.settings.get('sessionIdleMinutes');
-    if (session.lastSeenAt.getTime() + idleMinutes * MINUTE_MS <= now) {
-      await this.revoke(session.id);
-      return { ok: false, reason: 'IDLE_EXPIRED' };
+    const problem = sessionProblem(session, session.user.active, await this.settings.get('sessionIdleMinutes'), now);
+    if (problem) {
+      if (problem === 'USER_INACTIVE') await this.revokeAllForUser(session.userId);
+      else await this.revoke(session.id);
+      return { ok: false, reason: problem };
     }
     if (now - session.lastSeenAt.getTime() > TOUCH_INTERVAL_MS) {
       await this.prisma.session.update({ where: { id: session.id }, data: { lastSeenAt: new Date(now) } });
@@ -74,6 +82,20 @@ export class SessionService {
 
     const { user, ...sessionOnly } = session;
     return { ok: true, session: sessionOnly, user: await this.toAuthenticatedUser(user) };
+  }
+
+  /**
+   * Revérifie une session déjà ouverte (connexions WebSocket) sans prolonger son activité.
+   * Renvoie la raison de fin de session, ou null si elle reste valide.
+   */
+  async checkById(sessionId: string): Promise<'EXPIRED' | 'DEACTIVATED' | null> {
+    const session = await this.prisma.session.findUnique({ where: { id: sessionId }, include: { user: true } });
+    if (!session) return 'EXPIRED';
+    const problem = sessionProblem(session, session.user.active, await this.settings.get('sessionIdleMinutes'), Date.now());
+    if (!problem) return null;
+    if (problem === 'USER_INACTIVE') await this.revokeAllForUser(session.userId);
+    else await this.revoke(session.id);
+    return problem === 'USER_INACTIVE' ? 'DEACTIVATED' : 'EXPIRED';
   }
 
   async toAuthenticatedUser(user: User): Promise<AuthenticatedUser> {

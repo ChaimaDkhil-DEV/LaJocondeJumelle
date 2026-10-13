@@ -49,14 +49,15 @@ Tant que `mustChangePassword` est vrai, seules `/auth/*` répondent ; les autres
 
 | Méthode | Route | Accès | Corps / réponse |
 |---------|-------|-------|-----------------|
-| GET | `/requests` | connecté (filtre de visibilité) | filtres : `status[]`, `priority[]`, `categoryId[]`, `assigneeId`, `requesterId`, `from`, `to`, `overdue`, `q` (titre), `scope` (`mine`, `assigned`, `managed`, `all`) → liste paginée de `RequestSummary` |
+| GET | `/requests` | connecté (filtre de visibilité) | filtres : `status[]`, `priority[]`, `categoryId[]`, `assigneeId`, `requesterId`, `from`, `to`, `overdue`, `q` (titre, sans tenir compte de la casse, 120 caractères au plus), `scope` (`mine`, `assigned`, `managed`, `all`) ; `from`/`to` en ISO 8601, bornes incluses (une date seule couvre la journée) ; `overdue` = `true`/`false` → liste paginée de `RequestSummary` |
 | POST | `/requests` | `REQUEST_CREATE` + catégorie autorisée | `{ clientId, title, description?, voiceFileId?, categoryId, priority, recipientId?, asDraft? }` → `201 RequestDetail` ; renvoi du même `clientId` → `200` avec la demande existante |
 | GET | `/requests/:id` | lecture autorisée | `RequestDetail` |
 | PATCH | `/requests/:id` | demandeur, statut DRAFT | modification des champs du brouillon |
 | DELETE | `/requests/:id` | demandeur, statut DRAFT | `204` (T19) |
 | POST | `/requests/:id/actions` | selon la machine à états | `{ action, version, reason?, assigneeId?, proofFileIds? }` → `200 RequestDetail` |
-| PATCH | `/requests/:id/priority` | voir data-model §Machine à états | `{ priority, version }` → `200 RequestDetail` |
-| GET | `/requests/:id/history` | lecture autorisée | liste chronologique de `RequestEvent` avec nom de l'acteur |
+| PATCH | `/requests/:id/priority` | `CHANGE_PRIORITY` dans `allowedActions` (voir data-model §Machine à états), sinon `403` | `{ priority, version }` → `200 RequestDetail` ; priorité identique → `400` ; version périmée → `409 STATE_CHANGED` ; échéances en cours non recalculées |
+| GET | `/requests/:id/assignees` | utilisateur pouvant approuver ou réaffecter la demande (sinon `403`) | employés actifs parmi les destinataires de la catégorie : `[{ id, displayName, jobTitle }]` |
+| GET | `/requests/:id/history` | lecture autorisée | liste chronologique `{ id, type, actor{id,displayName}|null (null = système), fromValue, toValue, comment, createdAt }` ; les valeurs contenant `assigneeId` portent aussi `assigneeName` |
 
 `action` ∈ `SUBMIT`, `APPROVE`, `REJECT`, `DECLINE`, `CANCEL`, `ACCEPT`, `START`, `COMPLETE`,
 `CLOSE`, `VALIDATE_FINAL`, `REQUEST_CORRECTION`, `RESUME`, `REASSIGN`.
@@ -68,16 +69,17 @@ requester{id,displayName}, assignee{id,displayName}|null, createdAt, currentStag
 currentDueAt, warnAt, overdueStage, hasVoice, unreadCount`.
 
 **RequestDetail** : RequestSummary + `description, voice{fileId,durationSeconds}|null,
-rulesSnapshot{circuit, photoRequired, closureMode, finalValidation}, timestamps{…}, version,
+rulesSnapshot{circuit, photoRequired, closureMode, finalValidation, assignmentMode}, timestamps{…}, version,
 rejectionReason, allowedActions[]` (calculé par la politique d'accès pour l'utilisateur
-courant : seule source pour l'affichage des boutons).
+courant : seule source pour l'affichage des boutons), `proofPhotos[{fileId}]` (photos de preuve),
+`canWriteInThread` (le formulaire de réponse du fil n'est affiché que s'il est vrai).
 
 ## Fil de discussion
 
 | Méthode | Route | Accès | Corps / réponse |
 |---------|-------|-------|-----------------|
-| GET | `/requests/:id/messages` | lecture autorisée | liste paginée `{ id, kind, author{id,displayName}|null, text, voice, attachments[], createdAt }` |
-| POST | `/requests/:id/messages` | participant, statut non final | `{ clientId, text?, voiceFileId?, attachmentFileIds? }` → `201` ; idempotent par `clientId` |
+| GET | `/requests/:id/messages` | lecture autorisée | liste paginée, du plus récent au plus ancien : `{ id, kind, author{id,displayName}|null, text, voice{fileId,durationSeconds}|null, attachments[{fileId,kind,mimeType,originalName,sizeBytes}], createdAt }` |
+| POST | `/requests/:id/messages` | participant, statut ni brouillon ni final (sinon `403`) | `{ clientId, text?, voiceFileId?, attachmentFileIds? }` → `201` ; idempotent par `clientId` ; au moins un texte, un vocal ou une pièce jointe (`422 CONTENT_REQUIRED`) ; au plus `attachmentMaxPerMessage` pièces jointes ; fichiers téléversés par l'auteur et non encore utilisés. Aucune route de modification ni de suppression (FR-012). |
 
 ## Fichiers
 
@@ -112,6 +114,32 @@ document → contrôle d'octets magiques uniquement. Erreurs : `FILE_TYPE_NOT_AL
 | GET, PUT | `/admin/categories/:id/deadlines` | règles par priorité |
 | GET, PUT | `/admin/settings` | réglages globaux |
 | GET | `/admin/audit` | filtres `actorId`, `action`, `from`, `to` ; lecture seule |
+
+Toutes ces routes renvoient `403 FORBIDDEN` (audit `ACCESS_DENIED`, motif `NOT_SUPER_ADMIN`) à tout autre rôle.
+
+Précisions :
+
+- **Comptes** : `username` normalisé en minuscules, 3–64 caractères `[a-z0-9._-]`, unique (`409`).
+  La création et la réinitialisation renvoient `{ temporaryPassword }` une seule fois ; le compte doit
+  le changer à la connexion suivante. La désactivation et la réinitialisation ferment toutes les sessions
+  du compte (`session:ended`). Le super administrateur ne peut ni se désactiver, ni perdre son rôle,
+  ni réinitialiser son propre mot de passe (`400`).
+- **Catégories** : `name` unique sans tenir compte de la casse (1–60). En circuit A, `finalValidation`
+  doit être faux, `assignmentMode` `MANUAL` et aucun délai de validation n'est accepté.
+  `assignmentMode = AUTO` exige `autoAssigneeId` parmi les destinataires (définir les destinataires
+  d'abord). Une nouvelle catégorie reçoit les délais par défaut provisoires.
+- **Délais** : `PUT` attend exactement 4 règles (une par priorité), chaque durée entière de 1 à 525 600
+  minutes ou `null` (pas de délai).
+- **Permissions par rôle** : `{ EMPLOYEE: Permission[], MANAGER: Permission[] }` parmi `REQUEST_CREATE`,
+  `PRIORITY_CHANGE_OWN`, `PRIORITY_CHANGE_MANAGED`, `REQUEST_REASSIGN` ; le super administrateur a toujours tout.
+- **Réglages** : mise à jour partielle ; clé inconnue ou valeur hors bornes → `400` sur l'ensemble.
+  Un audit `SETTING_CHANGED` par réglage réellement modifié.
+- **Audit** : pagination par curseur (`limit` ≤ 100), les plus récentes d'abord ; `to` sous forme de date
+  seule couvre toute la journée.
+
+| Méthode | Route | Objet |
+|---------|-------|-------|
+| GET | `/settings/client` | tout utilisateur connecté : `voiceMaxSeconds`, `attachmentMaxBytes`, `attachmentMaxPerMessage`, `draftsEnabled` |
 
 Chaque écriture d'administration produit une entrée `AuditLog` avec les valeurs avant/après.
 Les modifications de catégorie et de délais ne s'appliquent qu'aux nouvelles demandes.

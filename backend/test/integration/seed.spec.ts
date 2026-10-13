@@ -83,6 +83,16 @@ describe('Seed', () => {
     });
   });
 
+  it('crée une catégorie de démonstration en circuit A avec photo obligatoire et clôture par le demandeur', async () => {
+    await runSeed(prisma, { log: () => undefined });
+    const category = await prisma.category.findUniqueOrThrow({
+      where: { name: 'Petits travaux (démo photo)' },
+      include: { recipients: { include: { user: true } } },
+    });
+    expect(category).toMatchObject({ circuit: 'A_DIRECT', closureMode: 'REQUESTER', photoRequired: true });
+    expect(category.recipients.map((r) => r.user.username)).toEqual(['reprographie']);
+  });
+
   it('crée les comptes de démonstration avec un mot de passe provisoire à changer', async () => {
     const passwords = await runSeed(prisma, { log: () => undefined });
     const users = await prisma.user.findMany({ orderBy: { username: 'asc' } });
@@ -102,7 +112,7 @@ describe('Seed', () => {
   it('mode e2e : mot de passe fixe, aucun changement imposé sauf pour le compte « nouveau »', async () => {
     await runSeed(prisma, { log: () => undefined, e2ePassword: 'MotDePasse-E2E-2026!' });
     const users = await prisma.user.findMany();
-    expect(users.map((u) => u.username).sort()).toEqual(['enseignante', 'nouveau', 'reprographie', 'responsable', 'superadmin']);
+    expect(users.map((u) => u.username).sort()).toEqual(['autre', 'enseignante', 'nouveau', 'reprographie', 'responsable', 'superadmin']);
     for (const user of users) {
       expect(user.mustChangePassword).toBe(user.username === 'nouveau');
       await expect(verify(user.passwordHash, 'MotDePasse-E2E-2026!')).resolves.toBe(true);
@@ -115,7 +125,7 @@ describe('Seed', () => {
     await runSeed(prisma, { log: () => undefined });
     const after = await prisma.user.findMany({ orderBy: { username: 'asc' } });
     expect(after.map((u) => u.passwordHash)).toEqual(before.map((u) => u.passwordHash));
-    await expect(prisma.category.count()).resolves.toBe(2);
-    await expect(prisma.deadlineRule.count()).resolves.toBe(8);
+    await expect(prisma.category.count()).resolves.toBe(3);
+    await expect(prisma.deadlineRule.count()).resolves.toBe(12);
   });
 });

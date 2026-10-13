@@ -8,9 +8,11 @@
  *  - SEED_E2E_PASSWORD=<mdp> : mode tests de bout en bout (mot de passe fixe, voir e2e/support).
  * Le seed est idempotent : il ne recrée ni ne réinitialise ce qui existe déjà.
  */
-import { PrismaClient, type Permission, type Prisma, type Priority, type Role } from '@prisma/client';
+import { PrismaClient, type Prisma, type Priority, type Role } from '@prisma/client';
 import { argon2id, hash } from 'argon2';
 import { randomBytes } from 'node:crypto';
+import { DEFAULT_DEADLINES, type DeadlineDurations } from '../src/categories/category-defaults';
+import { DEFAULT_PERMISSIONS } from '../src/settings/default-permissions';
 import { SETTING_DEFAULTS } from '../src/settings/settings.service';
 
 export interface SeedOptions {
@@ -19,20 +21,8 @@ export interface SeedOptions {
   log?: (message: string) => void;
 }
 
-const DEFAULT_PERMISSIONS: Record<Exclude<Role, 'SUPER_ADMIN'>, Permission[]> = {
-  EMPLOYEE: ['REQUEST_CREATE', 'PRIORITY_CHANGE_OWN'],
-  MANAGER: ['REQUEST_CREATE', 'PRIORITY_CHANGE_OWN', 'PRIORITY_CHANGE_MANAGED', 'REQUEST_REASSIGN'],
-};
-
-type Durations = { validationMinutes: number | null; takeoverMinutes: number; completionMinutes: number };
-
-/** Délais par défaut (minutes) pour toute nouvelle catégorie. */
-export const DEFAULT_DEADLINES: Record<Priority, Durations> = {
-  NORMAL: { validationMinutes: 1440, takeoverMinutes: 1440, completionMinutes: 4320 },
-  MEDIUM: { validationMinutes: 480, takeoverMinutes: 480, completionMinutes: 2880 },
-  HIGH: { validationMinutes: 120, takeoverMinutes: 120, completionMinutes: 1440 },
-  URGENT: { validationMinutes: 30, takeoverMinutes: 15, completionMinutes: 120 },
-};
+type Durations = DeadlineDurations;
+export { DEFAULT_DEADLINES };
 
 const DEMO_USERS: Array<{ username: string; displayName: string; jobTitle: string; role: Role; e2eOnly?: boolean }> = [
   { username: 'superadmin', displayName: 'Super administrateur', jobTitle: 'Administration', role: 'SUPER_ADMIN' },
@@ -40,6 +30,8 @@ const DEMO_USERS: Array<{ username: string; displayName: string; jobTitle: strin
   { username: 'enseignante', displayName: 'Enseignante', jobTitle: 'Professeure des écoles', role: 'EMPLOYEE' },
   { username: 'reprographie', displayName: 'Reprographie', jobTitle: 'Reprographie', role: 'EMPLOYEE' },
   { username: 'nouveau', displayName: 'Nouvel employé', jobTitle: 'Accueil', role: 'EMPLOYEE', e2eOnly: true },
+  // Employé sans lien avec les catégories de démonstration : vérifie la confidentialité des demandes.
+  { username: 'autre', displayName: 'Autre employé', jobTitle: 'Cantine', role: 'EMPLOYEE', e2eOnly: true },
 ];
 
 function temporaryPassword(): string {
@@ -140,6 +132,21 @@ export async function runSeed(prisma: PrismaClient, options: SeedOptions = {}): 
     },
     // Exemple de la spec, non définitif : photocopies urgentes, prise en charge 1 min, réalisation 5 min.
     deadlines: { ...DEFAULT_DEADLINES, URGENT: { validationMinutes: null, takeoverMinutes: 1, completionMinutes: 5 } },
+    recipients: ['reprographie'],
+    managers: ['responsable'],
+  });
+
+  // Démonstration : circuit A, photo de preuve obligatoire, clôture par le demandeur.
+  await seedCategory(prisma, {
+    name: 'Petits travaux (démo photo)',
+    data: {
+      circuit: 'A_DIRECT',
+      creatorRoles: ['EMPLOYEE', 'MANAGER'],
+      closureMode: 'REQUESTER',
+      autoCloseAfterMinutes: 0,
+      photoRequired: true,
+    },
+    deadlines: DEFAULT_DEADLINES,
     recipients: ['reprographie'],
     managers: ['responsable'],
   });

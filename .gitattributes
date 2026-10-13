@@ -1,0 +1,15 @@
+# Fichiers de test binaires : jamais de conversion des fins de ligne.
+*.pdf binary
+*.m4a binary
+*.mp4 binary
+*.webm binary
+*.ogg binary
+*.jpg binary
+*.png binary
+*.webp binary
+*.heic binary
+
+# Scripts et fichiers lus dans des conteneurs Linux : toujours LF.
+*.sh text eol=lf
+Caddyfile text eol=lf
+*.Dockerfile text eol=lf

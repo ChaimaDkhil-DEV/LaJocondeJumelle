@@ -3,6 +3,7 @@ import { argon2id, hash, verify } from 'argon2';
 import { AuditService } from '../audit/audit.service';
 import { AppException } from '../common/errors';
 import { PrismaService } from '../common/prisma.service';
+import { RealtimeService } from '../realtime/realtime.service';
 import type { AuthenticatedUser } from './auth.types';
 import { SessionService } from './session.service';
 
@@ -15,6 +16,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly sessions: SessionService,
     private readonly audit: AuditService,
+    private readonly realtime: RealtimeService,
   ) {}
 
   /** Argon2id avec les paramètres par défaut de la bibliothèque argon2. */
@@ -49,6 +51,7 @@ export class AuthService {
 
   async logout(user: AuthenticatedUser, sessionId: string, ip: string | null): Promise<void> {
     await this.sessions.revoke(sessionId);
+    this.realtime.endSession(sessionId, 'LOGOUT');
     await this.audit.log('LOGOUT', { actorId: user.id, ip });
   }
 

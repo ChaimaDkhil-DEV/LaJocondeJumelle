@@ -1,0 +1,20 @@
+# Contexte de construction des images (deploy/*.Dockerfile, contexte = racine du dépôt)
+**/node_modules
+**/dist
+**/coverage
+**/*.tsbuildinfo
+**/.env
+**/.env.*
+!**/.env.example
+.git
+.claude
+.specify
+specs
+e2e
+data
+backend/.pgdata
+backend/.pgdata-test
+backend/.e2e-files
+backend/test
+frontend/tests
+deploy/backups

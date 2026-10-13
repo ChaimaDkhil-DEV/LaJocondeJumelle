@@ -28,6 +28,17 @@ describe('loadConfig', () => {
     expect(loadConfig({ ...valid, COOKIE_SECURE: 'false', NODE_ENV: 'production' }).cookieSecure).toBe(true);
   });
 
+  it('limite les connexions à 5 par minute, réglable hors production uniquement', () => {
+    expect(loadConfig(valid).loginRateLimit).toBe(5);
+    expect(loadConfig({ ...valid, LOGIN_RATE_LIMIT: '1000' }).loginRateLimit).toBe(1000);
+    expect(loadConfig({ ...valid, LOGIN_RATE_LIMIT: '1000', NODE_ENV: 'production' }).loginRateLimit).toBe(5);
+  });
+
+  it('active les jobs planifiés sauf si JOBS_ENABLED=false', () => {
+    expect(loadConfig(valid).jobsEnabled).toBe(true);
+    expect(loadConfig({ ...valid, JOBS_ENABLED: 'false' }).jobsEnabled).toBe(false);
+  });
+
   it('refuse un secret de session trop court', () => {
     expect(() => loadConfig({ ...valid, SESSION_SECRET: 'court' })).toThrow(/32 caractères/);
   });

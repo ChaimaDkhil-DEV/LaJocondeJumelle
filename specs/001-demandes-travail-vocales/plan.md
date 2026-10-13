@@ -27,7 +27,7 @@ sont des fonctions pures testées avant le code. Détails et justifications : [r
 
 **Primary Dependencies**: Backend : NestJS 11 (REST + gateway WebSocket), Socket.IO 4,
 Prisma ORM, class-validator / class-transformer (DTO), @nestjs/schedule, @nestjs/throttler,
-argon2, Multer (intégré à Nest), file-type, sharp (photos), ffmpeg/ffprobe (vocaux, binaire
+argon2, Multer, détection interne des types de fichiers, sharp (photos), ffmpeg/ffprobe (vocaux, binaire
 système). Frontend : React 19, Vite, React Router, TanStack Query 5, Material UI, client
 Socket.IO, idb-keyval (conservation locale des envois échoués). Versions exactes figées dans
 les lockfiles à l'initialisation.

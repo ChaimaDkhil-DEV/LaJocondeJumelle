@@ -32,6 +32,8 @@ async function main(): Promise<void> {
       APP_ORIGIN: process.env.APP_ORIGIN ?? 'http://localhost:5174',
       // Cookie non Secure : la SPA de test est servie en HTTP (WebKit refuse les cookies Secure sur http://localhost).
       COOKIE_SECURE: 'false',
+      // Tous les navigateurs de test se connectent avec les mêmes comptes depuis la même machine.
+      LOGIN_RATE_LIMIT: '1000',
       NODE_ENV: 'test',
     },
   });

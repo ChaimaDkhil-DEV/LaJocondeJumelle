@@ -10,6 +10,9 @@ export default defineConfig({
   testDir: '.',
   testMatch: '**/*.spec.ts',
   outputDir: './test-results',
+  // Scénarios multi-utilisateurs (plusieurs navigateurs à la suite) : délais adaptés à WebKit et Firefox.
+  timeout: 60_000,
+  expect: { timeout: 10_000 },
   fullyParallel: false,
   workers: 1,
   retries: process.env.CI ? 1 : 0,

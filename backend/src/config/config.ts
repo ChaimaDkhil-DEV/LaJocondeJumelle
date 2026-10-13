@@ -13,12 +13,17 @@ export interface AppConfig {
   ffprobePath: string;
   /** Cookie de session `Secure` (désactivable en développement HTTP pour Safari/WebKit). */
   cookieSecure: boolean;
+  /** Tentatives de connexion par minute et par (IP, identifiant) ; toujours 5 en production. */
+  loginRateLimit: number;
+  /** Jobs planifiés (clôture automatique, retards). Désactivés dans les tests d'intégration. */
+  jobsEnabled: boolean;
   isProduction: boolean;
 }
 
 export class ConfigError extends Error {}
 
 const MIN_SECRET_LENGTH = 32;
+const DEFAULT_LOGIN_RATE_LIMIT = 5;
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const missing = ['DATABASE_URL', 'SESSION_SECRET', 'FILES_DIR', 'APP_ORIGIN'].filter(
@@ -54,6 +59,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     ffmpegPath: env.FFMPEG_PATH?.trim() || 'ffmpeg',
     ffprobePath: env.FFPROBE_PATH?.trim() || 'ffprobe',
     cookieSecure: env.NODE_ENV === 'production' || env.COOKIE_SECURE !== 'false',
+    loginRateLimit:
+      env.NODE_ENV !== 'production' && Number(env.LOGIN_RATE_LIMIT) > 0 ? Number(env.LOGIN_RATE_LIMIT) : DEFAULT_LOGIN_RATE_LIMIT,
+    jobsEnabled: env.JOBS_ENABLED !== 'false',
     isProduction: env.NODE_ENV === 'production',
   };
 }

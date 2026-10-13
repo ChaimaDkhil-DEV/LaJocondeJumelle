@@ -34,3 +34,6 @@ backend/src/generated/
 Thumbs.db
 .idea/
 .vscode/
+
+# Sauvegardes de production (jamais dans le dépôt)
+deploy/backups/

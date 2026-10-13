@@ -14,7 +14,9 @@
     "test": "jest -c jest.config.ts",
     "test:integration": "jest -c test/jest-integration.config.ts --runInBand",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "e2e:server": "tsx scripts/e2e-server.ts"
+    "e2e:server": "tsx scripts/e2e-server.ts",
+    "fixtures:generate": "tsx scripts/generate-test-fixtures.ts",
+    "seed:volume": "tsx prisma/seed-volume.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -32,8 +34,10 @@
     "argon2": "^0.45.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
+    "cookie": "^0.7.2",
     "cookie-parser": "^1.4.7",
-    "file-type": "^22.1.1",
+    "multer": "^2.4.0",
+    "prisma": "^6.19.3",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
     "sharp": "^0.35.5",
@@ -43,6 +47,7 @@
     "@nestjs/cli": "^11.0.24",
     "@nestjs/schematics": "^11.1.0",
     "@nestjs/testing": "^11.2.7",
+    "@types/cookie": "^0.6.0",
     "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.6",
     "@types/jest": "^30.0.0",
@@ -51,7 +56,6 @@
     "@types/supertest": "^7.2.1",
     "embedded-postgres": "^17.10.0-beta.17",
     "jest": "^30.5.2",
-    "prisma": "^6.19.3",
     "socket.io-client": "^4.8.4",
     "supertest": "^7.3.1",
     "ts-jest": "^29.4.14",

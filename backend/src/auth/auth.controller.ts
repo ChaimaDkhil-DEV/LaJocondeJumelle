@@ -1,5 +1,4 @@
 import { Body, Controller, Get, HttpCode, Inject, Post, Req, Res, UseGuards } from '@nestjs/common';
-import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import type { AppConfig } from '../config/config';
 import { APP_CONFIG } from '../config/config.module';
@@ -34,7 +33,6 @@ export class AuthController {
 
   @Public()
   @UseGuards(LoginThrottlerGuard)
-  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('login')
   @HttpCode(200)
   async login(

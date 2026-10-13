@@ -1,15 +1,14 @@
 import { Global, Module } from '@nestjs/common';
-import {
-  NOTIFICATION_PUBLISHER,
-  NoopNotificationPublisher,
-  NotificationsService,
-} from './notifications.service';
+import { NotificationsController } from './notifications.controller';
+import { NOTIFICATION_PUBLISHER, NotificationsService } from './notifications.service';
+import { SocketNotificationPublisher } from './socket-notification.publisher';
 
 @Global()
 @Module({
+  controllers: [NotificationsController],
   providers: [
     NotificationsService,
-    { provide: NOTIFICATION_PUBLISHER, useClass: NoopNotificationPublisher },
+    { provide: NOTIFICATION_PUBLISHER, useClass: SocketNotificationPublisher },
   ],
   exports: [NotificationsService],
 })
