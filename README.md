@@ -63,7 +63,20 @@ docker compose -f deploy/docker-compose.yml --env-file deploy/.env exec api node
 ```
 
 La dernière commande crée le premier super administrateur et affiche une seule fois son mot de
-passe provisoire. Les sauvegardes sont quotidiennes (base et fichiers, 14 jours) ; la
+passe provisoire.
+
+Mot de passe du super administrateur perdu : la réinitialisation est tracée dans le journal
+d'audit, ferme toutes ses sessions et impose un nouveau mot de passe à la connexion suivante.
+
+```bash
+# Développement
+npm run -w backend build && node backend/dist/cli/bootstrap.js --reset-password superadmin
+# Production (sans identifiant : le plus ancien super administrateur actif)
+docker compose -f deploy/docker-compose.yml --env-file deploy/.env exec api \
+  node dist/cli/bootstrap.js --reset-password
+```
+
+Les sauvegardes sont quotidiennes (base et fichiers, 14 jours) ; la
 restauration (`deploy/backup/restore.sh`) doit être testée avant la mise en production.
 
 ## À trancher avant la mise en production

@@ -2,20 +2,12 @@ import { Inject, Injectable, type CanActivate, type ExecutionContext } from '@ne
 import type { Request } from 'express';
 import { AuditService } from '../audit/audit.service';
 import { AppException } from '../common/errors';
+import { isAllowedOrigin } from '../common/origin';
 import type { AppConfig } from '../config/config';
 import { APP_CONFIG } from '../config/config.module';
 import { clientIp, requestPath } from './request-info';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
-
-function originOf(value: string | undefined): string | null {
-  if (!value) return null;
-  try {
-    return new URL(value).origin;
-  } catch {
-    return null;
-  }
-}
 
 /**
  * Protection CSRF (research R7) : toute requête modifiante doit porter un en-tête Origin
@@ -33,8 +25,7 @@ export class OriginGuard implements CanActivate {
     const req = context.switchToHttp().getRequest<Request>();
     if (SAFE_METHODS.has(req.method)) return true;
 
-    const origin = originOf(req.headers.origin) ?? originOf(req.headers.referer);
-    if (origin === this.config.appOrigin) return true;
+    if (isAllowedOrigin(req.headers, this.config.appOrigin, { allowReferer: true })) return true;
 
     await this.audit.log('ACCESS_DENIED', {
       ip: clientIp(req),

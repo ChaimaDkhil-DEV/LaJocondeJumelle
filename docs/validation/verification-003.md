@@ -59,3 +59,21 @@ configuration valide avec les valeurs par défaut » : `expect(config.port).toBe
 - Suites : unitaires backend 358 / 358 ; frontend 120 / 120 ; lint sans erreur.
 - **T013** (manuel, poste Windows) : **à faire** — `start.bat`, connexion, rechargement sans
   compilation, chronométrage (SC-001), message affiché API arrêtée.
+
+## Phase 4 — US2, sécurité et traçabilité
+
+- **T014 à T017** (tests d'abord, tous rouges avant correction) : cas `TRUST_PROXY` dans
+  `config.spec.ts` ; `sensitive-keys.spec.ts` ; `origin.spec.ts` ; `describe('resetSuperAdminPassword')`
+  dans `bootstrap-production.spec.ts`, ligne de commande réelle et base inaccessible compris.
+- **T018** : `common/sensitive-keys.ts`, liste unique ; le logger masque désormais `message`,
+  l'audit retire `authorization`. Aucun appel du logger ne passe d'objet à clé `message` [VÉRIFIÉ].
+- **T019** : `common/origin.ts` (`isAllowedOrigin`) ; Referer admis pour HTTP seulement,
+  comme avant.
+- **T020, T021** : `TRUST_PROXY` validé par `loadConfig` (liste renvoyée sans espaces autour des
+  virgules) ; `app.setup.ts` et `main.ts` lisent `APP_CONFIG`. `process.env` ne reste lu que
+  dans `config/` et `cli/bootstrap.ts`.
+- **T022, T023** : `bootstrap.ts --reset-password [identifiant]` ; script
+  `reset-superadmin-password.ts` supprimé ; exemples dans le README.
+- Suites : lint et types sans erreur ; unitaires 392 / 392 ; intégration 257 / 257 ; frontend
+  120 / 120.
+- **T024** (manuel, quickstart scénarios 2 et 3) : **à faire**.

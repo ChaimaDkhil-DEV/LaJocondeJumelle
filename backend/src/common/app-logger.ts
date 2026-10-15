@@ -1,9 +1,7 @@
 import { ConsoleLogger } from '@nestjs/common';
+import { SENSITIVE_KEY } from './sensitive-keys';
 
 const MASK = '[masqué]';
-
-/** Clés dont la valeur n'est jamais journalisée : secrets, et contenu des messages (vie privée). */
-const SENSITIVE_KEY = /pass(word)?|hash|token|secret|cookie|authorization|^sid$|^text$|^content$/i;
 
 /** Motifs de secrets dans du texte libre (messages d'erreur, piles d'appel). */
 const PATTERNS: Array<[RegExp, string]> = [

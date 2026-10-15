@@ -61,10 +61,49 @@ export async function bootstrapProduction(
   return { created: true, username, temporaryPassword };
 }
 
-/** `node dist/cli/bootstrap.js [identifiant] [nom affiché]` (DATABASE_URL requis). */
+/**
+ * Réinitialise le mot de passe d'un super administrateur (FR-007, FR-010) : nouveau mot de passe
+ * provisoire, changement imposé, sessions fermées et audit `PASSWORD_RESET`, en une transaction.
+ * Sans identifiant, vise le plus ancien super administrateur actif.
+ */
+export async function resetSuperAdminPassword(
+  prisma: PrismaClient,
+  username?: string,
+): Promise<{ username: string; temporaryPassword: string }> {
+  const user = username
+    ? await prisma.user.findUnique({ where: { username } })
+    : await prisma.user.findFirst({ where: { role: 'SUPER_ADMIN', active: true }, orderBy: { createdAt: 'asc' } });
+  if (!user || user.role !== 'SUPER_ADMIN') {
+    throw new Error(`Compte « ${username ?? 'super administrateur actif'} » introuvable ou non super administrateur : aucune modification.`);
+  }
+
+  const temporaryPassword = randomBytes(16).toString('base64url');
+  const passwordHash = await hash(temporaryPassword, { type: argon2id });
+  await prisma.$transaction([
+    prisma.user.update({ where: { id: user.id }, data: { passwordHash, mustChangePassword: true } }),
+    prisma.session.deleteMany({ where: { userId: user.id } }),
+    prisma.auditLog.create({
+      data: { action: 'PASSWORD_RESET', actorId: null, targetType: 'User', targetId: user.id, details: { reason: 'CLI' }, ip: null },
+    }),
+  ]);
+  return { username: user.username, temporaryPassword };
+}
+
+/**
+ * `node dist/cli/bootstrap.js [identifiant] [nom affiché]` : initialisation (DATABASE_URL requis).
+ * `node dist/cli/bootstrap.js --reset-password [identifiant]` : réinitialisation tracée du mot de
+ * passe d'un super administrateur.
+ */
 async function main(): Promise<void> {
   const prisma = new PrismaClient();
   try {
+    if (process.argv[2] === '--reset-password') {
+      const reset = await resetSuperAdminPassword(prisma, process.argv[3]);
+      process.stdout.write(
+        `Mot de passe provisoire de « ${reset.username} » (affiché une seule fois, à changer à la première connexion) : ${reset.temporaryPassword}\n`,
+      );
+      return;
+    }
     const result = await bootstrapProduction(prisma, {
       username: process.argv[2] ?? process.env.ADMIN_USERNAME ?? 'admin',
       displayName: process.argv[3] ?? process.env.ADMIN_DISPLAY_NAME ?? 'Super administrateur',

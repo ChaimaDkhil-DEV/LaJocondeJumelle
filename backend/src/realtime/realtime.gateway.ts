@@ -3,20 +3,12 @@ import { WebSocketGateway, type OnGatewayConnection, type OnGatewayInit } from '
 import { parse } from 'cookie';
 import type { Server, Socket } from 'socket.io';
 import { AuditService } from '../audit/audit.service';
+import { isAllowedOrigin } from '../common/origin';
 import { SESSION_COOKIE } from '../auth/session.guard';
 import { SessionService } from '../auth/session.service';
 import type { AppConfig } from '../config/config';
 import { APP_CONFIG } from '../config/config.module';
 import { RealtimeService, sessionRoom, userRoom, type SocketData } from './realtime.service';
-
-function originOf(value: string | undefined): string | null {
-  if (!value) return null;
-  try {
-    return new URL(value).origin;
-  } catch {
-    return null;
-  }
-}
 
 function unauthenticated(): Error {
   const error = new Error('UNAUTHENTICATED') as Error & { data?: unknown };
@@ -65,7 +57,7 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection {
 
   private async authenticate(socket: Socket): Promise<SocketData> {
     const ip = socket.handshake.address || null;
-    if (originOf(socket.handshake.headers.origin) !== this.config.appOrigin) {
+    if (!isAllowedOrigin(socket.handshake.headers, this.config.appOrigin)) {
       await this.denied(ip, 'ORIGIN_MISMATCH');
       throw unauthenticated();
     }
