@@ -29,7 +29,7 @@ comportement visible, sauf la règle d'affectation tranchée en D1 :
   protection de branche sur le dépôt privé (D10) ; sauvegarde imposée avant migration ;
   restauration et en-têtes vérifiés sur préproduction.
 
-Aucune migration de schéma, aucune nouvelle dépendance d'exécution. Détails : [research.md](./research.md).
+Une seule migration (ajout de `RequestEvent.seq`, N3), aucune nouvelle dépendance d'exécution. Détails : [research.md](./research.md).
 
 ## Technical Context
 
@@ -39,8 +39,9 @@ Aucune migration de schéma, aucune nouvelle dépendance d'exécution. Détails 
 Retrait : `@mui/icons-material` (inutilisée). Ajout : aucun paquet ; GitHub Actions (service
 externe, pas une dépendance du code)
 
-**Storage**: PostgreSQL 17 — **aucune migration** ; une clé ajoutée dans le JSON
-`Request.rulesSnapshot` ([data-model.md](./data-model.md))
+**Storage**: PostgreSQL 17 — **une migration** (`0003_request_event_seq` : colonne
+`RequestEvent.seq`, N3) ; une clé ajoutée dans le JSON `Request.rulesSnapshot`
+([data-model.md](./data-model.md))
 
 **Testing**: Jest (unitaires, intégration sur PostgreSQL embarqué), Vitest + RTL, Playwright.
 Nouveaux tests : `architecture-layers.spec.ts` (Jest), `enums-sync.test.ts` (Vitest), tests
@@ -57,7 +58,7 @@ chemins chauds ; l'entrypoint n'ajoute `prisma migrate status` qu'au démarrage
 **Constraints**: FR-023 — aucun changement de comportement visible hors D1 ; tests existants
 inchangés dans leurs attendus (SC-007) ; une seule instance d'API (inchangé, A28)
 
-**Scale/Scope**: 23 exigences (FR-001 à FR-024, sans FR-022), environ 35 fichiers touchés (backend surtout), 3 fichiers de
+**Scale/Scope**: 24 exigences (FR-001 à FR-025, sans FR-022), environ 35 fichiers touchés (backend surtout), 3 fichiers de
 déploiement, 1 workflow CI, 1 procédure de vérification avant fusion (D10), 3 comptes rendus de validation
 
 ## Constitution Check
@@ -80,7 +81,7 @@ résiduel accepté par le responsable du projet : une fusion rouge reste techniq
 par erreur ; elle est alors corrigée et consignée (`contracts/cli-and-deploy.md`).
 
 **Résultat avant Phase 0** : passe. **Résultat après Phase 1** (re-vérifié sur
-[data-model.md](./data-model.md) et [contracts/](./contracts/)) : passe ; aucune migration,
+[data-model.md](./data-model.md) et [contracts/](./contracts/)) : passe ; une seule migration (ajout de colonne, N3),
 aucun nouveau statut, contrat REST modifié sur un seul point (approbation) ; la réserve D4
 reste celle du lot 1.
 
@@ -103,7 +104,8 @@ reste celle du lot 1.
 | FR-018 | R12 | A22, A23 |
 | FR-020, FR-021 | R13 | A24, A25 |
 | FR-023 | toutes (non-régression) | — |
-| FR-024 | clôture ([quickstart.md](./quickstart.md)) | A01–A35, N1, N2 |
+| FR-024 | clôture ([quickstart.md](./quickstart.md)) | A01–A35, N1–N3 |
+| FR-025 | R15 | N3 |
 
 ## Ordre de réalisation recommandé
 
@@ -125,7 +127,7 @@ reste celle du lot 1.
 ```text
 specs/003-corrections-audit-technique/
 ├── plan.md              # Ce fichier
-├── research.md          # Phase 0 : R1–R14, constats N1–N2
+├── research.md          # Phase 0 : R1–R15, constats N1–N3
 ├── data-model.md        # Phase 1 : snapshot, historique, audit, configuration
 ├── quickstart.md        # Phase 1 : scénarios de validation
 ├── contracts/
@@ -148,6 +150,8 @@ package.json                                          M  dev:backend → start:d
 README.md                                             M  port 3002, --reset-password, deploy.sh, renvoi à procedure-fusion.md
 backend/
 ├── .env.example                                      M  PORT=3002
+├── prisma/schema.prisma                              M  RequestEvent.seq (N3, R15)
+├── prisma/migrations/0003_request_event_seq/         N  ajout de la colonne seq (N3)
 ├── scripts/
 │   ├── reset-superadmin-password.ts                  S  (R6)
 │   └── check-users.ts                                M  formatage
@@ -174,9 +178,11 @@ backend/
 │   │   ├── request-policy.module.ts                  N  fournit et exporte RequestPolicyLoader
 │   │   ├── request-policy.loader.ts                  M  autoAssigneeId dans le snapshot
 │   │   ├── request-transitions.service.ts            M  assigneeContext lit le snapshot (R14)
+│   │   ├── requests.service.ts                       M  historique trié par createdAt puis seq (N3)
 │   │   ├── work-file-access.ts                       N  implémentation WORK du registre
 │   │   └── domain/access-policy.ts                   M  règles transverses retirées
 │   ├── coverage/ (coverage.module, coverage-file-access.ts N)  M  implémentation COVERAGE ; job déplacé
+│   ├── coverage/ (coverage.service, coverage-admin.service)  M  historique trié par createdAt puis seq (N3)
 │   ├── categories/, messages/ (*.module.ts)          M  importent RequestPolicyModule
 │   ├── notifications/notifications.service.ts        M  NoopNotificationPublisher retiré
 │   └── scheduler/
@@ -190,6 +196,8 @@ backend/
     ├── unit/architecture-layers.spec.ts              N  (R7)
     ├── unit/sensitive-keys.spec.ts                   N  (R4)
     ├── integration/auto-assignment-snapshot.spec.ts  N  (R14, écrit en premier)
+    ├── integration/history-priority.spec.ts          M  ordre d'écriture, test déterministe (N3)
+    ├── integration/coverage.spec.ts                  M  ordre d'écriture, test déterministe (N3)
     └── integration/bootstrap-production.spec.ts      M  describe('resetSuperAdminPassword') (R6, T017)
 frontend/
 ├── package.json                                      M  @mui/icons-material retiré

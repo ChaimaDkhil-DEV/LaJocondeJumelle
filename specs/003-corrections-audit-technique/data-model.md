@@ -2,8 +2,9 @@
 
 **Feature**: [spec.md](./spec.md) | **Research**: [research.md](./research.md)
 
-**Aucune migration de schéma.** Toutes les évolutions portent sur des champs JSON existants ou
-sur des valeurs d'énumération déjà présentes. Le modèle complet reste celui de
+**Une seule migration de schéma** : `0003_request_event_seq` ajoute `RequestEvent.seq` (N3,
+R15). Toutes les autres évolutions portent sur des champs JSON existants ou sur des valeurs
+d'énumération déjà présentes. Le modèle complet reste celui de
 [`specs/001-demandes-travail-vocales/data-model.md`](../001-demandes-travail-vocales/data-model.md).
 
 ## Request.rulesSnapshot (JSON) — ajout d'une clé
@@ -51,6 +52,15 @@ L'événement `ASSIGNED` existant, créé par l'approbation, enregistre l'employ
 même approbation est inchangé. L'historique affiche cette source (T031). Table en ajout seul
 (triggers inchangés).
 
+## RequestEvent — ordre d'écriture (FR-025, N3)
+
+| Champ | Type | Règle |
+|-------|------|-------|
+| `seq` | `BigInt`, `BIGSERIAL NOT NULL` | Attribué par la base à l'insertion ; second critère de tri après `createdAt` dans toute lecture chronologique ; jamais exposé par l'API |
+
+Migration : `ALTER TABLE "RequestEvent" ADD COLUMN "seq" BIGSERIAL NOT NULL;`. La table reste en
+ajout seul (triggers inchangés).
+
 ## AuditLog — réinitialisation par l'outil d'exploitation
 
 Aucune nouvelle valeur : l'action `PASSWORD_RESET` existe déjà dans `AuditAction`.
@@ -75,6 +85,6 @@ toutes les lignes `Session` du compte supprimées.
 
 ## Registre des constats (documentaire)
 
-Entité de la spec, tenue dans `docs/ARCHITECTURE.md` (FR-024) : identifiant (A01–A35, N1–N2),
+Entité de la spec, tenue dans `docs/ARCHITECTURE.md` (FR-024) : identifiant (A01–A35, N1–N3),
 section source, marquage [VÉRIFIÉ]/[DÉDUIT], classe CT/DH/HP, statut (`ouvert`, `corrigé
 (référence de commit)`, `confirmé`, `infirmé`). Pas de stockage en base.

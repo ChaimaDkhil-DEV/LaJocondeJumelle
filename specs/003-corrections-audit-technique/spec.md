@@ -425,11 +425,16 @@ Chaque exigence indique les constats qu'elle traite. Le numéro FR-022 n'est pas
   et le résultat consigné.
 - **FR-023**: Aucune correction NE DOIT modifier le comportement fonctionnel visible des
   utilisateurs, à l'exception de la règle d'affectation de FR-008 (avec ses exceptions EXC-1 et
-  EXC-2), du refus et du choix par le responsable décrits en FR-011, et de la mention de la source
-  d'affectation dans l'historique.
+  EXC-2), du refus et du choix par le responsable décrits en FR-011, de la mention de la source
+  d'affectation dans l'historique, et de l'ordre de restitution des événements de même horodatage
+  (FR-025).
 - **FR-024** (A01–A35): `docs/ARCHITECTURE.md` DOIT être mis à jour à la fin de la
   fonctionnalité : chaque constat traité est marqué comme corrigé avec sa référence, chaque
   constat [DÉDUIT] confirmé ou infirmé est re-marqué [VÉRIFIÉ] ou retiré.
+- **FR-025** (N3, relevé par la première exécution de la CI) : l'historique d'une demande
+  (demande de travail ou couverture de classe) DOIT restituer les événements dans leur ordre
+  d'écriture, y compris ceux écrits dans la même milliseconde ; cet ordre NE DOIT PAS dépendre
+  d'un identifiant aléatoire. Un test automatisé DOIT le vérifier de façon déterministe.
 
 ### Décisions nécessitant une validation humaine
 
@@ -510,6 +515,8 @@ périmètre.
   le numéro 002 à une éventuelle spécification du lot 2 (D5).
 - L'application tourne sur une seule instance (A28) ; les corrections n'ont pas à rendre l'API
   multi-instances.
+- Une seule migration de schéma est prévue : l'ajout de l'ordre d'écriture des événements
+  d'historique (FR-025, N3). Elle n'ajoute qu'une colonne ; la table reste en ajout seul.
 - Aucune reprise des snapshots existants n'est prévue : les demandes antérieures relèvent de
   l'exception EXC-1 (décision D9).
 - Les décisions D1, D8 et D9 ont été prises par le responsable du projet ; elles restent à faire

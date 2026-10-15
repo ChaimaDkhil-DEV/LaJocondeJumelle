@@ -123,4 +123,4 @@ Sur la préproduction :
 ## Clôture (FR-024, SC-009)
 
 `docs/ARCHITECTURE.md` : chaque constat CT marqué corrigé avec sa référence de commit ; A04,
-A11, A20, A23 à A26 re-marqués [VÉRIFIÉ] (confirmé ou infirmé) ; N1 et N2 ajoutés.
+A11, A20, A23 à A26 re-marqués [VÉRIFIÉ] (confirmé ou infirmé) ; N1 à N3 ajoutés.

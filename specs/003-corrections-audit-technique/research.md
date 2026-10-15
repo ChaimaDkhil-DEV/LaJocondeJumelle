@@ -23,6 +23,12 @@ Ils complètent l'audit sans le refaire ; ils seront reportés dans `docs/ARCHIT
   forment une seule composante fortement connexe : `audit`, `auth`, `common`, `coverage`,
   `files`, `notifications`, `realtime`, `requests`, `scheduler`, `settings`, `users`. L'audit
   (§10) n'en citait que quatre. Voir R7 pour le périmètre retenu.
+- **N3 [VÉRIFIÉ] — Ordre aléatoire des événements de même horodatage.** Relevé par la première
+  exécution de la CI (T005, 2026-10-15) : sur le même commit, `coverage.spec.ts` a réussi dans un
+  run et échoué dans l'autre (`→CLOSED` avant `→DONE`). L'historique est trié par `createdAt`
+  puis `id` (`requests.service.ts`, `coverage.service.ts`, `coverage-admin.service.ts`) ; `id`
+  est un UUID aléatoire, et deux événements d'une même transaction tombent souvent dans la même
+  milliseconde. L'ordre affiché aux utilisateurs peut donc être faux. Voir R15.
 
 ---
 
@@ -377,3 +383,25 @@ affecter de compte inactif (FR-011).
 **Alternatives considered**: reprise des snapshots existants par migration de données (fige
 après coup une valeur qui n'était peut-être pas celle de la soumission, donc inexacte) ;
 refus sans repli (demande bloquée jusqu'à intervention de l'administrateur).
+
+## R15 — Ordre d'écriture des événements d'historique (FR-025, N3)
+
+**Decision**: colonne `RequestEvent.seq` (`BIGSERIAL`, `@default(autoincrement())`), ajoutée
+par la migration `0003_request_event_seq` ; les lectures chronologiques trient par `createdAt`
+puis `seq` au lieu de `createdAt` puis `id`. `createdAt` reste le premier critère, car il porte
+la date affichée. La colonne n'est jamais exposée par l'API.
+
+**Rationale**: la séquence reflète l'ordre d'insertion, y compris dans une même transaction ;
+aucun des 13 endroits qui écrivent des événements n'est modifié. L'ajout d'une colonne réécrit
+la table sans déclencher le trigger « append-only » (`BEFORE UPDATE OR DELETE`). Les événements
+existants reçoivent un numéro dans l'ordre physique de la table, sans garantie pour les égalités
+passées ; seules les égalités futures sont corrigées.
+
+**Tests d'abord**: `history-priority.spec.ts` et `coverage.spec.ts` insèrent deux événements de
+même `createdAt` dont les `id` sont en ordre inverse de l'écriture : rouges avec le tri par `id`,
+verts avec `seq`, sans dépendre du hasard.
+
+**Alternatives considered**: horodatages croissants imposés à chaque écriture (13 endroits à
+modifier, dates légèrement faussées) ; UUID v7 (ordre garanti seulement d'une milliseconde à
+l'autre) ; test tolérant l'ordre (masque un défaut visible) ; relance de la CI (échec non
+résolu, interdit par la vérification avant fusion).
