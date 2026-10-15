@@ -262,7 +262,7 @@ export class CoverageService {
           toValue: true,
           request: { select: { id: true, reference: true, coverage: { select: { class: { select: { name: true, room: true } } } } } },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ createdAt: 'desc' }, { seq: 'desc' }],
         take: 100,
       }),
     ]);
@@ -478,7 +478,7 @@ export class CoverageService {
     const events = await this.prisma.requestEvent.findMany({
       where: { requestId },
       include: { actor: { select: { id: true, displayName: true } } },
-      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      orderBy: [{ createdAt: 'asc' }, { seq: 'asc' }],
     });
     const ids = new Set<string>();
     for (const e of events) {

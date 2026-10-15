@@ -30,3 +30,15 @@ configuration valide avec les valeurs par défaut » : `expect(config.port).toBe
 - **T003** : `.github/workflows/ci.yml` créé (job `verify`, « Contrôles qualité »).
 - **T004** : `package-lock.json` contient déjà `node_modules/@embedded-postgres/linux-x64`
   (`17.10.0-beta.17`, ligne 1155) : aucune modification du verrou nécessaire.
+
+- **T005, premier passage de la CI** (commit `b9ed428`, 15 octobre 2026) : run `push`
+  (`38809322292`) réussi sur toutes les étapes ; run `pull_request` (`38809324478`) en échec sur
+  `coverage.spec.ts` › « 1. nominal » : `→CLOSED` reçu avant `→DONE`. Même commit, résultat
+  différent : test instable, constat **N3** (research R15). Le binaire Linux d'embedded-postgres,
+  `npm audit` et `search-performance.spec.ts` fonctionnent en CI : aucune exclusion nécessaire.
+- **T063** : deux tests déterministes ajoutés (`history-priority.spec.ts`, `coverage.spec.ts`) ;
+  rouges avant correction (ordre inversé dans les deux historiques).
+- **T064** : colonne `RequestEvent.seq` (migration `0003_request_event_seq`), tris par
+  `createdAt` puis `seq`. SQL de la migration identique à celui que Prisma génère pour le schéma.
+  Suite locale : lint et types sans erreur ; unitaires 349 / 349 ; intégration 250 / 250 ;
+  frontend 120 / 120.

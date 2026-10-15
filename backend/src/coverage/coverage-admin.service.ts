@@ -304,7 +304,7 @@ export class CoverageAdminService {
       this.prisma.requestEvent.findMany({
         where: { requestId: { in: requestIds }, type: { in: ['STATUS_CHANGED', 'ASSIGNED', 'RELEASED', 'OVERDUE'] } },
         select: { requestId: true, type: true, fromValue: true, toValue: true, createdAt: true },
-        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        orderBy: [{ createdAt: 'asc' }, { seq: 'asc' }],
       }),
       // Garde en cours, quelle que soit la période.
       this.prisma.request.findMany({
