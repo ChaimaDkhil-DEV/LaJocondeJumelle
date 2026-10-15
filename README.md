@@ -45,6 +45,9 @@ npm run verify                             # lint + tests unitaires et d'intégr
 npm run test:e2e                           # bout en bout : 6 profils navigateur, contrôles axe
 ```
 
+Avant toute fusion vers `master` : [vérification avant fusion](docs/procedure-fusion.md). Elle est
+manuelle : la CI GitHub signale les échecs mais n'empêche pas la fusion.
+
 ## Déploiement
 
 Sur un VPS avec Docker (détails et contrôles dans le

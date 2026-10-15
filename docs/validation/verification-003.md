@@ -42,3 +42,7 @@ configuration valide avec les valeurs par défaut » : `expect(config.port).toBe
   `createdAt` puis `seq`. SQL de la migration identique à celui que Prisma génère pour le schéma.
   Suite locale : lint et types sans erreur ; unitaires 349 / 349 ; intégration 250 / 250 ;
   frontend 120 / 120.
+- **T005, CI après correction** (commit `6aac605`) : runs `push` (`38811005287`, 3 min 40 s) et
+  `pull_request` (`38811010302`, 4 min 30 s) réussis sur toutes les étapes.
+- **T006** : `docs/procedure-fusion.md`, `.github/pull_request_template.md` et renvoi dans
+  `README.md`. Procédure manuelle (décision D10) : GitHub n'empêche pas une fusion rouge.
