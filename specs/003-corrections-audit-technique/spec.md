@@ -210,7 +210,9 @@ attendu).
 
 1. **Given** le code après correction, **When** la vérification des dépendances s'exécute,
    **Then** elle ne trouve aucun cycle entre les domaines demandes, fichiers, authentification,
-   audit et socle commun, et le module de contournement de cycle n'est plus nécessaire.
+   audit et socle commun. La séparation du module temps réel (registre des connexions d'un
+   côté, passerelle authentifiée de l'autre) est conservée et documentée comme un découpage
+   voulu, non comme un contournement (voir research R7).
 2. **Given** un développeur qui introduit volontairement un cycle entre ces domaines, **When** la
    vérification s'exécute, **Then** elle échoue en nommant les fichiers concernés.
 3. **Given** un fichier joint à une demande ou une preuve de présence de la couverture de
