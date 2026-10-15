@@ -45,7 +45,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     throw new ConfigError('APP_ORIGIN doit être une URL valide (ex. https://demandes.ecole.fr)');
   }
 
-  const port = Number(env.PORT ?? 3000);
+  const port = Number(env.PORT ?? 3002);
   if (!Number.isInteger(port) || port <= 0 || port > 65535) {
     throw new ConfigError('PORT doit être un entier entre 1 et 65535');
   }

@@ -10,7 +10,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -b --noEmit",
-    "api:types": "openapi-typescript http://localhost:3000/api/docs-json -o src/api/schema.d.ts"
+    "api:types": "node -e \"const api=process.env.API_URL||'http://localhost:3002';require('child_process').execSync('openapi-typescript '+api+'/api/docs-json -o src/api/schema.d.ts',{stdio:'inherit'})\""
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",
