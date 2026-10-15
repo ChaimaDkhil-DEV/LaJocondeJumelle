@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { RequestPolicyLoader } from '../requests/request-policy.loader';
+import { RequestPolicyModule } from '../requests/request-policy.module';
 import { CoverageAccessLoader } from './coverage-access.loader';
 import { CoverageActionsService } from './coverage-actions.service';
 import { CoverageAdminController } from './coverage-admin.controller';
@@ -10,6 +10,7 @@ import { CoverageService } from './coverage.service';
 
 /** Couverture de classe (garde / remplacement) et suivi des employés par le super administrateur. */
 @Module({
+  imports: [RequestPolicyModule],
   controllers: [CoverageController, CoverageAdminController],
   providers: [
     CoverageService,
@@ -17,7 +18,6 @@ import { CoverageService } from './coverage.service';
     CoverageAdminService,
     CoverageAccessLoader,
     CoverageDeadlinesJob,
-    RequestPolicyLoader,
   ],
 })
 export class CoverageModule {}
