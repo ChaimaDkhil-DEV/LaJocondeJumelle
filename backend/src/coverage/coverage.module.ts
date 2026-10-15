@@ -5,7 +5,6 @@ import { CoverageAccessLoader } from './coverage-access.loader';
 import { CoverageActionsService } from './coverage-actions.service';
 import { CoverageAdminController } from './coverage-admin.controller';
 import { CoverageAdminService } from './coverage-admin.service';
-import { CoverageDeadlinesJob } from './coverage-deadlines.job';
 import { CoverageController } from './coverage.controller';
 import { CoverageFileAccess } from './coverage-file-access';
 import { CoverageService } from './coverage.service';
@@ -19,8 +18,8 @@ import { CoverageService } from './coverage.service';
     CoverageActionsService,
     CoverageAdminService,
     CoverageAccessLoader,
-    CoverageDeadlinesJob,
     CoverageFileAccess,
   ],
+  exports: [CoverageActionsService],
 })
 export class CoverageModule {}

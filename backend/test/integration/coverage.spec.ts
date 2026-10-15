@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { io, type Socket } from 'socket.io-client';
 import request from 'supertest';
 import { CoverageActionsService } from '../../src/coverage/coverage-actions.service';
-import { CoverageDeadlinesJob } from '../../src/coverage/coverage-deadlines.job';
+import { CoverageDeadlinesJob } from '../../src/scheduler/coverage-deadlines.job';
 import { SettingsService } from '../../src/settings/settings.service';
 import { loginAs, seedDemo, userId } from '../utils/auth-helpers';
 import { createListeningTestApp, TEST_ORIGIN } from '../utils/test-app';

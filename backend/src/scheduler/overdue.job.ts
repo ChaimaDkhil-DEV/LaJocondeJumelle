@@ -6,7 +6,7 @@ import type { AppConfig } from '../config/config';
 import { APP_CONFIG } from '../config/config.module';
 import { NotificationsService } from '../notifications/notifications.service';
 import { RealtimeService } from '../realtime/realtime.service';
-import { JOB_INTERVAL_MS } from './auto-close.job';
+import { JOB_INTERVAL_MS } from './job-interval';
 
 interface OverdueRow {
   id: string;
@@ -26,7 +26,7 @@ interface OverdueRow {
  * n'est jamais supprimée ni masquée. L'état étant lu en base, les échéances manquées pendant un
  * arrêt sont rattrapées au redémarrage. La version n'est pas incrémentée : marquer un retard
  * n'entre pas en conflit avec les actions des utilisateurs. Les couvertures de classe ont leur
- * propre tâche (coverage/coverage-deadlines.job.ts).
+ * propre tâche (scheduler/coverage-deadlines.job.ts).
  */
 @Injectable()
 export class OverdueJob {

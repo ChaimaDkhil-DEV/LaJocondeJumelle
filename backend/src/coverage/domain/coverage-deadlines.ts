@@ -11,7 +11,7 @@ import type { CoverageStep } from './coverage-state-machine';
  * | ARRIVAL  | acceptation / affectation (max(maintenant, début) + délai) | présence confirmée, désistement, annulation |
  *
  * Le dépassement (« Non pourvue », « En retard ») est marqué une seule fois par occurrence d'étape
- * grâce à `overdueStage` (marqueur persisté), voir coverage-deadlines.job.ts.
+ * grâce à `overdueStage` (marqueur persisté), voir scheduler/coverage-deadlines.job.ts.
  */
 export interface CoverageDurations {
   takeoverMinutes: number | null;

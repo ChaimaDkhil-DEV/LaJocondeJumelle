@@ -2,7 +2,7 @@ import type { INestApplication } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
-import { JOB_INTERVAL_MS } from '../../src/scheduler/auto-close.job';
+import { JOB_INTERVAL_MS } from '../../src/scheduler/job-interval';
 import { OverdueJob } from '../../src/scheduler/overdue.job';
 import { CATEGORIES, categoryId, loginAs, seedDemo, userId } from '../utils/auth-helpers';
 import { createTestApp, TEST_ORIGIN } from '../utils/test-app';
