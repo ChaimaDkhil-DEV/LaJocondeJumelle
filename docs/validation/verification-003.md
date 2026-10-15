@@ -23,3 +23,10 @@ configuration valide avec les valeurs par défaut » : `expect(config.port).toBe
 `1e6d4ee` sans mise à jour du test. Il est corrigé par T002.
 
 **Aucun autre échec.**
+
+## Phase 2 — suite verte et CI
+
+- **T002** : `config.spec.ts` attend désormais 3002 ; `npm run -w backend test` : 349 / 349.
+- **T003** : `.github/workflows/ci.yml` créé (job `verify`, « Contrôles qualité »).
+- **T004** : `package-lock.json` contient déjà `node_modules/@embedded-postgres/linux-x64`
+  (`17.10.0-beta.17`, ligne 1155) : aucune modification du verrou nécessaire.
