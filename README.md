@@ -58,12 +58,18 @@ Sur un VPS avec Docker (détails et contrôles dans le
 
 ```bash
 cp deploy/.env.example deploy/.env         # domaine, secrets, sauvegardes
-docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build
+deploy/deploy.sh                           # sauvegarde, puis construction et démarrage
 docker compose -f deploy/docker-compose.yml --env-file deploy/.env exec api node dist/cli/bootstrap.js admin "Direction"
 ```
 
 La dernière commande crée le premier super administrateur et affiche une seule fois son mot de
 passe provisoire.
+
+Chaque mise à jour passe par `deploy/deploy.sh`, lancé depuis la racine du dépôt : il sauvegarde
+la base et les fichiers, puis reconstruit et redémarre les conteneurs. L'API refuse d'appliquer
+une migration sans sauvegarde de moins de `PRE_MIGRATION_BACKUP_MAX_AGE_MINUTES` minutes (60 par
+défaut) : un `docker compose … up` lancé sans le script s'arrête alors avec « Migration en attente
+sans sauvegarde récente : lancez deploy/deploy.sh. », sans toucher la base.
 
 Mot de passe du super administrateur perdu : la réinitialisation est tracée dans le journal
 d'audit, ferme toutes ses sessions et impose un nouveau mot de passe à la connexion suivante.

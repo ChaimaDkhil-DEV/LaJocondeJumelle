@@ -129,3 +129,48 @@ configuration valide avec les valeurs par défaut » : `expect(config.port).toBe
   manquant côté interface [TEST_VALUE] ; en trop côté interface [] » ; annulé.
   (c) suite complète : lint et types sans erreur ; unitaires 393 / 393 ; intégration 264 / 264 ;
   frontend 127 / 127. `git status` propre après les contre-épreuves.
+
+## Phase 7 — US5, mise en production (T049 à T054 ; T055 à T058 sur préproduction)
+
+### T049 — sorties de `prisma migrate status` (Prisma 6.19.3)
+
+Relevées le 16 octobre 2026 sur une base PostgreSQL 17 **jetable** (embedded-postgres, port
+55444, dossier temporaire supprimé ensuite), avec une **copie temporaire** de `backend/prisma`
+où une migration de test vide (`9999_test_pending`) a été ajoutée. Ni la base de développement
+(port 5433) ni `backend/prisma/migrations` n'ont été modifiées ; aucune migration n'a été
+appliquée à une base persistante, d'où l'absence de sauvegarde préalable.
+
+| État | Code | Sortie |
+|------|------|--------|
+| Schéma à jour | 0 | stdout : `Database schema is up to date!` |
+| Migration en attente | 1 | stdout : `Following migration have not yet been applied:` puis `9999_test_pending` |
+| Base arrêtée | 1 | stderr : ``Error: P1001: Can't reach database server at `localhost:55444` `` |
+
+Conséquence pour l'entrypoint (T053) : « en attente » et « base inaccessible » ont le même code ;
+seul le texte `have not yet been applied` (stdout) les distingue. Toute autre sortie non nulle
+est traitée comme une erreur bloquante.
+
+### T050 à T054
+
+- **T050** : `backend/test/unit/api-entrypoint.spec.ts`, 5 cas, faux `npx` et `node` ; shell
+  `/bin/sh` sous Linux, `bash.exe` de Git for Windows sous Windows (échec explicite s'il manque).
+  Avant correction : (1), (2), (3) et (5) en échec — (1) aussi, car l'ancien script appliquait
+  `migrate deploy` à chaque démarrage ; (4) vert.
+- **T053** : `deploy/api-entrypoint.sh` (POSIX `sh`, `set -eu`, fins de ligne LF imposées par
+  `.gitattributes`) : schéma à jour → démarrage ; migration en attente → archive `db-*.dump` de
+  moins de `PRE_MIGRATION_BACKUP_MAX_AGE_MINUTES` minutes exigée dans `PRE_MIGRATION_BACKUP_DIR`
+  (défaut `/backups`), sinon refus ; toute autre erreur → sortie de Prisma recopiée, code 1.
+  T050 vert (5 / 5).
+- **T051** : `deploy/deploy.sh` (bash, `set -euo pipefail`, exécutable, mode 100755) :
+  sauvegarde par le service `backup` puis `up -d --build` ; refuse de s'exécuter hors de la racine
+  du dépôt ou sans `deploy/.env` (vérifié localement). **Écart volontaire** : sans `--no-deps`
+  (contrat et R12), pour que la base soit démarrée avant la sauvegarde au premier déploiement.
+  Les étapes Docker n'ont pas été exécutées (Docker absent du poste) : à vérifier en T055.
+- **T052** : `docker-compose.yml`, service `api` : `${BACKUP_DIR:-./backups}:/backups:ro` et
+  `PRE_MIGRATION_BACKUP_MAX_AGE_MINUTES` (défaut 60) ; variable commentée dans
+  `deploy/.env.example`. Port de production 3000 et healthcheck inchangés.
+- **T054** : `README.md` (section Déploiement) et `docs/coverage-migration.md` : `deploy/deploy.sh`
+  remplace la sauvegarde manuelle et `docker compose … up -d --build` ; refus expliqué.
+- Suites : lint et types sans erreur ; unitaires 398 / 398 ; intégration 264 / 264 ; frontend
+  127 / 127.
+- **T055 à T058** : non lancés (préproduction nécessaire).
