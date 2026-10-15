@@ -244,7 +244,8 @@ paquet partagé de types (nouveau workspace, principe II).
 ## R11 — Intégration continue partielle (FR-017, FR-019, A20, A21, D3)
 
 **Decision**: `.github/workflows/ci.yml` (dépôt GitHub `origin` [VÉRIFIÉ]), déclenché sur
-`push` et `pull_request` :
+`push` et `pull_request`, avec un seul job d'identifiant `verify` et de nom « Contrôles qualité »
+(nom stable, nécessaire pour le rendre obligatoire dans la protection de branche) :
 1. `ubuntu-latest`, Node 24 (`.nvmrc`), `npm ci`, installation de `ffmpeg` (apt) ;
 2. `npm run lint` ; `npm run -w backend typecheck` ; `npm run -w frontend typecheck` ;
 3. `npm run -w backend test` ; `npm run -w backend test:integration` ;
@@ -264,6 +265,13 @@ exclu et rejoué à la main.
   verrou ou utiliser un service `postgres:17` dans la CI ;
 - `prisma generate` doit tourner avant les tests (via `postinstall` ou une étape dédiée).
 
+**Protection de branche (constat G3)** : la CI signale les échecs mais ne bloque pas la fusion
+par elle-même. Il faut une règle de protection sur `master` (GitHub → Settings → Branches →
+Branch protection rules) : « Require a pull request before merging » et « Require status checks
+to pass before merging » avec le contrôle « Contrôles qualité », plus « Require branches to be up
+to date before merging ». C'est un réglage du dépôt GitHub, fait à la main par son
+administrateur ; il ne fait pas partie du code.
+
 **Rationale**: décision D3 ; reprend exactement `npm run verify`, sans les navigateurs.
 
 **Alternatives considered**: tout en CI, y compris Playwright (écarté par D3) ; autre service
@@ -282,6 +290,21 @@ de CI (le dépôt est sur GitHub).
   Sans migration en attente, démarrage normal (aucun ralentissement des redémarrages).
 - `README.md` et `docs/coverage-migration.md` remplacent l'étape manuelle « faire une sauvegarde »
   par `deploy/deploy.sh`.
+- **Testabilité (constat C1 de l'analyse, principe I)** : le dossier des sauvegardes est lu dans
+  `PRE_MIGRATION_BACKUP_DIR` (défaut `/backups`) au lieu d'être écrit en dur, et les commandes
+  `npx` et `node` sont résolues par le `PATH`. Un test Jest
+  `backend/test/unit/api-entrypoint.spec.ts` lance le script avec un shell POSIX, un faux `npx`
+  et un faux `node` (scripts placés en tête du `PATH`, qui écrivent leurs arguments dans un
+  journal et simulent la sortie de `prisma migrate status`) et un dossier temporaire de
+  sauvegardes dont l'ancienneté est réglée par `fs.utimesSync`. Cas : schéma à jour (aucune
+  migration, démarrage) ; migration en attente sans archive (code 1, message, ni `migrate
+  deploy` ni démarrage) ; migration en attente avec archive trop ancienne (idem) ; migration en
+  attente avec archive récente (`migrate deploy` puis démarrage) ; base inaccessible (code 1,
+  sortie de Prisma affichée, ni `migrate deploy` ni démarrage). Shell : `sh` sous Linux (CI) ;
+  sous Windows, `bash.exe` de Git for Windows, trouvé à partir de `git --exec-path`
+  (`…/mingw64/libexec/git-core` → `…/bin/bash.exe`). Si aucun shell POSIX n'est trouvé, le test
+  échoue avec un message qui l'explique (pas de saut silencieux). Le test tourne dans la suite
+  unitaire, donc dans la CI.
 
 **Rationale**: [VÉRIFIÉ] le conteneur `api` n'a pas `pg_dump` ; le service `backup` l'a et sait
 déjà produire et contrôler une archive (`pg_restore --list`). La vérification dans l'entrypoint
@@ -289,8 +312,8 @@ couvre aussi un `docker compose up` lancé à la main, sans le script.
 
 **Point à vérifier [DÉDUIT]**: le code de sortie et le texte de `prisma migrate status`
 (Prisma 6) quand des migrations sont en attente ; l'entrypoint s'appuiera sur le texte
-« Database schema is up to date » si le code de sortie ne suffit pas. Vérifié par le scénario 5
-du quickstart.
+« Database schema is up to date » si le code de sortie ne suffit pas. Relevé avant le test
+(tâche T049), puis vérifié sur la préproduction (quickstart, scénario 6).
 
 **Alternatives considered**: sauvegarde dans l'entrypoint de l'API (ajoute le client
 PostgreSQL à l'image, mélange les responsabilités) ; confiance dans la procédure manuelle
@@ -306,7 +329,11 @@ et `docs/validation/en-tetes-securite.md` (sortie de `curl -sI` sur `/` et `/api
 
 **Rationale**: ces constats [DÉDUIT] ne peuvent être confirmés qu'en conditions réelles.
 
-## R14 — Affectation automatique figée à la soumission (FR-008, FR-009, FR-011, A03, A04, D1)
+## R14 — Affectation automatique figée à la soumission (FR-008, FR-009, FR-011, A03, A04, D1, D8, D9)
+
+**Décisions métier appliquées** (toutes validées le 2026-10-15, voir spec « Clarifications ») :
+D1 (tout figé), D8 (personne non affectable → refus puis choix du responsable), D9 (demandes
+antérieures → catégorie actuelle). Aucune autre règle n'est introduite.
 
 **Decision**:
 - `RequestRulesSnapshot` gagne `autoAssigneeId: string | null`, renseigné par
@@ -314,21 +341,24 @@ et `docs/validation/en-tetes-securite.md` (sortie de `curl -sI` sur `/` et `/api
   category.autoAssigneeId : null`). Champ JSON : **aucune migration**.
 - `assigneeContext`, pour `APPROVE`, lit `rules.assignmentMode` et `rules.autoAssigneeId` du
   snapshot. Si le snapshot ne contient pas la clé `autoAssigneeId` (demande soumise avant la
-  correction), il lit `category.autoAssigneeId` (comportement actuel), et seulement dans ce cas.
-- Si la personne figée n'est plus affectable (`canPickRecipient` : inactive ou plus destinataire
-  de la catégorie), le serveur répond le nouveau code `AUTO_ASSIGNEE_UNAVAILABLE` (422,
-  « La personne désignée pour cette catégorie n'est plus disponible. Choisissez l'employé qui
-  réalisera la demande. »). Le responsable peut alors approuver en fournissant `assigneeId`
-  explicitement ; le serveur ne l'accepte que dans ce cas.
+  correction, exception EXC-1, D9), il lit `category.autoAssigneeId`, et seulement dans ce cas.
+- Si la personne à affecter est absente ou n'est plus affectable (`canPickRecipient` : compte
+  inactif ou retiré des destinataires de la catégorie ; exception EXC-2, D8), une approbation
+  sans `assigneeId` reçoit le nouveau code `AUTO_ASSIGNEE_UNAVAILABLE` (422, « La personne
+  désignée pour cette catégorie n'est plus disponible. Choisissez l'employé qui réalisera la
+  demande. »). Le responsable peut alors approuver en fournissant `assigneeId` ; le serveur ne
+  l'accepte en mode automatique que dans ce cas, et refuse un compte non affectable
+  (`RECIPIENT_NOT_ALLOWED`).
 - L'événement d'historique de l'approbation (`RequestEvent`, `toValue`) porte
-  `assigneeSource` : `SNAPSHOT`, `CATEGORY_CURRENT` (demande ancienne) ou `MANAGER_CHOICE`
-  (repli).
+  `assigneeSource` : `SNAPSHOT`, `CATEGORY_CURRENT` (EXC-1) ou `MANAGER_CHOICE` (mode manuel ou
+  EXC-2).
 - Interface : `ApprovalDialog` affiche le sélecteur quand le serveur renvoie
   `AUTO_ASSIGNEE_UNAVAILABLE`.
 - Tests d'abord (FR-009) : un test d'intégration qui reproduit le cas « E1 désigné à la
   soumission, E2 désigné ensuite » (rouge aujourd'hui : affecté à E2), le cas « catégorie passée
-  en manuelle » (rouge aujourd'hui : `ASSIGNEE_REQUIRED`, voir N1), le cas « E1 désactivé »,
-  et le cas « demande ancienne sans `autoAssigneeId` ».
+  en manuelle » (rouge aujourd'hui : `ASSIGNEE_REQUIRED`, voir N1), les cas « E1 désactivé » et
+  « E1 retiré des destinataires » (EXC-2), et le cas « demande ancienne sans `autoAssigneeId` »
+  (EXC-1).
 
 **Rationale**: décision D1. Le snapshot existe déjà pour cette raison (FR-022 du lot 1) ; il
 suffit d'y ajouter la personne. Le repli explicite évite qu'une demande reste bloquée sans

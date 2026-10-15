@@ -35,8 +35,10 @@ docker compose -f deploy/docker-compose.yml --env-file deploy/.env exec api \
 ## Démarrage de l'API — `deploy/api-entrypoint.sh` (modifié)
 
 ```text
+si `prisma migrate status` échoue pour une autre raison (base injoignable) :
+    afficher sa sortie ; sortir 1
 si `prisma migrate status` indique des migrations en attente :
-    si aucune archive /backups/db-*.dump de moins de PRE_MIGRATION_BACKUP_MAX_AGE_MINUTES :
+    si aucune archive ${PRE_MIGRATION_BACKUP_DIR:-/backups}/db-*.dump de moins de PRE_MIGRATION_BACKUP_MAX_AGE_MINUTES :
         afficher « Migration en attente sans sauvegarde récente : lancez deploy/deploy.sh. » ; sortir 1
     prisma migrate deploy
 exec node dist/main.js
@@ -44,9 +46,14 @@ exec node dist/main.js
 
 `docker-compose.yml` monte `${BACKUP_DIR:-./backups}:/backups:ro` dans le service `api`.
 
+Test automatisé : `backend/test/unit/api-entrypoint.spec.ts` (research R12), cinq cas :
+schéma à jour, migration en attente sans archive, avec archive trop ancienne, avec archive
+récente, base inaccessible.
+
 ## Intégration continue — `.github/workflows/ci.yml` (nouveau)
 
 | Déclencheur | `push`, `pull_request` |
+| Job | identifiant `verify`, nom « Contrôles qualité » (contrôle à rendre obligatoire sur `master`) |
 |---|---|
 | Environnement | `ubuntu-latest`, Node 24, `ffmpeg` |
 | Étapes (toutes bloquantes) | `npm ci` → `npm run lint` → typecheck backend et frontend → tests unitaires backend (dont `architecture-layers.spec.ts`) → tests d'intégration backend → tests frontend (dont `enums-sync.test.ts`) → `npm audit --audit-level=high` |

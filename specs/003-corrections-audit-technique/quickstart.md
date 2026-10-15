@@ -22,6 +22,12 @@ npm run dev                                # ou start.bat sous Windows
 Attendu : l'API répond sur `http://localhost:3002/api/health` ; l'interface sur
 `http://localhost:5173` affiche la connexion et la connexion de démonstration réussit ; une
 modification d'un fichier de `backend/src` redémarre l'API sans compilation manuelle.
+Chronométrer le parcours, de `cp` à la connexion réussie (hors téléchargements) : moins de
+10 minutes (SC-001).
+
+API arrêtée, interface lancée : une action affiche « Une erreur inattendue est survenue.
+Réessayez plus tard. » (réponse 502 du proxy Vite), sans écran blanc ; vérifié aussi par
+`frontend/tests/api/client.test.ts`.
 
 ```bash
 git grep -n "3000" -- README.md backend/.env.example deploy/Caddyfile.dev backend/test
@@ -62,7 +68,8 @@ Avec la catégorie de démonstration en circuit B, affectation automatique vers 
 | Soumettre une demande D1, puis désigner E2 dans la catégorie, puis approuver D1 | D1 affectée à E1 ; historique : source `SNAPSHOT` |
 | Soumettre D2, passer la catégorie en affectation manuelle, approuver D2 sans choisir d'employé | D2 affectée à E1 (plus de blocage `ASSIGNEE_REQUIRED`, constat N1) |
 | Soumettre D3, désactiver E1, approuver D3 | refus `AUTO_ASSIGNEE_UNAVAILABLE`, le sélecteur s'affiche ; approuver avec E3 → affectée à E3, source `MANAGER_CHOICE` |
-| Demande ancienne (snapshot sans `autoAssigneeId`) | affectée selon la catégorie actuelle, source `CATEGORY_CURRENT` |
+| Soumettre D4, retirer E1 des destinataires de la catégorie (compte actif), approuver D4 | même comportement que D3 : refus puis choix du responsable (EXC-2, D8) |
+| Demande ancienne (snapshot sans `autoAssigneeId`) | affectée selon la catégorie actuelle, source `CATEGORY_CURRENT` (EXC-1, D9) |
 
 Tests automatisés : test d'intégration écrit **avant** la correction (rouge sur les deux
 premières lignes), puis vert ; voir [contracts/rest-api.md](./contracts/rest-api.md).
@@ -89,7 +96,10 @@ Sur la préproduction :
 1. **Sauvegarde imposée** : ajouter une migration vide de test, lancer
    `docker compose … up -d --build` **sans** `deploy/deploy.sh` → l'API refuse de démarrer
    avec « Migration en attente sans sauvegarde récente… » ; lancer `deploy/deploy.sh` → une
-   archive datée est créée puis la migration est appliquée.
+   archive datée est créée puis la migration est appliquée. Les cas sont aussi couverts
+   automatiquement par `backend/test/unit/api-entrypoint.spec.ts`.
+   Puis `docker compose … ps` : le service `api` est `healthy` (le healthcheck interroge le port
+   3000, fixé explicitement en production, FR-002).
 2. **Restauration** : sur un serveur vierge, `deploy/backup/restore.sh <horodatage>` ;
    contrôler la connexion, une demande avec vocal et photo, le journal d'audit ; noter la durée
    dans `docs/validation/restauration.md`.
@@ -98,6 +108,8 @@ Sur la préproduction :
    refusé ; consigner dans `docs/validation/en-tetes-securite.md`.
 4. **Contrôles qualité** : la CI GitHub est verte sur la branche ; `npm run test:e2e` lancé à la
    main, résultat consigné dans `docs/validation/`.
+5. **Protection de branche** : sur GitHub, une demande de fusion vers `master` dont le contrôle
+   « Contrôles qualité » échoue ne peut pas être fusionnée (réglage manuel, research R11).
 
 ## Clôture (FR-024, SC-009)
 

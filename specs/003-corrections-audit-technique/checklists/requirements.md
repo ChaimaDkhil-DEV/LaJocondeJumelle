@@ -31,6 +31,9 @@
 
 ## Notes
 
+- **Itération 3 (2026-10-15)** : après `/speckit-analyze`, exigences FR-008, FR-011, FR-023 et
+  SC-005 précisées par les décisions D8 et D9 (exceptions EXC-1 et EXC-2) ; cas limite de l'API
+  arrêtée rendu vérifiable ; scénario 2 de l'US1 reformulé. Tous les items passent toujours.
 - **Itération 2 (2026-10-15)** : les 3 marqueurs ont été résolus (D1 : A, D2 : B, D3 : C) et
   consignés dans « Clarifications ». Tous les items passent.
 - **Détails techniques tolérés** : la fonctionnalité corrige un audit technique ; la spec cite

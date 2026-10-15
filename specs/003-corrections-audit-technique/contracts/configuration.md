@@ -24,8 +24,9 @@ Message d'erreur attendu pour `TRUST_PROXY=n'importe quoi` :
 | Production (conteneur) | 3000, interne au réseau Docker | `deploy/api.Dockerfile` (`ENV PORT=3000`), `docker-compose.yml` |
 | Tests de bout en bout | `API_PORT` de `e2e/playwright.config.ts` | inchangé |
 
-## Nouvelle variable de déploiement
+## Nouvelles variables de déploiement
 
 | Variable | Où | Défaut | Rôle |
 |---|---|---|---|
 | `PRE_MIGRATION_BACKUP_MAX_AGE_MINUTES` | conteneur `api` | `60` | Âge maximal de la dernière archive `db-*.dump` exigée avant d'appliquer une migration (research R12) |
+| `PRE_MIGRATION_BACKUP_DIR` | conteneur `api` | `/backups` | Dossier où chercher cette archive ; configurable pour le test automatisé de l'entrypoint (research R12) |

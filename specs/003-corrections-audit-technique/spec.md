@@ -89,6 +89,16 @@ nécessitant une validation humaine."
   continue automatique pour le lint et les tests unitaires, d'interface et d'intégration ;
   exécution manuelle consignée pour les tests de bout en bout et de performance.
 
+### Session 2026-10-15 (2) — suite de `/speckit-analyze` (constat I1)
+
+- Q: Quand la personne figée à la soumission n'est plus affectable à l'approbation (compte
+  désactivé, ou retirée des destinataires de la catégorie), que se passe-t-il après le refus
+  (D8) ? → A: le refus `AUTO_ASSIGNEE_UNAVAILABLE` est d'abord renvoyé ; le responsable peut
+  ensuite approuver en choisissant lui-même un employé affectable ; l'historique trace ce choix.
+- Q: Pour les demandes soumises avant la correction, dont le snapshot ne contient pas la personne
+  désignée, quelle règle appliquer à l'approbation (D9) ? → A: la personne désignée est lue
+  dans la configuration actuelle de la catégorie (comportement actuel), et l'historique l'indique.
+
 ## User Scenarios & Testing *(mandatory)*
 
 Les acteurs sont : le **développeur** qui installe et fait évoluer le projet, l'**exploitant** qui
@@ -114,7 +124,8 @@ suites de tests ; aucun fichier ne doit être modifié à la main.
    configuration sans le modifier (hors secret) et démarre l'API puis l'interface, **Then**
    l'interface affiche la page de connexion et ses appels à l'API aboutissent.
 2. **Given** le proxy HTTPS de développement (test du micro sur téléphone), **When** il est
-   démarré, **Then** il relaie vers l'API sur le même port que l'interface.
+   démarré, **Then** il relaie les appels à l'API vers le port 3002, comme le proxy de
+   l'interface.
 3. **Given** la configuration du projet, **When** la suite unitaire s'exécute, **Then** le test
    de configuration vérifie la valeur par défaut 3002 et passe.
 4. **Given** le lanceur Windows, **When** le développeur l'utilise après une modification du
@@ -183,11 +194,17 @@ catégorie, approuver, puis vérifier la personne affectée.
 2. **Given** une demande soumise en affectation automatique, **When** l'administrateur passe la
    catégorie en affectation manuelle avant l'approbation, **Then** la demande est quand même
    affectée automatiquement à la personne figée à la soumission.
-3. **Given** la personne figée à la soumission n'est plus active à l'approbation,
-   **When** le responsable approuve, **Then** l'approbation est refusée avec un message indiquant
-   l'action corrective (choisir un destinataire), sans affecter un compte inactif.
-4. **Given** l'affectation effectuée, **When** on consulte l'historique de la demande, **Then**
-   l'événement d'approbation indique la personne affectée et la règle appliquée.
+3. **Given** la personne figée à la soumission n'est plus affectable à l'approbation (compte
+   désactivé ou retiré des destinataires de la catégorie), **When** le responsable approuve sans
+   choisir d'employé, **Then** l'approbation est refusée avec un message l'invitant à choisir
+   l'employé, sans rien modifier ; **When** il approuve ensuite en choisissant un employé
+   affectable, **Then** la demande est affectée à cet employé (décision D8).
+4. **Given** une demande soumise avant la correction, dont le snapshot ne contient pas la
+   personne désignée, **When** le responsable approuve, **Then** la demande est affectée à la
+   personne désignée dans la catégorie actuelle (décision D9).
+5. **Given** l'affectation effectuée, **When** on consulte l'historique de la demande, **Then**
+   l'événement d'approbation indique la personne affectée et sa source : snapshot, catégorie
+   actuelle (D9) ou choix du responsable (D8).
 
 ---
 
@@ -263,8 +280,11 @@ restauration complète et une migration volontairement défectueuse.
 ### Edge Cases
 
 - Un développeur a déjà un fichier de configuration local avec l'ancien port 3000 : le README
-  DOIT indiquer comment l'aligner ; l'interface ne doit pas échouer silencieusement (message
-  d'erreur de connexion à l'API compréhensible).
+  DOIT indiquer comment l'aligner ; l'interface ne doit pas échouer silencieusement : avec l'API
+  arrêtée, le proxy de développement répond 502 sans corps JSON et l'interface affiche « Une
+  erreur inattendue est survenue. Réessayez plus tard. » ; sans aucune réponse, elle affiche
+  « Connexion impossible. Vérifiez votre connexion internet puis réessayez. ». Ces messages
+  existants sont conservés (FR-023) et vérifiés par un test automatisé.
 - Le port 3002 est déjà occupé sur le poste : le lanceur s'arrête avec un message explicite
   (comportement actuel à conserver).
 - Réinitialisation du mot de passe d'un super administrateur alors que la base est inaccessible :
@@ -272,9 +292,7 @@ restauration complète et une migration volontairement défectueuse.
 - Plusieurs demandes en attente d'approbation au moment d'un changement de catégorie : la règle
   de FR-008 s'applique à chacune, indépendamment.
 - Demande soumise **avant** le déploiement de la correction d'affectation : son snapshot contient
-  le mode d'affectation mais peut ne pas contenir la personne désignée ; dans ce seul cas, la
-  personne désignée est lue dans la configuration actuelle de la catégorie, et l'historique
-  l'indique (voir Assumptions).
+  le mode d'affectation mais pas la personne désignée ; exception EXC-1 de FR-008 (décision D9).
 - Suppression du publicateur inutilisé ou du chargeur dupliqué alors qu'un test l'utilise
   indirectement : la suite complète doit rester verte, sinon la suppression est annulée.
 - Sauvegarde impossible avant migration (disque plein) : le déploiement s'arrête et l'ancienne
@@ -320,16 +338,26 @@ Chaque exigence indique les constats qu'elle traite. Le numéro FR-022 n'est pas
   automatique, le mode d'affectation **et** la personne désignée DOIVENT être ceux figés dans le
   snapshot de la demande à sa soumission, conformément à FR-022 (lot 1) ; une modification
   ultérieure de la catégorie NE DOIT PAS changer l'affectation d'une demande déjà soumise
-  (décision D1, 2026-10-15).
+  (décision D1, 2026-10-15). Un employé proposé par le responsable alors que la personne figée
+  est affectable est ignoré. Seules deux exceptions existent, toutes deux validées :
+  - **EXC-1 — demande antérieure à la correction** (décision D9) : si le snapshot ne contient pas
+    la clé de la personne désignée, celle-ci est lue dans la configuration actuelle de la
+    catégorie ; le mode reste celui du snapshot ;
+  - **EXC-2 — personne figée non affectable** (décision D8) : voir FR-011.
+  La source de l'affectation (snapshot, catégorie actuelle, choix du responsable) DOIT être
+  enregistrée dans l'historique de la demande.
 - **FR-009** (A04): Avant toute correction, un test automatisé DOIT reproduire le comportement
   actuel (changement de catégorie entre soumission et approbation), afin de confirmer le constat
   [DÉDUIT] A04 ; la correction DOIT ensuite faire passer ce test selon FR-008.
 - **FR-010** (A05): La réinitialisation du mot de passe du super administrateur DOIT être une
   sous-commande de l'outil d'initialisation existant, conforme à FR-007 ; le script séparé DOIT
   être supprimé et la documentation d'exploitation mise à jour (décision D2, 2026-10-15).
-- **FR-011** (A03): Si la personne figée à la soumission est inactive ou n'est plus
-  destinataire de la catégorie à l'approbation, l'approbation DOIT être refusée avec un message
-  indiquant l'action corrective, sans affecter de compte inactif.
+- **FR-011** (A03): Si la personne à affecter selon FR-008 (figée, ou lue selon EXC-1) est
+  inactive ou n'est plus destinataire de la catégorie à l'approbation, une approbation sans
+  employé choisi DOIT être refusée avec un message invitant le responsable à choisir l'employé,
+  sans aucune écriture. Le responsable PEUT alors approuver en choisissant un employé
+  affectable (actif et destinataire de la catégorie) ; aucun compte non affectable NE DOIT être
+  affecté (décision D8).
 
 **Dépendances entre modules et dette technique**
 
@@ -375,8 +403,9 @@ Chaque exigence indique les constats qu'elle traite. Le numéro FR-022 n'est pas
   de taille des envois DOIVENT être contrôlés sur un déploiement HTTPS réel ou de préproduction,
   et le résultat consigné.
 - **FR-023**: Aucune correction NE DOIT modifier le comportement fonctionnel visible des
-  utilisateurs, à l'exception de la règle d'affectation de FR-008 et du refus décrit en
-  FR-011.
+  utilisateurs, à l'exception de la règle d'affectation de FR-008 (avec ses exceptions EXC-1 et
+  EXC-2), du refus et du choix par le responsable décrits en FR-011, et de la mention de la source
+  d'affectation dans l'historique.
 - **FR-024** (A01–A35): `docs/ARCHITECTURE.md` DOIT être mis à jour à la fin de la
   fonctionnalité : chaque constat traité est marqué comme corrigé avec sa référence, chaque
   constat [DÉDUIT] confirmé ou infirmé est re-marqué [VÉRIFIÉ] ou retiré.
@@ -384,7 +413,7 @@ Chaque exigence indique les constats qu'elle traite. Le numéro FR-022 n'est pas
 ### Décisions nécessitant une validation humaine
 
 Ces points NE SONT PAS des exigences définitives tant qu'ils ne sont pas tranchés. D1 à D3 ont été
-tranchés (voir Clarifications) ; D4 à D7 restent ouverts et hors périmètre.
+tranchés (voir Clarifications), ainsi que D8 et D9 ; D4 à D7 restent ouverts et hors périmètre.
 
 | ID | Décision | Constats | Qui | Effet sur cette fonctionnalité |
 |----|----------|----------|-----|--------------------------------|
@@ -395,6 +424,8 @@ tranchés (voir Clarifications) ; D4 à D7 restent ouverts et hors périmètre.
 | D5 | Spécification du lot 2 (couverture de classe : statuts, délais de 2 et 5 min, preuves) | A32 | Établissement | Hors périmètre ; FR-014 ne change aucune règle du lot 2 |
 | D6 | Autres valeurs provisoires du README « À trancher » (permissions par rôle, délais, destinataires, accusé de lecture) | §11.10 | Établissement | Hors périmètre ; aucune valeur modifiée |
 | D7 | Origine des choix techniques (pile imposée ou proposée) | §6, §11.1 | Responsable du projet | Aucun ; information documentaire |
+| D8 | Suite d'un refus quand la personne figée n'est plus affectable | A03 | Responsable du projet | **Tranchée le 2026-10-15** : le responsable choisit un employé affectable (FR-011, exception EXC-2) |
+| D9 | Règle pour les demandes antérieures sans personne figée | A03, A04 | Responsable du projet | **Tranchée le 2026-10-15** : catégorie actuelle, tracée dans l'historique (FR-008, exception EXC-1) |
 
 ### Hors périmètre
 
@@ -431,8 +462,9 @@ tranchés (voir Clarifications) ; D4 à D7 restent ouverts et hors périmètre.
 - **SC-004**: 100 % des réinitialisations de mot de passe du super administrateur produisent une
   entrée d'audit et ferment toutes ses sessions (vérifié par test).
 - **SC-005**: Pour chacun des cas de test d'affectation (changement de personne, changement de
-  mode, personne inactive), la personne affectée est celle prévue par la règle D1 dans 100 % des
-  cas.
+  mode, personne désactivée ou retirée des destinataires, demande antérieure), la personne
+  affectée et la source enregistrée sont celles prévues par FR-008 et FR-011 (décisions D1, D8,
+  D9) dans 100 % des cas.
 - **SC-006**: Zéro cycle de dépendance entre les domaines cités, et l'introduction volontaire
   d'un cycle fait échouer les contrôles qualité.
 - **SC-007**: Les tests existants d'accès aux fichiers et aux demandes passent sans modification
@@ -453,12 +485,10 @@ tranchés (voir Clarifications) ; D4 à D7 restent ouverts et hors périmètre.
   le numéro 002 à une éventuelle spécification du lot 2 (D5).
 - L'application tourne sur une seule instance (A28) ; les corrections n'ont pas à rendre l'API
   multi-instances.
-- Les demandes soumises avant la correction d'affectation n'ont pas de personne désignée dans
-  leur snapshot si celui-ci ne la contenait pas déjà ; pour elles seules, la personne désignée
-  est lue dans la configuration actuelle de la catégorie (comportement actuel), et l'événement
-  d'approbation l'indique. Aucune reprise des snapshots existants n'est prévue.
-- La décision D1 a été prise par le responsable du projet ; elle reste à faire confirmer par
-  l'établissement, sans bloquer l'implémentation.
+- Aucune reprise des snapshots existants n'est prévue : les demandes antérieures relèvent de
+  l'exception EXC-1 (décision D9).
+- Les décisions D1, D8 et D9 ont été prises par le responsable du projet ; elles restent à faire
+  confirmer par l'établissement, sans bloquer l'implémentation.
 - Les outils d'exploitation sont utilisés par une personne ayant accès au serveur ; ils restent
   hors de l'interface web.
 - Le serveur de préproduction ou de production nécessaire à FR-020 et FR-021 sera fourni par

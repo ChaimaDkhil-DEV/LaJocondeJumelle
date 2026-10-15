@@ -18,34 +18,36 @@ Les autres clés (`circuit`, `closureMode`, `autoCloseAfterMinutes`, `finalValid
 
 **Compatibilité**: les demandes soumises avant la correction n'ont pas la clé
 `autoAssigneeId`. **Absence de clé ≠ `null`** :
-- clé absente → personne lue dans la catégorie actuelle (comportement historique) ;
-- clé présente à `null` en mode `AUTO` → aucune personne désignée → repli décrit ci-dessous.
+- clé absente → exception **EXC-1** (décision D9) : personne lue dans la catégorie actuelle ;
+- clé présente à `null` en mode `AUTO` → aucune personne désignée → exception **EXC-2**
+  (décision D8), comme une personne non affectable.
 
-### Résolution de l'employé à l'approbation (circuit B)
+### Résolution de l'employé à l'approbation (circuit B) — FR-008, FR-011
+
+« Affectable » = compte actif **et** destinataire actuel de la catégorie (`canPickRecipient`).
 
 ```text
-mode = snapshot.assignmentMode
+mode = snapshot.assignmentMode                         (jamais Category.assignmentMode)
 si mode = MANUAL :
-    employé = assigneeId fourni par le responsable          → source MANAGER_CHOICE
+    si assigneeId absent            → refus ASSIGNEE_REQUIRED          (inchangé)
+    si assigneeId non affectable    → refus RECIPIENT_NOT_ALLOWED      (inchangé)
+    sinon employé = assigneeId                         → source MANAGER_CHOICE
 si mode = AUTO :
-    candidat = snapshot.autoAssigneeId si la clé existe       → source SNAPSHOT
-               sinon Category.autoAssigneeId (actuelle)      → source CATEGORY_CURRENT
-    si candidat affectable (actif ET destinataire actuel de la catégorie) :
-        employé = candidat
-    sinon si assigneeId fourni par le responsable et affectable :
-        employé = assigneeId                                  → source MANAGER_CHOICE
-    sinon :
-        refus AUTO_ASSIGNEE_UNAVAILABLE (aucune écriture)
+    si la clé snapshot.autoAssigneeId existe : candidat = snapshot.autoAssigneeId  → SNAPSHOT
+    sinon (EXC-1, D9) :                        candidat = Category.autoAssigneeId  → CATEGORY_CURRENT
+    si candidat non nul et affectable :
+        employé = candidat      (un assigneeId fourni est ignoré, FR-008)
+    sinon (EXC-2, D8) :
+        si assigneeId absent         → refus AUTO_ASSIGNEE_UNAVAILABLE (aucune écriture)
+        si assigneeId non affectable → refus RECIPIENT_NOT_ALLOWED     (aucune écriture)
+        sinon employé = assigneeId                     → source MANAGER_CHOICE
 ```
-
-Un `assigneeId` fourni alors que le candidat figé est affectable est **ignoré** : la règle
-figée prime (FR-008).
 
 ## RequestEvent (approbation) — détail de la source
 
 L'événement d'approbation existant enregistre l'employé affecté dans `toValue`. Il gagne la
-clé `assigneeSource` : `SNAPSHOT` | `CATEGORY_CURRENT` | `MANAGER_CHOICE`. Table en ajout seul
-(triggers inchangés).
+clé `assigneeSource` : `SNAPSHOT` | `CATEGORY_CURRENT` (EXC-1, D9) | `MANAGER_CHOICE` (mode manuel, ou
+EXC-2, D8). Table en ajout seul (triggers inchangés).
 
 ## AuditLog — réinitialisation par l'outil d'exploitation
 

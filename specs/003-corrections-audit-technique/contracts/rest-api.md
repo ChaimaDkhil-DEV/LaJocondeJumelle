@@ -7,19 +7,25 @@ Seule l'action d'approbation change. Le reste de l'API est celui de
 
 Corps inchangé : `{ "action": "APPROVE", "version": <int>, "assigneeId"?: "<uuid>" }`.
 
-| Mode figé dans le snapshot | `assigneeId` fourni | Résultat |
-|---|---|---|
-| `MANUAL` | oui, affectable | `200`, affecté à `assigneeId` |
-| `MANUAL` | non | `422 ASSIGNEE_REQUIRED` (inchangé) |
-| `MANUAL` | oui, non affectable | `422 RECIPIENT_NOT_ALLOWED` (inchangé) |
-| `AUTO`, personne figée affectable | ignoré | `200`, affecté à la personne figée |
-| `AUTO`, personne figée non affectable | non | **`422 AUTO_ASSIGNEE_UNAVAILABLE`** (nouveau) |
-| `AUTO`, personne figée non affectable | oui, affectable | `200`, affecté à `assigneeId` |
-| `AUTO`, personne figée non affectable | oui, non affectable | `422 RECIPIENT_NOT_ALLOWED` |
+« Affectable » = compte actif **et** destinataire actuel de la catégorie. « Personne à
+affecter » = `rulesSnapshot.autoAssigneeId` si la clé existe ; sinon (demande antérieure,
+exception EXC-1, décision D9) `Category.autoAssigneeId` actuel. Algorithme complet :
+[data-model.md](../data-model.md) §Résolution.
 
-**Changement de comportement** (seul autorisé par FR-023) : le mode et la personne viennent
-désormais du snapshot, plus de la catégorie actuelle. Une modification de la catégorie après la
-soumission n'a plus d'effet sur l'approbation.
+| Mode figé dans le snapshot | `assigneeId` fourni | Résultat | `assigneeSource` |
+|---|---|---|---|
+| `MANUAL` | oui, affectable | `200`, affecté à `assigneeId` | `MANAGER_CHOICE` |
+| `MANUAL` | non | `422 ASSIGNEE_REQUIRED` (inchangé) | — |
+| `MANUAL` | oui, non affectable | `422 RECIPIENT_NOT_ALLOWED` (inchangé) | — |
+| `AUTO`, personne à affecter affectable | ignoré (FR-008) | `200`, affecté à la personne à affecter | `SNAPSHOT`, ou `CATEGORY_CURRENT` (EXC-1) |
+| `AUTO`, personne à affecter absente ou non affectable (EXC-2, D8) | non | **`422 AUTO_ASSIGNEE_UNAVAILABLE`** (nouveau), aucune écriture | — |
+| `AUTO`, personne à affecter absente ou non affectable (EXC-2, D8) | oui, affectable | `200`, affecté à `assigneeId` | `MANAGER_CHOICE` |
+| `AUTO`, personne à affecter absente ou non affectable (EXC-2, D8) | oui, non affectable | `422 RECIPIENT_NOT_ALLOWED`, aucune écriture | — |
+
+**Changements de comportement** (seuls autorisés par FR-023) : le mode et la personne viennent
+désormais du snapshot, plus de la catégorie actuelle (D1) ; exception EXC-1 pour les demandes
+antérieures (D9) ; refus puis choix par le responsable si la personne n'est plus affectable
+(EXC-2, D8) ; source enregistrée dans `RequestEvent.toValue.assigneeSource`.
 
 ### Nouveau code d'erreur
 
