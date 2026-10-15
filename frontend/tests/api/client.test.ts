@@ -50,7 +50,7 @@ describe('apiFetch', () => {
     const error = (await apiFetch('/api/x').catch((e: unknown) => e)) as ApiError;
     expect(error.status).toBe(502);
     expect(error.code).toBe('INTERNAL_ERROR');
-    expect(error.message).toMatch(/erreur/i);
+    expect(error.message).toBe('Une erreur inattendue est survenue. Réessayez plus tard.');
   });
 
   it('signale une coupure réseau avec le code NETWORK_ERROR', async () => {
@@ -58,7 +58,7 @@ describe('apiFetch', () => {
     const error = (await apiFetch('/api/x').catch((e: unknown) => e)) as ApiError;
     expect(error).toBeInstanceOf(ApiError);
     expect(error).toMatchObject({ status: 0, code: 'NETWORK_ERROR' });
-    expect(error.message).toMatch(/connexion/i);
+    expect(error.message).toBe('Connexion impossible. Vérifiez votre connexion internet puis réessayez.');
   });
 
   it('mesure le décalage d’horloge avec X-Server-Time', async () => {
