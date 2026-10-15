@@ -99,3 +99,33 @@ configuration valide avec les valeurs par défaut » : `expect(config.port).toBe
   Windows) bloquait le port 55433 ; arrêté, puis suite d'intégration verte.
 - **T032** (manuel, quickstart scénario 4) : **à faire** ; D1 reste à faire confirmer par
   l'établissement.
+
+## Phase 6 — US4, dépendances lisibles et vérifiées
+
+- **T033** : `architecture-layers.spec.ts`, rouge au départ sur 11 imports : `auth → requests`
+  (2), `common → audit`, `common → auth`, `files → requests` (4), `files → coverage` (3),
+  `coverage → scheduler`. L'expression des imports couvre aussi les imports sans liaison
+  (`import '…'`), sans quoi la contre-épreuve (a) ne pourrait pas échouer.
+- **T034** : `enums-sync.test.ts`, vert. `RequestStatus` et `DeadlineStage` du schéma sont
+  partagés par les demandes de travail et la couverture de classe ; l'interface les découpe
+  (`RequestStatus` + `CoverageStatus`, `DeadlineStage` + `CoverageStage`) : le test compare le
+  schéma à leur réunion. Aucune divergence réelle.
+- **T035 à T041** (un commit par déplacement ; après chacun, types, unitaires et intégration
+  verts) : `common/authorization.ts` ; `request-info` vers `common/` ; `SuperAdminGuard` vers
+  `audit/` ; `RequestPolicyModule` ; registre d'accès aux fichiers (`WorkFileAccess`,
+  `CoverageFileAccess`, fermé par défaut ; le rattachement d'un fichier à une couverture au
+  téléversement reste refusé, comme avant) ; job des délais de couverture dans `scheduler/`.
+  Tests existants : chemins d'import seuls modifiés ; deux `describe` de `access-policy.spec.ts`
+  déplacés dans `authorization.spec.ts`, attendus inchangés.
+- **T042** : vérification des couches verte, sans violation imprévue.
+- **T043 à T047** : `NoopNotificationPublisher` supprimé ; commentaire de
+  `RealtimeGatewayModule` ; `@mui/icons-material` désinstallée (build frontend vert) ;
+  `check-users.ts` formaté ; en-tête de `api/types.ts`.
+- **T048, contre-épreuves** :
+  (a) `import '../requests/request-policy.loader';` ajouté dans `files/files.service.ts` →
+  `architecture-layers` échoue : « files/files.service.ts → ../requests/request-policy.loader
+  (files ne peut pas dépendre de requests) » ; annulé.
+  (b) `TEST_VALUE` ajoutée à `enum RequestStatus` → `enums-sync` échoue : « RequestStatus :
+  manquant côté interface [TEST_VALUE] ; en trop côté interface [] » ; annulé.
+  (c) suite complète : lint et types sans erreur ; unitaires 393 / 393 ; intégration 264 / 264 ;
+  frontend 127 / 127. `git status` propre après les contre-épreuves.
