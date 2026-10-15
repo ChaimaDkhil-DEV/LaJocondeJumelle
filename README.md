@@ -32,13 +32,16 @@ et PostgreSQL 17 pour l'API ; Socket.IO pour le temps réel ; Docker et Caddy po
 Prérequis : Node.js 24 et ffmpeg (conversion des vocaux). En développement, PostgreSQL est
 fourni par embedded-postgres : Docker n'est nécessaire que pour le déploiement.
 
+Si votre `backend/.env` date d'avant le passage au port 3002, remplacez `PORT=3000` par
+`PORT=3002`.
+
 ```bash
 npm install
 cp backend/.env.example backend/.env       # puis renseigner SESSION_SECRET
 npm run -w backend db:dev                  # PostgreSQL embarqué (terminal dédié)
 npm run -w backend prisma:migrate
 npm run -w backend prisma:seed             # réglages, catégories et comptes de démonstration
-npm run -w backend start:dev               # API : http://localhost:3000
+npm run -w backend start:dev               # API : http://localhost:3002
 npm run -w frontend dev                    # interface : http://localhost:5173
 
 npm run verify                             # lint + tests unitaires et d'intégration + audit npm

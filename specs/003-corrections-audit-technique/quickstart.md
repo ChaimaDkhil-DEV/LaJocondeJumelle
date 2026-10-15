@@ -30,7 +30,7 @@ Réessayez plus tard. » (réponse 502 du proxy Vite), sans écran blanc ; véri
 `frontend/tests/api/client.test.ts`.
 
 ```bash
-git grep -n "3000" -- README.md backend/.env.example deploy/Caddyfile.dev backend/test
+git grep -nE "localhost:3000|host\.docker\.internal:3000|^PORT=3000" -- README.md backend/.env.example deploy/Caddyfile.dev frontend/vite.config.ts
 ```
 
 Attendu : aucun résultat.

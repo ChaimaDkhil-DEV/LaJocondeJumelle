@@ -46,3 +46,16 @@ configuration valide avec les valeurs par défaut » : `expect(config.port).toBe
   `pull_request` (`38811010302`, 4 min 30 s) réussis sur toutes les étapes.
 - **T006** : `docs/procedure-fusion.md`, `.github/pull_request_template.md` et renvoi dans
   `README.md`. Procédure manuelle (décision D10) : GitHub n'empêche pas une fusion rouge.
+
+## Phase 3 — US1, port 3002 cohérent
+
+- **T007** : `backend/test/unit/dev-port-consistency.spec.ts`, 9 cas ; rouge sur 6 avant
+  correction (`.env.example`, `Caddyfile.dev`, `README.md`, `dev:backend`), vert après.
+- **T008** : `client.test.ts`, deux attendus resserrés au message exact ; verts dès leur
+  écriture (comportement existant, exception documentée à la règle « rouge d'abord »).
+- **T009 à T012** : `PORT=3002` et commentaire dans `backend/.env.example` ; `Caddyfile.dev`
+  vers 3002 ; README (port 3002, consigne pour un ancien `.env`) ; `dev:backend` →
+  `start:dev`. `start.bat` appelle `npm run dev` : aucune autre modification.
+- Suites : unitaires backend 358 / 358 ; frontend 120 / 120 ; lint sans erreur.
+- **T013** (manuel, poste Windows) : **à faire** — `start.bat`, connexion, rechargement sans
+  compilation, chronométrage (SC-001), message affiché API arrêtée.

@@ -12,7 +12,7 @@
   },
   "scripts": {
     "dev": "concurrently -k -n BACKEND,FRONTEND npm:dev:backend npm:dev:frontend",
-    "dev:backend": "npm run -w backend start",
+    "dev:backend": "npm run -w backend start:dev",
     "dev:frontend": "npm run -w frontend dev",
     "lint": "eslint .",
     "format": "prettier --write .",
