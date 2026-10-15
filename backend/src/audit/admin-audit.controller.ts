@@ -3,7 +3,7 @@ import { AuditAction, type Prisma } from '@prisma/client';
 import { IsEnum, IsISO8601, IsOptional, IsString, IsUUID } from 'class-validator';
 import { buildPage, decodeCursor, parseLimit, type Page } from '../common/pagination';
 import { PrismaService } from '../common/prisma.service';
-import { SuperAdminGuard } from '../common/super-admin.guard';
+import { SuperAdminGuard } from './super-admin.guard';
 
 export class AuditQuery {
   @IsOptional()

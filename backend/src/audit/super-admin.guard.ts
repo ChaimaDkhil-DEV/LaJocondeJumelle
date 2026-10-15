@@ -1,8 +1,9 @@
 import { Injectable, type CanActivate, type ExecutionContext } from '@nestjs/common';
 import type { Request } from 'express';
-import { AuditService } from '../audit/audit.service';
-import { clientIp, requestPath } from './request-info';
-import { AppException } from './errors';
+import { AppException } from '../common/errors';
+import { canManageAdministration } from '../common/authorization';
+import { clientIp, requestPath } from '../common/request-info';
+import { AuditService } from './audit.service';
 
 /**
  * Routes /admin/* : réservées au super administrateur.
@@ -15,7 +16,7 @@ export class SuperAdminGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest<Request>();
     const user = req.auth?.user;
-    if (user?.role === 'SUPER_ADMIN' && user.active) return true;
+    if (user && canManageAdministration(user)) return true;
 
     await this.audit.log('ACCESS_DENIED', {
       actorId: user?.id ?? null,

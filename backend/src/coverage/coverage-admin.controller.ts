@@ -3,7 +3,7 @@ import type { Request } from 'express';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { clientIp } from '../common/request-info';
-import { SuperAdminGuard } from '../common/super-admin.guard';
+import { SuperAdminGuard } from '../audit/super-admin.guard';
 import { CoverageAdminService } from './coverage-admin.service';
 import { ClassDto, GroupDto, ListCoverageQuery } from './coverage.dto';
 
