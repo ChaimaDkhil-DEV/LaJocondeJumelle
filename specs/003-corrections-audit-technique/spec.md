@@ -80,8 +80,9 @@ nécessitant une validation humaine."
 
 - Q: Quelle règle d'affectation automatique appliquer quand la catégorie change entre la
   soumission et l'approbation (D1) ? → A: tout est figé à la soumission, mode **et** personne
-  désignée, conformément à la lettre de FR-022 (lot 1) ; si la personne figée est devenue
-  inactive, l'approbation est refusée (FR-011).
+  désignée, conformément à la lettre de FR-022 (lot 1) ; si la personne figée n'est plus
+  affectable, l'approbation sans employé choisi est refusée (FR-011). Les deux seules exceptions,
+  EXC-1 et EXC-2 de FR-008, ont été tranchées ensuite (D9 et D8, session suivante).
 - Q: Que faire de l'outil de réinitialisation du mot de passe du super administrateur (D2) ?
   → A: l'intégrer comme sous-commande de l'outil d'initialisation existant, qui journalise déjà
   dans l'audit ; le script séparé est supprimé.
@@ -175,9 +176,13 @@ démarrer l'API avec une configuration de proxy invalide.
 ### User Story 3 - Affectation automatique conforme à la règle des snapshots (Priority: P2)
 
 Un responsable approuve, en circuit B, une demande soumise dans une catégorie à affectation
-automatique. La personne affectée est déterminée selon la règle figée à la soumission (décision D1)
-(FR-022 du lot 1), même si l'administrateur a modifié la catégorie entre la
-soumission et l'approbation.
+automatique. Le mode d'affectation **et** la personne désignée sont ceux figés à la soumission
+(décision D1, FR-022 du lot 1), même si l'administrateur a modifié la catégorie entre la
+soumission et l'approbation. Seules deux exceptions s'appliquent (FR-008) : **EXC-1**, une
+demande soumise avant la correction, dont le snapshot ne contient pas la personne désignée, est
+affectée selon la catégorie actuelle (décision D9) ; **EXC-2**, si la personne figée n'est plus
+affectable, l'approbation est refusée puis le responsable choisit un employé affectable
+(décision D8, FR-011).
 
 **Why this priority**: écart [VÉRIFIÉ] avec une exigence écrite (FR-022 du lot 1), mais il ne se
 produit que si la configuration d'une catégorie change pendant qu'une demande attend son
@@ -203,8 +208,8 @@ catégorie, approuver, puis vérifier la personne affectée.
    personne désignée, **When** le responsable approuve, **Then** la demande est affectée à la
    personne désignée dans la catégorie actuelle (décision D9).
 5. **Given** l'affectation effectuée, **When** on consulte l'historique de la demande, **Then**
-   l'événement d'approbation indique la personne affectée et sa source : snapshot, catégorie
-   actuelle (D9) ou choix du responsable (D8).
+   l'événement d'affectation créé par l'approbation indique la personne affectée et sa source :
+   snapshot, catégorie actuelle (EXC-1, D9) ou choix du responsable (mode manuel, ou EXC-2, D8).
 
 ---
 
@@ -442,7 +447,9 @@ tranchés (voir Clarifications), ainsi que D8 et D9 ; D4 à D7 restent ouverts e
 - **Constat d'audit** : élément du registre (ID, résumé, section source, marquage [VÉRIFIÉ] /
   [DÉDUIT], classe CT / DH / HP, statut de traitement).
 - **Règle d'affectation figée (snapshot)** : copie des règles d'une catégorie conservée avec la
-  demande à sa soumission ; l'issue de D1 détermine si elle inclut la personne désignée.
+  demande à sa soumission ; elle inclut le mode d'affectation **et** la personne désignée
+  (décision D1). Un snapshot antérieur à la correction, sans la personne désignée, relève de
+  l'exception EXC-1 (décision D9).
 - **Entrée d'audit d'exploitation** : trace non modifiable d'une action faite hors interface
   (outil d'exploitation), avec action, cible, date et origine.
 - **Rapport de vérification** : résultat consigné d'une exécution des contrôles qualité, d'une

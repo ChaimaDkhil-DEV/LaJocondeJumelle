@@ -71,8 +71,13 @@ Avec la catégorie de démonstration en circuit B, affectation automatique vers 
 | Soumettre D4, retirer E1 des destinataires de la catégorie (compte actif), approuver D4 | même comportement que D3 : refus puis choix du responsable (EXC-2, D8) |
 | Demande ancienne (snapshot sans `autoAssigneeId`) | affectée selon la catégorie actuelle, source `CATEGORY_CURRENT` (EXC-1, D9) |
 
+Dans l'historique de chaque demande, la ligne « Affectée à <nom> » est suivie de la source :
+« (personne prévue à la soumission) », « (selon la catégorie actuelle, demande antérieure) » ou
+« (choix du responsable) ».
+
 Tests automatisés : test d'intégration écrit **avant** la correction (rouge sur les deux
-premières lignes), puis vert ; voir [contracts/rest-api.md](./contracts/rest-api.md).
+premières lignes), puis vert ; voir [contracts/rest-api.md](./contracts/rest-api.md). Affichage
+de la source : `frontend/tests/requests/HistoryTimeline.test.tsx`.
 
 ## Scénario 5 — Dépendances et nettoyage (US4, FR-012 à FR-016, SC-006, SC-007)
 

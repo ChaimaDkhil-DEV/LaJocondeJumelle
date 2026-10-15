@@ -349,9 +349,9 @@ antérieures → catégorie actuelle). Aucune autre règle n'est introduite.
   demande. »). Le responsable peut alors approuver en fournissant `assigneeId` ; le serveur ne
   l'accepte en mode automatique que dans ce cas, et refuse un compte non affectable
   (`RECIPIENT_NOT_ALLOWED`).
-- L'événement d'historique de l'approbation (`RequestEvent`, `toValue`) porte
+- L'événement d'historique `ASSIGNED` créé par l'approbation (`RequestEvent`, `toValue`) porte
   `assigneeSource` : `SNAPSHOT`, `CATEGORY_CURRENT` (EXC-1) ou `MANAGER_CHOICE` (mode manuel ou
-  EXC-2).
+  EXC-2). `HistoryTimeline` l'affiche après « Affectée à <nom> ».
 - Interface : `ApprovalDialog` affiche le sélecteur quand le serveur renvoie
   `AUTO_ASSIGNEE_UNAVAILABLE`.
 - Tests d'abord (FR-009) : un test d'intégration qui reproduit le cas « E1 désigné à la

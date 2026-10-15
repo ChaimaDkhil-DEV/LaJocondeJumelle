@@ -25,7 +25,8 @@ exception EXC-1, décision D9) `Category.autoAssigneeId` actuel. Algorithme comp
 **Changements de comportement** (seuls autorisés par FR-023) : le mode et la personne viennent
 désormais du snapshot, plus de la catégorie actuelle (D1) ; exception EXC-1 pour les demandes
 antérieures (D9) ; refus puis choix par le responsable si la personne n'est plus affectable
-(EXC-2, D8) ; source enregistrée dans `RequestEvent.toValue.assigneeSource`.
+(EXC-2, D8) ; source enregistrée dans `toValue.assigneeSource` de l'événement `ASSIGNED` créé
+par l'approbation, renvoyée telle quelle par `GET /api/requests/:id/history`.
 
 ### Nouveau code d'erreur
 

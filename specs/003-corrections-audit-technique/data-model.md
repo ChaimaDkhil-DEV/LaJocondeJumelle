@@ -45,9 +45,11 @@ si mode = AUTO :
 
 ## RequestEvent (approbation) — détail de la source
 
-L'événement d'approbation existant enregistre l'employé affecté dans `toValue`. Il gagne la
-clé `assigneeSource` : `SNAPSHOT` | `CATEGORY_CURRENT` (EXC-1, D9) | `MANAGER_CHOICE` (mode manuel, ou
-EXC-2, D8). Table en ajout seul (triggers inchangés).
+L'événement `ASSIGNED` existant, créé par l'approbation, enregistre l'employé affecté dans
+`toValue` (`assigneeId`). Il gagne la clé `assigneeSource` : `SNAPSHOT` | `CATEGORY_CURRENT`
+(EXC-1, D9) | `MANAGER_CHOICE` (mode manuel, ou EXC-2, D8). L'événement `STATUS_CHANGED` de la
+même approbation est inchangé. L'historique affiche cette source (T031). Table en ajout seul
+(triggers inchangés).
 
 ## AuditLog — réinitialisation par l'outil d'exploitation
 

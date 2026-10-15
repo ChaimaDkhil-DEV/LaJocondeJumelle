@@ -67,7 +67,7 @@ déploiement, 1 workflow CI, 3 comptes rendus de validation
 |----------|--------------|--------|
 | I. TDD (non négociable) | Chaque correction commence par un test rouge : `config.spec.ts` (port 3002, `TRUST_PROXY`), test d'intégration d'affectation (rouge sur le comportement actuel, FR-009), test de réinitialisation CLI, test de masquage commun, test de couches (rouge tant que les cycles existent), test de synchronisation des énumérations, test automatisé de `api-entrypoint.sh` (5 cas, écrit avant la modification du script), test de cohérence des ports et du script `dev:backend`. Le comportement existant de l'interface quand l'API est arrêtée est figé par un test (aucune modification, FR-023). Les refactorisations sans effet visible (R7, R8, R9) sont protégées par la suite existante, inchangée dans ses attendus. La CI, rendue obligatoire par une règle de protection de `master` (réglage GitHub manuel, T006), empêche de fusionner une suite rouge. | ✅ |
 | II. Simplicité / YAGNI | Aucune nouvelle dépendance (vérification des couches et des énumérations par des tests maison de quelques dizaines de lignes) ; une dépendance retirée ; périmètre des cycles limité aux dossiers cités par l'audit (les autres sont consignés, pas corrigés) ; pas de fusion des machines à états (hors périmètre). Le seul nouveau mécanisme, le registre d'accès aux fichiers, remplace une dépendance directe à deux domaines : voir Complexity Tracking. | ✅ (1 justification) |
-| III. Accessibilité et UX | Un seul changement d'interface : la boîte d'approbation affiche le sélecteur d'employé après `AUTO_ASSIGNEE_UNAVAILABLE`, avec le message du serveur. Composant existant (déjà accessible et testé par axe) ; test RTL ajouté. | ✅ |
+| III. Accessibilité et UX | Deux changements d'interface : la boîte d'approbation affiche le sélecteur d'employé après `AUTO_ASSIGNEE_UNAVAILABLE`, avec le message du serveur (composant existant, déjà accessible et testé par axe ; test RTL ajouté) ; l'historique ajoute la source de l'affectation après « Affectée à <nom> » (texte seul, autorisé par FR-023 ; test dans `HistoryTimeline.test.tsx`). | ✅ |
 | IV. Sécurité et données | Masquage unifié et élargi (FR-005) ; configuration du proxy validée (FR-004) ; contrôle d'origine unique (FR-006) ; aucun secret ajouté ; mot de passe provisoire jamais journalisé ; `npm audit` bloquant en CI. Durées de conservation toujours provisoires (D4, hors périmètre) : réserve héritée du lot 1. | ⚠️ réserve héritée (D4) |
 | V. Workflows et communications | Réinitialisation hors interface désormais tracée (`PASSWORD_RESET`, sessions supprimées) ; source de l'affectation tracée dans l'historique (`assigneeSource`) ; statuts et transitions inchangés ; refus d'accès aux fichiers toujours journalisés et en 404 (registre fermé par défaut). | ✅ |
 
@@ -185,7 +185,9 @@ frontend/
 ├── package.json                                      M  @mui/icons-material retiré
 ├── src/api/types.ts                                  M  commentaire « types générés » retiré
 ├── src/features/requests/ApprovalDialog.tsx          M  sélecteur sur AUTO_ASSIGNEE_UNAVAILABLE
-├── tests/api/client.test.ts                         M  API arrêtée : messages existants figés (US1)
+├── src/features/requests/HistoryTimeline.tsx         M  source de l'affectation (assigneeSource, US3)
+├── tests/api/client.test.ts                         M  API arrêtée : tests existants renforcés, messages exacts (US1)
+├── tests/requests/HistoryTimeline.test.tsx           M  source de l'affectation (US3)
 └── tests/api/enums-sync.test.ts                      N  (R10)
 deploy/
 ├── Caddyfile.dev                                     M  3002
