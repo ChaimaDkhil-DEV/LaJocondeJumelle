@@ -36,7 +36,7 @@ sans effet visible (US4) sont protégées par la suite existante : ses attendus 
 
 **Purpose**: établir l'état de départ mesuré
 
-- [ ] T001 Exécuter `npm run lint`, `npm run -w backend test`, `npm run -w backend test:integration`, `npm run -w frontend test`, `npm run -w backend typecheck` et `npm run -w frontend typecheck` sur la branche `003-corrections-audit-technique` ; consigner chaque résultat (réussis / échecs, noms des tests en échec) dans une section « État initial » de `docs/validation/verification-003.md` (créer le fichier sur le modèle de `docs/validation/verification-finale.md`). Attendu connu : `backend/test/unit/config.spec.ts` en échec (attendu 3000, reçu 3002). Tout autre échec DOIT être signalé avant de continuer.
+- [X] T001 Exécuter `npm run lint`, `npm run -w backend test`, `npm run -w backend test:integration`, `npm run -w frontend test`, `npm run -w backend typecheck` et `npm run -w frontend typecheck` sur la branche `003-corrections-audit-technique` ; consigner chaque résultat (réussis / échecs, noms des tests en échec) dans une section « État initial » de `docs/validation/verification-003.md` (créer le fichier sur le modèle de `docs/validation/verification-finale.md`). Attendu connu : `backend/test/unit/config.spec.ts` en échec (attendu 3000, reçu 3002). Tout autre échec DOIT être signalé avant de continuer.
 
 ---
 
