@@ -11,7 +11,7 @@ describe('loadConfig', () => {
   it('charge une configuration valide avec les valeurs par défaut', () => {
     const config = loadConfig(valid);
     expect(config.appOrigin).toBe('https://demandes.ecole.fr');
-    expect(config.port).toBe(3000);
+    expect(config.port).toBe(3002);
     expect(config.ffmpegPath).toBe('ffmpeg');
   });
 
