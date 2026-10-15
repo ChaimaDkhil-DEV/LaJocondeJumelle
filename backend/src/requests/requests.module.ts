@@ -4,11 +4,12 @@ import { RequestPolicyModule } from './request-policy.module';
 import { RequestTransitionsService } from './request-transitions.service';
 import { RequestsController } from './requests.controller';
 import { RequestsService } from './requests.service';
+import { WorkFileAccess } from './work-file-access';
 
 @Module({
   imports: [FilesModule, RequestPolicyModule],
   controllers: [RequestsController],
-  providers: [RequestsService, RequestTransitionsService],
+  providers: [RequestsService, RequestTransitionsService, WorkFileAccess],
   exports: [RequestsService, RequestTransitionsService],
 })
 export class RequestsModule {}
