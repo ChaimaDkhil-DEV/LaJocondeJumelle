@@ -1,7 +1,7 @@
 import { Injectable, type CanActivate, type ExecutionContext } from '@nestjs/common';
 import type { Request } from 'express';
 import { AuditService } from '../audit/audit.service';
-import { clientIp, requestPath } from '../auth/request-info';
+import { clientIp, requestPath } from './request-info';
 import { AppException } from './errors';
 
 /**

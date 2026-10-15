@@ -9,7 +9,7 @@ import { toMeResponse, type AuthContext, type AuthenticatedUser, type MeResponse
 import { CurrentAuth, CurrentUser } from './current-user.decorator';
 import { LoginThrottlerGuard } from './login-throttler.guard';
 import { Public } from './public.decorator';
-import { clientIp } from './request-info';
+import { clientIp } from '../common/request-info';
 import { SESSION_COOKIE } from './session.guard';
 import { SessionService } from './session.service';
 

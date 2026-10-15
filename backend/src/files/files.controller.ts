@@ -18,7 +18,7 @@ import { join } from 'node:path';
 import { diskStorage } from 'multer';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/current-user.decorator';
-import { clientIp, requestPath } from '../auth/request-info';
+import { clientIp, requestPath } from '../common/request-info';
 import { AppException } from '../common/errors';
 import { UploadFileDto, type FileResponse } from './files.dto';
 import { FilesService } from './files.service';

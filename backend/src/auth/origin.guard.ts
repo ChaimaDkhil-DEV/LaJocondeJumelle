@@ -5,7 +5,7 @@ import { AppException } from '../common/errors';
 import { isAllowedOrigin } from '../common/origin';
 import type { AppConfig } from '../config/config';
 import { APP_CONFIG } from '../config/config.module';
-import { clientIp, requestPath } from './request-info';
+import { clientIp, requestPath } from '../common/request-info';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
