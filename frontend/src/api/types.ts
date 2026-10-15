@@ -1,6 +1,6 @@
 /**
- * Types partagés avec l'API. Ils seront remplacés progressivement par les types générés
- * depuis l'OpenAPI du backend (`npm run -w frontend api:types` → src/api/schema.d.ts).
+ * Types partagés avec l'API, écrits à la main. Les énumérations sont comparées au schéma Prisma
+ * par tests/api/enums-sync.test.ts.
  */
 
 export type Role = 'SUPER_ADMIN' | 'MANAGER' | 'EMPLOYEE';

@@ -1,5 +1,5 @@
-import { PrismaClient } from "@prisma/client";
-import { loadEnvFile } from "../src/config/load-env-file";
+import { PrismaClient } from '@prisma/client';
+import { loadEnvFile } from '../src/config/load-env-file';
 
 loadEnvFile();
 
@@ -11,13 +11,13 @@ async function main() {
       username: true,
       role: true,
       active: true,
-      mustChangePassword: true
+      mustChangePassword: true,
     },
-    orderBy: { username: "asc" }
+    orderBy: { username: 'asc' },
   });
 
   console.table(users);
-  console.log("Nombre de comptes :", users.length);
+  console.log('Nombre de comptes :', users.length);
 }
 
 main()
