@@ -132,6 +132,54 @@ describe('Approbation (circuit B)', () => {
     await waitFor(() => expect(actionBody(calls)).toEqual({ action: 'APPROVE', version: 2 }));
   });
 
+  it('en affectation automatique, propose le choix de l’employé si la personne prévue n’est plus disponible', async () => {
+    const request = detail({
+      rulesSnapshot: { circuit: 'B_ADMIN_VALIDATION', photoRequired: false, closureMode: 'MANAGER', finalValidation: false, assignmentMode: 'AUTO' },
+    });
+    let attempts = 0;
+    const calls = stubFetch((call) => {
+      if (call.url === '/api/requests/r1/assignees') {
+        return json(200, [
+          { id: 'e1', displayName: 'Reprographie', jobTitle: 'Reprographie' },
+          { id: 'e2', displayName: 'Agent technique', jobTitle: null },
+        ]);
+      }
+      if (call.url === '/api/requests/r1/actions') {
+        attempts += 1;
+        return attempts === 1
+          ? json(422, {
+              error: {
+                code: 'AUTO_ASSIGNEE_UNAVAILABLE',
+                message: 'La personne désignée pour cette catégorie n’est plus disponible. Choisissez l’employé qui réalisera la demande.',
+              },
+            })
+          : json(200, { ...request, status: 'SENT', version: 3 });
+      }
+      return undefined;
+    });
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <RequestActions request={request} />
+      </QueryClientProvider>,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Approuver' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Approuver la demande' });
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Approuver' }));
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      'La personne désignée pour cette catégorie n’est plus disponible. Choisissez l’employé qui réalisera la demande.',
+    );
+    const select = await within(dialog).findByRole('combobox', { name: 'Employé chargé de la demande' });
+    await waitFor(() => expect(select).toHaveFocus());
+
+    await userEvent.click(select);
+    await userEvent.click(within(await screen.findByRole('listbox')).getAllByRole('option')[0]);
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Approuver et affecter' }));
+    await waitFor(() => expect(attempts).toBe(2));
+    expect(calls.filter((c) => c.url === '/api/requests/r1/actions').at(-1)?.body).toEqual({ action: 'APPROVE', version: 2, assigneeId: 'e1' });
+  });
+
   it('refuse avec un motif obligatoire', async () => {
     const calls = renderActions(detail());
     await userEvent.click(screen.getByRole('button', { name: 'Refuser' }));
