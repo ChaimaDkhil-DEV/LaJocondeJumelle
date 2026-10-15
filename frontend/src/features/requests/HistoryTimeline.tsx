@@ -37,6 +37,13 @@ export interface HistoryEvent {
 
 const FILE_LABELS: Record<string, string> = { PHOTO: 'Photo jointe', DOCUMENT: 'Document joint', VOICE: 'Message vocal joint' };
 
+/** Origine de l'employé affecté à l'approbation (FR-008) ; absente des événements antérieurs. */
+const ASSIGNEE_SOURCE_LABELS: Record<string, string> = {
+  SNAPSHOT: 'personne prévue à la soumission',
+  CATEGORY_CURRENT: 'selon la catégorie actuelle, demande antérieure',
+  MANAGER_CHOICE: 'choix du responsable',
+};
+
 /** Description d'un événement d'historique en langage courant. */
 export function describeEvent(e: HistoryEvent): string {
   const from = e.fromValue ?? {};
@@ -48,8 +55,10 @@ export function describeEvent(e: HistoryEvent): string {
       return `Statut : ${STATUS_LABELS[from.status as RequestStatus] ?? '—'} → ${STATUS_LABELS[to.status as RequestStatus]}`;
     case 'PRIORITY_CHANGED':
       return `Priorité : ${PRIORITY_LABELS[from.priority as Priority]} → ${PRIORITY_LABELS[to.priority as Priority]}`;
-    case 'ASSIGNED':
-      return `Affectée à ${String(to.assigneeName ?? 'un employé')}`;
+    case 'ASSIGNED': {
+      const source = ASSIGNEE_SOURCE_LABELS[String(to.assigneeSource)];
+      return `Affectée à ${String(to.assigneeName ?? 'un employé')}${source ? ` (${source})` : ''}`;
+    }
     case 'REASSIGNED':
       return `Réaffectée à ${String(to.assigneeName ?? 'un employé')}${from.assigneeName ? ` (auparavant ${String(from.assigneeName)})` : ''}`;
     case 'MESSAGE_ADDED':

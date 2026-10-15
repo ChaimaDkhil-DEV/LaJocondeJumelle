@@ -6,6 +6,11 @@ import type { RulesSnapshot } from './domain/request-state-machine';
 
 /** Règles copiées dans la demande (FR-022) : règles de la catégorie + durées de délai de la priorité. */
 export interface RequestRulesSnapshot extends RulesSnapshot {
+  /**
+   * Personne désignée en affectation automatique, figée à la soumission (D1) ; null hors mode
+   * AUTO. Clé absente dans les demandes soumises avant la correction (EXC-1, D9).
+   */
+  autoAssigneeId?: string | null;
   validationMinutes: number | null;
   takeoverMinutes: number | null;
   completionMinutes: number | null;
@@ -86,6 +91,7 @@ export class RequestPolicyLoader {
       autoCloseAfterMinutes: category.autoCloseAfterMinutes,
       finalValidation: category.circuit === 'B_ADMIN_VALIDATION' && category.finalValidation,
       assignmentMode: category.assignmentMode,
+      autoAssigneeId: category.assignmentMode === 'AUTO' ? category.autoAssigneeId : null,
       photoRequired: category.photoRequired,
       validationMinutes: category.circuit === 'B_ADMIN_VALIDATION' ? (rule?.validationMinutes ?? null) : null,
       takeoverMinutes: rule?.takeoverMinutes ?? null,

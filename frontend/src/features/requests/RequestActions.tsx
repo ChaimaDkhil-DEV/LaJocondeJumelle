@@ -92,6 +92,8 @@ export function RequestActions({ request }: { request: RequestDetail }) {
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [photos, setPhotos] = useState<UploadedPhoto[]>([]);
   const [feedback, setFeedback] = useState('');
+  /** Message du serveur quand la personne prévue n'est plus disponible : l'approbation passe en choix manuel (D8). */
+  const [autoUnavailable, setAutoUnavailable] = useState<string | null>(null);
 
   const detailKey = requestKeys.detail(request.id);
 
@@ -120,6 +122,7 @@ export function RequestActions({ request }: { request: RequestDetail }) {
       await queryClient.invalidateQueries({ queryKey: requestKeys.all, refetchType: 'active' });
     },
     onError: (error) => {
+      if (error instanceof ApiError && error.code === 'AUTO_ASSIGNEE_UNAVAILABLE') setAutoUnavailable(error.message);
       if (error instanceof ApiError && (error.code === 'STATE_CHANGED' || error.code === 'INVALID_TRANSITION')) {
         setDialog(null);
         void queryClient.fetchQuery({
@@ -140,7 +143,10 @@ export function RequestActions({ request }: { request: RequestDetail }) {
 
   function onClick(action: string): void {
     mutation.reset();
-    if (action === 'APPROVE') setDialog('approve');
+    if (action === 'APPROVE') {
+      setAutoUnavailable(null);
+      setDialog('approve');
+    }
     else if (action === 'REASSIGN') setDialog('reassign');
     else if (action === 'DECLINE' || action === 'REJECT') setDialog('refuse');
     else if (action === 'REQUEST_CORRECTION') setDialog('correction');
@@ -202,7 +208,8 @@ export function RequestActions({ request }: { request: RequestDetail }) {
       <ApprovalDialog
         open={dialog === 'approve'}
         requestId={request.id}
-        automatic={request.rulesSnapshot.assignmentMode === 'AUTO'}
+        automatic={request.rulesSnapshot.assignmentMode === 'AUTO' && !autoUnavailable}
+        alert={autoUnavailable ?? undefined}
         pending={mutation.isPending}
         onConfirm={(assigneeId) => send('APPROVE', assigneeId ? { assigneeId } : {})}
         onClose={() => setDialog(null)}

@@ -77,3 +77,25 @@ configuration valide avec les valeurs par défaut » : `expect(config.port).toBe
 - Suites : lint et types sans erreur ; unitaires 392 / 392 ; intégration 257 / 257 ; frontend
   120 / 120.
 - **T024** (manuel, quickstart scénarios 2 et 3) : **à faire**.
+
+## Phase 5 — US3, affectation figée à la soumission
+
+- **T025** : `auto-assignment-snapshot.spec.ts`, 7 cas. Avant correction : (1) affectée à E2 au
+  lieu de E1 (constat [DÉDUIT] **A04 confirmé**, FR-009) ; (2) `422 ASSIGNEE_REQUIRED` (**N1
+  confirmé**) ; (3) et (3b) `RECIPIENT_NOT_ALLOWED` au lieu de `AUTO_ASSIGNEE_UNAVAILABLE` ;
+  (5) et (6) source absente ; (4) vert (comportement conservé). Tous verts après correction.
+- **T026, T031** (interface) : rouges, puis verts.
+- **T027 à T029** : `autoAssigneeId` figé dans le snapshot ; code `AUTO_ASSIGNEE_UNAVAILABLE` ;
+  `assigneeContext` suit le snapshot (EXC-1, EXC-2), source sur l'événement `ASSIGNED`. Le
+  nouveau refus ne remplace que `ASSIGNEE_REQUIRED`, après les contrôles de droits et d'état.
+  `requests-circuit-b.spec.ts` et `assignable-employees.spec.ts` verts, attendus inchangés.
+- **T030** : boîte d'approbation en choix manuel après `AUTO_ASSIGNEE_UNAVAILABLE` (message du
+  serveur, focus sur le choix de l'employé, sans `autoFocus` : règle `jsx-a11y/no-autofocus`).
+  **Écart** : `autoAssigneeId` n'est pas ajouté au type `rulesSnapshot` de l'interface, car
+  l'API ne l'expose pas (`requests.mapper.ts`) et l'interface n'en a pas besoin.
+- **T031** : source affichée après « Affectée à <nom> » ; événements antérieurs inchangés.
+- Suites : lint et types sans erreur ; unitaires 392 / 392 ; intégration 264 / 264 ; frontend
+  122 / 122. Incident local : un PostgreSQL de test orphelin (fin de run en `EBUSY` sous
+  Windows) bloquait le port 55433 ; arrêté, puis suite d'intégration verte.
+- **T032** (manuel, quickstart scénario 4) : **à faire** ; D1 reste à faire confirmer par
+  l'établissement.

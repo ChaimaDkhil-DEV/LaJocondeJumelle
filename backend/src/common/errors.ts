@@ -30,6 +30,10 @@ export const ERROR_CATALOG = {
     message: 'Ce destinataire ne peut pas recevoir les demandes de cette catégorie.',
   },
   ASSIGNEE_REQUIRED: { status: 422, message: 'Choisissez l’employé qui réalisera la demande.' },
+  AUTO_ASSIGNEE_UNAVAILABLE: {
+    status: 422,
+    message: 'La personne désignée pour cette catégorie n’est plus disponible. Choisissez l’employé qui réalisera la demande.',
+  },
   PHOTO_REQUIRED: {
     status: 422,
     message: 'Une photo de preuve est obligatoire pour terminer cette demande.',
