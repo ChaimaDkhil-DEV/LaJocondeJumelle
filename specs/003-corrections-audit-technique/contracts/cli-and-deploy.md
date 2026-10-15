@@ -53,10 +53,42 @@ récente, base inaccessible.
 ## Intégration continue — `.github/workflows/ci.yml` (nouveau)
 
 | Déclencheur | `push`, `pull_request` |
-| Job | identifiant `verify`, nom « Contrôles qualité » (contrôle à rendre obligatoire sur `master`) |
+| Job | identifiant `verify`, nom « Contrôles qualité » (nom stable, cité par la vérification avant fusion ; à rendre obligatoire si la protection de branche devient disponible, D10) |
 |---|---|
 | Environnement | `ubuntu-latest`, Node 24, `ffmpeg` |
 | Étapes (toutes bloquantes) | `npm ci` → `npm run lint` → typecheck backend et frontend → tests unitaires backend (dont `architecture-layers.spec.ts`) → tests d'intégration backend → tests frontend (dont `enums-sync.test.ts`) → `npm audit --audit-level=high` |
 | Hors CI (manuel, compte rendu dans `docs/validation/`) | `npm run test:e2e`, dont le chronométrage de création `e2e/sc001-create-timing.spec.ts` |
 
 Le test de performance de recherche (`backend/test/integration/search-performance.spec.ts`) fait partie de la suite d'intégration, donc de la CI. S'il s'avère instable sur les machines GitHub, il sera exclu de la CI et rejoué manuellement (décision à consigner dans le compte rendu).
+
+## Vérification avant fusion vers `master` — procédure manuelle (D10, nouveau)
+
+Le dépôt GitHub reste privé, sur l'offre gratuite : les règles de protection de branche n'y
+sont pas disponibles ([VÉRIFIÉ] le 2026-10-15, l'API renvoie `403 Upgrade to GitHub Pro or make
+this repository public`). **Cette procédure est manuelle et ne constitue pas une protection
+technique** : GitHub n'empêche ni la fusion d'une demande dont la CI échoue, ni un envoi direct
+sur `master`. La règle de la constitution (« Aucune modification ne peut être fusionnée si la
+suite de tests échoue ») repose sur la personne qui fusionne.
+
+Fichiers (créés par T006) : `docs/procedure-fusion.md` (procédure de référence) et
+`.github/pull_request_template.md` (les quatre contrôles en cases à cocher, lien vers la
+procédure ; GitHub ne l'applique qu'une fois présent sur `master`).
+
+Règles :
+- toute modification de `master` passe par une demande de fusion ; pas d'envoi direct ;
+- juste avant de fusionner, la personne qui fusionne vérifie les quatre contrôles sur le
+  **dernier commit** de la demande et les coche dans sa description ; un contrôle non coché ou
+  non satisfait interdit la fusion.
+
+| # | Contrôle | Comment le vérifier | Fusion interdite si |
+|---|---|---|---|
+| 1 | Résultat de la CI | `gh pr checks <n°>` ou onglet « Checks » : job « Contrôles qualité » exécuté sur le dernier commit | absent, en cours, en échec ou annulé |
+| 2 | Tests requis | le job a exécuté toutes ses étapes (lint, typecheck backend et frontend, tests unitaires, d'intégration et frontend, `npm audit --audit-level=high`) ; pour une livraison, en plus, `npm run test:e2e` lancé à la main et consigné dans `docs/validation/` (FR-019) | une étape manque ou a été sautée ; compte rendu de bout en bout absent pour une livraison |
+| 3 | Aucun échec non résolu | aucun test désactivé ou ignoré (`.skip`, `.only`, `--testPathIgnorePatterns`) sans raison consignée dans `docs/validation/` ; branche à jour avec `master` (sinon y fusionner `master` et attendre une nouvelle CI verte) ; aucune discussion de revue ouverte | une de ces conditions n'est pas remplie |
+| 4 | Examen du diff | relecture complète de `gh pr diff <n°>` (onglet « Files changed ») selon la revue de code de la constitution : tests écrits d'abord et verts, attendus des tests existants inchangés sauf exception documentée (SC-007), aucun secret, aucun fichier inattendu | un point de la revue n'est pas satisfait |
+
+Fusion faite malgré un échec : la corriger aussitôt par une nouvelle demande de fusion (correctif
+ou `git revert`) et le consigner dans `docs/validation/`.
+
+Si le dépôt passe à une offre qui permet la protection de branche, créer la règle décrite en
+research R11 ; les contrôles 2 à 4 restent à vérifier à la main.

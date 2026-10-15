@@ -241,11 +241,12 @@ source de vérité des énumérations ; un test de lecture de fichiers suffit, s
 **Alternatives considered**: génération OpenAPI complète (chantier lourd, hors besoin) ;
 paquet partagé de types (nouveau workspace, principe II).
 
-## R11 — Intégration continue partielle (FR-017, FR-019, A20, A21, D3)
+## R11 — Intégration continue partielle (FR-017, FR-019, A20, A21, D3, D10)
 
 **Decision**: `.github/workflows/ci.yml` (dépôt GitHub `origin` [VÉRIFIÉ]), déclenché sur
 `push` et `pull_request`, avec un seul job d'identifiant `verify` et de nom « Contrôles qualité »
-(nom stable, nécessaire pour le rendre obligatoire dans la protection de branche) :
+(nom stable, cité par la vérification avant fusion et réutilisable par une protection de
+branche future) :
 1. `ubuntu-latest`, Node 24 (`.nvmrc`), `npm ci`, installation de `ffmpeg` (apt) ;
 2. `npm run lint` ; `npm run -w backend typecheck` ; `npm run -w frontend typecheck` ;
 3. `npm run -w backend test` ; `npm run -w backend test:integration` ;
@@ -265,17 +266,26 @@ exclu et rejoué à la main.
   verrou ou utiliser un service `postgres:17` dans la CI ;
 - `prisma generate` doit tourner avant les tests (via `postinstall` ou une étape dédiée).
 
-**Protection de branche (constat G3)** : la CI signale les échecs mais ne bloque pas la fusion
-par elle-même. Il faut une règle de protection sur `master` (GitHub → Settings → Branches →
-Branch protection rules) : « Require a pull request before merging » et « Require status checks
-to pass before merging » avec le contrôle « Contrôles qualité », plus « Require branches to be up
-to date before merging ». C'est un réglage du dépôt GitHub, fait à la main par son
-administrateur ; il ne fait pas partie du code.
+**Fusion vers `master` (constat G3, décision D10)** : la CI signale les échecs mais ne bloque
+pas la fusion par elle-même. La protection de branche qui le ferait n'est pas disponible :
+[VÉRIFIÉ] le 2026-10-15, `GET /repos/…/branches/master/protection` renvoie `403 Upgrade to
+GitHub Pro or make this repository public` (dépôt privé, offre gratuite). Décision D10 : le
+dépôt reste privé, sans abonnement ; la protection est reportée et remplacée par une
+**vérification manuelle obligatoire avant chaque fusion** (`contracts/cli-and-deploy.md`
+§Vérification avant fusion) : résultat de la CI, tests requis, absence d'échec non résolu,
+examen du diff, cochés dans la demande de fusion. Elle n'empêche pas techniquement une fusion
+dont les tests échouent.
+
+Réglage à créer si l'offre le permet un jour (GitHub → Settings → Branches → Branch protection
+rules, sur `master`) : « Require a pull request before merging », « Require status checks to
+pass before merging » avec « Contrôles qualité », « Require branches to be up to date before
+merging ».
 
 **Rationale**: décision D3 ; reprend exactement `npm run verify`, sans les navigateurs.
 
 **Alternatives considered**: tout en CI, y compris Playwright (écarté par D3) ; autre service
-de CI (le dépôt est sur GitHub).
+de CI (le dépôt est sur GitHub) ; offre GitHub payante ou dépôt public pour obtenir la
+protection de branche (écartés pour le moment par D10).
 
 ## R12 — Sauvegarde garantie avant migration (FR-018, A22, A23)
 

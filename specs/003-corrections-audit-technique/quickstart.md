@@ -113,8 +113,12 @@ Sur la préproduction :
    refusé ; consigner dans `docs/validation/en-tetes-securite.md`.
 4. **Contrôles qualité** : la CI GitHub est verte sur la branche ; `npm run test:e2e` lancé à la
    main, résultat consigné dans `docs/validation/`.
-5. **Protection de branche** : sur GitHub, une demande de fusion vers `master` dont le contrôle
-   « Contrôles qualité » échoue ne peut pas être fusionnée (réglage manuel, research R11).
+5. **Vérification avant fusion** (D10) : sur la demande de fusion vers `master`, cocher les
+   quatre contrôles de `docs/procedure-fusion.md` : `gh pr checks <n°>` montre « Contrôles
+   qualité » réussi sur le dernier commit ; toutes les étapes de la CI ont tourné ; aucun test
+   ignoré sans raison consignée, branche à jour, aucune discussion ouverte ; diff relu
+   (`gh pr diff <n°>`). Procédure **manuelle** : sur le dépôt privé, GitHub laisse fusionner une
+   demande rouge ; rien ne l'empêche techniquement.
 
 ## Clôture (FR-024, SC-009)
 

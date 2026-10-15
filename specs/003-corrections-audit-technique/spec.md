@@ -100,6 +100,16 @@ nécessitant une validation humaine."
   désignée, quelle règle appliquer à l'approbation (D9) ? → A: la personne désignée est lue
   dans la configuration actuelle de la catégorie (comportement actuel), et l'historique l'indique.
 
+### Session 2026-10-15 (3) — limite de GitHub constatée (constat G3)
+
+- Q: Les règles de protection de branche ne sont pas disponibles sur le dépôt (privé, offre
+  GitHub gratuite : l'API renvoie `403 Upgrade to GitHub Pro or make this repository public`).
+  Comment garantir qu'aucune modification n'est fusionnée si la suite de tests échoue (D10) ?
+  → A: le dépôt reste privé, sans abonnement payant pour le moment ; la protection automatique de
+  branche est reportée. La CI GitHub (D3) est conservée ; une vérification **manuelle**
+  documentée est obligatoire avant chaque fusion vers `master`. Elle ne constitue pas une
+  protection technique : GitHub n'empêche pas une fusion dont les tests échouent.
+
 ## User Scenarios & Testing *(mandatory)*
 
 Les acteurs sont : le **développeur** qui installe et fait évoluer le projet, l'**exploitant** qui
@@ -400,7 +410,13 @@ Chaque exigence indique les constats qu'elle traite. Le numéro FR-022 n'est pas
     tests unitaires, d'interface et d'intégration, audit des dépendances ; un échec DOIT être
     visible sur la demande de fusion ;
   - manuellement avant chaque livraison : tests de bout en bout et de performance, avec un
-    compte rendu daté dans `docs/validation/`.
+    compte rendu daté dans `docs/validation/` ;
+  - manuellement avant chaque fusion vers `master` (décision D10) : la personne qui fusionne
+    DOIT vérifier et cocher le résultat de la CI sur le dernier commit, l'exécution des tests
+    requis, l'absence d'échec non résolu et l'examen du diff, selon une procédure documentée ;
+    un contrôle non satisfait interdit la fusion. Cette procédure est manuelle et NE constitue
+    PAS une protection technique : tant que la protection de branche n'est pas disponible,
+    GitHub n'empêche pas une fusion dont les tests échouent.
 - **FR-020** (A24): La procédure de restauration DOIT être exercée au moins une fois sur un
   serveur vierge à partir d'une sauvegarde réelle, et le résultat (succès, durée, écarts)
   consigné.
@@ -418,7 +434,8 @@ Chaque exigence indique les constats qu'elle traite. Le numéro FR-022 n'est pas
 ### Décisions nécessitant une validation humaine
 
 Ces points NE SONT PAS des exigences définitives tant qu'ils ne sont pas tranchés. D1 à D3 ont été
-tranchés (voir Clarifications), ainsi que D8 et D9 ; D4 à D7 restent ouverts et hors périmètre.
+tranchés (voir Clarifications), ainsi que D8, D9 et D10 ; D4 à D7 restent ouverts et hors
+périmètre.
 
 | ID | Décision | Constats | Qui | Effet sur cette fonctionnalité |
 |----|----------|----------|-----|--------------------------------|
@@ -431,6 +448,7 @@ tranchés (voir Clarifications), ainsi que D8 et D9 ; D4 à D7 restent ouverts e
 | D7 | Origine des choix techniques (pile imposée ou proposée) | §6, §11.1 | Responsable du projet | Aucun ; information documentaire |
 | D8 | Suite d'un refus quand la personne figée n'est plus affectable | A03 | Responsable du projet | **Tranchée le 2026-10-15** : le responsable choisit un employé affectable (FR-011, exception EXC-2) |
 | D9 | Règle pour les demandes antérieures sans personne figée | A03, A04 | Responsable du projet | **Tranchée le 2026-10-15** : catégorie actuelle, tracée dans l'historique (FR-008, exception EXC-1) |
+| D10 | Garantie « aucune fusion si la suite échoue » sans protection de branche | A21 | Responsable du projet | **Tranchée le 2026-10-15** : le dépôt GitHub reste privé, sans abonnement payant ; protection automatique de branche reportée ; CI conservée ; vérification manuelle obligatoire avant chaque fusion (FR-019), qui n'est pas une protection technique |
 
 ### Hors périmètre
 
@@ -496,6 +514,9 @@ tranchés (voir Clarifications), ainsi que D8 et D9 ; D4 à D7 restent ouverts e
   l'exception EXC-1 (décision D9).
 - Les décisions D1, D8 et D9 ont été prises par le responsable du projet ; elles restent à faire
   confirmer par l'établissement, sans bloquer l'implémentation.
+- Le dépôt GitHub reste privé, sur l'offre gratuite (décision D10) : la protection de branche
+  n'y est pas disponible [VÉRIFIÉ le 2026-10-15]. Si l'offre change, la protection de `master`
+  pourra être activée (research R11) sans autre modification de cette fonctionnalité.
 - Les outils d'exploitation sont utilisés par une personne ayant accès au serveur ; ils restent
   hors de l'interface web.
 - Le serveur de préproduction ou de production nécessaire à FR-020 et FR-021 sera fourni par

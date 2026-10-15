@@ -25,8 +25,9 @@ comportement visible, sauf la règle d'affectation tranchée en D1 :
   règles déclaré une fois ; code mort retiré ; énumérations serveur/interface comparées par un
   test.
 - **Production** : CI GitHub pour lint, types, tests unitaires, d'intégration et d'interface,
-  audit des dépendances (D3) ; sauvegarde imposée avant migration ; restauration et en-têtes
-  vérifiés sur préproduction.
+  audit des dépendances (D3) ; vérification manuelle obligatoire avant chaque fusion, faute de
+  protection de branche sur le dépôt privé (D10) ; sauvegarde imposée avant migration ;
+  restauration et en-têtes vérifiés sur préproduction.
 
 Aucune migration de schéma, aucune nouvelle dépendance d'exécution. Détails : [research.md](./research.md).
 
@@ -57,7 +58,7 @@ chemins chauds ; l'entrypoint n'ajoute `prisma migrate status` qu'au démarrage
 inchangés dans leurs attendus (SC-007) ; une seule instance d'API (inchangé, A28)
 
 **Scale/Scope**: 23 exigences (FR-001 à FR-024, sans FR-022), environ 35 fichiers touchés (backend surtout), 3 fichiers de
-déploiement, 1 workflow CI, 3 comptes rendus de validation
+déploiement, 1 workflow CI, 1 procédure de vérification avant fusion (D10), 3 comptes rendus de validation
 
 ## Constitution Check
 
@@ -65,11 +66,18 @@ déploiement, 1 workflow CI, 3 comptes rendus de validation
 
 | Principe | Vérification | Statut |
 |----------|--------------|--------|
-| I. TDD (non négociable) | Chaque correction commence par un test rouge : `config.spec.ts` (port 3002, `TRUST_PROXY`), test d'intégration d'affectation (rouge sur le comportement actuel, FR-009), test de réinitialisation CLI, test de masquage commun, test de couches (rouge tant que les cycles existent), test de synchronisation des énumérations, test automatisé de `api-entrypoint.sh` (5 cas, écrit avant la modification du script), test de cohérence des ports et du script `dev:backend`. Le comportement existant de l'interface quand l'API est arrêtée est figé par un test (aucune modification, FR-023). Les refactorisations sans effet visible (R7, R8, R9) sont protégées par la suite existante, inchangée dans ses attendus. La CI, rendue obligatoire par une règle de protection de `master` (réglage GitHub manuel, T006), empêche de fusionner une suite rouge. | ✅ |
+| I. TDD (non négociable) | Chaque correction commence par un test rouge : `config.spec.ts` (port 3002, `TRUST_PROXY`), test d'intégration d'affectation (rouge sur le comportement actuel, FR-009), test de réinitialisation CLI, test de masquage commun, test de couches (rouge tant que les cycles existent), test de synchronisation des énumérations, test automatisé de `api-entrypoint.sh` (5 cas, écrit avant la modification du script), test de cohérence des ports et du script `dev:backend`. Le comportement existant de l'interface quand l'API est arrêtée est figé par un test (aucune modification, FR-023). Les refactorisations sans effet visible (R7, R8, R9) sont protégées par la suite existante, inchangée dans ses attendus. La CI (T003) exécute la suite à chaque envoi et à chaque demande de fusion. La protection de branche n'étant pas disponible sur le dépôt privé (offre gratuite, D10), la règle « aucune modification ne peut être fusionnée si la suite de tests échoue » est appliquée par une vérification manuelle obligatoire avant chaque fusion (T006, `docs/procedure-fusion.md`) : elle n'empêche pas techniquement une fusion rouge. | ⚠️ règle appliquée à la main (D10) |
 | II. Simplicité / YAGNI | Aucune nouvelle dépendance (vérification des couches et des énumérations par des tests maison de quelques dizaines de lignes) ; une dépendance retirée ; périmètre des cycles limité aux dossiers cités par l'audit (les autres sont consignés, pas corrigés) ; pas de fusion des machines à états (hors périmètre). Le seul nouveau mécanisme, le registre d'accès aux fichiers, remplace une dépendance directe à deux domaines : voir Complexity Tracking. | ✅ (1 justification) |
 | III. Accessibilité et UX | Deux changements d'interface : la boîte d'approbation affiche le sélecteur d'employé après `AUTO_ASSIGNEE_UNAVAILABLE`, avec le message du serveur (composant existant, déjà accessible et testé par axe ; test RTL ajouté) ; l'historique ajoute la source de l'affectation après « Affectée à <nom> » (texte seul, autorisé par FR-023 ; test dans `HistoryTimeline.test.tsx`). | ✅ |
 | IV. Sécurité et données | Masquage unifié et élargi (FR-005) ; configuration du proxy validée (FR-004) ; contrôle d'origine unique (FR-006) ; aucun secret ajouté ; mot de passe provisoire jamais journalisé ; `npm audit` bloquant en CI. Durées de conservation toujours provisoires (D4, hors périmètre) : réserve héritée du lot 1. | ⚠️ réserve héritée (D4) |
 | V. Workflows et communications | Réinitialisation hors interface désormais tracée (`PASSWORD_RESET`, sessions supprimées) ; source de l'affectation tracée dans l'historique (`assigneeSource`) ; statuts et transitions inchangés ; refus d'accès aux fichiers toujours journalisés et en 404 (registre fermé par défaut). | ✅ |
+
+**Application de la règle de fusion du principe I (D10)** : la règle « Aucune modification ne
+peut être fusionnée si la suite de tests échoue » reste entière ; ce n'est pas une dérogation à
+la règle. Seul son moyen d'application change : faute de protection de branche sur le dépôt
+privé (offre gratuite), elle repose sur la vérification manuelle avant fusion (T006). Risque
+résiduel accepté par le responsable du projet : une fusion rouge reste techniquement possible
+par erreur ; elle est alors corrigée et consignée (`contracts/cli-and-deploy.md`).
 
 **Résultat avant Phase 0** : passe. **Résultat après Phase 1** (re-vérifié sur
 [data-model.md](./data-model.md) et [contracts/](./contracts/)) : passe ; aucune migration,
@@ -101,8 +109,9 @@ reste celle du lot 1.
 
 1. **US1** (port, `dev:backend`, configuration) : remet la suite au vert ; prérequis de tout le
    reste (principe I).
-2. **CI (R11)** dès que la suite est verte, pour protéger les étapes suivantes ; puis rendre le
-   contrôle obligatoire sur `master` (réglage GitHub manuel).
+2. **CI (R11)** dès que la suite est verte, pour vérifier les étapes suivantes ; puis la
+   procédure de vérification manuelle avant fusion (D10 : pas de protection de branche sur le
+   dépôt privé).
 3. **US2** (masquage, origine, réinitialisation CLI).
 4. **US3** (affectation figée) : test rouge d'abord.
 5. **US4** (couches, registre de fichiers, nettoyage, énumérations) : en dernier côté code, car
@@ -134,8 +143,9 @@ Fichiers touchés (N = nouveau, M = modifié, D = déplacé, S = supprimé) :
 
 ```text
 .github/workflows/ci.yml                              N  CI (R11)
+.github/pull_request_template.md                      N  cases de la vérification avant fusion (D10)
 package.json                                          M  dev:backend → start:dev (R2)
-README.md                                             M  port 3002, --reset-password, deploy.sh
+README.md                                             M  port 3002, --reset-password, deploy.sh, renvoi à procedure-fusion.md
 backend/
 ├── .env.example                                      M  PORT=3002
 ├── scripts/
@@ -180,7 +190,7 @@ backend/
     ├── unit/architecture-layers.spec.ts              N  (R7)
     ├── unit/sensitive-keys.spec.ts                   N  (R4)
     ├── integration/auto-assignment-snapshot.spec.ts  N  (R14, écrit en premier)
-    └── integration/cli-reset-password.spec.ts        N  (R6)
+    └── integration/bootstrap-production.spec.ts      M  describe('resetSuperAdminPassword') (R6, T017)
 frontend/
 ├── package.json                                      M  @mui/icons-material retiré
 ├── src/api/types.ts                                  M  commentaire « types générés » retiré
@@ -197,12 +207,13 @@ deploy/
 docs/
 ├── ARCHITECTURE.md                                   M  clôture FR-024
 ├── coverage-migration.md                             M  deploy.sh
+├── procedure-fusion.md                               N  vérification manuelle avant fusion (D10)
 └── validation/ (restauration.md, en-tetes-securite.md, verification-003.md)  N
 ```
 
 **Structure Decision**: structure existante conservée (workspaces `backend/` et `frontend/`,
 `deploy/`, `docs/`). Seuls changent l'emplacement de quelques fichiers pour respecter l'ordre de
-couches de R7, et l'ajout de `.github/workflows/`.
+couches de R7, et l'ajout de `.github/` (workflow CI, modèle de demande de fusion).
 
 ## Complexity Tracking
 
