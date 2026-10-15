@@ -1,5 +1,5 @@
 import type { Prisma } from '@prisma/client';
-import type { PolicyUser } from './access-policy';
+import type { PolicyUser } from '../../common/authorization';
 
 /**
  * Équivalent SQL (filtre Prisma) de canReadRequest, pour les listes, la recherche et les compteurs :
