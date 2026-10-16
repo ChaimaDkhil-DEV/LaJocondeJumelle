@@ -211,8 +211,12 @@ export function CategoryFormDialog({ open, category, onClose, onSaved }: Categor
     },
     onError: async (error) => {
       setErrors(fieldErrors(error));
-      // Une partie a pu être enregistrée (catégorie créée, destinataires non) : on recharge la liste.
-      await queryClient.invalidateQueries({ queryKey: adminKeys.categories });
+      // Une partie a pu être enregistrée (catégorie créée, destinataires non) : on recharge les listes,
+      // y compris celle du formulaire « Nouvelle demande ».
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: adminKeys.categories }),
+        queryClient.invalidateQueries({ queryKey: ['categories'] }),
+      ]);
     },
   });
 
