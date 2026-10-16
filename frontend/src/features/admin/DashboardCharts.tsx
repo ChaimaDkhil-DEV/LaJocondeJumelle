@@ -38,7 +38,7 @@ function DataTable({ caption, head, rows }: { caption: string; head: string[]; r
   return (
     <Box component="details" sx={{ mt: 1, fontSize: fontSize.sm, '& summary': { cursor: 'pointer', color: 'text.secondary', minHeight: 32 } }}>
       <summary>Voir les données</summary>
-      <Box sx={{ maxHeight: 240, overflow: 'auto' }}>
+      <Box tabIndex={0} role="region" aria-label={caption} sx={{ maxHeight: 240, overflow: 'auto' }}>
         <Box
           component="table"
           sx={{ width: '100%', borderCollapse: 'collapse', '& th, & td': { textAlign: 'left', py: 0.5, pr: 2, borderBottom: 1, borderColor: 'divider' }, '& td + td, & th + th': { textAlign: 'right' } }}

@@ -108,6 +108,11 @@ type ViewKey = (typeof VIEWS)[number]['key'];
 
 const PRIORITIES: Priority[] = ['URGENT', 'HIGH', 'MEDIUM', 'NORMAL'];
 
+/** Tableau défilant (mobile) : atteignable au clavier et nommé pour les lecteurs d’écran. */
+function scrollRegion(label: string) {
+  return { tabIndex: 0, role: 'region', 'aria-label': label } as const;
+}
+
 const SUBJECT = 'le tableau de bord';
 
 function Kpi({ label, value, hint, tone = 'neutral', icon: Icon }: { label: string; value: ReactNode; hint?: string; tone?: Tone; icon: LucideIcon }) {
@@ -244,7 +249,7 @@ function GeneralView({ qs }: { qs: string }) {
           {s.byCategory.length === 0 ? (
             <EmptyState compact title="Aucune donnée" description="Aucune demande sur la période." />
           ) : (
-            <TableContainer>
+            <TableContainer {...scrollRegion('Demandes par catégorie')}>
               <Table size="small" aria-label="Demandes par catégorie">
                 <TableHead>
                   <TableRow>
@@ -283,7 +288,7 @@ function GeneralView({ qs }: { qs: string }) {
 
 function AlertTable({ alerts }: { alerts: DashboardAlert[] }) {
   return (
-    <TableContainer component={Paper} variant="outlined">
+    <TableContainer component={Paper} variant="outlined" {...scrollRegion('Demandes à traiter en priorité')}>
       <Table size="small" aria-label="Demandes à traiter en priorité">
         <TableHead>
           <TableRow>
@@ -365,7 +370,7 @@ function PerformanceView({ qs }: { qs: string }) {
         />
       </Box>
       <SectionCard title="Par priorité" flush description="Les délais attendus sont ceux des règles de chaque catégorie (Administration › Catégories).">
-        <TableContainer>
+        <TableContainer {...scrollRegion('Délais par priorité')}>
           <Table size="small" aria-label="Délais par priorité">
             <TableHead>
               <TableRow>
@@ -424,7 +429,7 @@ function EmployeesView({ qs }: { qs: string }) {
   }
   return (
     <Box sx={{ display: 'grid', gap: 1.5 }}>
-      <TableContainer component={Paper} variant="outlined">
+      <TableContainer component={Paper} variant="outlined" {...scrollRegion('Activité des employés')}>
         <Table size="small" aria-label="Activité des employés">
           <TableHead>
             <TableRow>
@@ -487,7 +492,7 @@ function RequestsView({ filters }: { filters: string }) {
   }
   return (
     <Box sx={{ display: 'grid', gap: 2 }}>
-      <TableContainer component={Paper} variant="outlined">
+      <TableContainer component={Paper} variant="outlined" {...scrollRegion('Demandes de la période')}>
         <Table size="small" aria-label="Demandes de la période">
           <TableHead>
             <TableRow>
