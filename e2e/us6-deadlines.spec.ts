@@ -20,7 +20,7 @@ async function pageAs(browser: Browser, testInfo: TestInfo, account: AccountName
   return page;
 }
 
-test('V14 — compte à rebours, alerte, puis « En retard (prise en charge) » signalé au responsable', async ({ page, browser }, testInfo) => {
+test('V14 — compte à rebours, alerte, puis « En retard (prise en charge) » signalé au super administrateur, visible du responsable', async ({ page, browser }, testInfo) => {
   test.skip(!['chromium', 'iPhone 13'].includes(testInfo.project.name), 'Logique serveur : un moteur Chromium et un moteur WebKit suffisent');
   test.setTimeout(180_000);
 
@@ -56,12 +56,20 @@ test('V14 — compte à rebours, alerte, puis « En retard (prise en charge) » 
   expect(markedAt - Date.parse(currentDueAt)).toBeLessThan(30_000 + 5_000);
   await expectNoA11yViolations(page);
 
-  // Le responsable de la catégorie est notifié ; la demande reste visible.
+  // Photocopies est en mode direct : l'administration consulte sans être notifiée (retards compris) ;
+  // le super administrateur reçoit son alerte « en retard », posée par la tâche planifiée.
+  type Notifications = { items: Array<{ type: string; request: { id: string } }> };
+  const overdueFor = async (target: Page) =>
+    ((await (await target.request.get('/api/notifications?limit=50')).json()) as Notifications).items.some(
+      (n) => n.type === 'OVERDUE' && n.request.id === id,
+    );
+  const superadmin = await pageAs(browser, testInfo, 'superadmin');
+  await expect.poll(() => overdueFor(superadmin), { timeout: 30_000, intervals: [2000] }).toBe(true);
+  await superadmin.context().close();
+
+  // Le responsable n'est pas notifié, mais la demande reste visible, en lecture seule.
   const manager = await pageAs(browser, testInfo, 'responsable');
-  const notifications = (await (await manager.request.get('/api/notifications?unread=true&limit=50')).json()) as {
-    items: Array<{ type: string; request: { id: string } }>;
-  };
-  expect(notifications.items.some((n) => n.type === 'OVERDUE' && n.request.id === id)).toBe(true);
+  expect(await overdueFor(manager)).toBe(false);
   await manager.goto(`/demandes/${id}`);
   // Signalé à la fois par l'indicateur de la demande et par l'historique (US7).
   await expect(manager.getByRole('list', { name: 'Historique' }).getByText('En retard (prise en charge)')).toBeVisible();
