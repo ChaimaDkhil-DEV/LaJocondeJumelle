@@ -86,7 +86,7 @@ function Brand() {
         <ClipboardList size={icon.sm} />
       </Box>
       <Typography component="p" variant="subtitle2" noWrap>
-        Demandes de travail
+        Joconde Jumelle
       </Typography>
     </Box>
   );
