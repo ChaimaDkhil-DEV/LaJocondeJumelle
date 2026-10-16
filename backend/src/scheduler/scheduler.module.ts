@@ -8,9 +8,10 @@ import { CoverageDeadlinesJob } from './coverage-deadlines.job';
 import { OrphanFilesJob } from './orphan-files.job';
 import { OverdueJob } from './overdue.job';
 import { SessionRevalidationJob } from './session-revalidation.job';
+import { SuperAdminAlertsJob } from './super-admin-alerts.job';
 
 @Module({
   imports: [ScheduleModule.forRoot(), RequestsModule, FilesModule, CoverageModule],
-  providers: [AutoCloseJob, OverdueJob, SessionRevalidationJob, OrphanFilesJob, CoverageDeadlinesJob],
+  providers: [AutoCloseJob, OverdueJob, SessionRevalidationJob, OrphanFilesJob, CoverageDeadlinesJob, SuperAdminAlertsJob],
 })
 export class SchedulerModule {}

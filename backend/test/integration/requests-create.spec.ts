@@ -122,7 +122,15 @@ describe('Création de demandes', () => {
       });
 
       const notifications = await prisma.notification.findMany({ where: { requestId: res.body.id } });
-      expect(notifications.map((n) => [n.userId, n.type])).toEqual([[reprographieId, 'URGENT']]);
+      // Demande urgente : l'employé et, une seule fois, le super administrateur (alerte de supervision).
+      const superadminId = await userId(prisma, 'superadmin');
+      expect(notifications.map((n) => [n.userId, n.type])).toEqual(
+        expect.arrayContaining([
+          [reprographieId, 'URGENT'],
+          [superadminId, 'URGENT'],
+        ]),
+      );
+      expect(notifications).toHaveLength(2);
     });
 
     it('notifie REQUEST_NEW pour une demande non urgente', async () => {

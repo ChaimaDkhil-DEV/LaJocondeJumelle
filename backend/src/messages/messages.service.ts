@@ -6,6 +6,7 @@ import { AppException } from '../common/errors';
 import { buildPage, decodeCursor, parseLimit, type Page } from '../common/pagination';
 import { PrismaService } from '../common/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { SuperAdminAlertsService } from '../notifications/super-admin-alerts.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { canReadRequest, canWriteInThread } from '../requests/domain/access-policy';
 import {
@@ -39,6 +40,7 @@ export class MessagesService {
     private readonly notifications: NotificationsService,
     private readonly audit: AuditService,
     private readonly realtime: RealtimeService,
+    private readonly superAdminAlerts: SuperAdminAlertsService,
   ) {}
 
   async list(
@@ -128,7 +130,9 @@ export class MessagesService {
           });
         }
 
-        const pending = await this.notifications.notifyInTx(tx, this.participants(request, category), user.id, {
+        // Super administrateurs : seulement sur une demande urgente ou en retard (super-admin-policy).
+        const supervisors = await this.superAdminAlerts.messageSupervisors(tx, request);
+        const pending = await this.notifications.notifyInTx(tx, [...this.participants(request, category), ...supervisors], user.id, {
           type: 'MESSAGE_NEW',
           requestId,
           priority: request.priority,
