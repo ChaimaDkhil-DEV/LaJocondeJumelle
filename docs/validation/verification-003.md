@@ -174,3 +174,46 @@ est traitée comme une erreur bloquante.
 - Suites : lint et types sans erreur ; unitaires 398 / 398 ; intégration 264 / 264 ; frontend
   127 / 127.
 - **T055 à T058** : non lancés (préproduction nécessaire).
+
+## Phase 8 — clôture
+
+- **T059** : `docs/ARCHITECTURE.md` mis à jour : en-tête, constats corrigés avec leur commit,
+  A04 et A11 re-marqués [VÉRIFIÉ], A20 et A26 partiellement vérifiés, A23 à A25 laissés ouverts
+  (préproduction) ; ordre des couches et test décrits ; cycle restant mesuré le 16 octobre 2026 :
+  `auth`, `realtime`, `settings`, `users` (hors périmètre) ; nouveau §12 de suivi (A01 à A35,
+  N1 à N3).
+- **T060** : statut de traitement ajouté au registre de `spec.md` ; D1 reste à faire confirmer
+  par l'établissement.
+
+### Vérification finale (T061) — 16 octobre 2026, commit de départ `4575b84`
+
+`npm run verify` : code de sortie 0.
+
+| Étape | Résultat |
+|-------|----------|
+| Lint (ESLint, dont jsx-a11y) | aucun problème |
+| Types backend et frontend (`typecheck`) | aucune erreur |
+| Tests unitaires backend | 398 / 398 (21 suites) |
+| Tests d'intégration backend (PostgreSQL embarqué) | 264 / 264 (25 suites) |
+| Tests frontend (Vitest) | 127 / 127 (18 fichiers) |
+| `npm audit --audit-level=high` | aucune vulnérabilité élevée ou critique (21 modérées, comme au lot 1) |
+
+Avertissement `DEP0190` de Node supprimé : `bootstrap-production.spec.ts` lance désormais `tsx` par
+`node`, sans shell. CI GitHub verte sur `4575b84` (push et demande de fusion) ; à revérifier sur
+le commit de clôture.
+
+### Relecture du quickstart (T062)
+
+| Scénario | Consigné | État |
+|----------|----------|------|
+| 1 — Démarrage sur le port 3002 | contrôles automatiques (Phase 3) | parcours manuel **à faire** (T013) |
+| 2 — Configuration refusée au démarrage | tests `config.spec.ts` (Phase 4) | démarrage manuel **à faire** (T024) |
+| 3 — Réinitialisation tracée | tests `bootstrap-production.spec.ts` (Phase 4) | déroulé à deux navigateurs **à faire** (T024) |
+| 4 — Affectation figée | tests `auto-assignment-snapshot.spec.ts` (Phase 5) | déroulé manuel **à faire** (T032) |
+| 5 — Dépendances et nettoyage | contre-épreuves (Phase 6, T048) | **fait** |
+| 6 — Mise en production | entrypoint testé (Phase 7) | **à faire sur préproduction** (T055 à T058) |
+| Clôture | `docs/ARCHITECTURE.md` §12 (T059) | fait ; A23 à A26 ouverts |
+
+Critères de réussite : SC-003 à SC-007 atteints ; SC-001, SC-002, SC-008 et SC-009 ouverts ou
+partiels (détail dans `spec.md`, « État des critères »). La fonctionnalité **ne peut pas être
+déclarée prête pour la production** tant que T055 à T058 ne sont pas faits.

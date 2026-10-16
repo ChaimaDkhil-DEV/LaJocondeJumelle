@@ -55,14 +55,10 @@ describe('resetSuperAdminPassword', () => {
   const BACKEND = resolve(__dirname, '../..');
   const REFUSAL = (username: string) => `Compte « ${username} » introuvable ou non super administrateur : aucune modification.`;
 
-  /** Lance la ligne de commande réelle, comme en exploitation. */
+  /** Lance la ligne de commande réelle, comme en exploitation (tsx appelé par node, sans shell). */
+  const TSX = require.resolve('tsx/cli', { paths: [BACKEND] });
   const cli = (args: string[], env: NodeJS.ProcessEnv = process.env) =>
-    spawnSync('npx', ['tsx', 'src/cli/bootstrap.ts', ...args], {
-      cwd: BACKEND,
-      env,
-      encoding: 'utf8',
-      shell: process.platform === 'win32',
-    });
+    spawnSync(process.execPath, [TSX, 'src/cli/bootstrap.ts', ...args], { cwd: BACKEND, env, encoding: 'utf8' });
 
   const userNamed = (username: string) => prisma.user.findUniqueOrThrow({ where: { username } });
 

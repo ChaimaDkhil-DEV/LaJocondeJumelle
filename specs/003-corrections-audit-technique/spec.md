@@ -74,6 +74,23 @@ nécessitant une validation humaine."
 | A34 | `embedded-postgres` en version bêta (développement et tests uniquement) | §10 Exploitation | [VÉRIFIÉ] | HP |
 | A35 | Validations manuelles (iPhone réel, test d'utilisabilité) non faites | §11.11 | [VÉRIFIÉ] | HP (tâches T119, T120 du lot 1) |
 
+### Statut de traitement (au 2026-10-16)
+
+Détail par constat, avec les commits : `docs/ARCHITECTURE.md` §12 ; exécutions :
+`docs/validation/verification-003.md`.
+
+- **Corrigés** : A01, A02, A03, A05 à A10, A12, A13, A15 à A19, A21 (CI ; fusion vérifiée à la
+  main, décision D10), A22 ; ainsi que N1 et N3.
+- **[DÉDUIT] confirmés puis corrigés** (re-marqués [VÉRIFIÉ]) : A04 (test écrit avant la
+  correction, FR-009) et A11 (lecture de `files.service.ts`).
+- **Partiellement vérifiés** : A20 (lint, tests d'intégration et d'interface verts ; bout en bout
+  non lancés, T058) ; A26 (recherche vérifiée par `search-performance.spec.ts` ; chronométrage de
+  création non lancé, T058).
+- **Ouverts, en attente de la préproduction** : A23 (T055), A24 (T056), A25 (T057).
+- **Sans objet** : A14 (A13 corrigé). **Décisions de l'établissement, hors périmètre** : A27 (D4),
+  A32 (D5). **Hors périmètre** : A28 à A31, A33 à A35.
+- N2 : cycle réduit de 11 dossiers à 4 (`auth`, `realtime`, `settings`, `users`), hors périmètre.
+
 ## Clarifications
 
 ### Session 2026-10-15
@@ -503,6 +520,22 @@ périmètre.
   durée consignée ; les contrôles d'en-têtes de sécurité sont consignés comme conformes.
 - **SC-009**: 100 % des constats CT du registre sont marqués corrigés dans
   `docs/ARCHITECTURE.md`, et chaque constat [DÉDUIT] traité est confirmé ou infirmé.
+
+### État des critères (au 2026-10-16, tâche T062)
+
+- [ ] **SC-001** — ouvert : parcours chronométré sur un poste Windows à faire (T013).
+- [ ] **SC-002** — partiel : lint, tests unitaires (398), d'intégration (264, dont la performance
+  de recherche) et d'interface (127) à 100 %, aucune vulnérabilité élevée ou critique ; tests de
+  bout en bout non lancés (T058).
+- [x] **SC-003** — atteint : vérifié par `dev-port-consistency.spec.ts`.
+- [x] **SC-004** — atteint : vérifié par `bootstrap-production.spec.ts` (`resetSuperAdminPassword`).
+- [x] **SC-005** — atteint pour les cas automatisés (`auto-assignment-snapshot.spec.ts`) ; le
+  déroulé manuel du scénario 4 reste à faire (T032).
+- [x] **SC-006** — atteint : `architecture-layers.spec.ts` vert, contre-épreuve consignée (T048).
+- [x] **SC-007** — atteint : suites de fichiers et de demandes vertes sans changement d'attendus.
+- [ ] **SC-008** — ouvert : restauration et en-têtes à vérifier sur préproduction (T056, T057).
+- [ ] **SC-009** — partiel : constats corrigés marqués avec leur commit (`docs/ARCHITECTURE.md`
+  §12) ; A23 à A26 restent à confirmer ou infirmer sur préproduction (T055 à T058).
 
 ## Assumptions
 

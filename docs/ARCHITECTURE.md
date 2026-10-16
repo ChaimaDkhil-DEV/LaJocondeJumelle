@@ -1,8 +1,14 @@
 # Architecture — La Joconde Jumelle
 
 > Analyse établie le 2026-10-15 à partir du code de la branche `002-refonte-ui-destinataires`
-> (dernier commit `595c3fc`), y compris trois modifications **non commitées** (port 3000 → 3002,
-> voir §9 et §10).
+> (dernier commit `595c3fc`). Les trois modifications alors non commitées (port 3000 → 3002) l'ont
+> été dans `1e6d4ee`.
+>
+> **Suivi des corrections** : les constats ont été traités par la fonctionnalité 003
+> (`specs/003-corrections-audit-technique/`). Chaque constat traité porte la mention « Corrigé »
+> avec son commit ; le §12 récapitule l'état de tous les constats (A01 à A35 de la spécification
+> 003, et N1 à N3 relevés pendant sa réalisation). Le reste du document décrit l'état du commit
+> `595c3fc`.
 >
 > Chaque affirmation est marquée :
 > - **[VÉRIFIÉ]** : lue dans le code ou la configuration, ou constatée en exécutant une commande ;
@@ -100,12 +106,17 @@ Les colonnes « Dépend de » et « Utilisé par » ont été établies à parti
 | `health/` | `GET /api/health`, public, utilisé par le `HEALTHCHECK` Docker | auth (`@Public`) | Docker |
 | `cli/` | `bootstrap.ts` : création du premier super administrateur en production | settings | exploitation |
 
+> **Mise à jour (fonctionnalité 003)** : `SuperAdminGuard` est désormais dans `audit/` ;
+> `request-info` et les règles transverses (`authorization.ts`) sont dans `common/` ; `files/` ne
+> dépend plus ni de `requests/` ni de `coverage/` (registre d'accès) ; le job des délais de
+> couverture est dans `scheduler/`. Les colonnes ci-dessus décrivent l'état du commit `595c3fc`.
+
 Scripts et données hors `src/` :
 
 | Dossier | Rôle |
 |---|---|
 | `backend/prisma/` | `schema.prisma`, migrations `0001_init` et `0002_coverage` (avec `down.sql`), `seed.ts` (données de démonstration), `seed-volume.ts` (volume de test) |
-| `backend/scripts/` | Base de dev embarquée (`dev-db.ts`), serveur e2e, génération de fixtures, et trois scripts de maintenance ponctuels : `repair-employee-recipients.ts`, `check-users.ts`, `reset-superadmin-password.ts` |
+| `backend/scripts/` | Base de dev embarquée (`dev-db.ts`), serveur e2e, génération de fixtures, et trois scripts de maintenance ponctuels : `repair-employee-recipients.ts`, `check-users.ts`, `reset-superadmin-password.ts` (supprimé : sous-commande `bootstrap.js --reset-password`, commit `5ed613d`) |
 | `backend/test/` | 15 fichiers de tests unitaires, 24 d'intégration (base PostgreSQL réelle), fixtures audio, image et PDF |
 
 ### Modules frontend (`frontend/src/`)
@@ -403,9 +414,11 @@ Points clés :
 
 - **[VÉRIFIÉ]** Les migrations sont gérées par Prisma Migrate, dans `backend/prisma/migrations/` :
   - `0001_init` : schéma initial et triggers d'ajout seul ;
-  - `0002_coverage` : lot 2, migration additive, accompagnée d'un `down.sql` manuel.
+  - `0002_coverage` : lot 2, migration additive, accompagnée d'un `down.sql` manuel ;
+  - `0003_request_event_seq` (fonctionnalité 003, constat N3) : colonne `RequestEvent.seq`, ordre d'écriture des événements d'historique.
 - **[VÉRIFIÉ]** En dev : `npm run -w backend prisma:migrate` (`prisma migrate dev`).
 - **[VÉRIFIÉ]** En prod : `prisma migrate deploy` est exécuté **à chaque démarrage du conteneur** (`deploy/api-entrypoint.sh`).
+  → **Corrigé** (`4575b84`) : une migration en attente n'est appliquée que si une sauvegarde récente existe ; `deploy/deploy.sh` la produit.
 - **[VÉRIFIÉ]** La procédure de sauvegarde et de retour arrière du lot 2 est décrite dans `docs/coverage-migration.md`.
 
 ---
@@ -457,14 +470,23 @@ Je ne peux pas vérifier **quels éléments précis** figuraient dans ta demande
 
 1. **[VÉRIFIÉ]** **Affectation automatique hors snapshot.** `assignmentMode` est copié dans `rulesSnapshot` (`request-policy.loader.ts`), mais `RequestTransitionsService.assigneeContext` lit `category.assignmentMode` et `category.autoAssigneeId`, c'est-à-dire la catégorie **actuelle**, lors d'un `APPROVE`. Cela contredit le principe du snapshot (FR-022).
    **[DÉDUIT]** Si l'administrateur change le mode d'affectation entre la soumission et l'approbation, c'est la nouvelle règle qui s'applique.
+   → **[VÉRIFIÉ] Confirmé**, puis **corrigé** (`3b291ee`) : le test `auto-assignment-snapshot.spec.ts`, écrit avant la correction (`0f2e97d`), affectait la demande à la nouvelle personne désignée. Le mode et la personne sont désormais figés à la soumission (décision D1), avec deux exceptions : demande antérieure (EXC-1) et personne indisponible (EXC-2).
 2. **[VÉRIFIÉ]** **`RequestPolicyLoader` déclaré dans 5 modules** (`requests`, `categories`, `messages`, `files`, `coverage`) au lieu d'être exporté une seule fois. NestJS crée donc une instance par module. Le service est sans état, donc l'impact est **[DÉDUIT]** faible ; c'est surtout une duplication de déclaration.
+   → **Corrigé** (`55a170e`) : `RequestPolicyModule` le déclare une seule fois.
 3. **[VÉRIFIÉ]** **Job de délais du lot 2 rangé hors de `scheduler/`** (`coverage/coverage-deadlines.job.ts`), alors qu'il importe `JOB_INTERVAL_MS` depuis `scheduler/auto-close.job.ts`.
+   → **Corrigé** (`5e23677`) : `scheduler/coverage-deadlines.job.ts`, `JOB_INTERVAL_MS` dans `scheduler/job-interval.ts`.
 4. **[VÉRIFIÉ]** **Commentaire périmé** dans `notifications/notifications.service.ts` : « Implémentation sans effet en Phase 2 ; remplacée par Socket.IO en US4 ». `NoopNotificationPublisher` est exporté mais n'est utilisé nulle part, ni dans `src` ni dans `test` (`grep`).
+   → **Corrigé** (`6549908`) : classe et commentaire supprimés.
 5. **[VÉRIFIÉ]** **Types frontend écrits à la main.** `frontend/src/api/types.ts` annonce leur remplacement par des types générés (`api:types` → `src/api/schema.d.ts`), mais `schema.d.ts` n'existe pas et n'est importé nulle part. Les enums (`RequestStatus`, etc.) sont donc dupliqués entre le backend et le frontend.
+   → **Corrigé** : annonce retirée (`6549908`) ; les énumérations restent écrites à la main, mais `frontend/tests/api/enums-sync.test.ts` (`0e9e213`) les compare au schéma Prisma et échoue en cas d'écart.
 6. **[VÉRIFIÉ]** **Dépendance inutilisée** : `@mui/icons-material` est déclarée dans `frontend/package.json`, mais aucun fichier de `frontend/src` ne l'importe. Les icônes viennent de `lucide-react` (49 fichiers).
+   → **Corrigé** (`6549908`) : dépendance désinstallée.
 7. **[VÉRIFIÉ]** **Style non uniforme** : `backend/scripts/check-users.ts` et `reset-superadmin-password.ts` utilisent des guillemets doubles, alors que `.prettierrc` impose `singleQuote: true`.
+   → **Corrigé** : `check-users.ts` formaté (`6549908`) ; `reset-superadmin-password.ts` supprimé (`5ed613d`).
 8. **[VÉRIFIÉ]** **Port incohérent**, voir §9 : 3002 dans `main.ts`, `config.ts`, `vite.config.ts` et `start.bat` ; 3000 dans `backend/.env.example`, le README, `deploy/Caddyfile.dev`, `api.Dockerfile`, `docker-compose.yml` et le test `config.spec.ts`.
+   → **Corrigé** (`1ae6219`, `c5c6198`) : 3002 partout en développement, vérifié par `dev-port-consistency.spec.ts` ; la production fixe explicitement 3000 (`api.Dockerfile`).
 9. **[VÉRIFIÉ]** **Script `dev` racine.** `npm run dev` lance `npm run -w backend start` (`node dist/main.js`), donc **le build déjà compilé** : pas de rechargement, et il faut avoir lancé `build` avant. Le README, lui, recommande `start:dev`.
+   → **Corrigé** (`c5c6198`) : `dev:backend` lance `start:dev`.
 
 ---
 
@@ -478,6 +500,7 @@ Je ne peux pas vérifier **quels éléments précis** figuraient dans ta demande
 
   L'API refuse de démarrer si une variable obligatoire est invalide (`ConfigError`).
 - **[VÉRIFIÉ]** `TRUST_PROXY` est lue **directement** dans `app.setup.ts` (`process.env.TRUST_PROXY`), sans passer par `loadConfig`. `PORT` est également relue directement dans `main.ts`.
+  → **Corrigé** (`5ed613d`) : `TRUST_PROXY` est validée par `loadConfig` ; `app.setup.ts` et `main.ts` lisent `APP_CONFIG`.
 - **[VÉRIFIÉ]** `backend/.env` n'est chargé qu'hors production (`loadEnvFile`) et n'écrase pas les variables déjà définies. `.env` est ignoré par git (`.gitignore`, vérifié avec `git check-ignore`).
 - **[VÉRIFIÉ]** Les réglages **métier** (taille des vocaux, délais, durée de session…) sont en base (`Setting`). Les valeurs par défaut sont dans `SETTING_DEFAULTS` et les bornes dans `SETTING_RULES` (`settings/settings.service.ts`).
 - **[VÉRIFIÉ]** En production, les variables viennent de `deploy/.env` via `docker-compose.yml`, qui utilise la syntaxe `${VAR:?…}` pour bloquer le démarrage si un secret manque.
@@ -504,7 +527,7 @@ Je ne peux pas vérifier **quels éléments précis** figuraient dans ta demande
 ### Gestion des erreurs et logs
 
 - **[VÉRIFIÉ]** Les erreurs ont un format unique `{ error: { code, message, details } }` (`HttpExceptionFilter`). Les messages sont en français, dans `ERROR_CATALOG`. Les erreurs de validation renvoient la liste des champs (`createValidationPipe`, `flatten`).
-- **[VÉRIFIÉ]** Les logs sortent en JSON, une ligne par entrée, sur stdout et stderr (`AppLogger`, `common/app-logger.ts`). Les secrets sont masqués par motifs (argon2, cookie, token, password…). **Aucune requête HTTP n'est journalisée** (commentaire de la classe ; aucun middleware de log dans `configureApp`).
+- **[VÉRIFIÉ]** Les logs sortent en JSON, une ligne par entrée, sur stdout et stderr (`AppLogger`, `common/app-logger.ts`). Les secrets sont masqués par motifs (argon2, cookie, token, password…). **Aucune requête HTTP n'est journalisée** (commentaire de la classe ; aucun middleware de log dans `configureApp`). Depuis `5ed613d`, logs et audit partagent la même liste de clés sensibles (`common/sensitive-keys.ts`).
 - **[VÉRIFIÉ]** Le journal d'audit filtre les champs de `details` par liste blanche et retire les clés sensibles (`sanitizeAuditDetails`).
 - **[VÉRIFIÉ]** Côté front, `ApiError` porte le statut et le code. Une erreur 401 invalide `/auth/me`, ce qui renvoie vers la connexion (`createQueryClient`).
 - **[DÉDUIT]** Il n'y a ni outil de suivi d'erreurs (Sentry ou équivalent) ni métriques : aucune dépendance de ce type n'apparaît dans les `package.json`.
@@ -535,14 +558,16 @@ npm run -w backend start:dev              # API avec rechargement
 npm run -w frontend dev                   # Vite sur :5173, proxy /api et /socket.io
 ```
 
-- **[VÉRIFIÉ]** `start.bat` (non commité) automatise ces étapes sous Windows :
+- **[VÉRIFIÉ]** `start.bat` (commité depuis dans `1e6d4ee`) automatise ces étapes sous Windows :
   1. il démarre la base embarquée si le port 5433 est libre ;
   2. il refuse de continuer si le port 3002 est déjà occupé ;
-  3. il lance `npm run dev`, qui exige un backend **déjà compilé** (voir §7, point 9).
+  3. il lance `npm run dev`, qui exige un backend **déjà compilé** (voir §7, point 9). → **Corrigé** (`c5c6198`) : `npm run dev` lance désormais l'API avec rechargement.
 - **[VÉRIFIÉ]** **Port de l'API en développement** : les modifications non commitées passent la valeur par défaut de 3000 à **3002** dans `main.ts`, `config.ts`, `vite.config.ts` et `frontend/package.json`. Mais :
   - `backend/.env.example` contient toujours `PORT=3000`, ce qui ramène l'API sur 3000 pour qui copie l'exemple, alors que Vite cherche 3002 ;
   - `deploy/Caddyfile.dev` relaie vers `host.docker.internal:3000`.
-- **[VÉRIFIÉ]** **Le test `backend/test/unit/config.spec.ts` échoue** (attendu 3000, reçu 3002). Résultat exécuté : 348 tests passent sur 349.
+
+  → **Corrigé** (`c5c6198`) : `PORT=3002` dans `backend/.env.example`, `Caddyfile.dev` vers 3002, README à jour.
+- **[VÉRIFIÉ]** **Le test `backend/test/unit/config.spec.ts` échoue** (attendu 3000, reçu 3002). Résultat exécuté : 348 tests passent sur 349. → **Corrigé** (`1ae6219`).
 
 ### Build
 
@@ -560,6 +585,8 @@ docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build
 docker compose -f deploy/docker-compose.yml --env-file deploy/.env exec api node dist/cli/bootstrap.js admin "Direction"
 ```
 
+→ **Mis à jour** (`4575b84`) : la deuxième commande est remplacée par `deploy/deploy.sh`, qui sauvegarde la base et les fichiers avant de reconstruire et redémarrer.
+
 - **[VÉRIFIÉ]** Quatre services :
   - `caddy` : image construite avec la SPA ;
   - `api` : Node 24 + ffmpeg, utilisateur `node` non root, `HEALTHCHECK` sur `/api/health`, migrations appliquées au démarrage ;
@@ -567,7 +594,8 @@ docker compose -f deploy/docker-compose.yml --env-file deploy/.env exec api node
   - `backup` : boucle quotidienne, `pg_dump` + `tar`, rotation sur 14 jours, copie hors du VPS seulement si `BACKUP_OFFSITE_DIR` est défini.
 - **[VÉRIFIÉ]** Swagger (`/api/docs`) n'est exposé qu'en dehors de la production (`configureApp`).
 - **[VÉRIFIÉ]** Il n'y a **pas de CI/CD** dans le dépôt (aucun dossier `.github/` ni équivalent dans l'arborescence).
-- **[DÉDUIT]** Les déploiements sont donc manuels.
+  → **Corrigé** (`b9ed428`) : `.github/workflows/ci.yml` rejoue lint, types, tests unitaires, d'intégration et d'interface et `npm audit` à chaque envoi et demande de fusion (décision D3). Le dépôt étant privé sur l'offre gratuite, la fusion n'est pas bloquée techniquement : vérification manuelle obligatoire avant fusion (`docs/procedure-fusion.md`, décision D10, `7c2af4f`).
+- **[DÉDUIT]** Les déploiements sont donc manuels. Ils le restent : `deploy/deploy.sh` est lancé à la main sur le serveur.
 
 ---
 
@@ -581,8 +609,12 @@ docker compose -f deploy/docker-compose.yml --env-file deploy/.env exec api node
   - `common ↔ audit`, `common ↔ auth` : `SuperAdminGuard`, placé dans `common/`, dépend d'`AuditService` et de `auth/request-info`.
 
   Un cycle de modules NestJS a dû être contourné explicitement : `RealtimeGatewayModule` existe « pour éviter une dépendance circulaire avec AuthModule » (commentaire dans `realtime/realtime-gateway.module.ts`).
+
+  → **Corrigé** pour les domaines cités (`e533726`, `e05ae30`, `688100e`, `5d573a1`, `5e23677`). Ordre des couches imposé : `config → common → audit → auth → files → requests → coverage → scheduler` ; un dossier ne dépend que des dossiers placés avant lui. Le test `backend/test/unit/architecture-layers.spec.ts` (`0e9e213`) le vérifie et nomme chaque import fautif ; il était rouge sur 11 imports au départ, il est vert. La séparation de `RealtimeGatewayModule` est conservée comme un découpage voulu (commentaire reformulé, `6549908`).
+  **[VÉRIFIÉ]** Cycle restant, hors périmètre (mesuré le 2026-10-16) : `auth`, `realtime`, `settings` et `users` forment encore une composante (`auth → realtime`, `auth → settings`, `realtime → auth`, `settings → auth`, `settings → users`, `users → auth`, `users → realtime`). Ces dossiers ne font pas partie de l'ordre vérifié.
 - **[VÉRIFIÉ]** Le module `files` dépend du domaine de `coverage` (`canReadPresenceProof`, `CoverageAccessLoader`). Le stockage de fichiers connaît donc la politique d'accès de **chaque** domaine métier.
   **[DÉDUIT]** Tout nouveau type de ressource avec fichiers obligera à modifier `files.service.ts`.
+  → **[VÉRIFIÉ]** Confirmé par la lecture (une branche par `kind` dans `findReadable`), puis **corrigé** (`5d573a1`) : chaque domaine enregistre sa décision d'accès (`WorkFileAccess`, `CoverageFileAccess`) ; un type non enregistré est refusé. Décisions inchangées (suites de fichiers et de couverture vertes, attendus inchangés).
 - **[VÉRIFIÉ]** Six modules sont `@Global()` : Config, Prisma, Audit, Settings, Notifications, Realtime.
   **[DÉDUIT]** C'est pratique, mais les dépendances réelles n'apparaissent plus dans les `imports` des modules ; le tableau du §2 a dû être reconstruit à partir des imports de fichiers.
 
@@ -594,15 +626,15 @@ docker compose -f deploy/docker-compose.yml --env-file deploy/.env exec api node
   - `requests/requests.service.ts` : 491 lignes, avec 8 dépendances injectées.
 
   **[DÉDUIT]** Ce sont les zones les plus coûteuses à modifier et à relire.
-- **[VÉRIFIÉ]** `access-policy.ts`, un module de domaine des demandes, porte aussi des règles transverses : `permissionsFor`, utilisée par l'authentification, `canManageAdministration` et `canReadAudit`.
-- **[VÉRIFIÉ]** `TRUST_PROXY` et `PORT` sont lues en dehors de `loadConfig` (voir §8).
+- **[VÉRIFIÉ]** `access-policy.ts`, un module de domaine des demandes, porte aussi des règles transverses : `permissionsFor`, utilisée par l'authentification, `canManageAdministration` et `canReadAudit`. → **Corrigé** (`e533726`) : `common/authorization.ts`.
+- **[VÉRIFIÉ]** `TRUST_PROXY` et `PORT` sont lues en dehors de `loadConfig` (voir §8). → **Corrigé** (`5ed613d`).
 
 ### Code dupliqué
 
 - **[VÉRIFIÉ]** Il existe deux machines à états, deux politiques d'accès, deux calculs de délais et deux jobs de délais, un jeu pour chaque `kind` (`requests/domain/*` et `coverage/domain/*`). Le partage de la table `Request` n'a pas permis de mutualiser cette logique.
   **[DÉDUIT]** Une règle transverse (par exemple « un responsable peut toujours annuler ») devra être écrite deux fois.
-- **[VÉRIFIÉ]** La fonction `originOf` est dupliquée dans `auth/origin.guard.ts` et `realtime/realtime.gateway.ts`.
-- **[VÉRIFIÉ]** Les listes de clés sensibles sont dupliquées, avec des différences : `app-logger.ts` contient `authorization`, absent d'`audit.service.ts`, et `audit.service.ts` contient `^message$`, absent du logger.
+- **[VÉRIFIÉ]** La fonction `originOf` est dupliquée dans `auth/origin.guard.ts` et `realtime/realtime.gateway.ts`. → **Corrigé** (`5ed613d`) : règle unique `common/origin.ts`.
+- **[VÉRIFIÉ]** Les listes de clés sensibles sont dupliquées, avec des différences : `app-logger.ts` contient `authorization`, absent d'`audit.service.ts`, et `audit.service.ts` contient `^message$`, absent du logger. → **Corrigé** (`5ed613d`) : liste unique, réunion des deux.
 - **[VÉRIFIÉ]** Les types du frontend dupliquent ceux du backend à la main (voir §7, point 5).
 
 ### Exploitation et évolutivité
@@ -611,7 +643,8 @@ docker compose -f deploy/docker-compose.yml --env-file deploy/.env exec api node
 - **[VÉRIFIÉ]** **Aucune purge automatique** des données personnelles : `grep` ne trouve ni « retention » ni « purge » dans `backend/src`. Le README le confirme (« La suppression automatique à l'échéance n'est pas réalisée dans ce lot »).
 - **[VÉRIFIÉ]** Les migrations s'appliquent automatiquement à chaque démarrage du conteneur (`api-entrypoint.sh`).
   **[DÉDUIT]** Une migration défectueuse empêcherait l'API de démarrer, sans étape de validation intermédiaire. `docs/coverage-migration.md` demande une sauvegarde manuelle avant, mais rien ne l'impose techniquement.
-- **[VÉRIFIÉ]** Le script `backend/scripts/reset-superadmin-password.ts` modifie le mot de passe du super administrateur **sans entrée d'audit et sans révoquer ses sessions**, alors que `cli/bootstrap.ts` écrit dans `auditLog`. Il contourne donc le principe de traçabilité.
+  → **Corrigé** (`4575b84`) : sauvegarde imposée avant toute migration (entrypoint et `deploy/deploy.sh`, testé par `api-entrypoint.spec.ts`). Le comportement réel d'une migration défectueuse reste **[DÉDUIT]** : à exercer sur la préproduction (tâche T055).
+- **[VÉRIFIÉ]** Le script `backend/scripts/reset-superadmin-password.ts` modifie le mot de passe du super administrateur **sans entrée d'audit et sans révoquer ses sessions**, alors que `cli/bootstrap.ts` écrit dans `auditLog`. Il contourne donc le principe de traçabilité. → **Corrigé** (`5ed613d`, décision D2) : `bootstrap.js --reset-password`, audit `PASSWORD_RESET` et sessions fermées ; script supprimé.
 - **[VÉRIFIÉ]** `embedded-postgres` est en version bêta (`17.10.0-beta.17`), mais seulement pour le développement et les tests.
 
 ### Testabilité
@@ -621,6 +654,7 @@ docker compose -f deploy/docker-compose.yml --env-file deploy/.env exec api node
   - backend unitaire : **348 réussis / 1 en échec** (`config.spec.ts`, port) ;
   - frontend : **120 / 120** réussis.
 - **[DÉDUIT]** Les tests d'intégration et E2E n'ont **pas** été lancés pour ce document (voir §11).
+  → **[VÉRIFIÉ]** (fonctionnalité 003, `docs/validation/verification-003.md`) : lint, types, tests unitaires (398), d'intégration (264, dont `search-performance.spec.ts`) et d'interface (127) passent, en local et dans la CI. Les tests de bout en bout n'ont toujours **pas** été lancés (tâche T058).
 - **[DÉDUIT]** Les services qui appellent Prisma directement, sans repository, ne se testent qu'avec une base réelle. C'est le choix fait ici (tests d'intégration), mais cela rend ces tests plus lents.
 
 ---
@@ -630,14 +664,55 @@ docker compose -f deploy/docker-compose.yml --env-file deploy/.env exec api node
 Points que je n'ai pas pu vérifier, ou qui demandent une décision :
 
 1. **Origine des choix techniques.** Le dépôt dit « pile imposée par le client », sans liste précise. Confirme quels éléments (NestJS, Prisma, MUI, TanStack Query, Caddy…) venaient de ta demande et lesquels ont été proposés dans le plan.
-2. **Port 3000 ou 3002.** Décide de la valeur, puis aligne `backend/.env.example`, le README, `deploy/Caddyfile.dev` et `test/unit/config.spec.ts`, ou annule les modifications non commitées. En l'état, un test échoue.
-3. **Tests d'intégration et E2E.** Je ne les ai pas lancés (ils demandent la base embarquée et les navigateurs Playwright). À exécuter : `npm run -w backend test:integration` et `npm run test:e2e`.
-4. **Lint.** `npm run lint` n'a pas été lancé. La vérification de types (`typecheck`) a été exécutée sur le backend et le frontend : aucune erreur. [VÉRIFIÉ]
+2. **Port 3000 ou 3002.** Décide de la valeur, puis aligne `backend/.env.example`, le README, `deploy/Caddyfile.dev` et `test/unit/config.spec.ts`, ou annule les modifications non commitées. En l'état, un test échoue. → **Réglé** : 3002 retenu et aligné (`1ae6219`, `c5c6198`).
+3. **Tests d'intégration et E2E.** Je ne les ai pas lancés (ils demandent la base embarquée et les navigateurs Playwright). À exécuter : `npm run -w backend test:integration` et `npm run test:e2e`. → Intégration **lancée** (264 / 264) ; bout en bout **toujours à lancer** (T058).
+4. **Lint.** `npm run lint` n'a pas été lancé. → **Lancé** : aucun problème. La vérification de types (`typecheck`) a été exécutée sur le backend et le frontend : aucune erreur. [VÉRIFIÉ]
 5. **Lot 2 sans spécification.** Il n'y a pas de `specs/002-…`. Les règles de la couverture de classe (statuts, délais de 2 et 5 min, preuve QR et photo) ne sont documentées que dans le code et `docs/coverage-migration.md`. Elles doivent être validées par l'établissement.
-6. **Affectation automatique en circuit B.** Elle lit la catégorie actuelle plutôt que le snapshot (§7, point 1). Est-ce voulu ?
-7. **Script `reset-superadmin-password.ts`.** Non audité, et sessions non révoquées. Faut-il le garder, le corriger ou le supprimer ?
-8. **Restauration des sauvegardes.** `deploy/backup/restore.sh` existe, mais je n'ai pas vérifié qu'il fonctionne. Le README exige de le tester avant la production.
-9. **Performances.** Les objectifs du plan (notification < 5 s, recherche < 2 s sur 10 000 demandes) font l'objet de tests (`search-performance.spec.ts`, `sc001-create-timing.spec.ts`), mais je ne les ai pas exécutés.
+6. **Affectation automatique en circuit B.** Elle lit la catégorie actuelle plutôt que le snapshot (§7, point 1). Est-ce voulu ? → **Tranché** (D1) : figée à la soumission ; à faire confirmer par l'établissement.
+7. **Script `reset-superadmin-password.ts`.** Non audité, et sessions non révoquées. Faut-il le garder, le corriger ou le supprimer ? → **Tranché** (D2) : remplacé par une sous-commande tracée.
+8. **Restauration des sauvegardes.** `deploy/backup/restore.sh` existe, mais je n'ai pas vérifié qu'il fonctionne. Le README exige de le tester avant la production. → **Toujours ouvert** : restauration à exercer sur un serveur vierge (T056).
+9. **Performances.** Les objectifs du plan (notification < 5 s, recherche < 2 s sur 10 000 demandes) font l'objet de tests (`search-performance.spec.ts`, `sc001-create-timing.spec.ts`), mais je ne les ai pas exécutés. → Recherche **vérifiée** (`search-performance.spec.ts`, suite d'intégration, en local et en CI) ; chronométrage de création **toujours à lancer** (bout en bout, T058).
 10. **Décisions métier encore provisoires** (README, « À trancher ») : durées de conservation, permissions par rôle, délais, destinataires par catégorie, accusé de lecture.
 11. **Validations manuelles** non faites selon le README : test sur un vrai iPhone (`docs/validation/iphone-manuel.md`) et test d'utilisabilité avec 5 employés.
-12. **Sécurité en conditions réelles.** La CSP, HSTS et la limite de 26 Mo sont configurées dans `deploy/Caddyfile`, mais je n'ai pas vérifié leur comportement sur un déploiement réel.
+12. **Sécurité en conditions réelles.** La CSP, HSTS et la limite de 26 Mo sont configurées dans `deploy/Caddyfile`, mais je n'ai pas vérifié leur comportement sur un déploiement réel. → **Toujours ouvert** (T057, préproduction).
+
+---
+
+## 12. Suivi des corrections (fonctionnalité 003)
+
+Identifiants du registre de `specs/003-corrections-audit-technique/spec.md`. Détail des
+exécutions : `docs/validation/verification-003.md`. État au 2026-10-16.
+
+| Constat | État | Commit(s) |
+|---|---|---|
+| A01 Port incohérent, test en échec | Corrigé | `1ae6219`, `485eb3c`, `c5c6198` |
+| A02 Lanceur sans rechargement | Corrigé | `c5c6198` |
+| A03 Affectation lue dans la catégorie actuelle | Corrigé (décision D1) | `0f2e97d`, `3b291ee` |
+| A04 Changement de mode appliqué aux demandes soumises | [VÉRIFIÉ] confirmé par test, corrigé | `0f2e97d`, `3b291ee` |
+| A05 Réinitialisation sans audit ni fermeture des sessions | Corrigé (décision D2) | `679a34c`, `5ed613d` |
+| A06 Listes de clés sensibles divergentes | Corrigé | `5ed613d` |
+| A07 `TRUST_PROXY` et `PORT` hors validation | Corrigé | `5ed613d` |
+| A08 Contrôle d'origine écrit deux fois | Corrigé | `5ed613d` |
+| A09 Cycles entre domaines | Corrigé pour les domaines cités ; cycle `auth`/`realtime`/`settings`/`users` hors périmètre | `0e9e213`, `e533726`, `e05ae30`, `688100e`, `5d573a1`, `5e23677` |
+| A10 Stockage de fichiers dépendant des domaines | Corrigé | `5d573a1` |
+| A11 Nouveau type de fichier → modifier `files.service.ts` | [VÉRIFIÉ] confirmé, corrigé | `5d573a1` |
+| A12 Règles transverses dans le domaine des demandes | Corrigé | `e533726` |
+| A13 Chargeur de règles déclaré 5 fois | Corrigé | `55a170e` |
+| A14 Impact faible de A13 | Sans objet (A13 corrigé) | — |
+| A15 Job de délais hors de `scheduler/` | Corrigé | `5e23677` |
+| A16 Publicateur inutilisé | Corrigé | `6549908` |
+| A17 Types écrits à la main, énumérations dupliquées | Corrigé (vérification automatique) | `0e9e213`, `6549908` |
+| A18 Dépendance d'icônes inutilisée | Corrigé | `6549908` |
+| A19 Scripts hors convention de formatage | Corrigé | `5ed613d`, `6549908` |
+| A20 Intégration, bout en bout et lint non lancés | [VÉRIFIÉ] lint et intégration verts ; bout en bout **ouvert** (T058) | — |
+| A21 Aucune CI | Corrigé (D3) ; fusion vérifiée à la main (D10) | `b9ed428`, `7c2af4f` |
+| A22 Migrations sans sauvegarde imposée | Corrigé | `7f0b81f`, `4575b84` |
+| A23 Migration défectueuse bloquante | Couvert par la procédure ; reste **[DÉDUIT]** jusqu'à l'exercice sur préproduction (T055) | `4575b84` |
+| A24 Restauration jamais vérifiée | **Ouvert** (T056, serveur vierge) | — |
+| A25 CSP, HSTS, limite de taille non vérifiées | **Ouvert** (T057, préproduction) | — |
+| A26 Performances non mesurées | Recherche [VÉRIFIÉ] (intégration et CI) ; chronométrage de création **ouvert** (T058) | — |
+| A27, A32 | Décisions de l'établissement (D4 durées de conservation, D5 spécification du lot 2) ; hors périmètre | — |
+| A28 à A31, A33 à A35 | Hors périmètre de la fonctionnalité 003 | — |
+| N1 Blocage de l'approbation après passage en mode manuel | [VÉRIFIÉ] confirmé par test, corrigé | `0f2e97d`, `3b291ee` |
+| N2 Cycles plus étendus que l'audit (11 dossiers) | [VÉRIFIÉ] ; réduit à 4 dossiers hors périmètre | voir A09 |
+| N3 Ordre aléatoire des événements de même horodatage (relevé par la CI) | Corrigé | `36d400b`, `6aac605` |
