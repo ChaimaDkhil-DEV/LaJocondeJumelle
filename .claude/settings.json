@@ -1,0 +1,29 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/apply-migrations.js\"",
+            "timeout": 120,
+            "statusMessage": "Migrations Prisma (base locale)…"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/apply-migrations.js\" --session-start",
+            "timeout": 120,
+            "statusMessage": "Migrations Prisma (base locale)…"
+          }
+        ]
+      }
+    ]
+  }
+}
