@@ -5,6 +5,7 @@ import { CategoriesModule } from './categories/categories.module';
 import { PrismaModule } from './common/prisma.service';
 import { ConfigModule } from './config/config.module';
 import { CoverageModule } from './coverage/coverage.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 import { FilesModule } from './files/files.module';
 import { HealthController } from './health/health.controller';
 import { MessagesModule } from './messages/messages.module';
@@ -29,6 +30,7 @@ import { UsersModule } from './users/users.module';
     CategoriesModule,
     RequestsModule,
     CoverageModule,
+    DashboardModule,
     MessagesModule,
     SchedulerModule,
     UsersModule,
