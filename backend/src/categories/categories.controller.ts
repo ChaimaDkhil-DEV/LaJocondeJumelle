@@ -1,5 +1,5 @@
 import { Controller, Get, Param } from '@nestjs/common';
-import type { Circuit } from '@prisma/client';
+import type { Availability, Circuit, RoutingMode } from '@prisma/client';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { CategoriesService } from './categories.service';
@@ -8,6 +8,7 @@ export interface CategoryOption {
   id: string;
   name: string;
   circuit: Circuit;
+  routingMode: RoutingMode;
   photoRequired: boolean;
 }
 
@@ -15,6 +16,8 @@ export interface RecipientOption {
   id: string;
   displayName: string;
   jobTitle: string | null;
+  /** Disponibilité déclarée : « absent » est signalé au demandeur, sans bloquer l'envoi. */
+  availability: Availability;
 }
 
 @Controller('categories')

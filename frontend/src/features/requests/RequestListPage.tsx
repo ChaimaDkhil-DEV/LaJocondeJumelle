@@ -44,6 +44,9 @@ const TABS: TabDefinition[] = [
     empty: 'Aucune demande ne vous attend.',
     managersOnly: true,
   },
+  // Administration : toutes les demandes qu'elle peut voir, dont celles qu'elle consulte en lecture seule
+  // (modes direct et entre enseignants).
+  { key: 'suivi', label: 'Suivi', scope: 'all', empty: 'Aucune demande à suivre.', managersOnly: true },
 ];
 
 /** Avatar de l'interlocuteur, ou pastille « en attente » quand personne n'est encore affecté. */

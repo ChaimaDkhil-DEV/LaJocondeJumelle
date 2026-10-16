@@ -19,6 +19,8 @@ describe('NotificationsService', () => {
   function setup() {
     const created: Notification[] = [];
     const tx = {
+      // Aucun super administrateur parmi les destinataires : pas de filtrage.
+      user: { findMany: jest.fn(async () => []) },
       notification: {
         create: jest.fn(async ({ data }: { data: Omit<Notification, 'id' | 'createdAt' | 'readAt'> }) => {
           const row = { ...data, id: `n${created.length}`, createdAt: new Date(), readAt: null } as Notification;

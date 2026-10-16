@@ -12,11 +12,13 @@ export const requestKeys = {
   detail: (id: string) => ['requests', 'detail', id] as const,
 };
 
+/** Rechargée à chaque ouverture du formulaire : une catégorie créée ou réactivée par le super administrateur y apparaît aussitôt. */
 export function useCategories() {
   return useQuery({
     queryKey: ['categories'],
     queryFn: () => apiFetch<CategoryOption[]>('/api/categories'),
-    staleTime: 5 * 60_000,
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 }
 

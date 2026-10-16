@@ -19,10 +19,10 @@ import { LoadingState } from '../../components/LoadingState';
 import { SectionHeader } from '../../components/SectionHeader';
 import { useToast } from '../../components/Toast';
 import { font, icon } from '../../design/tokens';
-import { adminKeys, useAdminCategories, type AdminCategory, type DeadlineRule } from './api';
+import { adminKeys, useAdminCategories, type AdminCategory, type DeadlineRule, type RoutingMode } from './api';
 import { CategoryFormDialog } from './CategoryFormDialog';
 import { DeadlineRulesTable, fromDraft, toDraft, type DeadlineDraft, type DeadlineErrors } from './DeadlineRulesTable';
-import { CIRCUIT_LABELS, CLOSURE_LABELS, PROOF_MODE_LABELS } from './labels';
+import { CLOSURE_LABELS, PROOF_MODE_LABELS, ROUTING_LABELS } from './labels';
 
 function names(members: Array<{ displayName: string }>): string {
   return members.length > 0 ? members.map((m) => m.displayName).join(', ') : 'aucun';
@@ -89,7 +89,9 @@ function DeadlinesDialog({ category, onClose, onSaved }: { category: AdminCatego
   );
 }
 
-/** Catégories (US8) : circuit, modes, photo, destinataires, responsables et délais. */
+const ROUTING_SHORT: Record<RoutingMode, string> = { VIA_ADMIN: 'Via l’administration', DIRECT: 'Direct', PEER: 'Entre enseignants' };
+
+/** Catégories (US8) : mode de routage, clôture, photo, destinataires, responsables et délais. */
 export function CategoriesAdminPage() {
   const categories = useAdminCategories();
   const [form, setForm] = useState<{ category: AdminCategory | null } | null>(null);
@@ -101,7 +103,7 @@ export function CategoriesAdminPage() {
       <SectionHeader
         id="titre-categories"
         title="Catégories"
-        description="Types de demandes : circuit de validation, destinataires, responsables et délais."
+        description="Types de demandes : mode de routage, destinataires, responsables et délais."
         action={
           <Button variant="contained" startIcon={<FolderPlus size={icon.sm} aria-hidden="true" />} onClick={() => setForm({ category: null })}>
             Nouvelle catégorie
@@ -134,8 +136,8 @@ export function CategoriesAdminPage() {
                         Couverture de classe
                       </Badge>
                     ) : (
-                      <Badge tone={category.circuit === 'A_DIRECT' ? 'neutral' : 'accent'} icon={Route}>
-                        {category.circuit === 'A_DIRECT' ? 'Circuit A' : 'Circuit B'}
+                      <Badge tone={category.routingMode === 'VIA_ADMIN' ? 'accent' : 'neutral'} icon={Route}>
+                        {ROUTING_SHORT[category.routingMode]}
                       </Badge>
                     )}
                     {!category.active && (
@@ -162,7 +164,7 @@ export function CategoriesAdminPage() {
                   ) : (
                     <>
                       <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                        {CIRCUIT_LABELS[category.circuit]} · Clôture : {CLOSURE_LABELS[category.closureMode].toLowerCase()}
+                        {ROUTING_LABELS[category.routingMode]} · Clôture : {CLOSURE_LABELS[category.closureMode].toLowerCase()}
                         {category.finalValidation ? ' · validation finale' : ''}
                       </Typography>
                       <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>

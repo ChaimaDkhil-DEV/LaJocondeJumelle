@@ -31,6 +31,7 @@ describe('Affectation automatique figée à la soumission', () => {
       data: {
         name: `Affectation figée ${sequence}`,
         circuit: 'B_ADMIN_VALIDATION',
+        routingMode: 'VIA_ADMIN',
         creatorRoles: ['EMPLOYEE'],
         closureMode: 'MANAGER',
         assignmentMode: 'AUTO',

@@ -163,3 +163,37 @@ describe('CreateRequestPage', () => {
     expect(entry.payload).toMatchObject({ title: 'Affiches', clientId: expect.any(String) });
   });
 });
+
+describe('CreateRequestPage — catégories à jour', () => {
+  beforeEach(() => installFakeMedia());
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('recharge les catégories à chaque ouverture : une catégorie créée entre-temps apparaît sans recharger la page', async () => {
+    let categories = CATEGORIES;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => (url === '/api/categories' ? json(200, categories) : json(404, { error: { code: 'NOT_FOUND', message: 'Introuvable' } }))),
+    );
+    // Même cache de requêtes entre les deux ouvertures, comme dans l'application.
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const open = () => {
+      const router = createMemoryRouter([{ path: '/demandes/nouvelle', element: <CreateRequestPage /> }], { initialEntries: ['/demandes/nouvelle'] });
+      return render(
+        <QueryClientProvider client={queryClient}>
+          <RouterProvider router={router} />
+        </QueryClientProvider>,
+      );
+    };
+
+    const first = open();
+    await userEvent.click(await screen.findByRole('combobox', { name: 'Catégorie' }));
+    expect(within(await screen.findByRole('listbox')).queryByRole('option', { name: 'Surveillance' })).toBeNull();
+    first.unmount();
+
+    // Le super administrateur crée « Surveillance » ; l'enseignante rouvre le formulaire.
+    categories = [...CATEGORIES, { id: 'cat-s', name: 'Surveillance', circuit: 'B_ADMIN_VALIDATION', photoRequired: false }];
+    open();
+    await userEvent.click(await screen.findByRole('combobox', { name: 'Catégorie' }));
+    expect(await within(await screen.findByRole('listbox')).findByRole('option', { name: 'Surveillance' })).toBeVisible();
+  });
+});

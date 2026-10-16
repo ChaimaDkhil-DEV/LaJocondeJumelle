@@ -76,6 +76,16 @@ enum Circuit {
   B_ADMIN_VALIDATION
 }
 
+/// Routage d'une catégorie de demandes de travail (le circuit en est déduit) :
+/// VIA_ADMIN : validation par l'administration (circuit B) ; DIRECT : vers le service, sans validation ;
+/// PEER : d'un enseignant à un autre, sans validation. En DIRECT et PEER, l'administration consulte
+/// en lecture seule. Sans effet sur les catégories de couverture.
+enum RoutingMode {
+  VIA_ADMIN
+  DIRECT
+  PEER
+}
+
 enum ClosureMode {
   AUTO
   REQUESTER
@@ -177,6 +187,8 @@ enum NotificationType {
   COVERAGE_UNFILLED
   COVERAGE_EXTENDED
   COVERAGE_RELIEVED
+  /// Super administrateur : demande active sans employé affecté, délai bientôt dépassé.
+  UNASSIGNED
 }
 
 /// Utilisateur. `username` est unique et insensible à la casse : il est toujours
@@ -238,6 +250,8 @@ model Category {
   name                  String         @unique @db.VarChar(60)
   active                Boolean        @default(true)
   circuit               Circuit
+  /// Mode de routage ; `circuit` en est déduit (VIA_ADMIN : circuit B ; DIRECT, PEER : circuit A).
+  routingMode           RoutingMode    @default(DIRECT)
   creatorRoles          Role[]
   closureMode           ClosureMode
   /// Délai de grâce avant clôture automatique (closureMode = AUTO) ; 0 = immédiat.
@@ -351,6 +365,11 @@ model Request {
   finalValidatedAt DateTime?      @db.Timestamptz(3)
   closedAt         DateTime?      @db.Timestamptz(3)
   cancelledAt      DateTime?      @db.Timestamptz(3)
+  /// Alertes du super administrateur : une seule fois par demande et par type, marqueur posé par
+  /// mise à jour conditionnelle (urgente, sans employé affecté, en retard).
+  superAdminUrgentNotifiedAt     DateTime? @db.Timestamptz(3)
+  superAdminUnassignedNotifiedAt DateTime? @db.Timestamptz(3)
+  superAdminOverdueNotifiedAt    DateTime? @db.Timestamptz(3)
   updatedAt        DateTime       @updatedAt @db.Timestamptz(3)
 
   voiceFile     File?              @relation("RequestVoice", fields: [voiceFileId], references: [id])

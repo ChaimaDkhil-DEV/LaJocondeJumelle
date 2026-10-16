@@ -31,6 +31,7 @@ import {
   UserMinus,
   UserRound,
   type LucideIcon,
+  UserRoundX,
 } from 'lucide-react';
 import { useId, useState } from 'react';
 import { Link as RouterLink, useNavigate } from 'react-router';
@@ -68,6 +69,7 @@ const NOTIFICATION_ICONS: Record<NotificationType, LucideIcon> = {
   COVERAGE_UNFILLED: AlarmClock,
   COVERAGE_EXTENDED: Timer,
   COVERAGE_RELIEVED: Lock,
+  UNASSIGNED: UserRoundX,
 };
 
 function UrgentMark() {

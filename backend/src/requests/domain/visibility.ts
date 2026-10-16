@@ -1,4 +1,4 @@
-import type { Prisma } from '@prisma/client';
+import type { Prisma, RoutingMode } from '@prisma/client';
 import type { PolicyUser } from '../../common/authorization';
 
 /**
@@ -27,6 +27,8 @@ export function visibleRequestsWhere(user: Pick<PolicyUser, 'id' | 'role' | 'act
           { requesterId: user.id },
           { assigneeId: user.id },
           { category: { managers: { some: { userId: user.id } } } },
+          // Administration : consultation des demandes directes et entre enseignants (lecture seule).
+          ...(user.role === 'MANAGER' ? [{ category: { routingMode: { in: ['DIRECT', 'PEER'] as RoutingMode[] } } }] : []),
         ],
       },
     ],

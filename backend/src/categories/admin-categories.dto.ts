@@ -1,4 +1,4 @@
-import { AssignmentMode, Circuit, ClosureMode, Priority, ProofMode, RequestKind, Role } from '@prisma/client';
+import { AssignmentMode, Circuit, ClosureMode, Priority, ProofMode, RequestKind, Role, RoutingMode } from '@prisma/client';
 import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize,
@@ -31,8 +31,15 @@ export class CreateCategoryDto {
   @MaxLength(60, { message: 'Le nom ne doit pas dépasser 60 caractères.' })
   name!: string;
 
+  /** Déduit du mode de routage ; accepté seul pour compatibilité (B : VIA_ADMIN, A : DIRECT). */
+  @IsOptional()
   @IsEnum(Circuit)
-  circuit!: Circuit;
+  circuit?: Circuit;
+
+  /** Mode de routage (DIRECT par défaut) ; le circuit en est déduit. */
+  @IsOptional()
+  @IsEnum(RoutingMode)
+  routingMode?: RoutingMode;
 
   @IsArray()
   @ArrayMinSize(1, { message: 'Au moins un rôle doit pouvoir créer des demandes.' })
@@ -92,6 +99,10 @@ export class UpdateCategoryDto {
   @IsOptional()
   @IsEnum(Circuit)
   circuit?: Circuit;
+
+  @IsOptional()
+  @IsEnum(RoutingMode)
+  routingMode?: RoutingMode;
 
   @IsOptional()
   @IsArray()

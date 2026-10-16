@@ -30,8 +30,9 @@ import {
   type ClosureMode,
   type Member,
   type ProofMode,
+  type RoutingMode,
 } from './api';
-import { ASSIGNMENT_LABELS, CIRCUIT_LABELS, CLOSURE_LABELS, formatMinutes, KIND_LABELS, PROOF_MODE_LABELS, ROLE_LABELS } from './labels';
+import { ASSIGNMENT_LABELS, CLOSURE_LABELS, formatMinutes, KIND_LABELS, PROOF_MODE_LABELS, ROLE_LABELS, ROUTING_HINTS, ROUTING_LABELS } from './labels';
 
 interface Values {
   name: string;
@@ -39,6 +40,7 @@ interface Values {
   kind: CategoryKind;
   proofMode: ProofMode;
   circuit: Circuit;
+  routingMode: RoutingMode;
   creatorRoles: Role[];
   closureMode: ClosureMode;
   autoCloseAfterMinutes: string;
@@ -57,6 +59,7 @@ function initialValues(category: AdminCategory | null | undefined): Values {
     kind: category?.kind ?? 'WORK',
     proofMode: category?.proofMode ?? 'BOTH',
     circuit: category?.circuit ?? 'A_DIRECT',
+    routingMode: category?.routingMode ?? 'DIRECT',
     creatorRoles: category?.creatorRoles ?? ['EMPLOYEE', 'MANAGER'],
     closureMode: category?.closureMode ?? 'REQUESTER',
     autoCloseAfterMinutes: String(category?.autoCloseAfterMinutes ?? 1440),
@@ -97,6 +100,7 @@ async function saveCategory(current: AdminCategory | null, v: Values): Promise<A
   const auto = circuitB && v.assignmentMode === 'AUTO';
   const fields = {
     name: v.name.trim(),
+    routingMode: v.routingMode,
     circuit: v.circuit,
     creatorRoles: v.creatorRoles,
     closureMode: v.closureMode,
@@ -211,8 +215,12 @@ export function CategoryFormDialog({ open, category, onClose, onSaved }: Categor
     },
     onError: async (error) => {
       setErrors(fieldErrors(error));
-      // Une partie a pu être enregistrée (catégorie créée, destinataires non) : on recharge la liste.
-      await queryClient.invalidateQueries({ queryKey: adminKeys.categories });
+      // Une partie a pu être enregistrée (catégorie créée, destinataires non) : on recharge les listes,
+      // y compris celle du formulaire « Nouvelle demande ».
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: adminKeys.categories }),
+        queryClient.invalidateQueries({ queryKey: ['categories'] }),
+      ]);
     },
   });
 
@@ -300,12 +308,24 @@ export function CategoryFormDialog({ open, category, onClose, onSaved }: Categor
           {!coverage && (
             <>
               <FormControl component="fieldset">
-                <FormLabel component="legend">Circuit</FormLabel>
-                <RadioGroup value={values.circuit} onChange={(e) => set({ circuit: e.target.value as Circuit })}>
-                  {(Object.keys(CIRCUIT_LABELS) as Circuit[]).map((c) => (
-                    <FormControlLabel key={c} value={c} control={<Radio />} label={CIRCUIT_LABELS[c]} />
+                <FormLabel component="legend">Mode de routage</FormLabel>
+                <RadioGroup
+                  value={values.routingMode}
+                  onChange={(e) => {
+                    const routingMode = e.target.value as RoutingMode;
+                    // Le circuit découle du mode ; hors validation, la clôture ne revient pas à l'administration.
+                    set({
+                      routingMode,
+                      circuit: routingMode === 'VIA_ADMIN' ? 'B_ADMIN_VALIDATION' : 'A_DIRECT',
+                      ...(routingMode !== 'VIA_ADMIN' && values.closureMode === 'MANAGER' ? { closureMode: 'REQUESTER' as const } : {}),
+                    });
+                  }}
+                >
+                  {(Object.keys(ROUTING_LABELS) as RoutingMode[]).map((m) => (
+                    <FormControlLabel key={m} value={m} control={<Radio />} label={ROUTING_LABELS[m]} />
                   ))}
                 </RadioGroup>
+                <FormHelperText>{ROUTING_HINTS[values.routingMode]}</FormHelperText>
               </FormControl>
 
               {circuitB && (
@@ -354,7 +374,7 @@ export function CategoryFormDialog({ open, category, onClose, onSaved }: Categor
                 onChange={(e) => set({ closureMode: e.target.value as ClosureMode })}
               >
                 {(Object.keys(CLOSURE_LABELS) as ClosureMode[]).map((m) => (
-                  <MenuItem key={m} value={m}>
+                  <MenuItem key={m} value={m} disabled={m === 'MANAGER' && values.routingMode !== 'VIA_ADMIN'}>
                     {CLOSURE_LABELS[m]}
                   </MenuItem>
                 ))}
@@ -393,7 +413,13 @@ export function CategoryFormDialog({ open, category, onClose, onSaved }: Categor
                   <TextField
                     {...params}
                     label="Destinataires"
-                    helperText={circuitB ? 'Employés qui peuvent réaliser les demandes après approbation.' : 'Personnes à qui un demandeur peut adresser une demande.'}
+                    helperText={
+                      values.routingMode === 'VIA_ADMIN'
+                        ? 'Employés qui peuvent réaliser les demandes après approbation.'
+                        : values.routingMode === 'PEER'
+                          ? 'Enseignants à qui un collègue peut écrire.'
+                          : 'Service qui reçoit les demandes (un seul destinataire : choisi automatiquement).'
+                    }
                   />
                 )}
               />

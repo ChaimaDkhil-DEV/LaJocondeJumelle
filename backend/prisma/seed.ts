@@ -141,6 +141,8 @@ async function seedCategory(prisma: PrismaClient, seed: CategorySeed): Promise<v
     data: {
       name: seed.name,
       ...seed.data,
+      // Mode de routage cohérent avec le circuit (migration 0005_routing_mode).
+      routingMode: isCircuitB ? 'VIA_ADMIN' : 'DIRECT',
       deadlineRules: {
         create: Object.entries(seed.deadlines).map(([priority, d]) => ({
           priority: priority as Priority,

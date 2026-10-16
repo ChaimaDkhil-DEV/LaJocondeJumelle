@@ -6,8 +6,9 @@ import { AppException } from '../common/errors';
 import { buildPage, decodeCursor, parseLimit, type Page } from '../common/pagination';
 import { PrismaService } from '../common/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { SuperAdminAlertsService } from '../notifications/super-admin-alerts.service';
 import { RealtimeService } from '../realtime/realtime.service';
-import { canReadRequest, canWriteInThread } from '../requests/domain/access-policy';
+import { canReadRequest, canWriteInThread, isReadOnlyStatus } from '../requests/domain/access-policy';
 import {
   RequestPolicyLoader,
   toPolicyCategory,
@@ -39,6 +40,7 @@ export class MessagesService {
     private readonly notifications: NotificationsService,
     private readonly audit: AuditService,
     private readonly realtime: RealtimeService,
+    private readonly superAdminAlerts: SuperAdminAlertsService,
   ) {}
 
   async list(
@@ -78,7 +80,13 @@ export class MessagesService {
 
     if (!canWriteInThread(user, toPolicyRequest(request), toPolicyCategory(category))) {
       await this.logDenied(user, requestId, ctx, 'THREAD_CLOSED');
-      throw new AppException('FORBIDDEN', undefined, 'Cette demande est terminée : il n’est plus possible d’y répondre.');
+      throw new AppException(
+        'FORBIDDEN',
+        undefined,
+        isReadOnlyStatus(request.status)
+          ? 'Cette demande est terminée : il n’est plus possible d’y répondre.'
+          : 'Vous consultez cette demande : seuls le demandeur et la personne affectée y échangent.',
+      );
     }
 
     const attachmentIds = [...new Set(dto.attachmentFileIds ?? [])];
@@ -128,7 +136,9 @@ export class MessagesService {
           });
         }
 
-        const pending = await this.notifications.notifyInTx(tx, this.participants(request, category), user.id, {
+        // Super administrateurs : seulement sur une demande urgente ou en retard (super-admin-policy).
+        const supervisors = await this.superAdminAlerts.messageSupervisors(tx, request);
+        const pending = await this.notifications.notifyInTx(tx, [...this.participants(request, category), ...supervisors], user.id, {
           type: 'MESSAGE_NEW',
           requestId,
           priority: request.priority,

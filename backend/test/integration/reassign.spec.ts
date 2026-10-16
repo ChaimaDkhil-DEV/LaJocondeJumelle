@@ -6,7 +6,10 @@ import { CATEGORIES, categoryId, loginAs, seedDemo, userId } from '../utils/auth
 import { createTestApp, TEST_ORIGIN } from '../utils/test-app';
 import { resetDatabase } from '../utils/test-db';
 
-/** T081 — US6 : réaffectation par un responsable (FR-027, T18). */
+/**
+ * T081 — US6 : réaffectation par un responsable (FR-027, T18). Réservée au mode « via l'administration » :
+ * en mode direct, l'administration consulte en lecture seule (dernier test).
+ */
 describe('Réaffectation', () => {
   const prisma = new PrismaClient();
   let app: INestApplication;
@@ -23,20 +26,17 @@ describe('Réaffectation', () => {
     return api().post(`/api/requests/${id}/actions`).set('Cookie', cookie).set('Origin', TEST_ORIGIN).send(body);
   }
 
+  /** Demande « via l'administration », approuvée et confiée à la reprographie. */
   async function create(): Promise<{ id: string; version: number }> {
     const res = await api()
       .post('/api/requests')
       .set('Cookie', enseignante)
       .set('Origin', TEST_ORIGIN)
-      .send({
-        clientId: randomUUID(),
-        title: 'À réaffecter',
-        description: 'x',
-        categoryId: await categoryId(prisma, CATEGORIES.photocopies),
-        recipientId: reprographieId,
-        priority: 'URGENT',
-      });
-    return res.body;
+      .send({ clientId: randomUUID(), title: 'À réaffecter', description: 'x', categoryId: await categoryId(prisma, CATEGORIES.circuitB), priority: 'URGENT' });
+    expect(res.status).toBe(201);
+    const approved = await act(responsable, res.body.id, { action: 'APPROVE', version: res.body.version, assigneeId: reprographieId });
+    expect(approved.status).toBe(200);
+    return approved.body;
   }
 
   beforeAll(async () => {
@@ -47,7 +47,13 @@ describe('Réaffectation', () => {
       data: { username: 'renfort', displayName: 'Renfort reprographie', role: 'EMPLOYEE', passwordHash: reference.passwordHash, mustChangePassword: false },
     });
     backupId = backup.id;
-    await prisma.categoryRecipient.create({ data: { categoryId: await categoryId(prisma, CATEGORIES.photocopies), userId: backupId } });
+    for (const name of [CATEGORIES.photocopies, CATEGORIES.circuitB]) {
+      await prisma.categoryRecipient.upsert({
+        where: { categoryId_userId: { categoryId: await categoryId(prisma, name), userId: backupId } },
+        create: { categoryId: await categoryId(prisma, name), userId: backupId },
+        update: {},
+      });
+    }
     app = await createTestApp();
     enseignante = await loginAs(app, 'enseignante');
     reprographie = await loginAs(app, 'reprographie');
@@ -110,5 +116,18 @@ describe('Réaffectation', () => {
     } finally {
       await prisma.rolePermission.create({ data: { role: 'MANAGER', permission: 'REQUEST_REASSIGN' } });
     }
+  });
+
+  it('mode direct : l’administration ne réaffecte pas (lecture seule)', async () => {
+    const res = await api()
+      .post('/api/requests')
+      .set('Cookie', enseignante)
+      .set('Origin', TEST_ORIGIN)
+      .send({ clientId: randomUUID(), title: 'Direct', description: 'x', categoryId: await categoryId(prisma, CATEGORIES.photocopies), recipientId: reprographieId, priority: 'NORMAL' });
+    const detail = await api().get(`/api/requests/${res.body.id}`).set('Cookie', responsable);
+    expect(detail.status).toBe(200);
+    expect(detail.body.allowedActions).toEqual([]);
+    const refused = await act(responsable, res.body.id, { action: 'REASSIGN', version: res.body.version, assigneeId: backupId });
+    expect(refused.status).toBe(403);
   });
 });

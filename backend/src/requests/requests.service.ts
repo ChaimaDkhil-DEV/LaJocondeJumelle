@@ -7,6 +7,7 @@ import { buildPage, decodeCursor, parseLimit, type Page } from '../common/pagina
 import { PrismaService } from '../common/prisma.service';
 import { FileStorageService } from '../files/file-storage.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { SuperAdminAlertsService } from '../notifications/super-admin-alerts.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { SettingsService } from '../settings/settings.service';
 import { allowedActions, canCreateInCategory, canPickRecipient, canReadRequest } from './domain/access-policy';
@@ -57,6 +58,7 @@ export class RequestsService {
     private readonly storage: FileStorageService,
     private readonly transitions: RequestTransitionsService,
     private readonly realtime: RealtimeService,
+    private readonly superAdminAlerts: SuperAdminAlertsService,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -84,10 +86,11 @@ export class RequestsService {
     if (category.circuit === 'B_ADMIN_VALIDATION' && dto.recipientId) {
       throw new AppException('RECIPIENT_NOT_ALLOWED');
     }
+    const recipientId = await this.routedRecipient(user, category, dto.recipientId);
 
     const voice = dto.voiceFileId ? await this.ownProvisionalVoice(user, dto.voiceFileId) : null;
-    const recipientAllowed = await this.recipientAllowed(category, dto.recipientId);
-    if (dto.asDraft && dto.recipientId && !recipientAllowed) throw new AppException('RECIPIENT_NOT_ALLOWED');
+    const recipientAllowed = await this.recipientAllowed(category, recipientId);
+    if (dto.asDraft && recipientId && !recipientAllowed) throw new AppException('RECIPIENT_NOT_ALLOWED');
 
     const rules = await this.policies.rulesSnapshot(category, dto.priority);
     const now = new Date();
@@ -103,7 +106,7 @@ export class RequestsService {
           autoCloseAt: null,
         },
         'SUBMIT',
-        { actors: ['REQUESTER'], now, assigneeId: dto.recipientId, assigneeAllowed: recipientAllowed },
+        { actors: ['REQUESTER'], now, assigneeId: recipientId ?? undefined, assigneeAllowed: recipientAllowed },
       );
       if (!transition.ok) throw new AppException(transition.code);
     }
@@ -115,7 +118,7 @@ export class RequestsService {
     try {
       const { request, pending } = await this.prisma.$transaction(async (tx) => {
         const number = await this.nextNumber(tx);
-        const assigneeId = transition?.ok ? (transition.assigneeId ?? null) : (dto.recipientId ?? null);
+        const assigneeId = transition?.ok ? (transition.assigneeId ?? null) : (recipientId ?? null);
         const request = await tx.request.create({
           data: {
             number,
@@ -325,7 +328,7 @@ export class RequestsService {
     if (dto.version !== request.version) throw new AppException('STATE_CHANGED');
     if (dto.priority === request.priority) throw fieldError('priority', 'Choisissez une priorité différente.');
 
-    await this.prisma.$transaction(async (tx) => {
+    const pending = await this.prisma.$transaction(async (tx) => {
       const { count } = await tx.request.updateMany({
         where: { id, version: request.version },
         data: { priority: dto.priority, version: { increment: 1 } },
@@ -340,7 +343,10 @@ export class RequestsService {
           toValue: { priority: dto.priority },
         },
       });
+      // Passage en « Urgente » : alerte du super administrateur, une seule fois par demande.
+      return dto.priority === 'URGENT' ? this.superAdminAlerts.alertInTx(tx, id, 'URGENT', user.id) : [];
     });
+    await this.notifications.flushAfterCommit(pending);
     this.realtime.emitToUsers(
       [request.requesterId, request.assigneeId, ...category.managers.map((m) => m.userId)],
       'request:updated',
@@ -380,7 +386,7 @@ export class RequestsService {
     if (!category || category.kind !== 'WORK') throw fieldError('categoryId', 'Catégorie introuvable.');
     if (!canCreateInCategory(user, toPolicyCategory(category))) throw new AppException('FORBIDDEN');
 
-    const recipientId = dto.recipientId === undefined ? draft.assigneeId : dto.recipientId;
+    const recipientId = await this.routedRecipient(user, category, dto.recipientId === undefined ? draft.assigneeId : dto.recipientId);
     if (recipientId && !(await this.recipientAllowed(category, recipientId))) {
       throw new AppException('RECIPIENT_NOT_ALLOWED');
     }
@@ -452,6 +458,24 @@ export class RequestsService {
       throw fieldError('voiceFileId', 'Message vocal introuvable. Enregistrez-le de nouveau.');
     }
     return file;
+  }
+
+  /**
+   * Destinataire selon le mode de routage : en DIRECT, le service de la catégorie quand il est seul
+   * (destinataire actif unique) et que le demandeur n'en a pas choisi ; en PEER, un autre enseignant
+   * que le demandeur, toujours choisi. En VIA_ADMIN, l'administration affecte à l'approbation.
+   */
+  private async routedRecipient(user: AuthenticatedUser, category: CategoryWithMembers, requested: string | null | undefined) {
+    if (category.routingMode === 'PEER' && requested === user.id) {
+      throw fieldError('recipientId', 'Choisissez un autre enseignant que vous-même.');
+    }
+    if (category.routingMode !== 'DIRECT' || requested) return requested ?? null;
+    const service = await this.prisma.user.findMany({
+      where: { active: true, recipientOf: { some: { categoryId: category.id } } },
+      select: { id: true },
+      take: 2,
+    });
+    return service.length === 1 ? service[0].id : null;
   }
 
   private async recipientAllowed(category: CategoryWithMembers, recipientId: string | null | undefined) {

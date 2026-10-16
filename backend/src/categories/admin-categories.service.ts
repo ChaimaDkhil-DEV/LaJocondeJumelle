@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, type Category, type Priority } from '@prisma/client';
+import { Prisma, type Category, type Circuit, type Priority, type RoutingMode } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { AppException } from '../common/errors';
 import { PrismaService } from '../common/prisma.service';
@@ -25,6 +25,7 @@ export interface AdminCategory
     | 'name'
     | 'active'
     | 'circuit'
+    | 'routingMode'
     | 'creatorRoles'
     | 'closureMode'
     | 'autoCloseAfterMinutes'
@@ -54,6 +55,7 @@ const CATEGORY_FIELDS = [
   'name',
   'active',
   'circuit',
+  'routingMode',
   'creatorRoles',
   'closureMode',
   'autoCloseAfterMinutes',
@@ -70,6 +72,27 @@ function invalid(field: string, message: string): AppException {
   return new AppException('VALIDATION_ERROR', { fields: [{ field, messages: [message] }] }, message);
 }
 
+/** Le circuit est déduit du mode : seule la validation par l'administration passe par le circuit B. */
+function circuitFor(mode: RoutingMode): Circuit {
+  return mode === 'VIA_ADMIN' ? 'B_ADMIN_VALIDATION' : 'A_DIRECT';
+}
+
+/** Mode et circuit cohérents : le mode prime ; un circuit seul (ancien client) donne le mode. */
+function routing(requested: { routingMode?: RoutingMode; circuit?: Circuit }, current?: Pick<Category, 'routingMode' | 'circuit'>) {
+  if (requested.routingMode) {
+    if (requested.circuit && requested.circuit !== circuitFor(requested.routingMode)) {
+      throw invalid('circuit', 'Le circuit ne correspond pas au mode de routage choisi.');
+    }
+    return { routingMode: requested.routingMode, circuit: circuitFor(requested.routingMode) };
+  }
+  if (requested.circuit && requested.circuit !== current?.circuit) {
+    const mode: RoutingMode = requested.circuit === 'B_ADMIN_VALIDATION' ? 'VIA_ADMIN' : 'DIRECT';
+    return { routingMode: mode, circuit: requested.circuit };
+  }
+  const mode = current?.routingMode ?? 'DIRECT';
+  return { routingMode: mode, circuit: circuitFor(mode) };
+}
+
 function byName(a: { displayName: string }, b: { displayName: string }): number {
   return a.displayName.localeCompare(b.displayName, 'fr');
 }
@@ -80,6 +103,7 @@ function toAdminCategory(row: CategoryRow): AdminCategory {
     name: row.name,
     active: row.active,
     circuit: row.circuit,
+    routingMode: row.routingMode,
     creatorRoles: row.creatorRoles,
     closureMode: row.closureMode,
     autoCloseAfterMinutes: row.autoCloseAfterMinutes,
@@ -123,7 +147,7 @@ export class AdminCategoriesService {
     const values: CategoryValues = {
       name: dto.name,
       active: true,
-      circuit: dto.circuit,
+      ...routing(dto),
       creatorRoles: dto.creatorRoles,
       closureMode: dto.closureMode,
       autoCloseAfterMinutes: dto.autoCloseAfterMinutes ?? 1440,
@@ -172,6 +196,7 @@ export class AdminCategoriesService {
       const value = dto[field];
       if (value !== undefined) (next as Record<CategoryField, unknown>)[field] = value;
     }
+    Object.assign(next, routing(dto, current));
     this.checkCircuitRules(next, new Set(current.recipients.map((r) => r.user.id)), current.kind);
     if (next.name.toLowerCase() !== current.name.toLowerCase()) await this.checkNameAvailable(next.name);
 
@@ -283,12 +308,16 @@ export class AdminCategoriesService {
   private checkCircuitRules(values: CategoryValues, recipientIds: ReadonlySet<string>, kind: Category['kind']): void {
     if (kind === 'COVERAGE') {
       // Couverture : diffusion à des groupes d'employés, validation finale facultative, jamais d'affectation automatique.
+      if (values.routingMode !== 'DIRECT') throw invalid('routingMode', 'Une catégorie de couverture n’a pas de mode de routage.');
       if (values.circuit !== 'A_DIRECT') throw invalid('circuit', 'Une catégorie de couverture utilise le circuit direct.');
       if (values.assignmentMode === 'AUTO') throw invalid('assignmentMode', 'Une couverture est prise par le premier employé disponible.');
       if (values.creatorRoles.includes('EMPLOYEE')) {
         throw invalid('creatorRoles', 'Seuls les responsables et le super administrateur créent des demandes de couverture.');
       }
       return;
+    }
+    if (values.routingMode !== 'VIA_ADMIN' && values.closureMode === 'MANAGER') {
+      throw invalid('closureMode', 'Sans validation par l’administration, la clôture revient au demandeur ou se fait automatiquement.');
     }
     if (values.circuit === 'A_DIRECT') {
       if (values.finalValidation) throw invalid('finalValidation', 'La validation finale n’existe qu’en circuit B.');

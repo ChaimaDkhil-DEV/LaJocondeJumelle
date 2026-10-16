@@ -141,16 +141,25 @@ describe('Historique et priorité', () => {
       expect(res.status).toBe(403);
     });
 
-    it('par un responsable de la catégorie tant que la demande n’est ni terminée ni finale', async () => {
+    it('mode direct : refusé à l’administration, qui consulte en lecture seule (403)', async () => {
       const { id, version } = await create();
       const accepted = await act(reprographie, id, { action: 'ACCEPT', version });
+      expect((await changePriority(responsable, id, { priority: 'HIGH', version: accepted.body.version })).status).toBe(403);
+    });
+
+    it('via l’administration : par un responsable de la catégorie tant que la demande n’est ni terminée ni finale', async () => {
+      const created = await api()
+        .post('/api/requests')
+        .set('Cookie', enseignante)
+        .set('Origin', TEST_ORIGIN)
+        .send({ clientId: randomUUID(), title: 'Via l’administration', description: 'x', categoryId: await categoryId(prisma, CATEGORIES.circuitB), priority: 'NORMAL' });
+      const approved = await act(responsable, created.body.id, { action: 'APPROVE', version: created.body.version, assigneeId: reprographieId });
+      const id = created.body.id as string;
+      const accepted = await act(reprographie, id, { action: 'ACCEPT', version: approved.body.version });
       const res = await changePriority(responsable, id, { priority: 'HIGH', version: accepted.body.version });
       expect(res.status).toBe(200);
       expect(res.body.priority).toBe('HIGH');
-
-      const started = await act(reprographie, id, { action: 'START', version: res.body.version });
-      const done = await act(reprographie, id, { action: 'COMPLETE', version: started.body.version });
-      expect((await changePriority(responsable, id, { priority: 'NORMAL', version: done.body.version })).status).toBe(403);
+      // Demande terminée : refus couvert par messages.spec.ts (lecture seule côté serveur).
     });
 
     it('refuse une version périmée, une priorité inconnue ou une priorité identique', async () => {

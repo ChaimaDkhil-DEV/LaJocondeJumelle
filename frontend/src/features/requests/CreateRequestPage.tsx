@@ -52,7 +52,7 @@ export function CreateRequestPage() {
   const clientId = useRef(crypto.randomUUID());
 
   const [categoryId, setCategoryId] = useState('');
-  const [recipientId, setRecipientId] = useState('');
+  const [chosenRecipientId, setRecipientId] = useState('');
   const [priority, setPriority] = useState<Priority | ''>('');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -64,6 +64,12 @@ export function CreateRequestPage() {
   const category = categories.data?.find((c) => c.id === categoryId) ?? null;
   const isCircuitA = category?.circuit === 'A_DIRECT';
   const recipients = useRecipients(isCircuitA ? categoryId : null);
+  const mode = category?.routingMode;
+  // Mode direct : le service, s'il est seul, est choisi d'office (le serveur applique la même règle).
+  const serviceDefault = mode === 'DIRECT' && recipients.data?.length === 1 ? recipients.data[0].id : '';
+  const recipientId = chosenRecipientId || serviceDefault;
+  // Entre enseignants : un collègue absent est signalé, sans bloquer l'envoi.
+  const recipientAbsent = mode === 'PEER' && recipients.data?.find((r) => r.id === recipientId)?.availability === 'ABSENT';
 
   const header = (
     <PageHeader
@@ -185,7 +191,7 @@ export function CreateRequestPage() {
               <TextField
                 select
                 id="request-recipient"
-                label="Destinataire"
+                label={mode === 'PEER' ? 'Enseignant destinataire' : mode === 'DIRECT' ? 'Destinataire (service)' : 'Destinataire'}
                 value={recipientId}
                 disabled={!category}
                 onChange={(e) => setRecipientId(e.target.value)}
@@ -196,11 +202,15 @@ export function CreateRequestPage() {
                 {(recipients.data ?? []).map((r) => (
                   <MenuItem key={r.id} value={r.id}>
                     {r.jobTitle ? `${r.displayName} — ${r.jobTitle}` : r.displayName}
+                    {r.availability === 'ABSENT' ? ' (absent)' : ''}
                   </MenuItem>
                 ))}
               </TextField>
             )}
           </Box>
+          {recipientAbsent && (
+            <Alert severity="warning">Ce collègue est signalé absent : votre demande lui sera bien envoyée, il la lira à son retour.</Alert>
+          )}
 
           <FormControl error={Boolean(errors.priority)} component="fieldset">
             <FormLabel component="legend" sx={{ mb: 1 }}>

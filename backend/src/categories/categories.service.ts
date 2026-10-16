@@ -20,7 +20,7 @@ export class CategoriesService {
     const categories = await this.policies.categories({ active: true, kind: 'WORK' });
     return categories
       .filter((category) => canCreateInCategory(user, toPolicyCategory(category)))
-      .map((c) => ({ id: c.id, name: c.name, circuit: c.circuit, photoRequired: c.photoRequired }));
+      .map((c) => ({ id: c.id, name: c.name, circuit: c.circuit, routingMode: c.routingMode, photoRequired: c.photoRequired }));
   }
 
   async recipients(user: AuthenticatedUser, categoryId: string): Promise<RecipientOption[]> {
@@ -31,8 +31,9 @@ export class CategoriesService {
     if (category.circuit !== 'A_DIRECT') return [];
 
     return this.prisma.user.findMany({
-      where: { active: true, recipientOf: { some: { categoryId } } },
-      select: { id: true, displayName: true, jobTitle: true },
+      // Entre enseignants : on n'écrit pas à soi-même.
+      where: { active: true, recipientOf: { some: { categoryId } }, ...(category.routingMode === 'PEER' ? { id: { not: user.id } } : {}) },
+      select: { id: true, displayName: true, jobTitle: true, availability: true },
       orderBy: { displayName: 'asc' },
     });
   }
