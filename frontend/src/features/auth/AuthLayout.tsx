@@ -45,7 +45,7 @@ export function AuthLayout({ title, description, children }: AuthLayoutProps) {
           <ClipboardList size={icon.md} />
         </Box>
         <Typography component="p" variant="subtitle1">
-          Demandes de travail
+          La Joconde Jumelle
         </Typography>
       </Box>
       <Paper variant="outlined" sx={{ width: '100%', maxWidth: 400, p: { xs: 3, sm: 4 } }}>
