@@ -235,7 +235,8 @@ les points ambigus sous forme de questions, sans suppositions."
   fin réputée la fin de la journée locale (pas de rappel de clôture avant). Une déclaration de
   classe vide n'exige pas de preuve de présence ; un QR code scanné est enregistré s'il est
   fourni. Sans admin actif, les notifications destinées aux admins vont aux super
-  administrateurs ; l'enseignant auteur est notifié quand un surveillant est assigné à sa demande
+  administrateurs (gardes et affectations seulement, voir Q23) ; l'enseignant auteur est notifié
+  quand un surveillant est assigné à sa demande
   (FR-017a).
 - Q16 (raison courte) → A : La « raison courte » est uniquement le type de signalement :
   retard, absence ou classe vide ; l'enseignant ne saisit aucun texte supplémentaire. Le
@@ -259,7 +260,33 @@ les points ambigus sous forme de questions, sans suppositions."
   directement « en cours » (le surveillant est déjà dans la classe) et passe « terminée » à
   l'arrivée de l'enseignant.
 
+### Session 2026-10-16 (mise à jour après fusion des PR #6, #7 et #9)
+
+Cette spécification a été écrite avant trois évolutions désormais dans `master` (`59f70fb`) :
+demande terminée en lecture seule (PR #6), notifications du super administrateur (PR #7), mode de
+routage par catégorie (PR #9). Les réponses ci-dessous font foi et priment sur les passages plus
+anciens qui les contrediraient.
+
+- Q22 (droits de l'admin sur les demandes de travail) → A : Les droits de l'admin (ex-responsable)
+  sur les demandes de travail suivent le mode de routage de la catégorie, et non plus « exactement
+  les droits du responsable ». Via l'administration : les admins responsables de la catégorie
+  valident ou refusent (motif obligatoire), affectent, réaffectent, changent la priorité et écrivent
+  dans la discussion. Direct et entre enseignants : tous les admins consultent en lecture seule
+  (aucune action, aucun message, aucune notification, retards compris). Dans tous les modes, un
+  admin peut créer une demande dans toute catégorie active.
+- Q23 (repli des notifications vers le super administrateur) → A : Le repli « sans admin actif,
+  les notifications des admins vont aux super administrateurs » ne vaut que pour les gardes et les
+  affectations de surveillants. Sur les demandes de travail, le super administrateur n'est notifié
+  que des demandes urgentes, sans employé affecté (délai bientôt dépassé) ou en retard, une fois par
+  demande et par type, et jamais sur une demande terminée (PR #7).
+- Q24 (référence de non-régression) → A : La suite de tests de `master` après la PR #9 sert de
+  référence : les adaptations faites par les PR #6, #7 et #9 (lecture seule des demandes terminées,
+  notifications du super administrateur, routage) ne sont pas des régressions.
+
 ## État des lieux
+
+> Établi le 2026-10-16 sur la branche 003 ; complété le même jour après la fusion des PR #6, #7 et
+> #9 (lignes « Demandes de travail », « Notifications » et « Droits »).
 
 ### Ce qui existe déjà
 
@@ -272,16 +299,17 @@ les points ambigus sous forme de questions, sans suppositions."
 | Disponibilité | Chaque employé a une disponibilité (Disponible / Indisponible / Absent — Absent réservé aux responsables). Un employé déjà engagé sur une garde qui chevauche le créneau n'est pas proposé. | `backend/src/coverage/coverage-availability.ts` |
 | Classes | Liste des classes (nom, salle en texte libre, active, QR code imprimable révocable), gérée par le super administrateur. **Pas d'étage.** | modèle `SchoolClass`, écran `/admin/classes` |
 | Groupes d'employés | Groupes (ex. « Surveillants/Remplaçants ») gérés par le super administrateur, ciblés par les gardes. | `EmployeeGroup`, écran `/admin/groupes` |
-| Notifications | Dans l'application uniquement, en temps réel (ni push, ni e-mail — choix explicite du lot 1). Chaque notification est rattachée à une demande. Types de garde : nouvelle, prise, acceptée, présence, libérée, relève demandée, en retard, non pourvue, prolongée, relevée. Les responsables de la catégorie de garde, le demandeur et, pour certains événements, tous les super administrateurs sont notifiés. | `backend/src/notifications/`, `frontend/src/features/notifications/` |
+| Notifications | Dans l'application uniquement, en temps réel (ni push, ni e-mail — choix explicite du lot 1). Chaque notification est rattachée à une demande. Types de garde : nouvelle, prise, acceptée, présence, libérée, relève demandée, en retard, non pourvue, prolongée, relevée. Les responsables de la catégorie de garde, le demandeur et, pour certains événements, tous les super administrateurs sont notifiés. Demandes de travail (PR #7) : le super administrateur n'est notifié que des demandes urgentes, sans employé affecté ou en retard, une fois par demande et par type (filtre côté serveur, alertes planifiées) ; les gardes ne sont pas concernées. | `backend/src/notifications/`, `backend/src/notifications/super-admin-policy.ts`, `frontend/src/features/notifications/` |
+| Demandes de travail (routage, PR #9) | Chaque catégorie a un mode de routage : via l'administration (validation par les responsables de la catégorie, puis affectation), direct (vers le service, destinataire seul choisi d'office) ou entre enseignants (vers un collègue choisi, absent signalé sans blocage). En direct et entre enseignants, les responsables et le super administrateur consultent en lecture seule, sans notification ; onglet « Suivi » de la liste. Une demande terminée, refusée ou annulée est en lecture seule (PR #6). | `Category.routingMode`, `backend/src/requests/domain/access-policy.ts`, `visibility.ts` |
 | Historique et suivi | Historique non modifiable de chaque demande, journal d'audit non modifiable, tableau de suivi des gardes et export CSV (durées comprises), historique « mes gardes » côté employé. | `RequestEvent`, `AuditLog`, `/admin/suivi` |
-| Droits | Contrôle côté serveur : gestion des gardes ouverte au super administrateur et aux responsables d'une catégorie de garde ; administration (comptes, catégories, classes, groupes, réglages, journal) réservée au super administrateur. | `coverage-policy.ts`, `SuperAdminGuard` |
+| Droits | Contrôle côté serveur : gestion des gardes ouverte au super administrateur et aux responsables d'une catégorie de garde ; administration (comptes, catégories, classes, groupes, réglages, journal) réservée au super administrateur. Demandes de travail : droits des responsables selon le mode de routage (Q22) ; un responsable peut créer dans toute catégorie active. | `coverage-policy.ts`, `access-policy.ts`, `SuperAdminGuard` |
 | Écrans | `/gardes` : onglets En cours / Équipe / Terminées pour les gestionnaires ; À prendre / Ma garde / Historique pour les membres de groupe ; `/gardes/nouvelle` ; `/gardes/:id` ; `/gardes/presence` (QR). Menu « Gardes » visible des membres de groupe et des gestionnaires, « Administration » du seul super administrateur. | `frontend/src/app/routes.tsx`, `AppLayout.tsx` |
 
 ### Ce qui doit être modifié
 
 | Élément | Écart avec le besoin |
 | --- | --- |
-| Libellé et rôle « Responsable » | Devient « Admin » partout (données, droits, interface, textes), avec les mêmes droits ; « Super administrateur » reste distinct (Q1). Le mot « admin » désigne déjà aujourd'hui l'espace du **super administrateur** (menu « Administration », écrans `/admin/*`) : cet espace est renommé « Administrateur » et « Admin » ne désigne jamais le propriétaire. Le compte de démonstration `responsable` devient `admin` ; les spécifications 001 et 003 reçoivent seulement une note. Le terme apparaît **436 fois dans 88 fichiers** (code, messages d'erreur, compte de démonstration `responsable`, tests, documentation, spécifications 001 et 003). |
+| Libellé et rôle « Responsable » | Devient « Admin » partout (données, droits, interface, textes), avec les mêmes droits (sur les demandes de travail : ceux du mode de routage, Q22) ; textes ajoutés depuis à renommer aussi : onglet « Suivi », modes de routage dans l'administration des catégories, onglet Employés du tableau de bord ; « Super administrateur » reste distinct (Q1). Le mot « admin » désigne déjà aujourd'hui l'espace du **super administrateur** (menu « Administration », écrans `/admin/*`) : cet espace est renommé « Administrateur » et « Admin » ne désigne jamais le propriétaire. Le compte de démonstration `responsable` devient `admin` ; les spécifications 001 et 003 reçoivent seulement une note. Le terme apparaît **436 fois dans 88 fichiers** (code, messages d'erreur, compte de démonstration `responsable`, tests, documentation, spécifications 001 et 003). |
 | Création d'une garde | Aujourd'hui réservée aux gestionnaires ; elle devra aussi pouvoir naître d'une demande d'enseignant ou d'un signalement de surveillant (Q2). |
 | Mode d'attribution | Aujourd'hui, diffusion à un groupe et **prise par le premier volontaire** ; cette diffusion est supprimée : seul l'admin assigne, sauf déclaration de classe vide attribuée au déclarant (Q2). La réassignation existante est conservée, mais seule l'admin peut la déclencher. Les tests existants des gardes sont adaptés. |
 | Groupes et profil | Créer ou réutiliser les groupes « Enseignants » et « Surveillants » (le groupe actuel est « Surveillants/Remplaçants ») ; ajouter l'étage au profil du surveillant (Q3). |
@@ -463,12 +491,15 @@ n'emploie plus « responsable » au sens du rôle.
    il devient « admin » et conserve ses demandes, ses catégories et son historique.
 2. **Given** n'importe quel écran ou message, **When** il désigne ce rôle, **Then** il emploie
    « Admin », et le rôle « Super administrateur » reste distinct et inchangé dans ses droits.
-3. **Given** un admin (ex-responsable), **When** il utilise les demandes de travail (validation
-   du circuit B, réassignation, catégories qu'il gère), **Then** il dispose exactement des droits
-   qu'il avait comme responsable.
-4. **Given** les parcours existants (demandes de travail, circuit B, gardes, administration),
-   **When** ils sont rejoués après la mise à jour, **Then** ils se comportent comme avant, hormis
-   le changement voulu d'attribution des gardes (FR-011a).
+3. **Given** un admin (ex-responsable), **When** il utilise les demandes de travail, **Then** il
+   dispose des droits que le mode de routage donne à l'administration (Q22) : via
+   l'administration, validation, affectation, réaffectation, priorité et discussion dans les
+   catégories qu'il gère ; direct et entre enseignants, consultation en lecture seule de toutes
+   les demandes, sans notification ; création possible dans toute catégorie active.
+4. **Given** les parcours existants (demandes de travail selon leur mode de routage, gardes,
+   administration), **When** ils sont rejoués après la mise à jour, **Then** ils se comportent
+   comme dans `master` après la PR #9 (Q24), hormis le changement voulu d'attribution des gardes
+   (FR-011a).
 
 ---
 
@@ -516,10 +547,12 @@ obtient des chiffres cohérents avec les données saisies.
 - **FR-001**: Le système DOIT réutiliser les classes, groupes, disponibilités, notifications en
   temps réel, historique non modifiable et journal d'audit existants au lieu d'en créer de
   nouveaux équivalents.
-- **FR-002**: Toutes les fonctionnalités existantes (demandes de travail vocales, circuits A et B,
-  messagerie, délais, gardes, administration) DOIVENT continuer à fonctionner ; la suite de tests
-  existante DOIT rester au vert, adaptée seulement pour le renommage du rôle et pour la
-  suppression de la diffusion des gardes (FR-011a).
+- **FR-002**: Toutes les fonctionnalités existantes (demandes de travail vocales et leurs modes de
+  routage — via l'administration, direct, entre enseignants —, lecture seule des demandes
+  terminées, messagerie, délais, notifications du super administrateur, gardes, administration)
+  DOIVENT continuer à fonctionner ; la suite de tests de `master` après la PR #9 (Q24) DOIT rester
+  au vert, adaptée seulement pour le renommage du rôle et pour la suppression de la diffusion des
+  gardes (FR-011a).
 - **FR-003**: La mise à jour DOIT conserver toutes les données existantes (comptes, demandes,
   gardes, historiques).
 
@@ -755,7 +788,8 @@ obtient des chiffres cohérents avec les données saisies.
 
 ### Key Entities *(include if feature involves data)*
 
-- **Admin** : rôle « Responsable » renommé, mêmes droits ; supervise, reçoit les informations,
+- **Admin** : rôle « Responsable » renommé, mêmes droits (demandes de travail : selon le mode de
+  routage de la catégorie, Q22) ; supervise, reçoit les informations,
   assigne. Distinct du « Super administrateur », qui peut néanmoins jouer tous les rôles de ces
   parcours.
 - **Enseignant** : employé membre du groupe « Enseignants » ; signale un retard ou une absence ;
