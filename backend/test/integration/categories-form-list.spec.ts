@@ -53,7 +53,7 @@ describe('Catégories proposées dans le formulaire de demande', () => {
       expect(names).not.toContain('Garde surveillance');
     }
     const [created] = (await api().get('/api/categories').set('Cookie', cookies.enseignante)).body.filter((c: { id: string }) => c.id === id);
-    expect(created).toEqual({ id, name: 'Surveillance', circuit: 'B_ADMIN_VALIDATION', photoRequired: false });
+    expect(created).toEqual({ id, name: 'Surveillance', circuit: 'B_ADMIN_VALIDATION', routingMode: 'VIA_ADMIN', photoRequired: false });
   });
 
   it('respecte les rôles autorisés et l’activation', async () => {

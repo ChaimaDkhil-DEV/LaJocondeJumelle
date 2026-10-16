@@ -122,6 +122,7 @@ describe('Circuit B — validation administrative', () => {
       data: {
         name: 'Ménage (affectation automatique)',
         circuit: 'B_ADMIN_VALIDATION',
+        routingMode: 'VIA_ADMIN',
         creatorRoles: ['EMPLOYEE'],
         closureMode: 'MANAGER',
         assignmentMode: 'AUTO',

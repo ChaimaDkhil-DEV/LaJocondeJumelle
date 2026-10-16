@@ -1,5 +1,5 @@
 import type { Role } from '../../api/types';
-import type { AssignmentMode, CategoryKind, Circuit, ClosureMode, ProofMode } from './api';
+import type { AssignmentMode, CategoryKind, Circuit, ClosureMode, ProofMode, RoutingMode } from './api';
 
 export const ROLE_LABELS: Record<Role, string> = {
   EMPLOYEE: 'Employé',
@@ -10,6 +10,19 @@ export const ROLE_LABELS: Record<Role, string> = {
 export const CIRCUIT_LABELS: Record<Circuit, string> = {
   A_DIRECT: 'Circuit A : direct',
   B_ADMIN_VALIDATION: 'Circuit B : validation administrative',
+};
+
+export const ROUTING_LABELS: Record<RoutingMode, string> = {
+  VIA_ADMIN: 'Via l’administration (avec approbation)',
+  DIRECT: 'Direct vers le service concerné',
+  PEER: 'Entre enseignants',
+};
+
+/** Ce que chaque mode implique, affiché sous le choix. */
+export const ROUTING_HINTS: Record<RoutingMode, string> = {
+  VIA_ADMIN: 'L’administration confirme ou refuse la demande, puis l’affecte. En attendant, seuls le demandeur et l’administration la voient.',
+  DIRECT: 'La demande part directement au service (destinataires). L’administration la consulte sans action à faire.',
+  PEER: 'Un enseignant écrit directement à un collègue choisi parmi les destinataires. L’administration consulte sans action à faire.',
 };
 
 export const CLOSURE_LABELS: Record<ClosureMode, string> = {

@@ -76,6 +76,16 @@ enum Circuit {
   B_ADMIN_VALIDATION
 }
 
+/// Routage d'une catégorie de demandes de travail (le circuit en est déduit) :
+/// VIA_ADMIN : validation par l'administration (circuit B) ; DIRECT : vers le service, sans validation ;
+/// PEER : d'un enseignant à un autre, sans validation. En DIRECT et PEER, l'administration consulte
+/// en lecture seule. Sans effet sur les catégories de couverture.
+enum RoutingMode {
+  VIA_ADMIN
+  DIRECT
+  PEER
+}
+
 enum ClosureMode {
   AUTO
   REQUESTER
@@ -240,6 +250,8 @@ model Category {
   name                  String         @unique @db.VarChar(60)
   active                Boolean        @default(true)
   circuit               Circuit
+  /// Mode de routage ; `circuit` en est déduit (VIA_ADMIN : circuit B ; DIRECT, PEER : circuit A).
+  routingMode           RoutingMode    @default(DIRECT)
   creatorRoles          Role[]
   closureMode           ClosureMode
   /// Délai de grâce avant clôture automatique (closureMode = AUTO) ; 0 = immédiat.

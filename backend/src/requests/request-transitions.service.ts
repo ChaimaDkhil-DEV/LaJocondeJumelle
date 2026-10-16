@@ -9,7 +9,7 @@ import { SuperAdminAlertsService } from '../notifications/super-admin-alerts.ser
 import { RealtimeService } from '../realtime/realtime.service';
 import { SettingsService } from '../settings/settings.service';
 import { nextDeadlineState } from './domain/deadlines';
-import { actorsFor, canPickRecipient, canReadRequest, isReadOnlyStatus } from './domain/access-policy';
+import { actorsFor, administrationActs, canPickRecipient, canReadRequest, isReadOnlyStatus } from './domain/access-policy';
 import {
   applyAction,
   type ActionContext,
@@ -145,7 +145,10 @@ export class RequestTransitionsService {
     const result = applyAction(policyRequest, input.action, context);
     const forbidden =
       (!result.ok && result.code === 'FORBIDDEN') ||
-      (result.ok && input.action === 'REASSIGN' && !user.permissions.has('REQUEST_REASSIGN'));
+      // Réaffecter : permission, et seulement en mode « via l'administration » (ailleurs, lecture seule).
+      (result.ok &&
+        input.action === 'REASSIGN' &&
+        (!user.permissions.has('REQUEST_REASSIGN') || !administrationActs(toPolicyCategory(category))));
     if (forbidden) {
       await this.logDenied(user, id, ctx, `FORBIDDEN_${input.action}`);
       throw new AppException('FORBIDDEN');

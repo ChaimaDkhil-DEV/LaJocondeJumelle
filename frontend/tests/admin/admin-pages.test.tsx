@@ -35,6 +35,7 @@ const CATEGORY = {
   name: 'Photocopies',
   active: true,
   circuit: 'A_DIRECT',
+  routingMode: 'DIRECT',
   creatorRoles: ['EMPLOYEE', 'MANAGER'],
   closureMode: 'AUTO',
   autoCloseAfterMinutes: 1440,
@@ -221,8 +222,8 @@ describe('Comptes', () => {
 describe('Catégories', () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it('n’affiche les options du circuit B que pour ce circuit, puis enregistre catégorie, destinataires et responsables', async () => {
-    const created = { ...CATEGORY, id: 'c2', name: 'Travaux', circuit: 'B_ADMIN_VALIDATION', recipients: [], managers: [] };
+  it('n’affiche les options de validation qu’en mode « via l’administration », puis enregistre catégorie, destinataires et responsables', async () => {
+    const created = { ...CATEGORY, id: 'c2', name: 'Travaux', circuit: 'B_ADMIN_VALIDATION', routingMode: 'VIA_ADMIN', recipients: [], managers: [] };
     const { calls } = setup('/admin/categories', (url, method) => {
       if (url === '/api/admin/categories' && method === 'POST') return json(201, created);
       if (url.startsWith('/api/admin/categories/c2/') && method === 'PUT') return json(200, created);
@@ -233,7 +234,7 @@ describe('Catégories', () => {
     expect(within(dialog).queryByRole('checkbox', { name: 'Validation finale par un responsable' })).not.toBeInTheDocument();
 
     await userEvent.type(within(dialog).getByLabelText(/Nom de la catégorie/), 'Travaux');
-    await userEvent.click(within(dialog).getByRole('radio', { name: /Circuit B/ }));
+    await userEvent.click(within(dialog).getByRole('radio', { name: /Via l’administration/ }));
     await userEvent.click(within(dialog).getByRole('checkbox', { name: 'Validation finale par un responsable' }));
     await userEvent.click(within(dialog).getByRole('checkbox', { name: 'Photo de preuve obligatoire' }));
     await userEvent.click(within(dialog).getByRole('combobox', { name: 'Destinataires' }));
@@ -247,10 +248,28 @@ describe('Catégories', () => {
     expect(writes[0]).toMatchObject({
       url: '/api/admin/categories',
       method: 'POST',
-      body: { name: 'Travaux', circuit: 'B_ADMIN_VALIDATION', finalValidation: true, photoRequired: true, assignmentMode: 'MANUAL' },
+      body: { name: 'Travaux', routingMode: 'VIA_ADMIN', circuit: 'B_ADMIN_VALIDATION', finalValidation: true, photoRequired: true, assignmentMode: 'MANUAL' },
     });
     expect(writes[1]).toMatchObject({ url: '/api/admin/categories/c2/recipients', body: { userIds: ['e1'] } });
     expect(writes[2]).toMatchObject({ url: '/api/admin/categories/c2/managers', body: { userIds: ['m1'] } });
+  });
+
+  it('mode « entre enseignants » : envoyé avec le circuit direct ; clôture par l’administration impossible hors validation', async () => {
+    const created = { ...CATEGORY, id: 'c3', name: 'Enseignants', routingMode: 'PEER', recipients: [], managers: [] };
+    const { calls } = setup('/admin/categories', (url, method) => (url === '/api/admin/categories' && method === 'POST' ? json(201, created) : undefined));
+    await userEvent.click(await screen.findByRole('button', { name: 'Nouvelle catégorie' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Nouvelle catégorie' });
+    await userEvent.type(within(dialog).getByLabelText(/Nom de la catégorie/), 'Enseignants');
+    await userEvent.click(within(dialog).getByRole('radio', { name: 'Entre enseignants' }));
+    expect(within(dialog).getByText(/Un enseignant écrit directement à un collègue/)).toBeVisible();
+
+    await userEvent.click(within(dialog).getByRole('combobox', { name: 'Clôture' }));
+    expect(await screen.findByRole('option', { name: 'Par un responsable' })).toHaveAttribute('aria-disabled', 'true');
+    await userEvent.click(screen.getByRole('option', { name: 'Par le demandeur' }));
+
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Enregistrer la catégorie' }));
+    await waitFor(() => expect(calls.some((c) => c.method === 'POST')).toBe(true));
+    expect(calls.find((c) => c.method === 'POST')?.body).toMatchObject({ name: 'Enseignants', routingMode: 'PEER', circuit: 'A_DIRECT', closureMode: 'REQUESTER' });
   });
 
   it('valide les délais (entiers positifs ou vides) avant de les enregistrer', async () => {

@@ -62,8 +62,8 @@ describe('Création de demandes', () => {
       expect(res.status).toBe(200);
       expect(res.body).toEqual(
         expect.arrayContaining([
-          { id: photocopies, name: 'Photocopies', circuit: 'A_DIRECT', photoRequired: false },
-          expect.objectContaining({ id: circuitB, circuit: 'B_ADMIN_VALIDATION', photoRequired: true }),
+          { id: photocopies, name: 'Photocopies', circuit: 'A_DIRECT', routingMode: 'DIRECT', photoRequired: false },
+          expect.objectContaining({ id: circuitB, circuit: 'B_ADMIN_VALIDATION', routingMode: 'VIA_ADMIN', photoRequired: true }),
         ]),
       );
     });
@@ -80,7 +80,7 @@ describe('Création de demandes', () => {
     it('liste les destinataires actifs d’une catégorie en circuit A, aucun en circuit B', async () => {
       const a = await api().get(`/api/categories/${photocopies}/recipients`).set('Cookie', enseignante);
       expect(a.status).toBe(200);
-      expect(a.body).toEqual([{ id: reprographieId, displayName: 'Reprographie', jobTitle: 'Reprographie' }]);
+      expect(a.body).toEqual([{ id: reprographieId, displayName: 'Reprographie', jobTitle: 'Reprographie', availability: 'AVAILABLE' }]);
       const b = await api().get(`/api/categories/${circuitB}/recipients`).set('Cookie', enseignante);
       expect(b.body).toEqual([]);
     });

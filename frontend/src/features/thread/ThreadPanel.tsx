@@ -158,7 +158,7 @@ export function ThreadPanel({ requestId, requestTitle, canWrite, readOnly = fals
         ) : (
           <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Lock size={icon.sm} aria-hidden="true" />
-            Cette demande est terminée : la discussion est fermée.
+            Vous consultez cette demande : seuls le demandeur et la personne affectée y échangent.
           </Typography>
         )}
       </Box>

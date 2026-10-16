@@ -7,6 +7,7 @@ import {
   canPickRecipient,
   canReadRequest,
   canWriteInThread,
+  isObserver,
   isReadOnlyStatus,
   type PolicyCategory,
   type PolicyRequest,
@@ -45,6 +46,8 @@ const category: PolicyCategory = {
   creatorRoles: ['EMPLOYEE', 'MANAGER'],
   recipientIds: new Set(['reprographie', 'reprographie-2']),
   managerIds: new Set(['responsable']),
+  // Matrice historique : l'administration agit (validation, réaffectation). DIRECT et PEER : voir plus bas.
+  routingMode: 'VIA_ADMIN',
 };
 
 const rules: RulesSnapshot = {
@@ -228,5 +231,52 @@ describe('Demande en lecture seule', () => {
       }
     }
     expect(canWriteInThread(enseignante, request('TO_CORRECT'), category)).toBe(true);
+  });
+});
+
+describe('Mode de routage', () => {
+  const direct: PolicyCategory = { ...category, routingMode: 'DIRECT' };
+  const peer: PolicyCategory = { ...category, id: 'enseignants', routingMode: 'PEER', recipientIds: new Set(['collegue']) };
+  const toColleague = (status: RequestStatus) => request(status, { assigneeId: 'collegue', categoryId: 'enseignants' });
+  const collegue = user('collegue', 'EMPLOYEE');
+
+  it('DIRECT et PEER : toute l’administration consulte, en lecture seule, sans action', () => {
+    for (const [cat, req] of [[direct, request('IN_PROGRESS')], [peer, toColleague('IN_PROGRESS')]] as const) {
+      for (const admin of [responsable, autreResponsable, superadmin]) {
+        expect(canReadRequest(admin, req, cat)).toBe(true);
+        expect(isObserver(admin, req, cat)).toBe(true);
+        expect(allowedActions(admin, req, cat)).toEqual([]);
+        expect(canWriteInThread(admin, req, cat)).toBe(false);
+      }
+      expect(canReadRequest(autreEmploye, req, cat)).toBe(false);
+    }
+  });
+
+  it('DIRECT et PEER : le demandeur et le destinataire gardent leurs droits', () => {
+    expect(canWriteInThread(enseignante, request('SENT'), direct)).toBe(true);
+    expect(allowedActions(reprographie, request('SENT'), direct)).toEqual(expect.arrayContaining(['ACCEPT']));
+    expect(canWriteInThread(collegue, toColleague('SENT'), peer)).toBe(true);
+    expect(allowedActions(enseignante, toColleague('SENT'), peer)).toEqual(expect.arrayContaining(['CANCEL']));
+  });
+
+  it('VIA_ADMIN : seuls les responsables de la catégorie et le super administrateur voient et valident', () => {
+    const pending = request('PENDING_ADMIN_VALIDATION', { assigneeId: null, rules: { ...rules, circuit: 'B_ADMIN_VALIDATION' } });
+    expect(allowedActions(responsable, pending, category)).toEqual(expect.arrayContaining(['APPROVE', 'REJECT']));
+    expect(allowedActions(superadmin, pending, category)).toEqual(expect.arrayContaining(['APPROVE', 'REJECT']));
+    expect(canReadRequest(autreResponsable, pending, category)).toBe(false);
+    expect(canReadRequest(reprographie, pending, category)).toBe(false);
+    expect(allowedActions(enseignante, pending, category)).toEqual(['CANCEL', 'CHANGE_PRIORITY']);
+  });
+
+  it('une clôture confiée à l’administration (catégorie antérieure) reste possible en DIRECT, sans autre action', () => {
+    const done = request('DONE', { rules: { ...rules, closureMode: 'MANAGER' } });
+    expect(allowedActions(responsable, done, direct)).toEqual(['CLOSE']);
+  });
+
+  it('l’administration peut créer dans toute catégorie active', () => {
+    const employeesOnly: PolicyCategory = { ...category, creatorRoles: ['EMPLOYEE'] };
+    expect(canCreateInCategory(responsable, employeesOnly)).toBe(true);
+    expect(canCreateInCategory(enseignante, { ...category, creatorRoles: ['MANAGER'] })).toBe(false);
+    expect(canCreateInCategory(responsable, { ...employeesOnly, active: false })).toBe(false);
   });
 });

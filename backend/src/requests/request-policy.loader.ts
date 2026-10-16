@@ -33,6 +33,7 @@ export function toPolicyCategory(category: CategoryWithMembers): PolicyCategory 
     creatorRoles: category.creatorRoles,
     recipientIds: new Set(category.recipients.map((r) => r.userId)),
     managerIds: new Set(category.managers.map((m) => m.userId)),
+    routingMode: category.routingMode,
   };
 }
 

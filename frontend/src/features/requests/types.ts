@@ -1,12 +1,15 @@
 import type { Priority, RequestStatus } from '../../api/types';
 
 export type Circuit = 'A_DIRECT' | 'B_ADMIN_VALIDATION';
+/** VIA_ADMIN : validation par l'administration ; DIRECT : vers le service ; PEER : entre enseignants. */
+export type RoutingMode = 'VIA_ADMIN' | 'DIRECT' | 'PEER';
 export type DeadlineStage = 'VALIDATION' | 'TAKEOVER' | 'COMPLETION';
 
 export interface CategoryOption {
   id: string;
   name: string;
   circuit: Circuit;
+  routingMode: RoutingMode;
   photoRequired: boolean;
 }
 
@@ -14,6 +17,8 @@ export interface RecipientOption {
   id: string;
   displayName: string;
   jobTitle: string | null;
+  /** « ABSENT » : signalé au demandeur, sans bloquer l'envoi. */
+  availability: 'AVAILABLE' | 'UNAVAILABLE' | 'ABSENT';
 }
 
 export interface PersonRef {

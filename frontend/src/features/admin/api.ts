@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { apiFetch } from '../../api/client';
 import type { Priority, Role } from '../../api/types';
+import type { RoutingMode } from '../requests/types';
 
 export interface AdminUser {
   id: string;
@@ -16,6 +17,7 @@ export interface AdminUser {
 }
 
 export type Circuit = 'A_DIRECT' | 'B_ADMIN_VALIDATION';
+export type { RoutingMode };
 export type ClosureMode = 'AUTO' | 'REQUESTER' | 'MANAGER';
 export type AssignmentMode = 'MANUAL' | 'AUTO';
 /** Demandes de travail ou couverture de classe ; fixé à la création. */
@@ -41,6 +43,7 @@ export interface AdminCategory {
   name: string;
   active: boolean;
   circuit: Circuit;
+  routingMode: RoutingMode;
   creatorRoles: Role[];
   closureMode: ClosureMode;
   autoCloseAfterMinutes: number;

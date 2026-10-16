@@ -125,11 +125,11 @@ describe('ThreadPanel', () => {
     expect(screen.getByRole('link', { name: /Télécharger consignes\.pdf/ })).toHaveAttribute('href', '/api/files/f2');
   });
 
-  it('masque le formulaire quand la discussion est fermée', async () => {
+  it('masque le formulaire pour qui consulte sans participer (administration en lecture seule)', async () => {
     setup({ canWrite: false });
     await screen.findByRole('list', { name: 'Messages' });
     expect(screen.queryByLabelText('Votre message')).not.toBeInTheDocument();
-    expect(screen.getByText(/la discussion est fermée/)).toBeVisible();
+    expect(screen.getByText(/Vous consultez cette demande/)).toBeVisible();
   });
 
   it('refuse un message vide', async () => {

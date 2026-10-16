@@ -51,7 +51,7 @@ test('V16 — le super administrateur crée un compte, une catégorie circuit B 
   await page.getByRole('button', { name: 'Nouvelle catégorie' }).click();
   const categoryDialog = page.getByRole('dialog', { name: 'Nouvelle catégorie' });
   await categoryDialog.getByLabel(/Nom de la catégorie/).fill(categoryName);
-  await categoryDialog.getByRole('radio', { name: /Circuit B/ }).check();
+  await categoryDialog.getByRole('radio', { name: /Via l’administration/ }).check();
   await categoryDialog.getByRole('checkbox', { name: 'Photo de preuve obligatoire' }).check();
   await categoryDialog.getByRole('combobox', { name: 'Destinataires' }).click();
   await page.getByRole('option', { name: 'Reprographie', exact: true }).click();

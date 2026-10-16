@@ -88,7 +88,8 @@ describe('Délais et retards', () => {
     expect(events[0]).toMatchObject({ actorId: null, toValue: { stage: 'TAKEOVER' } });
 
     const notified = await prisma.notification.findMany({ where: { requestId: id, type: 'OVERDUE' } });
-    expect(notified.map((n) => n.userId).sort()).toEqual([reprographieId, responsableId].sort());
+    // Mode direct : l'employé affecté seulement ; l'administration consulte sans être notifiée.
+    expect(notified.map((n) => n.userId)).toEqual([reprographieId]);
 
     const detail = await api().get(`/api/requests/${id}`).set('Cookie', enseignante);
     expect(detail.status).toBe(200);
@@ -136,7 +137,7 @@ describe('Délais et retards', () => {
     });
   });
 
-  it('en circuit B, un retard de validation est signalé aux responsables', async () => {
+  it('via l’administration (circuit B), un retard de validation est signalé aux responsables', async () => {
     const { id } = await create(CATEGORIES.circuitB, 'NORMAL', false);
     const stored = await prisma.request.findUniqueOrThrow({ where: { id } });
     expect(stored.currentStage).toBe('VALIDATION');

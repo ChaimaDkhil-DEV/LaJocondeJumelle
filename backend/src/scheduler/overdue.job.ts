@@ -65,9 +65,13 @@ export class OverdueJob {
       RETURNING "id", "currentStage", "status", "version", "priority", "requesterId", "assigneeId", "categoryId"`;
 
     for (const row of rows) {
-      const managers = (await this.prisma.categoryManager.findMany({ where: { categoryId: row.categoryId } })).map(
-        (m) => m.userId,
-      );
+      // Responsables prévenus seulement en mode « via l'administration » : ailleurs, l'administration
+      // consulte sans avoir d'action à faire (le super administrateur garde ses propres alertes).
+      const category = await this.prisma.category.findUnique({ where: { id: row.categoryId }, select: { routingMode: true } });
+      const managers =
+        category?.routingMode === 'VIA_ADMIN'
+          ? (await this.prisma.categoryManager.findMany({ where: { categoryId: row.categoryId } })).map((m) => m.userId)
+          : [];
       const pending = await this.prisma.$transaction(async (tx) => {
         await tx.requestEvent.create({
           data: { requestId: row.id, actorId: null, type: 'OVERDUE', toValue: { stage: row.currentStage } },

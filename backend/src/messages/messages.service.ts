@@ -8,7 +8,7 @@ import { PrismaService } from '../common/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { SuperAdminAlertsService } from '../notifications/super-admin-alerts.service';
 import { RealtimeService } from '../realtime/realtime.service';
-import { canReadRequest, canWriteInThread } from '../requests/domain/access-policy';
+import { canReadRequest, canWriteInThread, isReadOnlyStatus } from '../requests/domain/access-policy';
 import {
   RequestPolicyLoader,
   toPolicyCategory,
@@ -80,7 +80,13 @@ export class MessagesService {
 
     if (!canWriteInThread(user, toPolicyRequest(request), toPolicyCategory(category))) {
       await this.logDenied(user, requestId, ctx, 'THREAD_CLOSED');
-      throw new AppException('FORBIDDEN', undefined, 'Cette demande est terminée : il n’est plus possible d’y répondre.');
+      throw new AppException(
+        'FORBIDDEN',
+        undefined,
+        isReadOnlyStatus(request.status)
+          ? 'Cette demande est terminée : il n’est plus possible d’y répondre.'
+          : 'Vous consultez cette demande : seuls le demandeur et la personne affectée y échangent.',
+      );
     }
 
     const attachmentIds = [...new Set(dto.attachmentFileIds ?? [])];
