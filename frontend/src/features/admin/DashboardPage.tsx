@@ -155,7 +155,7 @@ function Filters({ value, onChange }: { value: DashboardFilters; onChange: (patc
         <MenuItem value="90">90 derniers jours</MenuItem>
         <MenuItem value="custom">Personnalisée</MenuItem>
       </TextField>
-      <TextField select id="tdb-categorie" label="Catégorie (service)" size="small" value={value.categoryId} onChange={(e) => onChange({ categoryId: e.target.value })}>
+      <TextField select id="tdb-categorie" label="Catégorie (service)" size="small" value={value.categoryId} onChange={(e) => onChange({ categoryId: e.target.value })} slotProps={{ select: { displayEmpty: true } }}>
         <MenuItem value="">Toutes</MenuItem>
         {workCategories.map((c) => (
           <MenuItem key={c.id} value={c.id}>
@@ -163,7 +163,7 @@ function Filters({ value, onChange }: { value: DashboardFilters; onChange: (patc
           </MenuItem>
         ))}
       </TextField>
-      <TextField select id="tdb-priorite" label="Priorité" size="small" value={value.priority} onChange={(e) => onChange({ priority: e.target.value })}>
+      <TextField select id="tdb-priorite" label="Priorité" size="small" value={value.priority} onChange={(e) => onChange({ priority: e.target.value })} slotProps={{ select: { displayEmpty: true } }}>
         <MenuItem value="">Toutes</MenuItem>
         {PRIORITIES.map((p) => (
           <MenuItem key={p} value={p}>
@@ -171,7 +171,7 @@ function Filters({ value, onChange }: { value: DashboardFilters; onChange: (patc
           </MenuItem>
         ))}
       </TextField>
-      <TextField select id="tdb-employe" label="Employé" size="small" value={value.employeeId} onChange={(e) => onChange({ employeeId: e.target.value })}>
+      <TextField select id="tdb-employe" label="Employé" size="small" value={value.employeeId} onChange={(e) => onChange({ employeeId: e.target.value })} slotProps={{ select: { displayEmpty: true } }}>
         <MenuItem value="">Tous</MenuItem>
         {(users.data ?? []).map((u) => (
           <MenuItem key={u.id} value={u.id}>
@@ -181,8 +181,8 @@ function Filters({ value, onChange }: { value: DashboardFilters; onChange: (patc
       </TextField>
       {value.preset === 'custom' && (
         <>
-          <TextField id="tdb-du" label="Du" type="date" size="small" value={value.from} onChange={(e) => onChange({ from: e.target.value })} slotProps={{ inputLabel: { shrink: true } }} />
-          <TextField id="tdb-au" label="Au" type="date" size="small" value={value.to} onChange={(e) => onChange({ to: e.target.value })} slotProps={{ inputLabel: { shrink: true } }} />
+          <TextField id="tdb-du" label="Du" type="date" size="small" value={value.from} onChange={(e) => onChange({ from: e.target.value })} />
+          <TextField id="tdb-au" label="Au" type="date" size="small" value={value.to} onChange={(e) => onChange({ to: e.target.value })} />
         </>
       )}
     </Paper>

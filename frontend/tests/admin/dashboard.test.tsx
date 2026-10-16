@@ -87,7 +87,10 @@ const ACTIVITY = {
   ],
 };
 
-beforeAll(() => {
+beforeAll(async () => {
+  // Route chargée à la demande : on précharge le module (Recharts compris) pour que les délais
+  // des tests ne dépendent pas du temps de transformation au premier import.
+  await import('../../src/features/admin/DashboardPage');
   // jsdom n'implémente pas ResizeObserver (conteneurs adaptatifs des graphiques).
   globalThis.ResizeObserver ??= class {
     observe() {}
