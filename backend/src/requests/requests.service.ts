@@ -7,6 +7,7 @@ import { buildPage, decodeCursor, parseLimit, type Page } from '../common/pagina
 import { PrismaService } from '../common/prisma.service';
 import { FileStorageService } from '../files/file-storage.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { SuperAdminAlertsService } from '../notifications/super-admin-alerts.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { SettingsService } from '../settings/settings.service';
 import { allowedActions, canCreateInCategory, canPickRecipient, canReadRequest } from './domain/access-policy';
@@ -57,6 +58,7 @@ export class RequestsService {
     private readonly storage: FileStorageService,
     private readonly transitions: RequestTransitionsService,
     private readonly realtime: RealtimeService,
+    private readonly superAdminAlerts: SuperAdminAlertsService,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -325,7 +327,7 @@ export class RequestsService {
     if (dto.version !== request.version) throw new AppException('STATE_CHANGED');
     if (dto.priority === request.priority) throw fieldError('priority', 'Choisissez une priorité différente.');
 
-    await this.prisma.$transaction(async (tx) => {
+    const pending = await this.prisma.$transaction(async (tx) => {
       const { count } = await tx.request.updateMany({
         where: { id, version: request.version },
         data: { priority: dto.priority, version: { increment: 1 } },
@@ -340,7 +342,10 @@ export class RequestsService {
           toValue: { priority: dto.priority },
         },
       });
+      // Passage en « Urgente » : alerte du super administrateur, une seule fois par demande.
+      return dto.priority === 'URGENT' ? this.superAdminAlerts.alertInTx(tx, id, 'URGENT', user.id) : [];
     });
+    await this.notifications.flushAfterCommit(pending);
     this.realtime.emitToUsers(
       [request.requesterId, request.assigneeId, ...category.managers.map((m) => m.userId)],
       'request:updated',

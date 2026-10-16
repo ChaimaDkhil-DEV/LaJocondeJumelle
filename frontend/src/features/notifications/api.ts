@@ -23,7 +23,9 @@ export type NotificationType =
   | 'COVERAGE_LATE'
   | 'COVERAGE_UNFILLED'
   | 'COVERAGE_EXTENDED'
-  | 'COVERAGE_RELIEVED';
+  | 'COVERAGE_RELIEVED'
+  // Super administrateur : demande active sans employé affecté, délai bientôt dépassé
+  | 'UNASSIGNED';
 
 /** Demande de travail ou couverture de classe : détermine la page ouverte. */
 export type RequestKind = 'WORK' | 'COVERAGE';
@@ -70,6 +72,7 @@ export const NOTIFICATION_LABELS: Record<NotificationType, string> = {
   COVERAGE_UNFILLED: 'Garde non pourvue',
   COVERAGE_EXTENDED: 'Garde prolongée',
   COVERAGE_RELIEVED: 'Garde terminée',
+  UNASSIGNED: 'Demande sans responsable',
 };
 
 /** Page de la demande liée : les couvertures ont leurs propres écrans. */

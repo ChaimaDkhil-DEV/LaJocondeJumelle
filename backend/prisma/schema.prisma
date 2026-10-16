@@ -177,6 +177,8 @@ enum NotificationType {
   COVERAGE_UNFILLED
   COVERAGE_EXTENDED
   COVERAGE_RELIEVED
+  /// Super administrateur : demande active sans employé affecté, délai bientôt dépassé.
+  UNASSIGNED
 }
 
 /// Utilisateur. `username` est unique et insensible à la casse : il est toujours
@@ -351,6 +353,11 @@ model Request {
   finalValidatedAt DateTime?      @db.Timestamptz(3)
   closedAt         DateTime?      @db.Timestamptz(3)
   cancelledAt      DateTime?      @db.Timestamptz(3)
+  /// Alertes du super administrateur : une seule fois par demande et par type, marqueur posé par
+  /// mise à jour conditionnelle (urgente, sans employé affecté, en retard).
+  superAdminUrgentNotifiedAt     DateTime? @db.Timestamptz(3)
+  superAdminUnassignedNotifiedAt DateTime? @db.Timestamptz(3)
+  superAdminOverdueNotifiedAt    DateTime? @db.Timestamptz(3)
   updatedAt        DateTime       @updatedAt @db.Timestamptz(3)
 
   voiceFile     File?              @relation("RequestVoice", fields: [voiceFileId], references: [id])

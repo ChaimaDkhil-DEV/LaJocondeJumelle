@@ -108,11 +108,12 @@ describe('Circuit B — validation administrative', () => {
     expect(approved.body.timestamps.assignedAt).toBeTruthy();
 
     const notifications = await prisma.notification.findMany({ where: { requestId: id }, orderBy: { createdAt: 'asc' } });
-    expect(notifications.map((n) => [n.userId, n.type])).toEqual([
-      [responsableId, 'URGENT'],
-      [enseignanteId, 'STATUS_CHANGED'],
-      [reprographieId, 'URGENT'],
-    ]);
+    // Le super administrateur n'a reçu qu'une alerte « urgente », à la soumission (pas à l'approbation).
+    const superadminId = await userId(prisma, 'superadmin');
+    const sent = notifications.map((n) => `${n.userId}:${n.type}`).sort();
+    expect(sent).toEqual(
+      [`${responsableId}:URGENT`, `${superadminId}:URGENT`, `${enseignanteId}:STATUS_CHANGED`, `${reprographieId}:URGENT`].sort(),
+    );
     expect((await api().get(`/api/requests/${id}`).set('Cookie', reprographie)).status).toBe(200);
   });
 

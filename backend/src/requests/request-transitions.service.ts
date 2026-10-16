@@ -5,10 +5,11 @@ import type { AuthenticatedUser } from '../auth/auth.types';
 import { AppException } from '../common/errors';
 import { PrismaService } from '../common/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { SuperAdminAlertsService } from '../notifications/super-admin-alerts.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { SettingsService } from '../settings/settings.service';
 import { nextDeadlineState } from './domain/deadlines';
-import { actorsFor, canPickRecipient, canReadRequest } from './domain/access-policy';
+import { actorsFor, canPickRecipient, canReadRequest, isReadOnlyStatus } from './domain/access-policy';
 import {
   applyAction,
   type ActionContext,
@@ -116,6 +117,7 @@ export class RequestTransitionsService {
     private readonly audit: AuditService,
     private readonly realtime: RealtimeService,
     private readonly settings: SettingsService,
+    private readonly superAdminAlerts: SuperAdminAlertsService,
   ) {}
 
   /** Action d'un utilisateur (POST /requests/:id/actions). */
@@ -230,7 +232,12 @@ export class RequestTransitionsService {
       });
     }
 
-    return this.notify(tx, before, after, category, result, actorId);
+    const notified = await this.notify(tx, before, after, category, result, actorId);
+    // Super administrateur : alerte « urgente » une seule fois (envoi d'une demande urgente) ;
+    // fin de demande : ses notifications de supervision deviennent caduques.
+    const alerts = after.priority === 'URGENT' ? await this.superAdminAlerts.alertInTx(tx, after.id, 'URGENT', actorId) : [];
+    if (isReadOnlyStatus(after.status)) await this.superAdminAlerts.clearOnFinishInTx(tx, after);
+    return [...notified, ...alerts];
   }
 
   // ---------------------------------------------------------------------------
