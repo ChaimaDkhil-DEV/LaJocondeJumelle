@@ -164,7 +164,9 @@ describe('Circuit B — validation administrative', () => {
     ).resolves.toBe(1);
 
     const managerView = await api().get(`/api/requests/${id}`).set('Cookie', responsable);
-    expect(managerView.body.allowedActions.sort()).toEqual(['CHANGE_PRIORITY', 'REQUEST_CORRECTION', 'VALIDATE_FINAL']);
+    // Travail terminé : lecture seule, la priorité est figée ; seules restent les actions du circuit.
+    expect(managerView.body.allowedActions.sort()).toEqual(['REQUEST_CORRECTION', 'VALIDATE_FINAL']);
+    expect(managerView.body.canWriteInThread).toBe(false);
     const requesterView = await api().get(`/api/requests/${id}`).set('Cookie', enseignante);
     expect(requesterView.body.allowedActions).toEqual([]);
 

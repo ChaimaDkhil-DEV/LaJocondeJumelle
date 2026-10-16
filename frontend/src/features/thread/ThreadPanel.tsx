@@ -20,6 +20,8 @@ interface ThreadPanelProps {
   requestId: string;
   requestTitle: string;
   canWrite: boolean;
+  /** Demande terminée : formulaire de réponse affiché désactivé (consultation uniquement). */
+  readOnly?: boolean;
 }
 
 /** Message système (changement de statut…) : ligne centrée, discrète. */
@@ -112,7 +114,7 @@ function MessageItem({ message, own }: { message: ThreadMessage; own: boolean })
 }
 
 /** Fil de discussion d'une demande, du plus ancien au plus récent, avec le formulaire de réponse. */
-export function ThreadPanel({ requestId, requestTitle, canWrite }: ThreadPanelProps) {
+export function ThreadPanel({ requestId, requestTitle, canWrite, readOnly = false }: ThreadPanelProps) {
   const thread = useMessages(requestId);
   const me = useCurrentUser();
   // L'API renvoie les pages du plus récent au plus ancien : on remet le fil dans l'ordre chronologique.
@@ -134,7 +136,12 @@ export function ThreadPanel({ requestId, requestTitle, canWrite }: ThreadPanelPr
             </Box>
           )}
           {messages.length === 0 ? (
-            <EmptyState compact icon={MessagesSquare} title="Aucun message" description="Posez une question ou apportez une précision." />
+            <EmptyState
+              compact
+              icon={MessagesSquare}
+              title="Aucun message"
+              description={canWrite ? 'Posez une question ou apportez une précision.' : 'Aucun message n’a été échangé sur cette demande.'}
+            />
           ) : (
             <Box component="ol" aria-label="Messages" sx={{ p: 0, m: 0, display: 'grid', gap: 2 }}>
               {messages.map((m) => (
@@ -146,8 +153,8 @@ export function ThreadPanel({ requestId, requestTitle, canWrite }: ThreadPanelPr
       )}
 
       <Box sx={{ mt: 3, pt: 3, borderTop: 1, borderColor: 'divider' }}>
-        {canWrite ? (
-          <MessageComposer requestId={requestId} requestTitle={requestTitle} />
+        {canWrite || readOnly ? (
+          <MessageComposer requestId={requestId} requestTitle={requestTitle} disabled={!canWrite} />
         ) : (
           <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Lock size={icon.sm} aria-hidden="true" />

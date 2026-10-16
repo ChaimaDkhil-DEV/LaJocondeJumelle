@@ -35,6 +35,17 @@ export function isFinalStatus(status: RequestStatus): boolean {
   return FINAL_STATUSES.includes(status);
 }
 
+/**
+ * Demande en lecture seule : finale, ou travail terminé (en attente de clôture ou de validation
+ * finale). Discussion, pièces jointes et priorité sont figées ; seules restent les actions du
+ * circuit (clôturer, valider, renvoyer à corriger), dont le motif est saisi avec l'action.
+ */
+const READ_ONLY_STATUSES: readonly RequestStatus[] = [...FINAL_STATUSES, 'DONE', 'PENDING_FINAL_VALIDATION'];
+
+export function isReadOnlyStatus(status: RequestStatus): boolean {
+  return READ_ONLY_STATUSES.includes(status);
+}
+
 /** Relations de l'utilisateur avec la demande. Le super administrateur agit comme responsable. */
 export function actorsFor(user: PolicyUser, req: PolicyRequest, category: PolicyCategory): Actor[] {
   if (!user.active) return [];
@@ -69,8 +80,7 @@ export function allowedActions(user: PolicyUser, req: PolicyRequest, category: P
   const managedPriority =
     actors.includes('MANAGER') &&
     user.permissions.has('PRIORITY_CHANGE_MANAGED') &&
-    !isFinalStatus(req.status) &&
-    req.status !== 'DONE' &&
+    !isReadOnlyStatus(req.status) &&
     req.status !== 'DRAFT';
   if (ownPriority || managedPriority) actions.push('CHANGE_PRIORITY');
 
@@ -92,5 +102,5 @@ export function canPickRecipient(
 }
 
 export function canWriteInThread(user: PolicyUser, req: PolicyRequest, category: PolicyCategory): boolean {
-  return req.status !== 'DRAFT' && !isFinalStatus(req.status) && canReadRequest(user, req, category);
+  return req.status !== 'DRAFT' && !isReadOnlyStatus(req.status) && canReadRequest(user, req, category);
 }

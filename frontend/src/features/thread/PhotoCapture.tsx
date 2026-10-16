@@ -23,13 +23,15 @@ interface PhotoCaptureProps {
   max?: number;
   /** Début du texte alternatif des aperçus (« Photo de preuve 1 »). */
   altPrefix?: string;
+  /** Demande en lecture seule : ni prise de photo ni galerie. */
+  disabled?: boolean;
 }
 
 /**
  * Prise de photo (appareil) ou choix dans la galerie, téléversement immédiat (kind=PHOTO).
  * Le serveur retire les métadonnées (dont la position GPS) et refuse les formats non acceptés.
  */
-export function PhotoCapture({ value, onChange, requestId, max = 5, altPrefix = 'Photo de preuve' }: PhotoCaptureProps) {
+export function PhotoCapture({ value, onChange, requestId, max = 5, altPrefix = 'Photo de preuve', disabled = false }: PhotoCaptureProps) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -64,14 +66,14 @@ export function PhotoCapture({ value, onChange, requestId, max = 5, altPrefix = 
           icon={<Camera size={icon.md} aria-hidden="true" />}
           accept="image/*"
           capture="environment"
-          disabled={full || uploading}
+          disabled={disabled || full || uploading}
           onChange={(e) => void handleFile(e)}
         />
         <FilePickerButton
           label="Choisir dans la galerie"
           icon={<Images size={icon.md} aria-hidden="true" />}
           accept="image/*"
-          disabled={full || uploading}
+          disabled={disabled || full || uploading}
           onChange={(e) => void handleFile(e)}
         />
       </Box>

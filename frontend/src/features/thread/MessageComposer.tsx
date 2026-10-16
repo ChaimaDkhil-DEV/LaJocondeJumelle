@@ -23,6 +23,8 @@ import { PhotoCapture, type UploadedPhoto } from './PhotoCapture';
 interface ComposerProps {
   requestId: string;
   requestTitle: string;
+  /** Demande en lecture seule : formulaire visible mais désactivé (le serveur refuse aussi l'envoi). */
+  disabled?: boolean;
 }
 
 interface UploadedDocument {
@@ -33,7 +35,7 @@ interface UploadedDocument {
 const EMPTY_MESSAGE = 'Écrivez un message, enregistrez un vocal ou joignez un fichier.';
 
 /** Réponse dans le fil : texte, vocal, photos et documents PDF. */
-export function MessageComposer({ requestId, requestTitle }: ComposerProps) {
+export function MessageComposer({ requestId, requestTitle, disabled = false }: ComposerProps) {
   const queryClient = useQueryClient();
   const { voiceMaxSeconds } = useClientSettings();
   const [clientId, setClientId] = useState(() => crypto.randomUUID());
@@ -75,6 +77,7 @@ export function MessageComposer({ requestId, requestTitle }: ComposerProps) {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
+    if (disabled) return;
     setError(null);
     const trimmed = text.trim();
     const attachmentFileIds = [...photos.map((p) => p.id), ...documents.map((d) => d.id)];
@@ -136,18 +139,19 @@ export function MessageComposer({ requestId, requestTitle }: ComposerProps) {
           onChange={(e) => setText(e.target.value)}
           multiline
           minRows={2}
+          disabled={disabled}
           error={emptyError}
           helperText={emptyError ? EMPTY_MESSAGE : undefined}
           slotProps={{ htmlInput: { maxLength: 4000 } }}
         />
-        <VoiceRecorder key={voiceKey} maxSeconds={voiceMaxSeconds} value={voice} onChange={setVoice} />
-        <PhotoCapture value={photos} onChange={setPhotos} requestId={requestId} altPrefix="Photo à joindre" />
+        <VoiceRecorder key={voiceKey} maxSeconds={voiceMaxSeconds} value={voice} onChange={setVoice} disabled={disabled} />
+        <PhotoCapture value={photos} onChange={setPhotos} requestId={requestId} altPrefix="Photo à joindre" disabled={disabled} />
         <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
           <FilePickerButton
             label="Joindre un PDF"
             icon={<Paperclip size={icon.md} aria-hidden="true" />}
             accept="application/pdf"
-            disabled={uploadingDocument}
+            disabled={disabled || uploadingDocument}
             onChange={(e) => void handleDocument(e)}
           />
           {documents.map((doc) => (
@@ -161,7 +165,7 @@ export function MessageComposer({ requestId, requestTitle }: ComposerProps) {
           ))}
         </Box>
         <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <Button type="submit" variant="contained" loading={sending} startIcon={<Send size={icon.sm} aria-hidden="true" />}>
+          <Button type="submit" variant="contained" disabled={disabled} loading={sending} startIcon={<Send size={icon.sm} aria-hidden="true" />}>
             Envoyer le message
           </Button>
         </Box>

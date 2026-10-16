@@ -7,6 +7,7 @@ import {
   canPickRecipient,
   canReadRequest,
   canWriteInThread,
+  isReadOnlyStatus,
   type PolicyCategory,
   type PolicyRequest,
 } from '../../src/requests/domain/access-policy';
@@ -209,5 +210,23 @@ describe('canWriteInThread', () => {
     for (const status of ['CLOSED', 'REJECTED', 'CANCELLED', 'DRAFT'] as const) {
       expect(canWriteInThread(enseignante, request(status), category)).toBe(false);
     }
+  });
+});
+
+describe('Demande en lecture seule', () => {
+  it('fige le travail terminé et les statuts finaux, pas les demandes actives', () => {
+    const readOnly = ['DONE', 'PENDING_FINAL_VALIDATION', 'CLOSED', 'REJECTED', 'CANCELLED'];
+    const all: RequestStatus[] = ['DRAFT', 'PENDING_ADMIN_VALIDATION', 'SENT', 'ACCEPTED', 'IN_PROGRESS', 'TO_CORRECT', ...(readOnly as RequestStatus[])];
+    expect(all.filter(isReadOnlyStatus).sort()).toEqual([...readOnly].sort());
+  });
+
+  it('ferme la discussion à tous les participants et retire le changement de priorité', () => {
+    for (const status of ['DONE', 'PENDING_FINAL_VALIDATION'] as const) {
+      for (const user of [enseignante, reprographie, responsable]) {
+        expect(canWriteInThread(user, request(status), category)).toBe(false);
+        expect(allowedActions(user, request(status), category)).not.toContain('CHANGE_PRIORITY');
+      }
+    }
+    expect(canWriteInThread(enseignante, request('TO_CORRECT'), category)).toBe(true);
   });
 });

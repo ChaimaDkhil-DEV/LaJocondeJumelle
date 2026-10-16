@@ -31,9 +31,11 @@ import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { STATUS_LABELS } from '../../components/StatusBadge';
 import { icon } from '../../design/tokens';
 import { PhotoCapture, type UploadedPhoto } from '../thread/PhotoCapture';
+import { useCurrentUser } from '../auth/useCurrentUser';
 import { requestKeys } from './api';
 import { ApprovalDialog } from './ApprovalDialog';
 import { PriorityDialog } from './PriorityDialog';
+import { isReadOnlyStatus } from './readOnly';
 import { ReasonDialog } from './ReasonDialog';
 import { ReassignDialog } from './ReassignDialog';
 import type { RequestDetail } from './types';
@@ -87,6 +89,7 @@ interface ActionBody {
 /** Boutons d'action d'une demande : uniquement ceux de `allowedActions` (calculés par le serveur). */
 export function RequestActions({ request }: { request: RequestDetail }) {
   const queryClient = useQueryClient();
+  const me = useCurrentUser();
   const completeTitleId = useId();
   const [dialog, setDialog] = useState<Dialogs>(null);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
@@ -162,6 +165,8 @@ export function RequestActions({ request }: { request: RequestDetail }) {
   const error = anyError instanceof ApiError ? anyError.message : anyError ? 'Action impossible.' : null;
   // Un seul bouton principal : la première action « positive » permise ; les autres restent secondaires.
   const primaryAction = actions.find((a) => PRIMARY.has(a));
+  // Demande en lecture seule : le demandeur voit ses actions d'édition, désactivées (le serveur les refuse).
+  const frozenForRequester = isReadOnlyStatus(request.status) && me.data?.id === request.requester.id;
 
   return (
     <Box>
@@ -173,7 +178,7 @@ export function RequestActions({ request }: { request: RequestDetail }) {
           {error}
         </Alert>
       )}
-      {(actions.length > 0 || canChangePriority) && (
+      {(actions.length > 0 || canChangePriority || frozenForRequester) && (
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
           {actions.map((action) => {
             const Icon = ACTION_ICONS[action];
@@ -194,6 +199,16 @@ export function RequestActions({ request }: { request: RequestDetail }) {
             <Button variant="outlined" startIcon={<Flag size={icon.sm} aria-hidden="true" />} onClick={() => setDialog('priority')}>
               Changer la priorité
             </Button>
+          )}
+          {frozenForRequester && (
+            <>
+              <Button variant="outlined" disabled startIcon={<Flag size={icon.sm} aria-hidden="true" />}>
+                Changer la priorité
+              </Button>
+              <Button variant="outlined" color="error" disabled startIcon={<Ban size={icon.sm} aria-hidden="true" />}>
+                Annuler la demande
+              </Button>
+            </>
           )}
         </Box>
       )}
