@@ -24,7 +24,7 @@ export function configureApp(app: INestApplication): void {
     const document = SwaggerModule.createDocument(
       app,
       new DocumentBuilder()
-        .setTitle('Joconde Jumelle – API')
+        .setTitle('La Joconde Jumelle – API')
         .setVersion('0.1.0')
         .addCookieAuth('sid')
         .build(),

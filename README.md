@@ -1,4 +1,4 @@
-# Joconde Jumelle — demandes de travail et messagerie vocale (lot 1)
+# La Joconde Jumelle — demandes de travail et messagerie vocale (lot 1)
 
 Application web pour une école privée : les employés adressent des demandes de travail à leurs
 collègues ou à leurs responsables en **parlant plutôt qu'en écrivant**, depuis un smartphone, une
