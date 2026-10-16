@@ -9,6 +9,7 @@ import Typography from '@mui/material/Typography';
 import { Download, LifeBuoy, Printer, Radio, ScrollText, ShieldCheck, ThumbsUp, TriangleAlert, AlarmClock, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 import { Link as RouterLink } from 'react-router';
+import { loadErrorMessage } from '../../api/client';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
 import { SectionCard } from '../../components/SectionCard';
@@ -203,7 +204,11 @@ export function CoverageDashboardPage() {
       {dashboard.isPending ? (
         <LoadingState label="Chargement du suivi" variant="detail" />
       ) : dashboard.error ? (
-        <ErrorState message="Impossible de charger le suivi." actionLabel="Réessayer" onAction={() => void dashboard.refetch()} />
+        <ErrorState
+          message={loadErrorMessage(dashboard.error, 'le suivi', 'Réinitialisez les filtres puis réessayez.')}
+          actionLabel="Réessayer"
+          onAction={() => void dashboard.refetch()}
+        />
       ) : (
         <Box sx={{ display: 'grid', gap: 3 }}>
           {dashboard.data.emptyGroups.length > 0 && (

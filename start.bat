@@ -43,6 +43,16 @@ if not errorlevel 1 (
 
 :DB_CHECK
 echo PostgreSQL est pret.
+
+REM Base de developpement alignee sur le code : migrations en attente appliquees
+REM (sinon l'API echoue sur une colonne manquante, ex. RequestEvent.seq).
+echo Application des migrations en attente...
+call npm run -w backend prisma:deploy
+if errorlevel 1 (
+    echo ERREUR : les migrations n'ont pas pu etre appliquees.
+    pause
+    exit /b 1
+)
 echo.
 
 echo [2/3] Verification du backend...

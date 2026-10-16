@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ApiError, apiFetch, serverNow, resetClockOffset } from '../../src/api/client';
+import { ApiError, apiFetch, loadErrorMessage, serverNow, resetClockOffset } from '../../src/api/client';
 
 function jsonResponse(status: number, body: unknown, headers: Record<string, string> = {}): Response {
   return new Response(body === undefined ? null : JSON.stringify(body), {
@@ -71,5 +71,28 @@ describe('apiFetch', () => {
     expect(serverNow().toISOString()).toBe('2026-10-12T10:00:00.000Z');
     await apiFetch('/api/auth/me');
     expect(serverNow().toISOString()).toBe('2026-10-12T10:00:30.000Z');
+  });
+});
+
+describe('loadErrorMessage', () => {
+  it('indique la référence d’une erreur serveur, sans détail technique', () => {
+    const error = new ApiError(500, 'INTERNAL_ERROR', 'Une erreur inattendue est survenue.', { reference: 'a1b2c3d4' });
+    const message = loadErrorMessage(error, 'le suivi');
+    expect(message).toContain('Le serveur n’a pas pu charger le suivi');
+    expect(message).toContain('a1b2c3d4');
+  });
+
+  it('reste utile sans référence', () => {
+    expect(loadErrorMessage(new ApiError(502, 'INTERNAL_ERROR', 'x'), 'le suivi')).toContain('Réessayez dans quelques instants');
+  });
+
+  it('distingue la connexion, les droits et une requête invalide', () => {
+    expect(loadErrorMessage(new ApiError(0, 'NETWORK_ERROR', 'x'), 'le suivi')).toMatch(/connexion/i);
+    expect(loadErrorMessage(new ApiError(403, 'FORBIDDEN', 'x'), 'le suivi')).toMatch(/pas accès/);
+    expect(loadErrorMessage(new ApiError(400, 'VALIDATION_ERROR', 'x'), 'le suivi', 'Réinitialisez les filtres.')).toContain('Réinitialisez les filtres.');
+  });
+
+  it('retombe sur un message générique pour une erreur inconnue', () => {
+    expect(loadErrorMessage(new Error('boom'), 'le suivi')).toBe('Impossible de charger le suivi. Réessayez dans quelques instants.');
   });
 });

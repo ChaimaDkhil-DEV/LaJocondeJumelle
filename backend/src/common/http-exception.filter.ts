@@ -7,7 +7,8 @@ import {
   type ExceptionFilter,
 } from '@nestjs/common';
 import { ThrottlerException } from '@nestjs/throttler';
-import type { Response } from 'express';
+import { randomUUID } from 'node:crypto';
+import type { Request, Response } from 'express';
 import { AppException, ERROR_CATALOG, type ErrorCode } from './errors';
 
 const STATUS_TO_CODE: Partial<Record<number, ErrorCode>> = {
@@ -37,12 +38,13 @@ export class HttpExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger('HttpExceptionFilter');
 
   catch(exception: unknown, host: ArgumentsHost): void {
-    const response = host.switchToHttp().getResponse<Response>();
-    const { status, code, message, details } = this.describe(exception);
+    const http = host.switchToHttp();
+    const response = http.getResponse<Response>();
+    const { status, code, message, details } = this.describe(exception, http.getRequest<Request>());
     response.status(status).json({ error: { code, message, ...(details ? { details } : {}) } });
   }
 
-  private describe(exception: unknown): ErrorDescription {
+  private describe(exception: unknown, request: Request): ErrorDescription {
     if (exception instanceof AppException) {
       return {
         status: exception.getStatus(),
@@ -60,9 +62,17 @@ export class HttpExceptionFilter implements ExceptionFilter {
         STATUS_TO_CODE[status] ?? (status >= 500 ? 'INTERNAL_ERROR' : 'VALIDATION_ERROR');
       return { status, code, message: ERROR_CATALOG[code].message };
     }
-    this.logger.error(
-      exception instanceof Error ? (exception.stack ?? exception.message) : String(exception),
-    );
-    return { status: 500, code: 'INTERNAL_ERROR', message: ERROR_CATALOG.INTERNAL_ERROR.message };
+    // Référence courte : relie le message vu par l'utilisateur à la ligne de journal, sans rien
+    // exposer. La chaîne de requête (identifiants, filtres) n'est pas journalisée.
+    const reference = randomUUID().slice(0, 8);
+    const route = `${request?.method ?? '?'} ${(request?.url ?? '?').split('?')[0]}`;
+    const detail = exception instanceof Error ? (exception.stack ?? exception.message) : String(exception);
+    this.logger.error(`[ref ${reference}] ${route} — ${detail}`);
+    return {
+      status: 500,
+      code: 'INTERNAL_ERROR',
+      message: ERROR_CATALOG.INTERNAL_ERROR.message,
+      details: { reference },
+    };
   }
 }
