@@ -15,6 +15,8 @@ export const adminRoutes: RouteObject[] = [
     element: <AdminLayout />,
     children: [
       { index: true, element: <Navigate to="comptes" replace /> },
+      // Chargée à la demande : les graphiques (Recharts) ne pèsent que sur cet écran.
+      { path: 'tableau-de-bord', lazy: async () => ({ Component: (await import('./DashboardPage')).DashboardPage }) },
       { path: 'comptes', element: <UsersAdminPage /> },
       { path: 'categories', element: <CategoriesAdminPage /> },
       { path: 'reglages', element: <SettingsAdminPage /> },

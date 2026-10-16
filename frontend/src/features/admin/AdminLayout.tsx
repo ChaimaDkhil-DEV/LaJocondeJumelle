@@ -1,5 +1,5 @@
 import Box from '@mui/material/Box';
-import { Activity, School, ScrollText, SlidersHorizontal, Tags, Users, UsersRound, type LucideIcon } from 'lucide-react';
+import { Activity, LayoutDashboard, School, ScrollText, SlidersHorizontal, Tags, Users, UsersRound, type LucideIcon } from 'lucide-react';
 import { NavLink, Outlet } from 'react-router';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
@@ -8,6 +8,7 @@ import { font, fontSize, icon, motion, tokensOf } from '../../design/tokens';
 import { useCurrentUser } from '../auth/useCurrentUser';
 
 const SECTIONS: Array<{ to: string; label: string; icon: LucideIcon }> = [
+  { to: '/admin/tableau-de-bord', label: 'Tableau de bord', icon: LayoutDashboard },
   { to: '/admin/suivi', label: 'Suivi des gardes', icon: Activity },
   { to: '/admin/comptes', label: 'Comptes', icon: Users },
   { to: '/admin/categories', label: 'Catégories', icon: Tags },
@@ -29,7 +30,7 @@ export function AdminLayout() {
     <Box>
       <PageHeader
         title="Administration"
-        description="Suivi des gardes, comptes, catégories, groupes, classes, réglages et journal d’audit de l’établissement."
+        description="Tableau de bord, suivi des gardes, comptes, catégories, groupes, classes, réglages et journal d’audit de l’établissement."
       />
       <Box
         component="nav"
