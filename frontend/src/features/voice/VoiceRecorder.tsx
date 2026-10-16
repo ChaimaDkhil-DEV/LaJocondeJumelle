@@ -15,6 +15,8 @@ interface VoiceRecorderProps {
   maxSeconds: number;
   value: VoiceRecording | null;
   onChange: (recording: VoiceRecording | null) => void;
+  /** Demande en lecture seule : aucun enregistrement possible. */
+  disabled?: boolean;
 }
 
 const DENIED_MESSAGE =
@@ -32,7 +34,7 @@ const pulse = keyframes`
 `;
 
 /** Enregistrer, réécouter, refaire ou supprimer un message vocal avant l'envoi. */
-export function VoiceRecorder({ maxSeconds, value, onChange }: VoiceRecorderProps) {
+export function VoiceRecorder({ maxSeconds, value, onChange, disabled = false }: VoiceRecorderProps) {
   const recorder = useVoiceRecorder({ maxSeconds, onRecorded: onChange });
 
   function discard(): void {
@@ -54,10 +56,10 @@ export function VoiceRecorder({ maxSeconds, value, onChange }: VoiceRecorderProp
         <>
           <VoicePlayer key={value.url} src={value.url} durationSeconds={value.durationSeconds} />
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-            <Button variant="outlined" startIcon={<RotateCcw size={icon.sm} aria-hidden="true" />} onClick={discard}>
+            <Button variant="outlined" startIcon={<RotateCcw size={icon.sm} aria-hidden="true" />} disabled={disabled} onClick={discard}>
               Refaire l’enregistrement
             </Button>
-            <Button color="error" startIcon={<Trash2 size={icon.sm} aria-hidden="true" />} onClick={discard}>
+            <Button color="error" startIcon={<Trash2 size={icon.sm} aria-hidden="true" />} disabled={disabled} onClick={discard}>
               Supprimer le message vocal
             </Button>
           </Box>
@@ -112,6 +114,7 @@ export function VoiceRecorder({ maxSeconds, value, onChange }: VoiceRecorderProp
               recorder.clearError();
               void recorder.start();
             }}
+            disabled={disabled}
             loading={recorder.state === 'requesting'}
             sx={(theme) => ({
               color: tokensOf(theme).accent.text,

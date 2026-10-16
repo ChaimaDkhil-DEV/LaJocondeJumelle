@@ -22,6 +22,7 @@ import { useRequestList } from './api';
 import { activeFilterCount, filtersToQuery, readFilters, writeFilters } from './filters';
 import { RequestFilters } from './RequestFilters';
 import type { RequestScope, RequestSummary } from './types';
+import { isReadOnlyStatus } from './readOnly';
 
 interface TabDefinition {
   key: string;
@@ -129,12 +130,14 @@ function RequestRow({ request, received }: { request: RequestSummary; received: 
           )}
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25, overflowWrap: 'anywhere' }}>
-          {counterpart} · {request.category.name} · {request.reference} · <RelativeTime value={request.createdAt} />
+          {counterpart} · {request.category.name} · <RelativeTime value={request.createdAt} />
         </Typography>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, mt: 1 }}>
           <StatusBadge status={request.status} />
           <PriorityBadge priority={request.priority} />
-          <Countdown stage={request.currentStage} dueAt={request.currentDueAt} warnAt={request.warnAt} overdueStage={request.overdueStage} />
+          {!isReadOnlyStatus(request.status) && (
+            <Countdown stage={request.currentStage} dueAt={request.currentDueAt} warnAt={request.warnAt} overdueStage={request.overdueStage} />
+          )}
           {request.hasVoice && (
             <Typography
               component="span"

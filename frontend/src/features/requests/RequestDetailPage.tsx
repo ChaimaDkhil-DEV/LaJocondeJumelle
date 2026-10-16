@@ -1,7 +1,7 @@
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
-import { AlignLeft, Camera, Info, Mic } from 'lucide-react';
+import { AlignLeft, Camera, Info, Lock, Mic } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { ApiError } from '../../api/client';
@@ -14,10 +14,12 @@ import { PriorityBadge } from '../../components/PriorityBadge';
 import { SectionCard } from '../../components/SectionCard';
 import { StatusBadge } from '../../components/StatusBadge';
 import { Person } from '../../components/UserAvatar';
+import { icon } from '../../design/tokens';
 import { ThreadPanel } from '../thread/ThreadPanel';
 import { VoicePlayer } from '../voice/VoicePlayer';
 import { useRequest } from './api';
 import { HistoryTimeline } from './HistoryTimeline';
+import { isReadOnlyStatus, readOnlyNotice } from './readOnly';
 import { RequestActions } from './RequestActions';
 
 const BACK = { to: '/', label: 'Retour aux demandes' };
@@ -56,17 +58,23 @@ export function RequestDetailPage() {
   }
 
   const r = request.data;
+  const readOnly = isReadOnlyStatus(r.status);
 
   return (
     <>
-      <PageHeader back={BACK} eyebrow={`${r.reference} · ${r.category.name}`} title={r.title}>
+      <PageHeader back={BACK} eyebrow={r.category.name} title={r.title}>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
           <StatusBadge status={r.status} />
           <PriorityBadge priority={r.priority} />
-          <Countdown stage={r.currentStage} dueAt={r.currentDueAt} warnAt={r.warnAt} overdueStage={r.overdueStage} />
+          {!readOnly && <Countdown stage={r.currentStage} dueAt={r.currentDueAt} warnAt={r.warnAt} overdueStage={r.overdueStage} />}
         </Box>
       </PageHeader>
 
+      {readOnly && (
+        <Alert severity="info" variant="outlined" icon={<Lock size={icon.md} aria-hidden="true" />} sx={{ mb: 2 }}>
+          {readOnlyNotice(r.status)}
+        </Alert>
+      )}
       <Box sx={{ mb: 3 }}>
         <RequestActions request={r} />
       </Box>
@@ -131,7 +139,7 @@ export function RequestDetailPage() {
             </SectionCard>
           )}
 
-          <ThreadPanel requestId={r.id} requestTitle={r.title} canWrite={r.canWriteInThread} />
+          <ThreadPanel requestId={r.id} requestTitle={r.title} canWrite={r.canWriteInThread} readOnly={readOnly} />
         </Box>
 
         <Box sx={{ gridArea: 'info', minWidth: 0 }}>
