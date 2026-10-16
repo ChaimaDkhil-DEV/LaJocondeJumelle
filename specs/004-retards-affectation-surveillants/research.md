@@ -28,7 +28,7 @@ Les références de code renvoient à la branche `003-corrections-audit-techniqu
   `NotificationCenter.tsx` une mise en évidence visuelle, une région `aria-live="assertive"` et
   un Snackbar persistant `role="alert"`. **Aucun son.** Aucun e-mail, SMS, push ni PWA.
 - Fuseau : l'API tourne en UTC ; seul le service `backup` reçoit `TZ` (défaut `Europe/Paris`).
-- Migrations : `0001_init`, `0002_coverage` (+ `down.sql`), `0003_request_event_seq`.
+- Migrations : `0001_init`, `0002_coverage` (+ `down.sql`), `0003_request_event_seq`, puis dans `master` après la spécification : `0004_superadmin_notifications` et `0005_routing_mode` (+ `down.sql`). Les migrations de cette fonctionnalité sont donc `0006` et `0007`.
   `deploy/api-entrypoint.sh` exige une sauvegarde récente avant toute migration en attente.
 
 ## R1 — Statuts principaux et sous-états : dérivés de `Request.status` (validée)
@@ -203,16 +203,16 @@ Les références de code renvoient à la branche `003-corrections-audit-techniqu
 
 - **Décision** : deux migrations Prisma + scripts de pré-contrôle (détail :
   [contracts/migration.md](./contracts/migration.md)).
-  1. `0004_supervision_schema` — **additive** : valeurs d'enum, tables, colonnes nullables, clé de
+  1. `0006_supervision_schema` — **additive** : valeurs d'enum, tables, colonnes nullables, clé de
      groupe. Séparée car une valeur ajoutée par `ALTER TYPE … ADD VALUE` ne peut pas être
      utilisée dans la même transaction.
-  2. `0005_supervision_data` — **données** : rôle `MANAGER`→`ADMIN`, groupes, `BROADCAST`→`PENDING`,
+  2. `0007_supervision_data` — **données** : rôle `MANAGER`→`ADMIN`, groupes, `BROADCAST`→`PENDING`,
      `UNFILLED` à venir→`PENDING`, `source` des gardes existantes, compte de démo. Chaque
      changement de statut ajoute un `RequestEvent` `STATUS_CHANGED` (acteur SYSTEM, commentaire
-     `migration-0005`) : traçabilité (principe V) et repère pour le retour arrière.
-  - Chaque migration a un `down.sql` (exécuté manuellement, comme `0002`) : `0005/down.sql`
-    rétablit les statuts à partir des événements `migration-0005` (en ajoutant des événements
-    inverses, sans rien supprimer) et renomme `ADMIN`→`MANAGER` ; `0004/down.sql` retire tables,
+     `migration-0007`) : traçabilité (principe V) et repère pour le retour arrière.
+  - Chaque migration a un `down.sql` (exécuté manuellement, comme `0002`) : `0007/down.sql`
+    rétablit les statuts à partir des événements `migration-0007` (en ajoutant des événements
+    inverses, sans rien supprimer) et renomme `ADMIN`→`MANAGER` ; `0006/down.sql` retire tables,
     colonnes et valeurs d'enum en recréant les types, et refuse de s'exécuter si des données du
     nouveau module existent.
   - Ordre de déploiement : pré-contrôles → validations humaines → sauvegarde (imposée par
@@ -232,7 +232,7 @@ Les références de code renvoient à la branche `003-corrections-audit-techniqu
   3. durée de conservation proposée (12 mois) et nombre d'affectations qui seraient anonymisées
      immédiatement.
   La mise en production exige les trois validations consignées dans le rapport ; la migration
-  `0005` refuse de s'exécuter si un statut sans équivalent est présent (garde-fou SQL).
+  `0007` refuse de s'exécuter si un statut sans équivalent est présent (garde-fou SQL).
 
 ## R14 — Interface
 

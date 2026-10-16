@@ -29,7 +29,10 @@ module parallèle :
   - propositions de fusion des doublons ;
   - statistiques calculées à la demande.
 - **Rôle** : `MANAGER` est renommé `ADMIN` (enum PostgreSQL) et l'espace du super administrateur est libellé « Administrateur ».
-- **Migration** : deux étapes, `0004` additive puis `0005` données, chacune avec un `down.sql`.
+  Seule la valeur du **rôle** `Role.MANAGER` change : le mode de clôture `ClosureMode.MANAGER` et
+  l'acteur `'MANAGER'` des machines à états (demandes et gardes) sont d'autres notions et restent
+  tels quels.
+- **Migration** : deux étapes, `0006` additive puis `0007` données, chacune avec un `down.sql`.
   Elle est précédée d'un pré-contrôle et de trois validations humaines. Chaque changement de
   statut est tracé par un événement ajouté ; aucun historique n'est réécrit.
 
@@ -43,8 +46,8 @@ Aucune nouvelle dépendance. Détails : [research.md](./research.md).
 React 19, Vite, TanStack Query 5, MUI — inchangés. **Aucun ajout** (fuseau via `Intl`, signal
 sonore via Web Audio API).
 
-**Storage**: PostgreSQL 17. Deux migrations : `0004_supervision_schema` (additive) et
-`0005_supervision_data` (données), chacune avec `down.sql` ([contracts/migration.md](./contracts/migration.md)).
+**Storage**: PostgreSQL 17. Deux migrations : `0006_supervision_schema` (additive) et
+`0007_supervision_data` (données), chacune avec `down.sql` ([contracts/migration.md](./contracts/migration.md)).
 Quatre tables (`Floor`, `CoverageSupport`, `CoverageMergeProposal`, `CoverageReminder`), colonnes
 sur `CoverageDetail`, `SchoolClass`, `User`, `EmployeeGroup` ([data-model.md](./data-model.md)).
 
@@ -74,7 +77,8 @@ statistiques du mois en moins de 1 s à l'échelle d'une école.
 - une école : de l'ordre de 100 comptes, 50 classes, quelques étages et quelques dizaines
   d'affectations par jour ;
 - environ 15 écrans touchés ou ajoutés ;
-- environ 440 occurrences de « responsable » à traiter (dont tests et documentation).
+- 415 occurrences de « responsable » dans 82 fichiers à traiter (dont tests et documentation),
+  décompte du 2026-10-16 sur `master` après la PR #11, hors spécifications.
 
 ## Constitution Check
 
@@ -107,7 +111,10 @@ FR-016a, FR-017a) :
 
 - **R10** : la déclaration de classe vide n'exige pas de preuve de présence. Un QR code scanné
   est enregistré s'il est fourni.
-- **R11** : sans admin actif, les notifications « admin » vont aux super administrateurs. L'enseignant auteur est notifié de l'assignation.
+- **R11** : sans admin actif, les notifications « admin » des **gardes et affectations** vont aux
+  super administrateurs (spec Q23). Sur les demandes de travail, le filtre du super administrateur
+  (`notifications/super-admin-policy.ts`, PR #7) reste la règle : seulement urgentes, sans employé
+  affecté ou en retard. L'enseignant auteur est notifié de l'assignation.
 - **R3** : la fin de créneau inconnue des anciennes gardes est réputée être la fin de journée.
 
 ## Permissions par rôle
@@ -128,9 +135,17 @@ fonctions de l'appartenance aux groupes à clé système.
 | Étages, rattachement des classes, étage d'un surveillant, réglages | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Être assigné | si membre Surveillants | si membre Surveillants | ✅ | si membre Surveillants | ❌ |
 
-Le reste de l'application (demandes de travail, circuit B, administration) est inchangé. `ADMIN`
-reprend exactement les droits de l'ex-`MANAGER` (`RolePermission`, `creatorRoles`,
-`CategoryManager`).
+Le reste de l'application (demandes de travail et leurs modes de routage, lecture seule des
+demandes terminées, notifications du super administrateur, administration) se comporte comme
+dans `master` après la PR #9 (spec Q22, Q24). `ADMIN` reprend les droits de l'ex-`MANAGER`
+(`RolePermission`, `creatorRoles`, `CategoryManager`), y compris ceux qu'il tient du mode de
+routage. Points de code où la valeur du rôle est testée et doit passer à `ADMIN` :
+
+- `requests/domain/access-policy.ts` : `isAdministration` (consultation en lecture seule des
+  modes direct et entre enseignants) et `canCreateInCategory` (création dans toute catégorie) ;
+- `requests/domain/visibility.ts` : visibilité des demandes `DIRECT` et `PEER` pour tout admin ;
+- `coverage/coverage.service.ts` (gestion des gardes) et les autres tests de rôle repérés lors du
+  renommage.
 
 ## Tâches planifiées (`backend/src/scheduler/`)
 
@@ -158,7 +173,7 @@ et signal sonore facultatif ajouté au `NotificationCenter`.
 ## Validations avant migration
 
 Pré-contrôle en lecture seule et validations **V1** (membres non surveillants), **V2** (statuts
-sans équivalent, garde-fou SQL dans `0005`) et **V3** (durée de conservation) :
+sans équivalent, garde-fou SQL dans `0007`) et **V3** (durée de conservation) :
 [contracts/migration.md](./contracts/migration.md) étape 0.
 
 ## Stratégie de tests
@@ -185,7 +200,7 @@ US5), migration en premier pour la structure.
   - `supervision-jobs` : horloge simulée, escalades, non pourvue, anonymisation sans toucher à
     `RequestEvent` ni `AuditLog` ;
   - `supervision-permissions` : chaque refus est journalisé et répond `404` hors périmètre ;
-  - `migration-0005` : montée, contrôles, `down.sql`, garde-fous ;
+  - `migration-0007` : montée, contrôles, `down.sql`, garde-fous ;
   - `append-only.spec.ts` : inchangé.
 - **Adaptation des tests de gardes** :
   - `coverage.spec.ts` : les cas de diffusion et d'acceptation (1, 2, 2 bis, 3, 5, 5 bis, 6,
@@ -194,7 +209,10 @@ US5), migration en premier pour la structure.
   - les cas de présence, relève, prolongation, retard, annulation, QR et photo sont conservés,
     avec une préparation par `ASSIGN` ;
   - `coverage-work-isolation.spec.ts`, `reassign.spec.ts` et `notifications.spec.ts` : ajustés
-    au rôle `ADMIN` ;
+    au rôle `ADMIN` ; de même pour les tests ajoutés depuis la spécification, qui emploient le
+    rôle et le compte `responsable` : `routing-modes.spec.ts`, `superadmin-notifications.spec.ts`,
+    `categories-form-list.spec.ts`, `admin-dashboard.spec.ts` (intégration), les tests frontend du
+    routage et du tableau de bord, et les e2e `us6-deadlines`, `us8-admin`, `admin-dashboard` ;
   - chaque suppression de test est listée dans la PR avec sa raison (exigence supprimée par la
     spec).
 - **Frontend (Vitest + RTL + axe)** :
@@ -233,8 +251,8 @@ specs/004-retards-affectation-surveillants/
 backend/
 ├── prisma/
 │   ├── schema.prisma                         # enums, Floor, CoverageSupport, CoverageMergeProposal, CoverageReminder, colonnes
-│   ├── migrations/0004_supervision_schema/   # migration.sql + down.sql
-│   ├── migrations/0005_supervision_data/     # migration.sql + down.sql
+│   ├── migrations/0006_supervision_schema/   # migration.sql + down.sql
+│   ├── migrations/0007_supervision_data/     # migration.sql + down.sql
 │   └── seed.ts                               # admin, enseignante, surveillants, étages
 ├── scripts/supervision-preflight.ts          # pré-contrôle (lecture seule)
 └── src/
