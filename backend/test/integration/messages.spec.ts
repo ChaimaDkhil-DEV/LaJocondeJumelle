@@ -238,6 +238,57 @@ describe('Fil de discussion', () => {
     expect((await api().get(`/api/requests/${id}/messages`).set('Cookie', enseignante)).status).toBe(200);
   });
 
+  it('une demande au travail terminé est en lecture seule côté serveur : ni message, ni fichier, ni priorité', async () => {
+    const { id } = await createRequest();
+    let version = (await prisma.request.findUniqueOrThrow({ where: { id } })).version;
+    for (const action of ['ACCEPT', 'START', 'COMPLETE']) {
+      const res = await api().post(`/api/requests/${id}/actions`).set('Cookie', reprographie).set('Origin', TEST_ORIGIN).send({ action, version });
+      expect(res.status).toBe(200);
+      version = res.body.version;
+    }
+    const detail = await api().get(`/api/requests/${id}`).set('Cookie', enseignante);
+    expect(detail.body.status).toBe('DONE');
+    expect(detail.body.canWriteInThread).toBe(false);
+    expect(detail.body.allowedActions).not.toContain('CHANGE_PRIORITY');
+    // Les actions du circuit restent possibles (le motif d'une correction est saisi avec l'action).
+    expect(detail.body.allowedActions).toContain('REQUEST_CORRECTION');
+
+    // Requêtes directes : toutes refusées, et journalisées.
+    for (const cookie of [enseignante, reprographie]) {
+      expect((await post(cookie, id, { text: 'Encore une chose' })).status).toBe(403);
+    }
+    const photo = await api()
+      .post('/api/files')
+      .set('Cookie', enseignante)
+      .set('Origin', TEST_ORIGIN)
+      .field('kind', 'PHOTO')
+      .field('requestId', id)
+      .attach('file', join(__dirname, '..', 'fixtures', 'images', 'photo.png'));
+    // Rattachement refusé sans révéler la demande (convention de files.service : 404).
+    expect(photo.status).toBe(404);
+    const priority = await api().patch(`/api/requests/${id}/priority`).set('Cookie', enseignante).set('Origin', TEST_ORIGIN).send({ priority: 'URGENT', version });
+    expect(priority.status).toBe(403);
+    const denied = await prisma.auditLog.findMany({ where: { action: 'ACCESS_DENIED', targetId: id } });
+    expect(denied.map((d) => (d.details as { reason?: string }).reason)).toEqual(
+      expect.arrayContaining(['THREAD_CLOSED', 'FORBIDDEN_CHANGE_PRIORITY']),
+    );
+    expect(await prisma.message.count({ where: { requestId: id, kind: { not: 'SYSTEM' } } })).toBe(0);
+
+    // La consultation reste possible : détail, fil et historique.
+    expect((await api().get(`/api/requests/${id}/messages`).set('Cookie', enseignante)).status).toBe(200);
+    expect((await api().get(`/api/requests/${id}/history`).set('Cookie', enseignante)).status).toBe(200);
+
+    // Renvoyée à corriger, la demande redevient active : la discussion rouvre.
+    const correction = await api()
+      .post(`/api/requests/${id}/actions`)
+      .set('Cookie', enseignante)
+      .set('Origin', TEST_ORIGIN)
+      .send({ action: 'REQUEST_CORRECTION', version, reason: 'Il manque la page 3.' });
+    expect(correction.status).toBe(200);
+    expect(correction.body.canWriteInThread).toBe(true);
+    expect((await post(enseignante, id, { text: 'Merci !' })).status).toBe(201);
+  });
+
   it('le motif d’un refus apparaît dans le fil comme message système', async () => {
     const { id, version } = await createRequest();
     await api()
