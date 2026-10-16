@@ -32,18 +32,24 @@ et PostgreSQL 17 pour l'API ; Socket.IO pour le temps réel ; Docker et Caddy po
 Prérequis : Node.js 24 et ffmpeg (conversion des vocaux). En développement, PostgreSQL est
 fourni par embedded-postgres : Docker n'est nécessaire que pour le déploiement.
 
+Si votre `backend/.env` date d'avant le passage au port 3002, remplacez `PORT=3000` par
+`PORT=3002`.
+
 ```bash
 npm install
 cp backend/.env.example backend/.env       # puis renseigner SESSION_SECRET
 npm run -w backend db:dev                  # PostgreSQL embarqué (terminal dédié)
 npm run -w backend prisma:migrate
 npm run -w backend prisma:seed             # réglages, catégories et comptes de démonstration
-npm run -w backend start:dev               # API : http://localhost:3000
+npm run -w backend start:dev               # API : http://localhost:3002
 npm run -w frontend dev                    # interface : http://localhost:5173
 
 npm run verify                             # lint + tests unitaires et d'intégration + audit npm
 npm run test:e2e                           # bout en bout : 6 profils navigateur, contrôles axe
 ```
+
+Avant toute fusion vers `master` : [vérification avant fusion](docs/procedure-fusion.md). Elle est
+manuelle : la CI GitHub signale les échecs mais n'empêche pas la fusion.
 
 ## Déploiement
 
@@ -52,12 +58,31 @@ Sur un VPS avec Docker (détails et contrôles dans le
 
 ```bash
 cp deploy/.env.example deploy/.env         # domaine, secrets, sauvegardes
-docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build
+deploy/deploy.sh                           # sauvegarde, puis construction et démarrage
 docker compose -f deploy/docker-compose.yml --env-file deploy/.env exec api node dist/cli/bootstrap.js admin "Direction"
 ```
 
 La dernière commande crée le premier super administrateur et affiche une seule fois son mot de
-passe provisoire. Les sauvegardes sont quotidiennes (base et fichiers, 14 jours) ; la
+passe provisoire.
+
+Chaque mise à jour passe par `deploy/deploy.sh`, lancé depuis la racine du dépôt : il sauvegarde
+la base et les fichiers, puis reconstruit et redémarre les conteneurs. L'API refuse d'appliquer
+une migration sans sauvegarde de moins de `PRE_MIGRATION_BACKUP_MAX_AGE_MINUTES` minutes (60 par
+défaut) : un `docker compose … up` lancé sans le script s'arrête alors avec « Migration en attente
+sans sauvegarde récente : lancez deploy/deploy.sh. », sans toucher la base.
+
+Mot de passe du super administrateur perdu : la réinitialisation est tracée dans le journal
+d'audit, ferme toutes ses sessions et impose un nouveau mot de passe à la connexion suivante.
+
+```bash
+# Développement
+npm run -w backend build && node backend/dist/cli/bootstrap.js --reset-password superadmin
+# Production (sans identifiant : le plus ancien super administrateur actif)
+docker compose -f deploy/docker-compose.yml --env-file deploy/.env exec api \
+  node dist/cli/bootstrap.js --reset-password
+```
+
+Les sauvegardes sont quotidiennes (base et fichiers, 14 jours) ; la
 restauration (`deploy/backup/restore.sh`) doit être testée avant la mise en production.
 
 ## À trancher avant la mise en production

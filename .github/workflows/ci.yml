@@ -1,0 +1,50 @@
+# Contrôles qualité rejoués à chaque envoi et à chaque demande de fusion (décision D3).
+# Les tests de bout en bout et le chronométrage SC-001 restent manuels (docs/validation/).
+# La fusion n'est pas bloquée techniquement : voir docs/procedure-fusion.md (décision D10).
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    name: Contrôles qualité
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Installer ffmpeg (conversion des vocaux)
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      - name: Générer le client Prisma
+        run: npm run -w backend prisma:generate
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Types (backend)
+        run: npm run -w backend typecheck
+
+      - name: Types (frontend)
+        run: npm run -w frontend typecheck
+
+      - name: Tests unitaires (backend)
+        run: npm run -w backend test
+
+      - name: Tests d'intégration (backend)
+        run: npm run -w backend test:integration
+
+      - name: Tests (frontend)
+        run: npm run -w frontend test
+
+      - name: Audit des dépendances
+        run: npm audit --audit-level=high

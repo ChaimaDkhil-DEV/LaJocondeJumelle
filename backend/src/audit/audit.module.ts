@@ -1,5 +1,5 @@
 import { Global, Module } from '@nestjs/common';
-import { SuperAdminGuard } from '../common/super-admin.guard';
+import { SuperAdminGuard } from './super-admin.guard';
 import { AdminAuditController } from './admin-audit.controller';
 import { AuditService } from './audit.service';
 

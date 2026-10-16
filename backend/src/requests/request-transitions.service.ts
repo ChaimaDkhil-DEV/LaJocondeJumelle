@@ -26,6 +26,15 @@ import type { RequestContext } from './requests.service';
 
 type SuccessfulTransition = Extract<TransitionResult, { ok: true }>;
 
+/** Origine de l'employé affecté à l'approbation, tracée dans l'historique (FR-008). */
+export type AssigneeSource = 'SNAPSHOT' | 'CATEGORY_CURRENT' | 'MANAGER_CHOICE';
+
+type AssigneeContext = Pick<ActionContext, 'assigneeId' | 'assigneeAllowed'> & {
+  assigneeSource?: AssigneeSource;
+  /** Mode automatique figé, personne prévue absente ou non affectable, aucun choix fourni (EXC-2). */
+  autoAssigneeUnavailable?: boolean;
+};
+
 export interface ActionInput {
   action: RequestAction;
   version: number;
@@ -122,11 +131,12 @@ export class RequestTransitionsService {
 
     const actors = actorsFor(user, policyRequest, toPolicyCategory(category));
     const now = new Date();
+    const { assigneeSource, autoAssigneeUnavailable, ...assignee } = await this.assigneeContext(request, category, input);
     const context: ActionContext = {
       actors,
       now,
       reason: input.reason,
-      ...(await this.assigneeContext(request, category, input)),
+      ...assignee,
       proofPhotoCount: await this.validProofCount(user, request, input.proofFileIds),
     };
 
@@ -138,9 +148,13 @@ export class RequestTransitionsService {
       await this.logDenied(user, id, ctx, `FORBIDDEN_${input.action}`);
       throw new AppException('FORBIDDEN');
     }
-    if (!result.ok) throw new AppException(result.code);
+    if (!result.ok) {
+      // Personne figée indisponible : le responsable doit choisir l'employé (EXC-2, D8, FR-011).
+      if (result.code === 'ASSIGNEE_REQUIRED' && autoAssigneeUnavailable) throw new AppException('AUTO_ASSIGNEE_UNAVAILABLE');
+      throw new AppException(result.code);
+    }
 
-    await this.commit(request, category, result, user.id, now, input.proofFileIds ?? []);
+    await this.commit(request, category, result, user.id, now, input.proofFileIds ?? [], assigneeSource);
   }
 
   /** Transition déclenchée par le système (job planifié). Renvoie false si elle n'est pas applicable. */
@@ -171,6 +185,7 @@ export class RequestTransitionsService {
     category: CategoryWithMembers,
     result: SuccessfulTransition,
     actorId: string | null,
+    assigneeSource?: AssigneeSource,
   ): Promise<Notification[]> {
     const action = result.steps[0].action;
 
@@ -203,7 +218,7 @@ export class RequestTransitionsService {
           actorId,
           type: action === 'REASSIGN' ? 'REASSIGNED' : 'ASSIGNED',
           fromValue: before.assigneeId ? { assigneeId: before.assigneeId } : undefined,
-          toValue: { assigneeId: result.assigneeId },
+          toValue: { assigneeId: result.assigneeId, ...(assigneeSource ? { assigneeSource } : {}) },
         },
       });
     }
@@ -227,6 +242,7 @@ export class RequestTransitionsService {
     actorId: string | null,
     now: Date,
     proofFileIds: string[],
+    assigneeSource?: AssigneeSource,
   ): Promise<void> {
     // Délais : l'étape suivie démarre, continue ou s'arrête selon la transition (US6).
     const deadline = nextDeadlineState(
@@ -255,7 +271,7 @@ export class RequestTransitionsService {
         });
       }
       const after = await tx.request.findUniqueOrThrow({ where: { id: request.id } });
-      return { after, pending: await this.recordTransition(tx, request, after, category, result, actorId) };
+      return { after, pending: await this.recordTransition(tx, request, after, category, result, actorId, assigneeSource) };
     });
     await this.notifications.flushAfterCommit(pending);
     // Les lecteurs de la demande rafraîchissent liste et détail (contracts/realtime-events.md).
@@ -266,24 +282,38 @@ export class RequestTransitionsService {
     );
   }
 
-  /** Employé visé par SUBMIT (circuit A), APPROVE ou REASSIGN, et s'il est autorisé dans la catégorie. */
-  private async assigneeContext(
-    request: Request,
-    category: CategoryWithMembers,
-    input: ActionInput,
-  ): Promise<Pick<ActionContext, 'assigneeId' | 'assigneeAllowed'>> {
+  /**
+   * Employé visé par SUBMIT (circuit A), APPROVE ou REASSIGN, et s'il est autorisé dans la catégorie.
+   * APPROVE suit le mode et la personne figés dans le snapshot (D1, FR-008, data-model §Résolution).
+   */
+  private async assigneeContext(request: Request, category: CategoryWithMembers, input: ActionInput): Promise<AssigneeContext> {
     let assigneeId: string | undefined;
+    let assigneeSource: AssigneeSource | undefined;
     if (input.action === 'SUBMIT') assigneeId = request.assigneeId ?? undefined;
     if (input.action === 'REASSIGN') assigneeId = input.assigneeId;
     if (input.action === 'APPROVE') {
-      assigneeId = category.assignmentMode === 'AUTO' ? (category.autoAssigneeId ?? undefined) : input.assigneeId;
+      const rules = readRulesSnapshot(request);
+      if (rules.assignmentMode === 'AUTO') {
+        // Clé absente : demande soumise avant la correction, personne lue dans la catégorie (EXC-1, D9).
+        const fromSnapshot = 'autoAssigneeId' in rules;
+        const planned = fromSnapshot ? rules.autoAssigneeId : category.autoAssigneeId;
+        if (planned && (await this.isAssignable(category, planned))) {
+          // Un employé proposé par le responsable est ignoré (FR-008).
+          return { assigneeId: planned, assigneeAllowed: true, assigneeSource: fromSnapshot ? 'SNAPSHOT' : 'CATEGORY_CURRENT' };
+        }
+        if (!input.assigneeId) return { autoAssigneeUnavailable: true };
+      }
+      assigneeId = input.assigneeId;
+      assigneeSource = 'MANAGER_CHOICE';
     }
     if (!assigneeId) return {};
-    const candidate = await this.prisma.user.findUnique({
-      where: { id: assigneeId },
-      select: { id: true, active: true },
-    });
-    return { assigneeId, assigneeAllowed: canPickRecipient(toPolicyCategory(category), candidate) };
+    return { assigneeId, assigneeAllowed: await this.isAssignable(category, assigneeId), assigneeSource };
+  }
+
+  /** Compte actif et destinataire actuel de la catégorie. */
+  private async isAssignable(category: CategoryWithMembers, userId: string): Promise<boolean> {
+    const candidate = await this.prisma.user.findUnique({ where: { id: userId }, select: { id: true, active: true } });
+    return canPickRecipient(toPolicyCategory(category), candidate);
   }
 
   /** Photos de preuve : téléversées par l'utilisateur, provisoires ou déjà rattachées à cette demande. */

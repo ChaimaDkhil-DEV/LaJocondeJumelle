@@ -1,14 +1,15 @@
 import { Module } from '@nestjs/common';
 import { FilesModule } from '../files/files.module';
-import { RequestPolicyLoader } from './request-policy.loader';
+import { RequestPolicyModule } from './request-policy.module';
 import { RequestTransitionsService } from './request-transitions.service';
 import { RequestsController } from './requests.controller';
 import { RequestsService } from './requests.service';
+import { WorkFileAccess } from './work-file-access';
 
 @Module({
-  imports: [FilesModule],
+  imports: [FilesModule, RequestPolicyModule],
   controllers: [RequestsController],
-  providers: [RequestsService, RequestTransitionsService, RequestPolicyLoader],
+  providers: [RequestsService, RequestTransitionsService, WorkFileAccess],
   exports: [RequestsService, RequestTransitionsService],
 })
 export class RequestsModule {}

@@ -1,4 +1,5 @@
-import type { Permission, RequestKind, RequestStatus, Role } from '@prisma/client';
+import type { RequestKind, RequestStatus, Role } from '@prisma/client';
+import type { PolicyUser } from '../../common/authorization';
 import { availableActions, type Actor, type MachineRequest, type RequestAction } from './request-state-machine';
 
 /**
@@ -6,22 +7,6 @@ import { availableActions, type Actor, type MachineRequest, type RequestAction }
  * Fonctions pures : les mêmes règles servent aux routes REST, aux fichiers et aux salles Socket.IO ;
  * les listes utilisent l'équivalent SQL de canReadRequest (visibility.ts).
  */
-
-export const ALL_PERMISSIONS: readonly Permission[] = [
-  'REQUEST_CREATE',
-  'PRIORITY_CHANGE_OWN',
-  'PRIORITY_CHANGE_MANAGED',
-  'REQUEST_REASSIGN',
-  'AUDIT_READ',
-  'ADMIN_MANAGE',
-];
-
-export interface PolicyUser {
-  id: string;
-  role: Role;
-  active: boolean;
-  permissions: ReadonlySet<Permission>;
-}
 
 export interface PolicyCategory {
   id: string;
@@ -48,11 +33,6 @@ const OWN_PRIORITY_STATUSES: readonly RequestStatus[] = ['DRAFT', 'PENDING_ADMIN
 
 export function isFinalStatus(status: RequestStatus): boolean {
   return FINAL_STATUSES.includes(status);
-}
-
-/** Le super administrateur a toujours toutes les permissions (non stockées en base). */
-export function permissionsFor(role: Role, configured: readonly Permission[]): ReadonlySet<Permission> {
-  return new Set(role === 'SUPER_ADMIN' ? ALL_PERMISSIONS : configured);
 }
 
 /** Relations de l'utilisateur avec la demande. Le super administrateur agit comme responsable. */
@@ -113,13 +93,4 @@ export function canPickRecipient(
 
 export function canWriteInThread(user: PolicyUser, req: PolicyRequest, category: PolicyCategory): boolean {
   return req.status !== 'DRAFT' && !isFinalStatus(req.status) && canReadRequest(user, req, category);
-}
-
-export function canManageAdministration(user: Pick<PolicyUser, 'role' | 'active'>): boolean {
-  return user.active && user.role === 'SUPER_ADMIN';
-}
-
-/** FR-030 : le journal d'audit est consultable par le super administrateur uniquement. */
-export function canReadAudit(user: Pick<PolicyUser, 'role' | 'active'>): boolean {
-  return user.active && user.role === 'SUPER_ADMIN';
 }

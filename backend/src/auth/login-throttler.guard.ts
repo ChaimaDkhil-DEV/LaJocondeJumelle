@@ -10,7 +10,7 @@ import {
 import type { Request } from 'express';
 import { AuditService } from '../audit/audit.service';
 import { AppException } from '../common/errors';
-import { clientIp, requestPath } from './request-info';
+import { clientIp, requestPath } from '../common/request-info';
 
 function usernameOf(req: Request): string {
   const body = req.body as { username?: unknown } | undefined;

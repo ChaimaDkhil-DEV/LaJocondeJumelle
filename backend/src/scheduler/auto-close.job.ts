@@ -4,9 +4,7 @@ import { PrismaService } from '../common/prisma.service';
 import type { AppConfig } from '../config/config';
 import { APP_CONFIG } from '../config/config.module';
 import { RequestTransitionsService } from '../requests/request-transitions.service';
-
-/** Fréquence des jobs planifiés (research R4 : < 30 s entre l'échéance et son traitement). */
-export const JOB_INTERVAL_MS = 15_000;
+import { JOB_INTERVAL_MS } from './job-interval';
 
 /**
  * Clôture automatique (T13, research R13) : les demandes « Terminée » dont le délai de grâce

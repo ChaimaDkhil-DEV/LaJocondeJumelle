@@ -2,8 +2,8 @@ import { Body, Controller, Get, HttpCode, Param, Patch, Post, Req, UseGuards } f
 import type { Request } from 'express';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/current-user.decorator';
-import { clientIp } from '../auth/request-info';
-import { SuperAdminGuard } from '../common/super-admin.guard';
+import { clientIp } from '../common/request-info';
+import { SuperAdminGuard } from '../audit/super-admin.guard';
 import { CreateUserDto, UpdateUserDto } from './users.dto';
 import { UsersService, type AdminUser } from './users.service';
 

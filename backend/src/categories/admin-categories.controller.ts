@@ -2,8 +2,8 @@ import { Body, Controller, Get, Param, Patch, Post, Put, Req, UseGuards } from '
 import type { Request } from 'express';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/current-user.decorator';
-import { clientIp } from '../auth/request-info';
-import { SuperAdminGuard } from '../common/super-admin.guard';
+import { clientIp } from '../common/request-info';
+import { SuperAdminGuard } from '../audit/super-admin.guard';
 import { CreateCategoryDto, DeadlineRulesDto, MembersDto, UpdateCategoryDto } from './admin-categories.dto';
 import { AdminCategoriesService } from './admin-categories.service';
 

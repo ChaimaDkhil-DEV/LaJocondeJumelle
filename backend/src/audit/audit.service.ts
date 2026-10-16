@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { AuditAction, Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
+import { SENSITIVE_KEY } from '../common/sensitive-keys';
 
 /** Champs de premier niveau autorisés dans `details` (liste blanche). */
 const ALLOWED_DETAIL_KEYS = new Set([
@@ -25,9 +26,6 @@ const ALLOWED_DETAIL_KEYS = new Set([
   'forced',
   'groupId',
 ]);
-
-/** Clés jamais conservées, à tout niveau : secrets et contenus de messages. */
-const SENSITIVE_KEY = /pass(word)?|hash|token|secret|cookie|^sid$|^text$|^message$|^content$/i;
 
 function scrub(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(scrub);

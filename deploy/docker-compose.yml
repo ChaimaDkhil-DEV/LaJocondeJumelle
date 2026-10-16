@@ -38,9 +38,13 @@ services:
       FILES_DIR: /data/files
       # Adresse IP cliente transmise par Caddy (réseau Docker privé).
       TRUST_PROXY: uniquelocal
+      # Une migration en attente n'est appliquée qu'avec une sauvegarde plus récente (deploy/deploy.sh).
+      PRE_MIGRATION_BACKUP_MAX_AGE_MINUTES: ${PRE_MIGRATION_BACKUP_MAX_AGE_MINUTES:-60}
     volumes:
       # Vocaux, photos et documents : jamais servis par Caddy, lus uniquement via l'API.
       - files:/data/files
+      # Lecture seule : l'API vérifie la présence d'une sauvegarde récente avant de migrer.
+      - ${BACKUP_DIR:-./backups}:/backups:ro
     depends_on:
       db:
         condition: service_healthy

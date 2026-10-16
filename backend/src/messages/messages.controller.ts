@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, Post, Query, Req, Res } from '@nestjs/com
 import type { Request, Response } from 'express';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/current-user.decorator';
-import { clientIp, requestPath } from '../auth/request-info';
+import { clientIp, requestPath } from '../common/request-info';
 import type { Page } from '../common/pagination';
 import type { RequestContext } from '../requests/requests.service';
 import { CreateMessageDto, ListMessagesQuery } from './messages.dto';

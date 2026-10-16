@@ -27,23 +27,19 @@ Elle est **additive** : aucune table ni colonne existante n'est supprimée ou re
 
 Aucune demande de travail existante n'est modifiée : toutes prennent `kind = WORK`.
 
-## Avant d'exécuter : sauvegarde
+## Sauvegarde et exécution
 
-Faites une sauvegarde de la base **et** des fichiers juste avant la mise à jour :
-
-```bash
-docker compose -f deploy/docker-compose.yml --env-file deploy/.env exec backup /bin/bash /scripts/backup.sh
-```
-
-Notez l'horodatage affiché (par exemple `20261013T173000Z`), puis vérifiez que les deux fichiers `db-<horodatage>.dump` et `files-<horodatage>.tar.gz` sont bien présents dans le dossier des sauvegardes.
-
-## Exécution
-
-En production, il n'y a rien à lancer à la main. Au démarrage du conteneur, l'API applique `prisma migrate deploy` (`deploy/api-entrypoint.sh`) :
+En production, lancez la mise à jour depuis la racine du dépôt :
 
 ```bash
-docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build api
+deploy/deploy.sh
 ```
+
+Le script sauvegarde la base **et** les fichiers, puis reconstruit et redémarre les conteneurs ; au démarrage, l'API applique `prisma migrate deploy` (`deploy/api-entrypoint.sh`). Si la sauvegarde échoue, rien n'est mis à jour.
+
+Notez l'horodatage affiché par la sauvegarde (par exemple `[backup] terminé : db-20261013T173000Z.dump files-20261013T173000Z.tar.gz`), puis vérifiez que les deux fichiers sont bien présents dans le dossier des sauvegardes : c'est elle qu'il faudra restaurer en cas de problème.
+
+L'API refuse d'appliquer une migration sans sauvegarde de moins de `PRE_MIGRATION_BACKUP_MAX_AGE_MINUTES` minutes (60 par défaut) : un `docker compose … up` lancé sans le script s'arrête avec « Migration en attente sans sauvegarde récente : lancez deploy/deploy.sh. », sans toucher la base.
 
 En développement, ou pour appliquer explicitement :
 

@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { HistoryTimeline } from '../../src/features/requests/HistoryTimeline';
+import { describeEvent, HistoryTimeline, type HistoryEvent } from '../../src/features/requests/HistoryTimeline';
 
 /** T092 — historique lisible : action en français, auteur (ou système), date et heure, avant → après. */
 
@@ -43,5 +43,21 @@ describe('HistoryTimeline', () => {
     expect(items[7]).toContain('Message vocal ajouté');
     expect(items[8]).toContain('Document joint');
     expect(within(list).getAllByRole('listitem')[0].querySelector('time')).toHaveAttribute('datetime', '2026-10-12T08:00:00.000Z');
+  });
+
+  it('indique la source de l’affectation décidée à l’approbation', () => {
+    const assigned = (assigneeSource?: string): HistoryEvent => ({
+      id: 'a',
+      type: 'ASSIGNED',
+      actor: { id: 'u3', displayName: 'Responsable' },
+      fromValue: null,
+      toValue: { assigneeId: 'u2', assigneeName: 'Reprographie', ...(assigneeSource ? { assigneeSource } : {}) },
+      comment: null,
+      createdAt: '2026-10-12T08:00:00.000Z',
+    });
+    expect(describeEvent(assigned('SNAPSHOT'))).toBe('Affectée à Reprographie (personne prévue à la soumission)');
+    expect(describeEvent(assigned('CATEGORY_CURRENT'))).toBe('Affectée à Reprographie (selon la catégorie actuelle, demande antérieure)');
+    expect(describeEvent(assigned('MANAGER_CHOICE'))).toBe('Affectée à Reprographie (choix du responsable)');
+    expect(describeEvent(assigned())).toBe('Affectée à Reprographie');
   });
 });

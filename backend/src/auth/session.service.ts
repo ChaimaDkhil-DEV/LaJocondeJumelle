@@ -4,7 +4,7 @@ import { createHmac, randomBytes } from 'node:crypto';
 import { PrismaService } from '../common/prisma.service';
 import { APP_CONFIG } from '../config/config.module';
 import type { AppConfig } from '../config/config';
-import { permissionsFor } from '../requests/domain/access-policy';
+import { permissionsFor } from '../common/authorization';
 import { SettingsService } from '../settings/settings.service';
 import type { AuthenticatedUser } from './auth.types';
 

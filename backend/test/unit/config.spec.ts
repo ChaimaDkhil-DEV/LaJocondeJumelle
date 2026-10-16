@@ -11,7 +11,7 @@ describe('loadConfig', () => {
   it('charge une configuration valide avec les valeurs par défaut', () => {
     const config = loadConfig(valid);
     expect(config.appOrigin).toBe('https://demandes.ecole.fr');
-    expect(config.port).toBe(3000);
+    expect(config.port).toBe(3002);
     expect(config.ffmpegPath).toBe('ffmpeg');
   });
 
@@ -45,5 +45,33 @@ describe('loadConfig', () => {
 
   it('refuse une origine invalide', () => {
     expect(() => loadConfig({ ...valid, APP_ORIGIN: 'pas une url' })).toThrow(ConfigError);
+  });
+});
+
+describe('loadConfig — TRUST_PROXY (FR-004)', () => {
+  const trustProxy = (value?: string) => loadConfig(value === undefined ? valid : { ...valid, TRUST_PROXY: value }).trustProxy;
+
+  it('vaut loopback par défaut', () => {
+    expect(trustProxy()).toBe('loopback');
+  });
+
+  it('accepte true, false et un nombre de proxys', () => {
+    expect(trustProxy('true')).toBe(true);
+    expect(trustProxy('false')).toBe(false);
+    expect(trustProxy('2')).toBe(2);
+  });
+
+  it.each([
+    ['uniquelocal', 'uniquelocal'],
+    ['loopback, 10.0.0.0/8', 'loopback,10.0.0.0/8'],
+    ['::1', '::1'],
+    [' linklocal ', 'linklocal'],
+  ])('accepte la liste « %s »', (value, expected) => {
+    expect(trustProxy(value)).toBe(expected);
+  });
+
+  it.each(["n'importe quoi", '-1', '10.0.0.0/99', 'loopback,'])('refuse « %s » au démarrage', (value) => {
+    expect(() => trustProxy(value)).toThrow(ConfigError);
+    expect(() => trustProxy(value)).toThrow(/^TRUST_PROXY invalide/);
   });
 });

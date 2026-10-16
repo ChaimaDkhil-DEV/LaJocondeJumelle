@@ -5,7 +5,7 @@ import { AuditService } from '../audit/audit.service';
 import { AppException } from '../common/errors';
 import { ALLOW_PENDING_PASSWORD_CHANGE } from './allow-pending-password-change.decorator';
 import { IS_PUBLIC_KEY } from './public.decorator';
-import { clientIp, requestPath } from './request-info';
+import { clientIp, requestPath } from '../common/request-info';
 import { SessionService } from './session.service';
 
 export const SESSION_COOKIE = 'sid';

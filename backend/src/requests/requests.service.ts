@@ -276,7 +276,7 @@ export class RequestsService {
     const events = await this.prisma.requestEvent.findMany({
       where: { requestId: id },
       include: { actor: { select: { id: true, displayName: true } } },
-      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      orderBy: [{ createdAt: 'asc' }, { seq: 'asc' }],
     });
 
     const assigneeOf = (value: Prisma.JsonValue | null): string | null =>

@@ -3,8 +3,8 @@ import { Interval } from '@nestjs/schedule';
 import { AppException } from '../common/errors';
 import type { AppConfig } from '../config/config';
 import { APP_CONFIG } from '../config/config.module';
-import { JOB_INTERVAL_MS } from '../scheduler/auto-close.job';
-import { CoverageActionsService } from './coverage-actions.service';
+import { CoverageActionsService } from '../coverage/coverage-actions.service';
+import { JOB_INTERVAL_MS } from './job-interval';
 
 /**
  * Dépassements de délai des couvertures : « Non pourvue » (prise en charge) et « En retard »

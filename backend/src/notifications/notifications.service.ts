@@ -4,17 +4,12 @@ import { PrismaService } from '../common/prisma.service';
 
 /**
  * Diffusion des notifications après validation de la transaction.
- * Implémentation sans effet en Phase 2 ; remplacée par Socket.IO en US4 (T070).
  */
 export interface NotificationPublisher {
   publish(notifications: Notification[]): void | Promise<void>;
 }
 
 export const NOTIFICATION_PUBLISHER = Symbol('NOTIFICATION_PUBLISHER');
-
-export class NoopNotificationPublisher implements NotificationPublisher {
-  publish(): void {}
-}
 
 export interface NotificationInput {
   type: NotificationType;

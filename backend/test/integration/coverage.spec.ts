@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { io, type Socket } from 'socket.io-client';
 import request from 'supertest';
 import { CoverageActionsService } from '../../src/coverage/coverage-actions.service';
-import { CoverageDeadlinesJob } from '../../src/coverage/coverage-deadlines.job';
+import { CoverageDeadlinesJob } from '../../src/scheduler/coverage-deadlines.job';
 import { SettingsService } from '../../src/settings/settings.service';
 import { loginAs, seedDemo, userId } from '../utils/auth-helpers';
 import { createListeningTestApp, TEST_ORIGIN } from '../utils/test-app';
@@ -253,6 +253,25 @@ describe('Couverture de classe', () => {
     } finally {
       await prisma.category.update({ where: { id: categoryId }, data: { finalValidation: false } });
     }
+  });
+
+  it('1 ter. historique : des événements de même horodatage restent dans leur ordre d’écriture (N3)', async () => {
+    const id = await onDuty();
+    // Même milliseconde et identifiants en ordre inverse de l'écriture : seul l'ordre d'écriture départage.
+    const at = new Date(Date.now() + 60_000);
+    const event = (eventId: string, stage: string) =>
+      prisma.requestEvent.create({
+        data: { id: eventId, requestId: id, actorId: null, type: 'OVERDUE', toValue: { stage }, createdAt: at },
+      });
+    await event('ffffffff-ffff-4fff-bfff-ffffffffff02', 'BROADCAST');
+    await event('00000000-0000-4000-8000-000000000002', 'ARRIVAL');
+
+    const detail = await api().get(`/api/coverage/${id}`).set('Cookie', cookies.surveillant);
+    expect(detail.status).toBe(200);
+    expect(detail.body.history.slice(-2).map((e: { toValue: { stage: string } }) => e.toValue.stage)).toEqual([
+      'BROADCAST',
+      'ARRIVAL',
+    ]);
   });
 
   // -------------------------------------------------------------------------

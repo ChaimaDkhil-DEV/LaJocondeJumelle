@@ -1,10 +1,11 @@
 import { Module } from '@nestjs/common';
-import { RequestPolicyLoader } from '../requests/request-policy.loader';
+import { RequestPolicyModule } from '../requests/request-policy.module';
 import { MessagesController } from './messages.controller';
 import { MessagesService } from './messages.service';
 
 @Module({
+  imports: [RequestPolicyModule],
   controllers: [MessagesController],
-  providers: [MessagesService, RequestPolicyLoader],
+  providers: [MessagesService],
 })
 export class MessagesModule {}

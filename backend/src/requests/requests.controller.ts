@@ -2,7 +2,7 @@ import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query, Req
 import type { Request, Response } from 'express';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/current-user.decorator';
-import { clientIp, requestPath } from '../auth/request-info';
+import { clientIp, requestPath } from '../common/request-info';
 import type { Page } from '../common/pagination';
 import { RequestTransitionsService } from './request-transitions.service';
 import { ChangePriorityDto, CreateRequestDto, ListRequestsQuery, RequestActionDto, UpdateDraftDto } from './requests.dto';

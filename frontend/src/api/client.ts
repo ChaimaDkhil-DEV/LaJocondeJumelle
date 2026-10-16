@@ -80,6 +80,26 @@ export async function apiFetch<T = unknown>(path: string, init: ApiRequestInit =
   return (text ? JSON.parse(text) : undefined) as T;
 }
 
+/**
+ * Message d'échec de chargement adapté à la cause (connexion, droits, requête, serveur).
+ * Pour une erreur serveur, donne la référence journalisée côté API, jamais de détail technique.
+ * `subject` : ce qui n'a pas pu être chargé (« le suivi ») ; `invalidHint` : action proposée
+ * quand la requête est refusée comme invalide (ex. « Réinitialisez les filtres. »).
+ */
+export function loadErrorMessage(error: unknown, subject: string, invalidHint = 'Vérifiez les critères saisis.'): string {
+  if (!(error instanceof ApiError)) return `Impossible de charger ${subject}. Réessayez dans quelques instants.`;
+  if (error.status === 0) return NETWORK_MESSAGE;
+  if (error.status === 403 || error.status === 404) return `Vous n’avez pas accès à ${subject}.`;
+  if (error.code === 'VALIDATION_ERROR') return `Impossible de charger ${subject} : la demande n’est pas valide. ${invalidHint}`;
+  if (error.status >= 500) {
+    const reference = typeof error.details?.reference === 'string' ? error.details.reference : null;
+    return reference
+      ? `Le serveur n’a pas pu charger ${subject}. Réessayez ; si le problème persiste, transmettez la référence ${reference} à l’administrateur technique.`
+      : `Le serveur n’a pas pu charger ${subject}. Réessayez dans quelques instants.`;
+  }
+  return `Impossible de charger ${subject}. ${error.message}`;
+}
+
 /** Erreurs par champ renvoyées par l'API (VALIDATION_ERROR). */
 export function fieldErrors(error: unknown): Record<string, string> {
   if (!(error instanceof ApiError) || error.code !== 'VALIDATION_ERROR') return {};

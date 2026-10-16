@@ -1,17 +1,14 @@
 import type { Permission, RequestStatus, Role } from '@prisma/client';
+import { permissionsFor, type PolicyUser } from '../../src/common/authorization';
 import {
   actorsFor,
   allowedActions,
   canCreateInCategory,
-  canManageAdministration,
   canPickRecipient,
-  canReadAudit,
   canReadRequest,
   canWriteInThread,
-  permissionsFor,
   type PolicyCategory,
   type PolicyRequest,
-  type PolicyUser,
 } from '../../src/requests/domain/access-policy';
 import type { RulesSnapshot } from '../../src/requests/domain/request-state-machine';
 
@@ -72,16 +69,6 @@ function request(status: RequestStatus, extra: Partial<PolicyRequest> = {}): Pol
     ...extra,
   };
 }
-
-describe('permissionsFor', () => {
-  it('donne toutes les permissions au super administrateur, sans les stocker', () => {
-    expect(superadmin.permissions.size).toBe(6);
-  });
-
-  it('reprend les permissions configurées pour les autres rôles', () => {
-    expect([...enseignante.permissions].sort()).toEqual(['PRIORITY_CHANGE_OWN', 'REQUEST_CREATE']);
-  });
-});
 
 describe('actorsFor', () => {
   it('cumule les relations de l’utilisateur avec la demande', () => {
@@ -222,17 +209,5 @@ describe('canWriteInThread', () => {
     for (const status of ['CLOSED', 'REJECTED', 'CANCELLED', 'DRAFT'] as const) {
       expect(canWriteInThread(enseignante, request(status), category)).toBe(false);
     }
-  });
-});
-
-describe('administration et audit', () => {
-  it('sont réservés au super administrateur', () => {
-    expect(canManageAdministration(superadmin)).toBe(true);
-    expect(canReadAudit(superadmin)).toBe(true);
-    for (const who of [responsable, enseignante]) {
-      expect(canManageAdministration(who)).toBe(false);
-      expect(canReadAudit(who)).toBe(false);
-    }
-    expect(canManageAdministration({ ...superadmin, active: false })).toBe(false);
   });
 });

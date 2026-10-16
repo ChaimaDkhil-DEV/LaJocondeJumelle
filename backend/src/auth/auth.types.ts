@@ -1,5 +1,5 @@
 import type { Permission, Role } from '@prisma/client';
-import type { PolicyUser } from '../requests/domain/access-policy';
+import type { PolicyUser } from '../common/authorization';
 
 /** Utilisateur authentifié attaché à la requête par SessionGuard. */
 export interface AuthenticatedUser extends PolicyUser {

@@ -1,3 +1,5 @@
+import { isIP } from 'node:net';
+
 /**
  * Configuration lue depuis les variables d'environnement et validée au démarrage :
  * l'application refuse de démarrer si une valeur obligatoire manque (principe IV,
@@ -18,12 +20,37 @@ export interface AppConfig {
   /** Jobs planifiés (clôture automatique, retards). Désactivés dans les tests d'intégration. */
   jobsEnabled: boolean;
   isProduction: boolean;
+  /** Réglage `trust proxy` d'Express : booléen, nombre de proxys, ou liste de sous-réseaux. */
+  trustProxy: boolean | number | string;
 }
 
 export class ConfigError extends Error {}
 
 const MIN_SECRET_LENGTH = 32;
 const DEFAULT_LOGIN_RATE_LIMIT = 5;
+const TRUST_PROXY_NAMES = new Set(['loopback', 'linklocal', 'uniquelocal']);
+
+/** Adresse IP, ou plage CIDR dont le préfixe tient dans la famille d'adresses. */
+function isAddressOrRange(value: string): boolean {
+  const [address, prefix, extra] = value.split('/');
+  const family = isIP(address);
+  if (family === 0 || extra !== undefined) return false;
+  if (prefix === undefined) return true;
+  return /^\d{1,3}$/.test(prefix) && Number(prefix) <= (family === 4 ? 32 : 128);
+}
+
+/** Valide TRUST_PROXY (défaut : loopback) ; refuse toute valeur qu'Express interpréterait mal. */
+function parseTrustProxy(raw: string | undefined): boolean | number | string {
+  const value = raw?.trim() || 'loopback';
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  if (/^\d+$/.test(value)) return Number(value);
+  const entries = value.split(',').map((entry) => entry.trim());
+  if (entries.every((entry) => TRUST_PROXY_NAMES.has(entry) || isAddressOrRange(entry))) return entries.join(',');
+  throw new ConfigError(
+    'TRUST_PROXY invalide : utilisez true, false, un nombre de proxys, ou une liste parmi loopback, linklocal, uniquelocal, adresses IP ou plages CIDR',
+  );
+}
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const missing = ['DATABASE_URL', 'SESSION_SECRET', 'FILES_DIR', 'APP_ORIGIN'].filter(
@@ -45,7 +72,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     throw new ConfigError('APP_ORIGIN doit être une URL valide (ex. https://demandes.ecole.fr)');
   }
 
-  const port = Number(env.PORT ?? 3000);
+  const port = Number(env.PORT ?? 3002);
   if (!Number.isInteger(port) || port <= 0 || port > 65535) {
     throw new ConfigError('PORT doit être un entier entre 1 et 65535');
   }
@@ -63,5 +90,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       env.NODE_ENV !== 'production' && Number(env.LOGIN_RATE_LIMIT) > 0 ? Number(env.LOGIN_RATE_LIMIT) : DEFAULT_LOGIN_RATE_LIMIT,
     jobsEnabled: env.JOBS_ENABLED !== 'false',
     isProduction: env.NODE_ENV === 'production',
+    trustProxy: parseTrustProxy(env.TRUST_PROXY),
   };
 }

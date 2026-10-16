@@ -57,6 +57,29 @@ describe('HttpExceptionFilter', () => {
     expect(JSON.stringify(body(response))).not.toContain('SQL');
     expect(logged).toHaveBeenCalled();
   });
+
+  it('donne à chaque 500 une référence courte, journalisée avec la route et renvoyée au client', () => {
+    const { host, response } = hostWithResponse();
+    const logged = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    filter.catch(new Error('détail interne SQL'), host);
+    const reference = body(response).error.details?.reference;
+    expect(reference).toMatch(/^[0-9a-f]{8}$/);
+    const line = String(logged.mock.calls.at(-1)?.[0]);
+    expect(line).toContain(`[ref ${reference}]`);
+    expect(line).toContain('GET /api/x');
+    expect(line).toContain('détail interne SQL');
+  });
+
+  it('ne journalise pas la chaîne de requête (identifiants, filtres)', () => {
+    const response = { status: jest.fn().mockReturnThis(), json: jest.fn().mockReturnThis() };
+    const host = {
+      switchToHttp: () => ({ getResponse: () => response, getRequest: () => ({ url: '/api/x?classId=abc', method: 'GET' }) }),
+      getType: () => 'http',
+    } as unknown as ArgumentsHost;
+    const logged = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    filter.catch(new Error('boom'), host);
+    expect(String(logged.mock.calls.at(-1)?.[0])).not.toContain('classId');
+  });
 });
 
 class SampleDto {

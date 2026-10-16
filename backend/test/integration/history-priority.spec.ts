@@ -56,6 +56,22 @@ describe('Historique et priorité', () => {
     await prisma.$disconnect();
   });
 
+  it('restitue dans leur ordre d’écriture des événements de même horodatage (N3)', async () => {
+    const { id } = await create();
+    // Même milliseconde et identifiants en ordre inverse de l'écriture : seul l'ordre d'écriture départage.
+    const at = new Date(Date.now() + 60_000);
+    const event = (eventId: string, stage: string) =>
+      prisma.requestEvent.create({
+        data: { id: eventId, requestId: id, actorId: null, type: 'OVERDUE', toValue: { stage }, createdAt: at },
+      });
+    await event('ffffffff-ffff-4fff-bfff-ffffffffff01', 'TAKEOVER');
+    await event('00000000-0000-4000-8000-000000000001', 'COMPLETION');
+
+    const res = await api().get(`/api/requests/${id}/history`).set('Cookie', enseignante);
+    expect(res.status).toBe(200);
+    expect(res.body.slice(-2).map((e: { toValue: { stage: string } }) => e.toValue.stage)).toEqual(['TAKEOVER', 'COMPLETION']);
+  });
+
   it('liste chronologiquement chaque action avec son auteur (ou « Système ») et les noms des employés', async () => {
     const { id, version } = await create();
     const accepted = await act(reprographie, id, { action: 'ACCEPT', version });

@@ -435,6 +435,8 @@ model RequestEvent {
   toValue   Json?
   comment   String?          @db.VarChar(1000)
   createdAt DateTime         @default(now()) @db.Timestamptz(3)
+  /// Ordre d'écriture : départage les événements de même horodatage (N3).
+  seq       BigInt           @default(autoincrement())
 
   request Request @relation(fields: [requestId], references: [id])
   actor   User?   @relation(fields: [actorId], references: [id])
