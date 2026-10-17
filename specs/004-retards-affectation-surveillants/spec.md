@@ -250,7 +250,7 @@ les points ambigus sous forme de questions, sans suppositions."
   l'assignation d'un surveillant. Le modèle doit permettre de regrouper plus tard plusieurs
   demandes sous une même absence sans refonte.
 - Q4 : Articulation avec les états actuels des gardes ? → A : Deux niveaux : le statut principal
-  (les sept) et un sous-état affiché en badge, qui ne change pas le statut principal. Sous-états
+  (les six) et un sous-état affiché en badge, qui ne change pas le statut principal. Sous-états
   conservés : « En route » et « En retard » sous « assignée » ; « Relève demandée » sous « en
   cours » ; « Clôturée après validation » sous « terminée ». Filtres, statistiques et alertes se
   fondent sur le statut principal. Les anciennes gardes terminées sont migrées vers « terminée »,
