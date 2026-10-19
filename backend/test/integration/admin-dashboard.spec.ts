@@ -161,6 +161,25 @@ describe('Tableau de bord du super administrateur', () => {
       expect(past.body.daily).toHaveLength(31);
     });
 
+    it('compte les demandes terminées au jour de leur fin de traitement, quelle que soit leur création', async () => {
+      const { createdAt } = await prisma.request.findUniqueOrThrow({ where: { id: ids.done } });
+      await prisma.request.update({ where: { id: ids.done }, data: { createdAt: new Date(Date.now() - 60 * 86_400_000) } });
+      try {
+        const res = await get('summary');
+        expect(res.body.counts.total).toBe(4);
+        expect((res.body.daily as Array<{ completed: number }>).reduce((s, d) => s + d.completed, 0)).toBe(1);
+
+        // Hors de la période de fin de traitement : non comptée.
+        const past = await get('summary?from=2020-01-01&to=2020-01-31');
+        expect((past.body.daily as Array<{ completed: number }>).reduce((s, d) => s + d.completed, 0)).toBe(0);
+        // Les autres filtres s'appliquent toujours.
+        const other = await get(`summary?categoryId=${circuitB}`);
+        expect((other.body.daily as Array<{ completed: number }>).reduce((s, d) => s + d.completed, 0)).toBe(0);
+      } finally {
+        await prisma.request.update({ where: { id: ids.done }, data: { createdAt } });
+      }
+    });
+
     it('ne renvoie aucun contenu de demande ni de message', async () => {
       for (const path of ['summary', 'performance', 'employees', 'activity?limit=100']) {
         const text = JSON.stringify((await get(path)).body);
