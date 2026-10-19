@@ -123,7 +123,7 @@ Toutes les routes ci-dessous sont protégées par `SuperAdminGuard` (contrôleur
 | Filtres : période (7, 30, 90 jours ou personnalisée), catégorie, priorité, employé | `DashboardPage.tsx` | `dashboard.controller.ts:8` | Complète |
 | « À traiter maintenant » : en retard, urgentes en cours, sans employé affecté, alertes avec lien | `GET /api/admin/dashboard/summary` | idem | Complète |
 | Compteurs par état, graphiques (répartition, évolution quotidienne) avec vue tableau | idem | idem | Complète |
-| Délais : prise en charge, traitement net et brut, taux de respect, par priorité | `GET …/performance` | idem | Complète |
+| Délais : première réponse (premier message d'une autre personne que le demandeur), prise en charge, traitement net et brut, taux de respect, par priorité | `GET …/performance` | idem | Complète |
 | Activité par employé | `GET …/employees` | idem | Complète |
 | Liste des demandes | `GET /api/requests?scope=all` | visibilité des demandes | Complète |
 | Fil d'activité (métadonnées seulement) | `GET …/activity` | idem | Complète |

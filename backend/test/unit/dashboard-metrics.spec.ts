@@ -36,6 +36,7 @@ function row(patch: Partial<PerformanceRow>): PerformanceRow {
     overdue: false,
     tracked: true,
     durations: { validationMs: null, takeoverMs: null, resolutionMs: null, grossResolutionMs: null },
+    firstReplyMs: null,
     ...patch,
   };
 }
@@ -133,6 +134,17 @@ describe('Tableau de bord : respect des délais', () => {
       row({ status: 'CANCELLED', overdue: true }),
     ]);
     expect(stats.compliance).toEqual({ evaluated: 3, onTime: 2, rate: 2 / 3 });
+  });
+
+  it('moyenne la première réponse sur les seules demandes ayant reçu une réponse', () => {
+    const stats = summarizePerformance([
+      row({ firstReplyMs: 2 * MIN, durations: { validationMs: null, takeoverMs: 10 * MIN, resolutionMs: null, grossResolutionMs: null } }),
+      row({ firstReplyMs: 4 * MIN }),
+      row({ firstReplyMs: null }),
+    ]);
+    expect(stats.firstReply).toEqual({ avgMs: 3 * MIN, count: 2 });
+    // Mesure distincte de la prise en charge.
+    expect(stats.takeover).toEqual({ avgMs: 10 * MIN, count: 1 });
   });
 
   it('renvoie un taux nul sans demande évaluable', () => {

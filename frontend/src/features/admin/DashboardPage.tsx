@@ -362,6 +362,12 @@ function PerformanceView({ qs }: { qs: string }) {
   return (
     <Box sx={{ display: 'grid', gap: 3 }}>
       <Box sx={kpiGrid}>
+        <Kpi
+          label="Première réponse moyenne"
+          value={formatDurationMs(o.firstReply.avgMs)}
+          icon={MessageSquare}
+          hint={`Soumission → premier message d’une autre personne · ${o.firstReply.count} demande(s)`}
+        />
         <Kpi label="Prise en charge moyenne" value={formatDurationMs(o.takeover.avgMs)} icon={Timer} hint={`Envoi → acceptation · ${o.takeover.count} demande(s)`} />
         <Kpi label="Traitement net moyen" value={formatDurationMs(o.resolution.avgMs)} icon={Play} hint={`Hors suspensions · ${o.resolution.count} demande(s)`} />
         <Kpi label="Traitement brut moyen" value={formatDurationMs(o.grossResolution.avgMs)} icon={Hourglass} hint="Envoi → terminée, suspensions comprises" />
@@ -381,6 +387,7 @@ function PerformanceView({ qs }: { qs: string }) {
                 <TableCell>Priorité</TableCell>
                 <TableCell align="right">Demandes</TableCell>
                 <TableCell align="right">Validation</TableCell>
+                <TableCell align="right">Première réponse</TableCell>
                 <TableCell align="right">Prise en charge</TableCell>
                 <TableCell align="right">Traitement net</TableCell>
                 <TableCell align="right">Respect des délais</TableCell>
@@ -394,6 +401,7 @@ function PerformanceView({ qs }: { qs: string }) {
                   </TableCell>
                   <TableCell align="right">{p.total}</TableCell>
                   <TableCell align="right">{durationCell(p.validation)}</TableCell>
+                  <TableCell align="right">{durationCell(p.firstReply)}</TableCell>
                   <TableCell align="right">{durationCell(p.takeover)}</TableCell>
                   <TableCell align="right">{durationCell(p.resolution)}</TableCell>
                   <TableCell align="right">
@@ -412,7 +420,8 @@ function PerformanceView({ qs }: { qs: string }) {
         </TableContainer>
       </SectionCard>
       <Typography variant="body2" color="text.secondary">
-        Les moyennes ne portent que sur les demandes mesurables (n). Le traitement net compte le temps passé « Envoyée », « Acceptée » et « En cours » ; les
+        Les moyennes ne portent que sur les demandes mesurables (n). La première réponse va de la soumission au premier message, texte ou vocal, d’une autre
+        personne que le demandeur ; elle est distincte de la prise en charge (acceptation). Le traitement net compte le temps passé « Envoyée », « Acceptée » et « En cours » ; les
         périodes « À corriger » et d’attente de validation sont exclues. Une demande encore en cours n’entre pas dans le taux de respect des délais.
       </Typography>
     </Box>

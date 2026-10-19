@@ -12,6 +12,8 @@ import type { Priority, RequestStatus } from '@prisma/client';
  *   statuts Envoyée, Acceptée et En cours. Les suspensions (À corriger, Terminée en attente,
  *   À valider en fin de traitement) sont exclues ;
  * - traitement brut : même intervalle, suspensions comprises.
+ * Première réponse, mesurée sur les messages : de la soumission au premier message texte ou vocal
+ * d'une autre personne que le demandeur (messages système exclus).
  * Les moyennes ne portent que sur les demandes pour lesquelles la mesure existe (n indiqué).
  */
 
@@ -140,6 +142,8 @@ export interface PerformanceRow {
   /** Au moins une étape suivie (délai défini dans l'instantané). */
   tracked: boolean;
   durations: RequestDurations;
+  /** Soumission → premier message d'une autre personne ; null sans réponse. */
+  firstReplyMs: number | null;
 }
 
 export interface Compliance {
@@ -153,6 +157,7 @@ export interface Compliance {
 
 export interface PerformanceStats {
   validation: DurationStats;
+  firstReply: DurationStats;
   takeover: DurationStats;
   resolution: DurationStats;
   grossResolution: DurationStats;
@@ -168,6 +173,7 @@ export function summarizePerformance(rows: readonly PerformanceRow[]): Performan
   const onTime = evaluatedRows.filter((r) => !r.overdue).length;
   return {
     validation: average(rows.map((r) => r.durations.validationMs)),
+    firstReply: average(rows.map((r) => r.firstReplyMs)),
     takeover: average(rows.map((r) => r.durations.takeoverMs)),
     resolution: average(rows.map((r) => r.durations.resolutionMs)),
     grossResolution: average(rows.map((r) => r.durations.grossResolutionMs)),
