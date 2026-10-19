@@ -91,16 +91,19 @@ describe('Tableau de bord du super administrateur', () => {
   });
 
   describe('accès', () => {
-    it.each(['summary', 'performance', 'employees', 'activity'])('refuse /%s sans session', async (path) => {
+    it.each(['summary', 'performance', 'employees', 'activity', 'export.csv'])('refuse /%s sans session', async (path) => {
       expect((await api().get(`/api/admin/dashboard/${path}`)).status).toBe(401);
     });
 
     it('refuse un employé et un responsable, et journalise le refus', async () => {
       expect((await get('summary', enseignante)).status).toBe(403);
       expect((await get('employees', responsable)).status).toBe(403);
+      expect((await get('export.csv', responsable)).status).toBe(403);
       const denied = await prisma.auditLog.findMany({ where: { action: 'ACCESS_DENIED' } });
       const routes = denied.map((d) => (d.details as { route?: string } | null)?.route);
-      expect(routes).toEqual(expect.arrayContaining(['/api/admin/dashboard/summary', '/api/admin/dashboard/employees']));
+      expect(routes).toEqual(
+        expect.arrayContaining(['/api/admin/dashboard/summary', '/api/admin/dashboard/employees', '/api/admin/dashboard/export.csv']),
+      );
     });
 
     it('n’offre aucune route d’écriture', async () => {
@@ -163,6 +166,45 @@ describe('Tableau de bord du super administrateur', () => {
         const text = JSON.stringify((await get(path)).body);
         expect(text).not.toMatch(/Description confidentielle|Contenu privé|passwordHash|storagePath|"comment"/);
       }
+    });
+  });
+
+  describe('export CSV', () => {
+    const parse = (text: string) => text.replace(/^\uFEFF/, '').trimEnd().split('\r\n').map((line) => line.split(';'));
+
+    it('exporte les demandes de la période avec les filtres du tableau de bord', async () => {
+      const res = await get('export.csv');
+      expect(res.status).toBe(200);
+      expect(res.headers['content-type']).toContain('text/csv');
+      expect(res.headers['content-disposition']).toContain('demandes-de-travail.csv');
+      expect(res.headers['cache-control']).toContain('no-store');
+      expect(res.text.startsWith('\uFEFF')).toBe(true);
+
+      const [header, ...rows] = parse(res.text);
+      expect(header.slice(0, 5)).toEqual(['Référence', 'Titre', 'Catégorie', 'Priorité', 'Statut']);
+      expect(rows).toHaveLength(5);
+      const column = (name: string) => header.indexOf(name);
+      const done = await prisma.request.findUniqueOrThrow({ where: { id: ids.done } });
+      const doneRow = rows.find((r) => r[0] === done.reference)!;
+      expect(doneRow[column('Statut')]).toBe('Terminée');
+      expect(doneRow[column('Priorité')]).toBe('Urgente');
+      expect(doneRow[column('Employé affecté')]).toBe('Reprographie');
+      expect(doneRow[column('Prise en charge (min)')]).toMatch(/^\d+(,\d)?$/);
+      expect(doneRow[column('Retard sur la période')]).toBe('Non');
+
+      const overdue = await prisma.request.findUniqueOrThrow({ where: { id: ids.overdue } });
+      const overdueRow = rows.find((r) => r[0] === overdue.reference)!;
+      expect(overdueRow[column('En retard actuellement')]).toBe('Oui (prise en charge)');
+      expect(overdueRow[column('Retard sur la période')]).toBe('Oui');
+      // Mesure absente : cellule vide plutôt que zéro.
+      expect(overdueRow[column('Traitement net (min)')]).toBe('');
+
+      expect(parse((await get('export.csv?priority=URGENT')).text)).toHaveLength(1 + 2);
+      expect(parse((await get(`export.csv?categoryId=${circuitB}`)).text)).toHaveLength(1);
+    });
+
+    it('n’exporte ni description, ni message', async () => {
+      expect((await get('export.csv')).text).not.toMatch(/Description confidentielle|Contenu privé/);
     });
   });
 

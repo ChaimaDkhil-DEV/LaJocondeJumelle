@@ -127,6 +127,7 @@ Toutes les routes ci-dessous sont protégées par `SuperAdminGuard` (contrôleur
 | Activité par employé | `GET …/employees` | idem | Complète |
 | Liste des demandes | `GET /api/requests?scope=all` | visibilité des demandes | Complète |
 | Fil d'activité (métadonnées seulement) | `GET …/activity` | idem | Complète |
+| Export CSV des demandes de la période (mêmes filtres ; métadonnées, dates et délais, sans description ni message) | `GET …/export.csv` | idem | Complète |
 
 Périmètre : demandes de travail uniquement ; actualisation en direct à chaque mise à jour de demande
 (salle Socket.IO des super administrateurs) et toutes les 60 s. L'onglet Employés liste aussi, à zéro,
@@ -237,7 +238,6 @@ Consultation seule, filtres par auteur, action et période (`admin-audit.control
   dans son message de refus, `users.service.ts:210`).
 - Réaffecter une demande de travail en mode direct ou entre enseignants : impossible par choix
   (lecture seule de l'administration) ; seul le mode via l'administration le permet.
-- Export des demandes de travail : absent (export CSV seulement pour les gardes).
 - Modification d'une garde (classe, horaire) : absente ; seules la prolongation et l'élargissement
   existent. Suppression : absente (annulation motivée à la place).
 - Audit : création de garde et actions sur les demandes de travail non journalisées (§2.7).

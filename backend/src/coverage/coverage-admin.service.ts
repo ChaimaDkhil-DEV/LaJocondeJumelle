@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { Prisma, type RequestStatus } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import type { AuthenticatedUser } from '../auth/auth.types';
+import { toCsv } from '../common/csv';
 import { AppException } from '../common/errors';
 import { PrismaService } from '../common/prisma.service';
 import type { AppConfig } from '../config/config';
@@ -42,14 +43,6 @@ export const COVERAGE_STATUS_LABELS: Partial<Record<RequestStatus, string>> = {
   CLOSED: 'Clôturée',
   CANCELLED: 'Annulée',
 };
-
-/** Cellule CSV : guillemets échappés, et neutralisation des formules (=, +, -, @) à l'ouverture dans un tableur. */
-export function csvCell(value: unknown): string {
-  if (value === null || value === undefined) return '';
-  let text = value instanceof Date ? value.toISOString() : String(value);
-  if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`;
-  return /[";\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
-}
 
 const SECONDS = (ms: number) => Math.round(ms / 1000);
 
@@ -387,9 +380,9 @@ export class CoverageAdminService {
         c.targets.map((t) => t.group.name).join(', '), r.requester.displayName, r.assignee?.displayName, c.absentTeacher,
         r.createdAt, c.broadcastAt, r.acceptedAt, c.departedAt, c.presenceAt, c.relievedAt, r.closedAt, r.cancelledAt,
         c.durationMinutes, c.releaseCount, c.extensionCount, c.cancelReason,
-      ].map(csvCell).join(';');
+      ];
     });
-    return `\uFEFF${[header.map(csvCell).join(';'), ...lines].join('\r\n')}\r\n`;
+    return toCsv(header, lines);
   }
 
   private uniqueName(error: unknown, message: string): unknown {
