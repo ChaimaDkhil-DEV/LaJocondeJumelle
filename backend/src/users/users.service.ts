@@ -200,6 +200,7 @@ export class UsersService {
       }
     });
     if (deactivated) this.realtime.endUserSessions(id, 'DEACTIVATED');
+    else if (after.role !== undefined) this.realtime.syncSuperAdminRoom(id, after.role === 'SUPER_ADMIN');
     return this.get(id);
   }
 

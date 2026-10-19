@@ -154,6 +154,56 @@ describe('Temps réel (Socket.IO)', () => {
       expect(received.get(author)).toEqual([]);
     });
 
+    it('tient le super administrateur informé de chaque demande soumise ou modifiée, une seule fois', async () => {
+      const superAdmin = await connect(await loginAs(app, 'superadmin'));
+      const outsider = await connect(await loginAs(app, 'autre'));
+
+      const submitted = nextEvent(superAdmin, 'request:updated');
+      const { id, version } = await createRequest();
+      expect(await submitted).toEqual({ requestId: id, status: 'SENT', version: 0, overdueStage: null });
+
+      const accepted = nextEvent(superAdmin, 'request:updated');
+      await request(app.getHttpServer())
+        .post(`/api/requests/${id}/actions`)
+        .set('Cookie', reprographie)
+        .set('Origin', TEST_ORIGIN)
+        .send({ action: 'ACCEPT', version })
+        .expect(200);
+      expect(await accepted).toMatchObject({ requestId: id, status: 'ACCEPTED' });
+
+      await pause(300);
+      expect(received.get(superAdmin)!.filter((e) => e.event === 'request:updated')).toHaveLength(2);
+      expect(received.get(outsider)!.filter((e) => e.event === 'request:updated')).toEqual([]);
+    });
+
+    it('ajuste la salle de supervision quand le rôle change, sans reconnexion', async () => {
+      const superAdminCookie = await loginAs(app, 'superadmin');
+      const autreId = await userId(prisma, 'autre');
+      const socket = await connect(await loginAs(app, 'autre'));
+      const setRole = (role: string) =>
+        request(app.getHttpServer())
+          .patch(`/api/admin/users/${autreId}`)
+          .set('Cookie', superAdminCookie)
+          .set('Origin', TEST_ORIGIN)
+          .send({ role })
+          .expect(200);
+
+      try {
+        await setRole('SUPER_ADMIN');
+        const promoted = nextEvent(socket, 'request:updated');
+        await createRequest();
+        await promoted;
+
+        await setRole('EMPLOYEE');
+        received.get(socket)!.length = 0;
+        await createRequest();
+        await pause(300);
+        expect(received.get(socket)!.filter((e) => e.event === 'request:updated')).toEqual([]);
+      } finally {
+        await prisma.user.update({ where: { id: autreId }, data: { role: 'EMPLOYEE' } });
+      }
+    });
+
     it('diffuse message:new aux autres participants', async () => {
       const { id } = await createRequest();
       const author = await connect(enseignante);

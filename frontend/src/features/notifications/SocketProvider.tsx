@@ -62,7 +62,8 @@ export function SocketProvider({
     socket.on('request:updated', (event?: { requestId: string }) => {
       if (event) invalidate(requestKeys.detail(event.requestId));
       invalidate(['requests', 'list']);
-      // Tableau de bord du super administrateur (relu aussi chaque minute : il ne reçoit pas tous les événements).
+      // Tableau de bord : le super administrateur reçoit toutes les mises à jour de demande ; relu aussi
+      // chaque minute pour les messages et le passage du temps.
       invalidate(['dashboard']);
     });
     // Couvertures de classe : listes « À prendre », « Ma garde », suivi en direct (relues par REST).

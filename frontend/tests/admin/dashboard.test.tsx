@@ -227,7 +227,7 @@ describe('Tableau de bord', () => {
 
   it('affiche un état vide pour les employés sans activité', async () => {
     setup('/admin/tableau-de-bord?vue=employes');
-    expect(await screen.findByText('Aucun employé n’a créé ou reçu de demande sur cette période.')).toBeVisible();
+    expect(await screen.findByText('Aucun compte actif et aucune demande sur cette période.')).toBeVisible();
   });
 });
 

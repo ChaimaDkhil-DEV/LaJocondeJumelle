@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
-import type { DeadlineStage, Priority } from '@prisma/client';
+import type { DeadlineStage, Priority, RequestStatus } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
 import type { AppConfig } from '../config/config';
 import { APP_CONFIG } from '../config/config.module';
@@ -11,7 +11,7 @@ import { JOB_INTERVAL_MS } from './job-interval';
 interface OverdueRow {
   id: string;
   currentStage: DeadlineStage;
-  status: string;
+  status: RequestStatus;
   version: number;
   priority: Priority;
   requesterId: string;
@@ -83,7 +83,7 @@ export class OverdueJob {
         });
       });
       await this.notifications.flushAfterCommit(pending);
-      this.realtime.emitToUsers([row.requesterId, row.assigneeId, ...managers], 'request:updated', {
+      this.realtime.emitRequestUpdated([row.requesterId, row.assigneeId, ...managers], {
         requestId: row.id,
         status: row.status,
         version: row.version,

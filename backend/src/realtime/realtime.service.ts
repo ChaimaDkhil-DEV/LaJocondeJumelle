@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import type { DeadlineStage, RequestStatus } from '@prisma/client';
 import type { Server } from 'socket.io';
 
 export type SessionEndReason = 'LOGOUT' | 'EXPIRED' | 'DEACTIVATED' | 'PASSWORD_RESET';
@@ -9,10 +10,20 @@ export type SessionChecker = (sessionId: string) => Promise<'EXPIRED' | 'DEACTIV
 export interface SocketData {
   userId: string;
   sessionId: string;
+  superAdmin: boolean;
+}
+
+export interface RequestUpdatedEvent {
+  requestId: string;
+  status: RequestStatus;
+  version: number;
+  overdueStage: DeadlineStage | null;
 }
 
 export const userRoom = (userId: string): string => `user:${userId}`;
 export const sessionRoom = (sessionId: string): string => `session:${sessionId}`;
+/** Super administrateurs actifs : supervision de toutes les demandes (tableau de bord). */
+export const SUPER_ADMIN_ROOM = 'role:super-admin';
 
 /**
  * Diffusion temps réel (contracts/realtime-events.md). Les événements ne contiennent que des
@@ -33,8 +44,27 @@ export class RealtimeService {
   /** Émet un événement dans la salle personnelle de chaque utilisateur (doublons et vides ignorés). */
   emitToUsers(userIds: Iterable<string | null | undefined>, event: string, payload: unknown): void {
     if (!this.server) return;
-    const rooms = [...new Set([...userIds].filter((id): id is string => Boolean(id)))].map(userRoom);
+    const rooms = userRooms(userIds);
     if (rooms.length > 0) this.server.to(rooms).emit(event, payload);
+  }
+
+  /**
+   * `request:updated` vers les lecteurs de la demande et, hors brouillon, les super administrateurs.
+   * Un socket présent dans plusieurs salles ne reçoit l'événement qu'une fois.
+   */
+  emitRequestUpdated(userIds: Iterable<string | null | undefined>, payload: RequestUpdatedEvent): void {
+    if (!this.server) return;
+    const rooms = userRooms(userIds);
+    if (payload.status !== 'DRAFT') rooms.push(SUPER_ADMIN_ROOM);
+    if (rooms.length > 0) this.server.to(rooms).emit('request:updated', payload);
+  }
+
+  /** Aligne les connexions ouvertes d'un compte sur son rôle après une modification. */
+  syncSuperAdminRoom(userId: string, superAdmin: boolean): void {
+    if (!this.server) return;
+    const sockets = this.server.in(userRoom(userId));
+    if (superAdmin) sockets.socketsJoin(SUPER_ADMIN_ROOM);
+    else sockets.socketsLeave(SUPER_ADMIN_ROOM);
   }
 
   /** Prévient puis ferme les connexions d'une session (déconnexion). */
@@ -73,4 +103,9 @@ export class RealtimeService {
     // Déconnexion de l'espace de noms (paquet envoyé après session:ended, dans l'ordre).
     this.server.in(room).disconnectSockets(false);
   }
+}
+
+/** Salles personnelles, doublons et identifiants vides ignorés. */
+function userRooms(userIds: Iterable<string | null | undefined>): string[] {
+  return [...new Set([...userIds].filter((id): id is string => Boolean(id)))].map(userRoom);
 }

@@ -285,11 +285,12 @@ export class RequestTransitionsService {
     });
     await this.notifications.flushAfterCommit(pending);
     // Les lecteurs de la demande rafraîchissent liste et détail (contracts/realtime-events.md).
-    this.realtime.emitToUsers(
-      [after.requesterId, after.assigneeId, ...category.managers.map((m) => m.userId)],
-      'request:updated',
-      { requestId: after.id, status: after.status, version: after.version, overdueStage: after.overdueStage },
-    );
+    this.realtime.emitRequestUpdated([after.requesterId, after.assigneeId, ...category.managers.map((m) => m.userId)], {
+      requestId: after.id,
+      status: after.status,
+      version: after.version,
+      overdueStage: after.overdueStage,
+    });
   }
 
   /**
