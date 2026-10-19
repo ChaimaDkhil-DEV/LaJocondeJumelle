@@ -1,4 +1,3 @@
-```bat
 @echo off
 setlocal
 title Installation - LaJocondeJumelle
@@ -76,4 +75,3 @@ echo Une erreur est survenue pendant l'installation.
 echo Consultez les messages precedents.
 pause
 exit /b 1
-```

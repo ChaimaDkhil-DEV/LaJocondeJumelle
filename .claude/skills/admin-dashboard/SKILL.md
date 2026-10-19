@@ -1,4 +1,3 @@
-
 ---
 name: admin-dashboard
 description: Analyse, conçoit, développe et teste le dashboard de supervision du Super Admin pour une application de gestion scolaire. Utiliser pour les statistiques de tâches, le suivi des employés, les délais, les interactions et les indicateurs en temps réel.
