@@ -230,7 +230,7 @@ function GeneralView({ qs }: { qs: string }) {
         </Box>
       </Box>
 
-      {s.counts.total === 0 ? (
+      {s.counts.total === 0 && s.daily.every((d) => d.completed === 0) ? (
         <Paper variant="outlined">
           <EmptyState icon={SearchX} title="Aucune demande" description="Aucune demande ne correspond à cette période et à ces filtres." />
         </Paper>
@@ -239,7 +239,10 @@ function GeneralView({ qs }: { qs: string }) {
           <SectionCard title="Répartition par état">
             <StatusChart data={groups.map((g) => ({ label: GROUP_LABELS[g], count: s.counts[g] }))} />
           </SectionCard>
-          <SectionCard title="Évolution quotidienne">
+          <SectionCard
+            title="Évolution quotidienne"
+            description="Créées : jour de création. Terminées : jour de la première fin de traitement, même pour une demande créée avant la période."
+          >
             <DailyChart data={s.daily} />
           </SectionCard>
         </Box>

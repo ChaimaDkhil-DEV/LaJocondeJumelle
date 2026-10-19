@@ -172,14 +172,17 @@ export class DashboardService {
       this.prisma.$queryRaw<Array<{ day: string; count: number }>>`
         SELECT to_char(r."createdAt" AT TIME ZONE ${f.tz}, 'YYYY-MM-DD') AS "day", count(*)::int AS "count"
         FROM "Request" r WHERE ${inPeriod} GROUP BY 1`,
-      // Première fin de traitement de chaque demande de la période.
+      // Demandes dont la première fin de traitement tombe dans la période, quelle que soit leur date
+      // de création ; une demande terminée de nouveau après correction n'est comptée qu'une fois.
       this.prisma.$queryRaw<Array<{ day: string; count: number }>>`
         SELECT to_char(d."at" AT TIME ZONE ${f.tz}, 'YYYY-MM-DD') AS "day", count(*)::int AS "count"
         FROM (
           SELECT min(e."createdAt") AS "at" FROM "RequestEvent" e JOIN "Request" r ON r."id" = e."requestId"
-          WHERE ${inPeriod} AND e."type" = 'STATUS_CHANGED' AND e."toValue"->>'status' = 'DONE'
+          WHERE ${now} AND e."type" = 'STATUS_CHANGED' AND e."toValue"->>'status' = 'DONE'
           GROUP BY e."requestId"
-        ) d GROUP BY 1`,
+        ) d
+        WHERE d."at" >= ${f.from} AND d."at" <= ${f.to}
+        GROUP BY 1`,
       this.alerts(now),
     ]);
 

@@ -217,11 +217,32 @@ describe('Tableau de bord', () => {
   it('affiche un état vide sans demande', async () => {
     setup('/admin/tableau-de-bord', (url) =>
       url.startsWith('/api/admin/dashboard/summary')
-        ? json(200, { ...SUMMARY, counts: { ...SUMMARY.counts, total: 0 }, alerts: [], byCategory: [] })
+        ? json(200, {
+            ...SUMMARY,
+            counts: { ...SUMMARY.counts, total: 0 },
+            alerts: [],
+            byCategory: [],
+            daily: SUMMARY.daily.map((d) => ({ ...d, created: 0, completed: 0 })),
+          })
         : undefined,
     );
     expect(await screen.findByText('Aucune demande ne correspond à cette période et à ces filtres.')).toBeVisible();
     expect(screen.getByText('Aucune alerte')).toBeVisible();
+  });
+
+  it('montre l’évolution quand des demandes créées avant la période y sont terminées', async () => {
+    setup('/admin/tableau-de-bord', (url) =>
+      url.startsWith('/api/admin/dashboard/summary')
+        ? json(200, {
+            ...SUMMARY,
+            counts: { ...SUMMARY.counts, total: 0 },
+            byCategory: [],
+            daily: SUMMARY.daily.map((d) => ({ ...d, created: 0 })),
+          })
+        : undefined,
+    );
+    expect(await screen.findByText('Évolution quotidienne')).toBeVisible();
+    expect(screen.queryByText('Aucune demande ne correspond à cette période et à ces filtres.')).toBeNull();
   });
 
   it('présente les délais et le taux de respect', async () => {
