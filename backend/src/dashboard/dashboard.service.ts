@@ -289,6 +289,9 @@ export class DashboardService {
     if (f.employeeId) {
       ids.clear();
       ids.add(f.employeeId);
+    } else {
+      // Comptes actifs sans demande sur la période : affichés à zéro plutôt qu'absents.
+      for (const id of await this.availableEmployeeIds(f)) ids.add(id);
     }
     const [users, lastActions] = await Promise.all([
       this.prisma.user.findMany({
@@ -323,6 +326,22 @@ export class DashboardService {
     });
     items.sort((a, b) => b.assigned - a.assigned || b.created - a.created || a.user.displayName.localeCompare(b.user.displayName, 'fr'));
     return { period: { from: f.from, to: f.to }, items };
+  }
+
+  /**
+   * Comptes actifs attendus dans le tableau même sans activité : les destinataires des catégories
+   * filtrées, sinon tous les comptes actifs hors super administrateurs.
+   */
+  private async availableEmployeeIds(f: Filters): Promise<string[]> {
+    if (f.categoryIds.length > 0) {
+      const recipients = await this.prisma.categoryRecipient.findMany({
+        where: { categoryId: { in: f.categoryIds }, user: { active: true } },
+        select: { userId: true },
+      });
+      return recipients.map((r) => r.userId);
+    }
+    const users = await this.prisma.user.findMany({ where: { active: true, role: { not: 'SUPER_ADMIN' } }, select: { id: true } });
+    return users.map((u) => u.id);
   }
 
   /** Dernières actions sur les demandes (période sur la date de l'action), de la plus récente à la plus ancienne. */

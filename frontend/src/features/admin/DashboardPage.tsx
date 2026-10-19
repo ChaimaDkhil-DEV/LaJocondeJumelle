@@ -423,7 +423,7 @@ function EmployeesView({ qs }: { qs: string }) {
   if (items.length === 0) {
     return (
       <Paper variant="outlined">
-        <EmptyState icon={SearchX} title="Aucune activité" description="Aucun employé n’a créé ou reçu de demande sur cette période." />
+        <EmptyState icon={SearchX} title="Aucune activité" description="Aucun compte actif et aucune demande sur cette période." />
       </Paper>
     );
   }
@@ -471,7 +471,8 @@ function EmployeesView({ qs }: { qs: string }) {
         </Table>
       </TableContainer>
       <Typography variant="body2" color="text.secondary">
-        « Reçues » : demandes de la période dont l’employé est actuellement responsable. « Dernière action » : dernière action enregistrée sur une demande ; elle
+        « Reçues » : demandes de la période dont l’employé est actuellement responsable. Les comptes actifs sans demande sur la période (destinataires de la
+        catégorie si elle est filtrée) figurent à zéro. « Dernière action » : dernière action enregistrée sur une demande ; elle
         n’indique ni la présence ni la disponibilité de la personne.
       </Typography>
     </Box>

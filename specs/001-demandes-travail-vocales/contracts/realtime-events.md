@@ -9,9 +9,10 @@ worker.
 - Authentification à la poignée de main par le cookie de session `sid` et contrôle de
   l'en-tête `Origin`. Session absente ou expirée → `connect_error` avec
   `{ code: "UNAUTHENTICATED" }` ; le client renvoie vers la page de connexion.
-- Le serveur place le socket dans la seule salle `user:{userId}`. Le client ne peut rejoindre
-  aucune salle lui-même et n'émet aucun événement métier : toutes les écritures passent par
-  REST.
+- Le serveur place le socket dans la salle `user:{userId}` et, pour un super administrateur
+  actif, dans la salle de supervision `role:super-admin` (mise à jour à chaud lors d'un
+  changement de rôle). Le client ne peut rejoindre aucune salle lui-même et n'émet aucun
+  événement métier : toutes les écritures passent par REST.
 - Déconnexion, expiration de session ou désactivation du compte → le serveur envoie
   `session:ended` puis ferme les sockets concernés. Les sessions des connexions ouvertes sont
   revérifiées chaque minute (expiration, inactivité, compte désactivé).
@@ -29,7 +30,7 @@ contiennent que des identifiants et des métadonnées ; le client relit les donn
 | Événement | Charge utile | Émis vers | Effet côté client |
 |-----------|--------------|-----------|-------------------|
 | `notification:new` | `{ id, type, priority, requestId, reference, title, createdAt }` | destinataire de la notification | badge et liste mis à jour ; annonce `aria-live` ; style distinct si `priority = URGENT` |
-| `request:updated` | `{ requestId, status, version, overdueStage }` | demandeur, affecté, responsables de la catégorie | invalide la liste et le détail de la demande |
+| `request:updated` | `{ requestId, status, version, overdueStage }` | demandeur, affecté, responsables de la catégorie ; super administrateurs (hors brouillon, y compris à la soumission) | invalide la liste, le détail de la demande et le tableau de bord |
 | `message:new` | `{ requestId, messageId }` | participants autorisés sauf l'auteur | invalide le fil ; nouveau message affiché sans rechargement |
 | `session:ended` | `{ reason: "LOGOUT" \| "EXPIRED" \| "DEACTIVATED" \| "PASSWORD_RESET" }` | sockets de l'utilisateur | retour à la page de connexion |
 

@@ -146,6 +146,13 @@ export class RequestsService {
         return { request, pending };
       });
       await this.notifications.flushAfterCommit(pending);
+      // Demande soumise : seuls les super administrateurs (supervision) ; le destinataire a sa notification.
+      this.realtime.emitRequestUpdated([], {
+        requestId: request.id,
+        status: request.status,
+        version: request.version,
+        overdueStage: request.overdueStage,
+      });
       return { created: true, detail: await this.detail(user, request.id, ctx) };
     } catch (error) {
       // Deux envois simultanés du même clientId : on renvoie la demande déjà créée.
@@ -347,11 +354,12 @@ export class RequestsService {
       return dto.priority === 'URGENT' ? this.superAdminAlerts.alertInTx(tx, id, 'URGENT', user.id) : [];
     });
     await this.notifications.flushAfterCommit(pending);
-    this.realtime.emitToUsers(
-      [request.requesterId, request.assigneeId, ...category.managers.map((m) => m.userId)],
-      'request:updated',
-      { requestId: id, status: request.status, version: request.version + 1, overdueStage: request.overdueStage },
-    );
+    this.realtime.emitRequestUpdated([request.requesterId, request.assigneeId, ...category.managers.map((m) => m.userId)], {
+      requestId: id,
+      status: request.status,
+      version: request.version + 1,
+      overdueStage: request.overdueStage,
+    });
     return this.detail(user, id, ctx);
   }
 

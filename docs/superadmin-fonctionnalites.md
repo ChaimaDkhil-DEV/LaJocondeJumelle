@@ -128,7 +128,9 @@ Toutes les routes ci-dessous sont protégées par `SuperAdminGuard` (contrôleur
 | Liste des demandes | `GET /api/requests?scope=all` | visibilité des demandes | Complète |
 | Fil d'activité (métadonnées seulement) | `GET …/activity` | idem | Complète |
 
-Périmètre : demandes de travail uniquement ; actualisation toutes les 60 s.
+Périmètre : demandes de travail uniquement ; actualisation en direct à chaque mise à jour de demande
+(salle Socket.IO des super administrateurs) et toutes les 60 s. L'onglet Employés liste aussi, à zéro,
+les comptes actifs sans demande sur la période.
 
 ### 2.2 Suivi des gardes (`/admin/suivi`)
 

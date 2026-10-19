@@ -6,9 +6,10 @@ import { AuditService } from '../audit/audit.service';
 import { isAllowedOrigin } from '../common/origin';
 import { SESSION_COOKIE } from '../auth/session.guard';
 import { SessionService } from '../auth/session.service';
+import { canManageAdministration } from '../common/authorization';
 import type { AppConfig } from '../config/config';
 import { APP_CONFIG } from '../config/config.module';
-import { RealtimeService, sessionRoom, userRoom, type SocketData } from './realtime.service';
+import { RealtimeService, sessionRoom, SUPER_ADMIN_ROOM, userRoom, type SocketData } from './realtime.service';
 
 function unauthenticated(): Error {
   const error = new Error('UNAUTHENTICATED') as Error & { data?: unknown };
@@ -18,7 +19,8 @@ function unauthenticated(): Error {
 
 /**
  * Passerelle Socket.IO (research R9) : authentification à la poignée de main par le cookie de
- * session et l'en-tête Origin (refus journalisés), salle personnelle `user:{id}` uniquement.
+ * session et l'en-tête Origin (refus journalisés), salle personnelle `user:{id}` et, pour le
+ * super administrateur, salle de supervision.
  * Le client n'émet aucun événement métier : toutes les écritures passent par REST.
  */
 @WebSocketGateway({ path: '/socket.io', serveClient: false })
@@ -52,7 +54,7 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection {
 
   async handleConnection(socket: Socket): Promise<void> {
     const data = socket.data as SocketData;
-    await socket.join([userRoom(data.userId), sessionRoom(data.sessionId)]);
+    await socket.join([userRoom(data.userId), sessionRoom(data.sessionId), ...(data.superAdmin ? [SUPER_ADMIN_ROOM] : [])]);
   }
 
   private async authenticate(socket: Socket): Promise<SocketData> {
@@ -71,7 +73,7 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection {
       await this.denied(ip, 'PASSWORD_CHANGE_REQUIRED');
       throw unauthenticated();
     }
-    return { userId: result.user.id, sessionId: result.session.id };
+    return { userId: result.user.id, sessionId: result.session.id, superAdmin: canManageAdministration(result.user) };
   }
 
   private async denied(ip: string | null, reason: string, status?: string): Promise<void> {

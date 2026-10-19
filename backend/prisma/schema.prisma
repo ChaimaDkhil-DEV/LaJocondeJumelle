@@ -461,6 +461,10 @@ model RequestEvent {
   actor   User?   @relation(fields: [actorId], references: [id])
 
   @@index([requestId, createdAt])
+  /// Tableau de bord : fil d'activité paginé par ordre d'écriture.
+  @@index([seq])
+  /// Tableau de bord : dernière action de chaque employé.
+  @@index([actorId, createdAt])
 }
 
 /// Journal d'audit des actions sensibles — ajout seul (trigger).

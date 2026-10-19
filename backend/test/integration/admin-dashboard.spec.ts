@@ -203,6 +203,27 @@ describe('Tableau de bord du super administrateur', () => {
       expect(Object.keys((byId.get(reprographieId) as { user: object }).user).sort()).toEqual(['active', 'displayName', 'id', 'jobTitle', 'role']);
     });
 
+    it('affiche à zéro les comptes actifs sans demande, sans les super administrateurs ni les comptes désactivés', async () => {
+      const responsableId = await userId(prisma, 'responsable');
+      const superadminId = await userId(prisma, 'superadmin');
+      const inactive = await prisma.user.create({ data: { username: `inactif-${randomUUID()}`, displayName: 'Compte désactivé', role: 'EMPLOYEE', active: false, passwordHash: 'x' } });
+
+      const items = (await get('employees')).body.items as Array<{ user: { id: string } }>;
+      const listed = items.map((i) => i.user.id);
+      expect(items.find((i) => i.user.id === responsableId)).toMatchObject({ created: 0, assigned: 0, done: 0, takeover: { avgMs: null, count: 0 } });
+      expect(listed).not.toContain(superadminId);
+      expect(listed).not.toContain(inactive.id);
+      // Les comptes avec activité restent en tête.
+      expect(listed.indexOf(reprographieId)).toBeLessThan(listed.indexOf(responsableId));
+    });
+
+    it('limite les comptes sans activité aux destinataires des catégories filtrées', async () => {
+      const responsableId = await userId(prisma, 'responsable');
+      const listed = ((await get(`employees?categoryId=${photocopies}`)).body.items as Array<{ user: { id: string } }>).map((i) => i.user.id);
+      expect(listed).toContain(reprographieId);
+      expect(listed).not.toContain(responsableId);
+    });
+
     it('se limite à l’employé filtré', async () => {
       const res = await get(`employees?employeeId=${enseignanteId}`);
       expect(res.body.items.map((i: { user: { id: string } }) => i.user.id)).toEqual([enseignanteId]);
