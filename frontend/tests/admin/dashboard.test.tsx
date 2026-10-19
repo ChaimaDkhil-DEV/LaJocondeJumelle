@@ -54,6 +54,7 @@ const SUMMARY = {
 const stats = (avgMs: number | null, count: number) => ({ avgMs, count });
 const PERF_STATS = {
   validation: stats(null, 0),
+  firstReply: stats(2 * 60_000, 2),
   takeover: stats(4 * 60_000, 3),
   resolution: stats(90 * 60_000, 2),
   grossResolution: stats(3 * 3_600_000, 2),
@@ -249,8 +250,10 @@ describe('Tableau de bord', () => {
     setup('/admin/tableau-de-bord?vue=delais');
     expect(await screen.findByRole('table', { name: 'Délais par priorité' })).toBeVisible();
     expect(kpi('Respect des délais')).toBe('75 %');
+    expect(kpi('Première réponse moyenne')).toBe('2 min');
     expect(kpi('Prise en charge moyenne')).toBe('4 min');
     expect(kpi('Traitement net moyen')).toBe('1 h 30');
+    expect(screen.getByRole('columnheader', { name: 'Première réponse' })).toBeVisible();
     expect(screen.getByRole('table', { name: 'Délais par priorité' })).toBeVisible();
   });
 

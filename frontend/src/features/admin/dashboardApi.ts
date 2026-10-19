@@ -85,6 +85,7 @@ export interface Compliance {
 
 export interface PerformanceStats {
   validation: DurationStats;
+  firstReply: DurationStats;
   takeover: DurationStats;
   resolution: DurationStats;
   grossResolution: DurationStats;

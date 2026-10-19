@@ -103,6 +103,8 @@ interface PerformanceSourceRow {
   rulesSnapshot: SnapshotDeadlines | null;
   overdue: boolean;
   overdueNow: boolean;
+  submittedAt: Date | null;
+  firstReplyAt: Date | null;
 }
 
 interface CohortRequest extends PerformanceRow {
@@ -242,7 +244,10 @@ export class DashboardService {
     const [rows, events] = await Promise.all([
       this.prisma.$queryRaw<PerformanceSourceRow[]>`
         SELECT r."id", r."priority", r."status", r."requesterId", r."assigneeId", r."rulesSnapshot",
-          ${OVERDUE_EXISTS} AS "overdue", (r."overdueStage" IS NOT NULL) AS "overdueNow"
+          ${OVERDUE_EXISTS} AS "overdue", (r."overdueStage" IS NOT NULL) AS "overdueNow", r."submittedAt",
+          (SELECT min(m."createdAt") FROM "Message" m
+            WHERE m."requestId" = r."id" AND m."kind" IN ('TEXT', 'VOICE')
+              AND m."authorId" <> r."requesterId" AND m."createdAt" >= r."submittedAt") AS "firstReplyAt"
         FROM "Request" r WHERE ${where}`,
       this.prisma.$queryRaw<Array<{ requestId: string; to: RequestStatus; at: Date }>>`
         SELECT e."requestId", e."toValue"->>'status' AS "to", e."createdAt" AS "at"
@@ -266,6 +271,7 @@ export class DashboardService {
       overdueNow: r.overdueNow,
       tracked: hasTrackedDeadline(r.rulesSnapshot),
       durations: durationsOf(transitions.get(r.id) ?? []),
+      firstReplyMs: r.submittedAt && r.firstReplyAt ? r.firstReplyAt.getTime() - r.submittedAt.getTime() : null,
     }));
   }
 
@@ -367,15 +373,15 @@ export class DashboardService {
     const header = [
       'Référence', 'Titre', 'Catégorie', 'Priorité', 'Statut', 'Demandeur', 'Employé affecté',
       'Création', 'Soumission', 'Acceptation', 'Fin de traitement', 'Clôture', 'Refus', 'Annulation', 'Échéance en cours',
-      'En retard actuellement', 'Retard sur la période', 'Prise en charge (min)', 'Traitement net (min)', 'Traitement brut (min)',
+      'En retard actuellement', 'Retard sur la période', 'Première réponse (min)', 'Prise en charge (min)', 'Traitement net (min)', 'Traitement brut (min)',
     ];
     const rows = requests.map((r) => {
-      const { durations, overdue } = cohort.get(r.id)!;
+      const { durations, overdue, firstReplyMs } = cohort.get(r.id)!;
       return [
         r.reference, r.title, r.category.name, PRIORITY_LABELS[r.priority], STATUS_LABELS[r.status], r.requester.displayName, r.assignee?.displayName,
         r.createdAt, r.submittedAt, r.acceptedAt, r.doneAt, r.closedAt, r.rejectedAt, r.cancelledAt, r.currentDueAt,
         r.overdueStage ? `Oui (${STAGE_LABELS[r.overdueStage]})` : 'Non', overdue ? 'Oui' : 'Non',
-        minutes(durations.takeoverMs), minutes(durations.resolutionMs), minutes(durations.grossResolutionMs),
+        minutes(firstReplyMs), minutes(durations.takeoverMs), minutes(durations.resolutionMs), minutes(durations.grossResolutionMs),
       ];
     });
     return toCsv(header, rows);

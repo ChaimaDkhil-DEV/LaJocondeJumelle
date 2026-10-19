@@ -83,6 +83,13 @@ describe('Tableau de bord du super administrateur', () => {
       .set('Origin', TEST_ORIGIN)
       .send({ clientId: randomUUID(), text: 'Contenu privé du message' });
     expect(message.status).toBe(201);
+    // Première réponse : message d'une autre personne que la demandeuse.
+    const reply = await api()
+      .post(`/api/requests/${ids.accepted}/messages`)
+      .set('Cookie', reprographie)
+      .set('Origin', TEST_ORIGIN)
+      .send({ clientId: randomUUID(), text: 'Réponse de la reprographie' });
+    expect(reply.status).toBe(201);
   });
 
   afterAll(async () => {
@@ -137,7 +144,7 @@ describe('Tableau de bord du super administrateur', () => {
         overdueInPeriod: 1,
       });
       expect(res.body.current).toEqual({ overdueNow: 1, urgentActive: 1, unassigned: 0 });
-      expect(res.body.messages).toEqual({ text: 1, voice: 0 });
+      expect(res.body.messages).toEqual({ text: 2, voice: 0 });
       expect(res.body.byCategory).toEqual([
         { category: { id: photocopies, name: CATEGORIES.photocopies }, total: 5, active: 3, done: 1, overdue: 1 },
       ]);
@@ -210,6 +217,9 @@ describe('Tableau de bord du super administrateur', () => {
       expect(doneRow[column('Employé affecté')]).toBe('Reprographie');
       expect(doneRow[column('Prise en charge (min)')]).toMatch(/^\d+(,\d)?$/);
       expect(doneRow[column('Retard sur la période')]).toBe('Non');
+      expect(doneRow[column('Première réponse (min)')]).toBe('');
+      const accepted = await prisma.request.findUniqueOrThrow({ where: { id: ids.accepted } });
+      expect(rows.find((r) => r[0] === accepted.reference)![column('Première réponse (min)')]).toMatch(/^\d+(,\d)?$/);
 
       const overdue = await prisma.request.findUniqueOrThrow({ where: { id: ids.overdue } });
       const overdueRow = rows.find((r) => r[0] === overdue.reference)!;
@@ -236,6 +246,10 @@ describe('Tableau de bord du super administrateur', () => {
       expect(overall.resolution.count).toBe(1);
       expect(overall.validation.count).toBe(0);
       expect(overall.resolution.avgMs).toBeGreaterThanOrEqual(0);
+      // Première réponse : seule la reprographie a écrit ; le message de la demandeuse ne compte pas.
+      expect(overall.firstReply.count).toBe(1);
+      expect(overall.firstReply.avgMs).toBeGreaterThanOrEqual(0);
+      expect(res.body.byPriority.find((p: { priority: string }) => p.priority === 'NORMAL').firstReply.count).toBe(1);
       // Seule la demande terminée est évaluée ; la demande en retard est encore en cours.
       expect(overall.compliance).toEqual({ evaluated: 1, onTime: 1, rate: 1 });
       const urgent = res.body.byPriority.find((p: { priority: string }) => p.priority === 'URGENT');
