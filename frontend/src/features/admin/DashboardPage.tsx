@@ -19,6 +19,7 @@ import {
   CircleCheck,
   CircleX,
   ClipboardCheck,
+  Download,
   Hourglass,
   Inbox,
   Mic,
@@ -621,6 +622,17 @@ export function DashboardPage() {
         id="titre-tableau-de-bord"
         title="Tableau de bord"
         description="Supervision des demandes de travail. Les chiffres sont actualisés automatiquement chaque minute."
+        action={
+          <Button
+            component="a"
+            href={`/api/admin/dashboard/export.csv?${qs}`}
+            download
+            disabled={customIncomplete}
+            startIcon={<Download size={icon.sm} aria-hidden="true" />}
+          >
+            Exporter en CSV
+          </Button>
+        }
       />
       <Filters value={filters} onChange={(patch) => setFilters((f) => ({ ...f, ...patch }))} />
 

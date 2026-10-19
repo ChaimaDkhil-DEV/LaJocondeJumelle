@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, type Priority, type RequestEventType, type RequestStatus, type Role } from '@prisma/client';
+import { Prisma, type DeadlineStage, type Priority, type RequestEventType, type RequestStatus, type Role } from '@prisma/client';
+import { toCsv } from '../common/csv';
 import { AppException } from '../common/errors';
 import { parseLimit } from '../common/pagination';
 import { PrismaService } from '../common/prisma.service';
@@ -105,6 +106,7 @@ interface PerformanceSourceRow {
 }
 
 interface CohortRequest extends PerformanceRow {
+  id: string;
   requesterId: string;
   assigneeId: string | null;
   overdueNow: boolean;
@@ -252,6 +254,7 @@ export class DashboardService {
       transitions.set(e.requestId, list);
     }
     return rows.map((r) => ({
+      id: r.id,
       priority: r.priority,
       status: r.status,
       requesterId: r.requesterId,
@@ -329,6 +332,53 @@ export class DashboardService {
   }
 
   /**
+   * Export CSV des demandes de la période (mêmes filtres que le tableau de bord), les plus récentes
+   * d'abord. Métadonnées seulement : ni description, ni message, ni motif.
+   */
+  async exportCsv(query: DashboardQuery): Promise<string> {
+    const f = resolveFilters(query);
+    const cohort = new Map((await this.cohort(f)).map((r) => [r.id, r]));
+    const requests = await this.prisma.request.findMany({
+      where: { id: { in: [...cohort.keys()] } },
+      select: {
+        id: true,
+        reference: true,
+        title: true,
+        priority: true,
+        status: true,
+        createdAt: true,
+        submittedAt: true,
+        acceptedAt: true,
+        doneAt: true,
+        closedAt: true,
+        rejectedAt: true,
+        cancelledAt: true,
+        currentDueAt: true,
+        overdueStage: true,
+        category: { select: { name: true } },
+        requester: { select: { displayName: true } },
+        assignee: { select: { displayName: true } },
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    });
+    const header = [
+      'Référence', 'Titre', 'Catégorie', 'Priorité', 'Statut', 'Demandeur', 'Employé affecté',
+      'Création', 'Soumission', 'Acceptation', 'Fin de traitement', 'Clôture', 'Refus', 'Annulation', 'Échéance en cours',
+      'En retard actuellement', 'Retard sur la période', 'Prise en charge (min)', 'Traitement net (min)', 'Traitement brut (min)',
+    ];
+    const rows = requests.map((r) => {
+      const { durations, overdue } = cohort.get(r.id)!;
+      return [
+        r.reference, r.title, r.category.name, PRIORITY_LABELS[r.priority], STATUS_LABELS[r.status], r.requester.displayName, r.assignee?.displayName,
+        r.createdAt, r.submittedAt, r.acceptedAt, r.doneAt, r.closedAt, r.rejectedAt, r.cancelledAt, r.currentDueAt,
+        r.overdueStage ? `Oui (${STAGE_LABELS[r.overdueStage]})` : 'Non', overdue ? 'Oui' : 'Non',
+        minutes(durations.takeoverMs), minutes(durations.resolutionMs), minutes(durations.grossResolutionMs),
+      ];
+    });
+    return toCsv(header, rows);
+  }
+
+  /**
    * Comptes actifs attendus dans le tableau même sans activité : les destinataires des catégories
    * filtrées, sinon tous les comptes actifs hors super administrateurs.
    */
@@ -394,6 +444,41 @@ export class DashboardService {
       })),
     };
   }
+}
+
+/** Libellés de l'export CSV, identiques à ceux de l'interface. */
+const STATUS_LABELS: Record<RequestStatus, string> = {
+  DRAFT: 'Brouillon',
+  PENDING_ADMIN_VALIDATION: 'En attente de validation administrative',
+  SENT: 'Envoyée',
+  ACCEPTED: 'Acceptée',
+  IN_PROGRESS: 'En cours',
+  DONE: 'Terminée',
+  PENDING_FINAL_VALIDATION: 'En attente de validation finale',
+  TO_CORRECT: 'À corriger',
+  CLOSED: 'Clôturée',
+  REJECTED: 'Refusée',
+  CANCELLED: 'Annulée',
+  BROADCAST: 'Diffusée',
+  UNFILLED: 'Non pourvue',
+  EN_ROUTE: 'En route',
+  LATE: 'En retard',
+  ON_DUTY: 'En poste',
+  RELIEF_PENDING: 'Relève demandée',
+};
+
+const PRIORITY_LABELS: Record<Priority, string> = { NORMAL: 'Normale', MEDIUM: 'Moyenne', HIGH: 'Haute', URGENT: 'Urgente' };
+
+const STAGE_LABELS: Record<DeadlineStage, string> = {
+  VALIDATION: 'validation',
+  TAKEOVER: 'prise en charge',
+  COMPLETION: 'réalisation',
+  ARRIVAL: 'arrivée',
+};
+
+/** Durée en minutes, une décimale, virgule décimale pour les tableurs français ; vide sans mesure. */
+function minutes(ms: number | null): string {
+  return ms === null ? '' : (Math.round(ms / 6_000) / 10).toString().replace('.', ',');
 }
 
 function field(value: Prisma.JsonValue, key: string): unknown {

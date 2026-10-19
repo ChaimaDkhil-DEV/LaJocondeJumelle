@@ -1,4 +1,4 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Header, Query, UseGuards } from '@nestjs/common';
 import { SuperAdminGuard } from '../audit/super-admin.guard';
 import { DashboardActivityQuery, DashboardQuery } from './dashboard.dto';
 import { DashboardService } from './dashboard.service';
@@ -27,5 +27,13 @@ export class DashboardController {
   @Get('activity')
   activity(@Query() query: DashboardActivityQuery) {
     return this.dashboard.activity(query);
+  }
+
+  @Get('export.csv')
+  @Header('Content-Type', 'text/csv; charset=utf-8')
+  @Header('Content-Disposition', 'attachment; filename="demandes-de-travail.csv"')
+  @Header('Cache-Control', 'private, no-store')
+  exportCsv(@Query() query: DashboardQuery) {
+    return this.dashboard.exportCsv(query);
   }
 }

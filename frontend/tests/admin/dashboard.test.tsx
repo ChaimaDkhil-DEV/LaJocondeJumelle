@@ -183,6 +183,21 @@ describe('Tableau de bord', () => {
     await user.click(screen.getByRole('combobox', { name: 'Période' }));
     await user.click(screen.getByRole('option', { name: 'Personnalisée' }));
     expect(await screen.findByText('Période incomplète')).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Exporter en CSV' })).toHaveAttribute('aria-disabled', 'true');
+  });
+
+  it('propose l’export CSV avec les filtres en cours', async () => {
+    const user = userEvent.setup();
+    setup();
+    await screen.findByText('Demandes créées sur la période');
+    await user.click(screen.getByRole('combobox', { name: 'Priorité' }));
+    await user.click(screen.getByRole('option', { name: 'Urgente' }));
+    const link = screen.getByRole('link', { name: 'Exporter en CSV' });
+    const href = new URL(link.getAttribute('href')!, 'http://localhost');
+    expect(href.pathname).toBe('/api/admin/dashboard/export.csv');
+    expect(href.searchParams.getAll('priority')).toEqual(['URGENT']);
+    expect(href.searchParams.get('from')).not.toBeNull();
+    expect(link).toHaveAttribute('download');
   });
 
   it('affiche un état d’erreur avec la référence et permet de réessayer', async () => {
