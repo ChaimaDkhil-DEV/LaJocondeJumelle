@@ -5,10 +5,14 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { clientIp, requestPath } from '../common/request-info';
 import type { RequestContext } from '../requests/requests.service';
 import { CoverageActionsService } from './coverage-actions.service';
+import { CoverageDeclarationsService } from './coverage-declarations.service';
 import {
   CoverageActionDto,
   CreateCoverageDto,
+  EmptyClassDto,
   ListCoverageQuery,
+  ListMergeProposalsQuery,
+  MergeDecisionDto,
   OwnAvailabilityDto,
   ResolveQrDto,
   SetAvailabilityDto,
@@ -30,6 +34,7 @@ export class CoverageController {
   constructor(
     private readonly coverage: CoverageService,
     private readonly actions: CoverageActionsService,
+    private readonly declarations: CoverageDeclarationsService,
   ) {}
 
   /** Formulaire d'affectation directe (admins) : classes et enseignants. */
@@ -49,6 +54,37 @@ export class CoverageController {
     const { created, detail } = await this.coverage.create(user, dto, contextOf(req));
     res.status(created ? 201 : 200);
     return detail;
+  }
+
+  /** Surveillant : déclarer une classe vide ; 201 pour une nouvelle déclaration, 200 pour un renvoi du même clientId. */
+  @Post('empty-class')
+  async declareEmptyClass(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: EmptyClassDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { created, result } = await this.declarations.declareEmptyClass(user, dto, contextOf(req));
+    res.status(created ? 201 : 200);
+    return result;
+  }
+
+  /** Enseignants (choix facultatif à la déclaration d'une classe vide, FR-015a). */
+  @Get('teachers')
+  teachers(@CurrentUser() user: AuthenticatedUser, @Req() req: Request) {
+    return this.declarations.teachers(user, contextOf(req));
+  }
+
+  /** Admins : propositions de rattachement (doublons possibles). */
+  @Get('merge-proposals')
+  mergeProposals(@CurrentUser() user: AuthenticatedUser, @Query() query: ListMergeProposalsQuery, @Req() req: Request) {
+    return this.declarations.mergeProposals(user, query, contextOf(req));
+  }
+
+  @Post('merge-proposals/:id/decision')
+  @HttpCode(200)
+  decideMerge(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() dto: MergeDecisionDto, @Req() req: Request) {
+    return this.declarations.decideMerge(user, id, dto, contextOf(req));
   }
 
   /** Enseignant : signaler un retard ou une absence ; 201 à la création, 200 pour un renvoi du même clientId. */

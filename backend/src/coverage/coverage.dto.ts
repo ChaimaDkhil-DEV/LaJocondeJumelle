@@ -206,6 +206,41 @@ export class CoverageActionDto {
   qrToken?: string;
 }
 
+/** Déclaration d'une classe vide par un surveillant (FR-015, FR-015a). */
+export class EmptyClassDto {
+  /** Identifiant généré par le client : rend la déclaration idempotente. */
+  @IsUUID()
+  clientId!: string;
+
+  @IsUUID()
+  classId!: string;
+
+  /** Enseignant concerné : facultatif, jamais bloquant ; membre du groupe Enseignants. */
+  @IsOptional()
+  @ValidateIf((_o, v) => v !== null)
+  @IsUUID()
+  teacherId?: string | null;
+
+  /** QR de la classe, facultatif : enregistré comme preuve de présence (R10). */
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  qrToken?: string;
+}
+
+export const MERGE_DECISIONS = ['CONFIRM', 'REJECT'] as const;
+
+export class MergeDecisionDto {
+  @IsIn(MERGE_DECISIONS, { message: 'Décision attendue : CONFIRM ou REJECT.' })
+  decision!: (typeof MERGE_DECISIONS)[number];
+}
+
+export class ListMergeProposalsQuery {
+  @IsOptional()
+  @IsIn(['PENDING', 'CONFIRMED', 'REJECTED'])
+  status?: 'PENDING' | 'CONFIRMED' | 'REJECTED';
+}
+
 export class ResolveQrDto {
   @IsString()
   @MinLength(1)

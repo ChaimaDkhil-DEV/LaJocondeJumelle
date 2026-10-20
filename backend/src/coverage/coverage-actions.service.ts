@@ -34,6 +34,7 @@ import {
   type CoverageResult,
   type CoverageStatus,
 } from './domain/coverage-state-machine';
+import { FINAL_STATUSES } from './domain/coverage-status';
 import { qrKeyFrom, verifyQrToken } from './domain/qr-token';
 
 type Success = Extract<CoverageResult, { ok: true }>;
@@ -190,7 +191,7 @@ export class CoverageActionsService {
     requestId: string,
     action: CoverageAction,
     effects: Effects,
-    opts: { reason?: string; now?: Date; assigneeId?: string } = {},
+    opts: { reason?: string; now?: Date; assigneeId?: string; actorId?: string | null } = {},
   ): Promise<boolean> {
     const row = await this.load(tx, requestId);
     if (!row || !isCoverageStatus(row.status)) return false;
@@ -201,7 +202,8 @@ export class CoverageActionsService {
       assigneeId: opts.assigneeId,
     });
     if (!result.ok) return false;
-    await this.commit(tx, row, result, { actorId: null, now: opts.now ?? new Date(), effects });
+    // `actorId` : utilisateur à l'origine de l'action système (déclaration, décision de l'admin), pour l'historique.
+    await this.commit(tx, row, result, { actorId: opts.actorId ?? null, now: opts.now ?? new Date(), effects });
     return true;
   }
 
@@ -518,6 +520,10 @@ export class CoverageActionsService {
 
     await this.pushUpdate(tx, row, result.to, after.version, effects, [row.assigneeId, after.assigneeId]);
 
+    if (FINAL_STATUSES.includes(result.to) && !FINAL_STATUSES.includes(result.from)) {
+      await this.presentUnresolvedMerges(tx, row.id, now, effects);
+    }
+
     // Relève en cascade, dans la même transaction.
     if (result.to === 'ON_DUTY' && result.from !== 'ON_DUTY' && coverage.reliefForId) {
       // Le remplaçant a confirmé sa présence : le premier surveillant est relevé automatiquement.
@@ -538,6 +544,26 @@ export class CoverageActionsService {
     if (result.to === 'CANCELLED' && coverage.reliefForId) {
       // Relève annulée : l'affectation d'origine redevient « en cours » (le surveillant reste en charge de la classe).
       await this.performSystemInTx(tx, coverage.reliefForId, 'RELIEF_ABANDONED', effects, { now });
+    }
+  }
+
+  /**
+   * Proposition de rattachement sans décision dont les deux affectations sont finales : présentée
+   * une dernière fois aux admins, puis comptée « non tranché » (FR-015h).
+   */
+  private async presentUnresolvedMerges(tx: Tx, requestId: string, now: Date, effects: Effects): Promise<void> {
+    const proposals = await tx.coverageMergeProposal.findMany({
+      where: { status: 'PENDING', finalPresentedAt: null, OR: [{ sourceRequestId: requestId }, { targetRequestId: requestId }] },
+      include: { source: { select: { status: true } }, target: { select: { status: true, priority: true } } },
+    });
+    for (const p of proposals) {
+      if (!FINAL_STATUSES.includes(p.source.status) || !FINAL_STATUSES.includes(p.target.status)) continue;
+      const { count } = await tx.coverageMergeProposal.updateMany({
+        where: { id: p.id, status: 'PENDING', finalPresentedAt: null },
+        data: { finalPresentedAt: now },
+      });
+      if (count === 0) continue;
+      await this.notify(tx, effects, await adminRecipients(tx), null, 'COVERAGE_DUPLICATE', p.targetRequestId, p.target.priority);
     }
   }
 

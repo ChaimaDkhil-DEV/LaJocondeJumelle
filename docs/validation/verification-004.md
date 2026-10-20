@@ -180,3 +180,35 @@ Les sens non liés au rôle (« le surveillant reste responsable » de la classe
   module pour afficher le menu.
 
 Résultat : lint sans erreur ; typages sans erreur ; frontend 197 / 197 (26 fichiers).
+
+## Phase 5 — US2, classe vide déclarée par un surveillant (T060 à T069)
+
+### Backend (T060, T061, T063 à T066)
+
+- **T060** (`coverage-duplicates.spec.ts`, 15 cas) : rouge (module absent), puis vert avec
+  `domain/coverage-duplicates.ts` (T063). Le renfort l'emporte sur tout rattachement ; à égalité,
+  la plage qui commence le plus tôt.
+- **T061** (`supervision-empty-class.spec.ts`, 15 cas) : rouge (15 échecs, route absente), puis vert.
+  Attendus corrigés après le premier passage, sans changer le comportement visé : la vue surveillant
+  porte `reason: null` (comme en US1) ; un QR refusé répond `422` (codes `QR_*` existants) ;
+  `RELIEVE` mène à `CLOSED` quand la catégorie n'exige pas de validation finale ; deux
+  notifications d'une même transaction ont le même horodatage (ordre non significatif).
+- **Écarts au contrat** :
+  - `ALREADY_ASSIGNED` renvoie `coverage: null` : le déclarant n'est ni affecté ni en renfort de
+    la demande, il n'a donc pas accès à sa vue ; `assignedTo` donne le surveillant responsable.
+  - Ajouts : `GET /coverage/teachers` (surveillant et admin, champ facultatif FR-015a) ; alertes
+    `DOUBLE_ASSIGNMENT` (affectations ou renfort qui se chevauchent, FR-015j) et
+    `POSSIBLE_DUPLICATE` (proposition en suspens, FR-015h) dans les listes.
+  - Renvoi idempotent : par `Request.clientId` quand une affectation est créée ; sinon par un
+    marqueur `declarationClientId` dans l'événement qui trace la déclaration (`UPDATED` pour un
+    rattachement, `SUPPORT_JOINED` pour un renfort). `ALREADY_ASSIGNED` ne modifie rien et n'est
+    pas dédoublonné (seul effet : une notification à l'admin).
+  - Déclarations sérialisées par classe (verrou consultatif) : deux surveillants qui déclarent la
+    même classe en même temps n'ouvrent pas deux affectations.
+- **Décision après coup (FR-015h)** : si l'affectation absorbée est déjà finale, son statut n'est
+  pas réécrit ; seul `mergedIntoId` est posé (les statistiques l'excluent, R6). Une proposition
+  déjà décidée répond `409 STATE_CHANGED`.
+- **T066** : traitements `SUPPORT_DECISION` / `SUPPORT_ESCALATION` déjà présents depuis T032 ;
+  vérifiés de bout en bout par T061 (3 rappels à 10 min d'intervalle, puis escalade au super
+  administrateur).
+- Résultat : lint et typages sans erreur ; unitaires 561 / 561 ; intégration 412 / 412 (38 suites).

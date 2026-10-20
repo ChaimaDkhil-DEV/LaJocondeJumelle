@@ -6,6 +6,7 @@ import { CoverageActionsService } from './coverage-actions.service';
 import { CoverageAdminController, FloorsAdminController } from './coverage-admin.controller';
 import { CoverageAdminService } from './coverage-admin.service';
 import { CoverageController } from './coverage.controller';
+import { CoverageDeclarationsService } from './coverage-declarations.service';
 import { CoverageFileAccess } from './coverage-file-access';
 import { CoverageService } from './coverage.service';
 
@@ -16,6 +17,7 @@ import { CoverageService } from './coverage.service';
   providers: [
     CoverageService,
     CoverageActionsService,
+    CoverageDeclarationsService,
     CoverageAdminService,
     CoverageAccessLoader,
     CoverageFileAccess,
