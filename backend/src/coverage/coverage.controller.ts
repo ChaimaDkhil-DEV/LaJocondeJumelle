@@ -16,6 +16,7 @@ import {
   OwnAvailabilityDto,
   ResolveQrDto,
   SetAvailabilityDto,
+  SlotCandidatesQuery,
   TeacherRequestDto,
   UpdateTeacherRequestDto,
 } from './coverage.dto';
@@ -73,6 +74,12 @@ export class CoverageController {
   @Get('teachers')
   teachers(@CurrentUser() user: AuthenticatedUser, @Req() req: Request) {
     return this.declarations.teachers(user, contextOf(req));
+  }
+
+  /** Admins : surveillants proposables pour un créneau (formulaire d'affectation directe). */
+  @Get('candidates')
+  slotCandidates(@CurrentUser() user: AuthenticatedUser, @Query() query: SlotCandidatesQuery, @Req() req: Request) {
+    return this.coverage.slotCandidates(user, query, contextOf(req));
   }
 
   /** Admins : propositions de rattachement (doublons possibles). */

@@ -130,7 +130,13 @@ const EXTEND_OPTIONS = [15, 30, 45, 60, 90, 120];
  * Actions d'une affectation : uniquement celles que le serveur autorise (`allowedActions`), qui revérifie
  * tout. Boutons larges sur mobile ; motifs, prolongation, assignation et présence dans des dialogues.
  */
-export function CoverageActions({ detail, exclude = [] }: { detail: CoverageDetail; exclude?: CoverageAction[] }) {
+export function CoverageActions({
+  detail,
+  exclude = [],
+}: {
+  detail: CoverageDetail;
+  exclude?: CoverageAction[];
+}) {
   const toast = useToast();
   const mutation = useCoverageAction(detail.id);
   const [open, setOpen] = useState<CoverageAction | null>(null);
@@ -146,10 +152,13 @@ export function CoverageActions({ detail, exclude = [] }: { detail: CoverageDeta
       {
         onSuccess: () => {
           setOpen(null);
-          toast.success(REASON_DIALOGS[input.action]?.success ?? SUCCESS[input.action] ?? 'Action enregistrée.');
+          toast.success(
+            REASON_DIALOGS[input.action]?.success ?? SUCCESS[input.action] ?? 'Action enregistrée.',
+          );
         },
         onError: (e) => {
-          const message = e instanceof ApiError ? e.message : 'L’action n’a pas pu être enregistrée. Réessayez.';
+          const message =
+            e instanceof ApiError ? e.message : 'L’action n’a pas pu être enregistrée. Réessayez.';
           // Dialogues avec zone d'erreur : message sur place ; sinon (motif, action directe) : toast d'erreur.
           if (open && !REASON_DIALOGS[open]) setError(message);
           else toast.error(message);
@@ -168,7 +177,14 @@ export function CoverageActions({ detail, exclude = [] }: { detail: CoverageDeta
 
   return (
     <>
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, '& > *': { flex: { xs: '1 1 100%', sm: '0 0 auto' } } }}>
+      <Box
+        sx={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: 1,
+          '& > *': { flex: { xs: '1 1 100%', sm: '0 0 auto' } },
+        }}
+      >
         {actions.map((action) => {
           const { kind, icon: Icon } = ACTION_STYLE[action];
           return (
@@ -202,7 +218,9 @@ export function CoverageActions({ detail, exclude = [] }: { detail: CoverageDeta
 
       <ConfirmDialog
         open={open === 'RELIEVE' || open === 'VALIDATE'}
-        title={open === 'VALIDATE' ? 'Valider et clôturer l’affectation ?' : 'Terminer l’affectation ?'}
+        title={
+          open === 'VALIDATE' ? 'Valider et clôturer l’affectation ?' : 'Terminer l’affectation ?'
+        }
         confirmLabel={open === 'VALIDATE' ? 'Valider et clôturer' : 'Terminer'}
         pending={mutation.isPending}
         error={error}
@@ -214,7 +232,13 @@ export function CoverageActions({ detail, exclude = [] }: { detail: CoverageDeta
           : 'À confirmer quand l’enseignant est arrivé en classe. L’heure de fin et la durée sont calculées automatiquement.'}
       </ConfirmDialog>
 
-      <ExtendDialog open={open === 'EXTEND'} pending={mutation.isPending} error={error} onClose={() => setOpen(null)} onConfirm={(minutes) => run({ action: 'EXTEND', minutes })} />
+      <ExtendDialog
+        open={open === 'EXTEND'}
+        pending={mutation.isPending}
+        error={error}
+        onClose={() => setOpen(null)}
+        onConfirm={(minutes) => run({ action: 'EXTEND', minutes })}
+      />
 
       {(open === 'ASSIGN' || open === 'REASSIGN') && (
         <AssignDialog
@@ -246,14 +270,26 @@ interface DialogBase {
   onClose: () => void;
 }
 
-function ExtendDialog({ open, pending, error, onClose, onConfirm }: DialogBase & { open: boolean; onConfirm: (minutes: number) => void }) {
+function ExtendDialog({
+  open,
+  pending,
+  error,
+  onClose,
+  onConfirm,
+}: DialogBase & { open: boolean; onConfirm: (minutes: number) => void }) {
   const titleId = useId();
   const [minutes, setMinutes] = useState(30);
   return (
     <Dialog open={open} onClose={onClose} aria-labelledby={titleId} fullWidth maxWidth="xs">
       <DialogTitle id={titleId}>Prolonger l’affectation</DialogTitle>
       <DialogContent sx={{ display: 'grid', gap: 2 }}>
-        <TextField select label="Durée supplémentaire" value={minutes} onChange={(e) => setMinutes(Number(e.target.value))} sx={{ mt: 1 }}>
+        <TextField
+          select
+          label="Durée supplémentaire"
+          value={minutes}
+          onChange={(e) => setMinutes(Number(e.target.value))}
+          sx={{ mt: 1 }}
+        >
           {EXTEND_OPTIONS.map((m) => (
             <MenuItem key={m} value={m}>
               {m < 60 ? `${m} min` : `${m / 60} h${m % 60 ? ` ${m % 60}` : ''}`}
@@ -286,7 +322,11 @@ function AssignDialog({
   error,
   onClose,
   onConfirm,
-}: DialogBase & { detail: CoverageDetail; action: 'ASSIGN' | 'REASSIGN'; onConfirm: (assigneeId: string) => void }) {
+}: DialogBase & {
+  detail: CoverageDetail;
+  action: 'ASSIGN' | 'REASSIGN';
+  onConfirm: (assigneeId: string) => void;
+}) {
   const titleId = useId();
   const candidates = useCandidates(detail.id, true);
   const [selected, setSelected] = useState('');
@@ -303,6 +343,13 @@ function AssignDialog({
     <Dialog open onClose={onClose} aria-labelledby={titleId} fullWidth maxWidth="sm">
       <DialogTitle id={titleId}>{title}</DialogTitle>
       <DialogContent sx={{ display: 'grid', gap: 2 }}>
+        {action === 'REASSIGN' &&
+          (detail.status === 'ON_DUTY' || detail.status === 'RELIEF_PENDING') && (
+            <Alert severity="info">
+              {detail.assignee?.displayName ?? 'Le surveillant actuel'} reste en classe jusqu’à ce
+              que le nouveau surveillant confirme sa présence.
+            </Alert>
+          )}
         {candidates.isPending ? (
           <LoadingState label="Chargement des surveillants" variant="inline" />
         ) : candidates.error ? (
@@ -310,7 +357,11 @@ function AssignDialog({
         ) : candidates.data.length === 0 ? (
           <Alert severity="info">Aucun surveillant dans le groupe Surveillants.</Alert>
         ) : (
-          <RadioGroup aria-labelledby={titleId} value={selected} onChange={(e) => setSelected(e.target.value)}>
+          <RadioGroup
+            aria-labelledby={titleId}
+            value={selected}
+            onChange={(e) => setSelected(e.target.value)}
+          >
             {candidates.data.map((c) => (
               <FormControlLabel
                 key={c.id}
@@ -327,7 +378,9 @@ function AssignDialog({
             ))}
           </RadioGroup>
         )}
-        {touched && !chosen && <Alert severity="error">Choisissez un surveillant disponible.</Alert>}
+        {touched && !chosen && (
+          <Alert severity="error">Choisissez un surveillant disponible.</Alert>
+        )}
         {error && <Alert severity="error">{error}</Alert>}
       </DialogContent>
       <DialogActions>
@@ -345,7 +398,13 @@ function AssignDialog({
  * l'employé scanne le QR code de la classe avec l'appareil photo du téléphone ; la page ouverte par le QR
  * demande la photo si nécessaire, puis la validation explicite.
  */
-function PresenceDialog({ detail, pending, error, onClose, onConfirm }: DialogBase & { detail: CoverageDetail; onConfirm: (photoFileId: string) => void }) {
+function PresenceDialog({
+  detail,
+  pending,
+  error,
+  onClose,
+  onConfirm,
+}: DialogBase & { detail: CoverageDetail; onConfirm: (photoFileId: string) => void }) {
   const titleId = useId();
   const [photo, setPhoto] = useState<CapturedPhoto | null>(null);
   const needsQr = detail.proofMode !== 'PHOTO';
@@ -354,13 +413,15 @@ function PresenceDialog({ detail, pending, error, onClose, onConfirm }: DialogBa
       <DialogTitle id={titleId}>Confirmer ma présence en classe {detail.class.name}</DialogTitle>
       <DialogContent sx={{ display: 'grid', gap: 2 }}>
         <Typography variant="body2" color="text.secondary">
-          Preuve demandée : {PROOF_LABELS[detail.proofMode]}. L’heure enregistrée est celle du serveur.
+          Preuve demandée : {PROOF_LABELS[detail.proofMode]}. L’heure enregistrée est celle du
+          serveur.
         </Typography>
         {needsQr ? (
           <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start' }}>
             <QrCode size={icon.lg} aria-hidden="true" style={{ flex: 'none', marginTop: 2 }} />
             <Typography variant="body2">
-              Ouvrez l’appareil photo de votre téléphone et scannez le QR code affiché dans la classe
+              Ouvrez l’appareil photo de votre téléphone et scannez le QR code affiché dans la
+              classe
               {detail.class.room ? ` (${detail.class.room})` : ''}. Une page s’ouvrira pour
               {detail.proofMode === 'BOTH' ? ' prendre la photo et' : ''} confirmer votre présence.
             </Typography>
@@ -373,7 +434,12 @@ function PresenceDialog({ detail, pending, error, onClose, onConfirm }: DialogBa
       <DialogActions>
         <Button onClick={onClose}>{needsQr ? 'Fermer' : 'Retour'}</Button>
         {!needsQr && (
-          <Button variant="contained" disabled={!photo} loading={pending} onClick={() => photo && onConfirm(photo.id)}>
+          <Button
+            variant="contained"
+            disabled={!photo}
+            loading={pending}
+            onClick={() => photo && onConfirm(photo.id)}
+          >
             Confirmer ma présence
           </Button>
         )}

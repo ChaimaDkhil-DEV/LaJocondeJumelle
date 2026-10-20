@@ -2,7 +2,7 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
-import { CalendarPlus, DoorOpen, School } from 'lucide-react';
+import { CalendarPlus, DoorOpen, School, UserPlus } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Link as RouterLink, useSearchParams } from 'react-router';
 import { EmptyState } from '../../components/EmptyState';
@@ -29,7 +29,9 @@ const ADMIN_TABS: TabDef[] = [
   { key: 'terminees', label: 'Terminées', render: () => <ManagedCoverageTab scope="finished" /> },
 ];
 
-const TEACHER_TABS: TabDef[] = [{ key: 'mes-signalements', label: 'Mes signalements', render: () => <MyRequestsTab /> }];
+const TEACHER_TABS: TabDef[] = [
+  { key: 'mes-signalements', label: 'Mes signalements', render: () => <MyRequestsTab /> },
+];
 
 const SUPERVISOR_TABS: TabDef[] = [
   { key: 'mes-affectations', label: 'Mes affectations', render: () => <MyGuardTab /> },
@@ -45,14 +47,25 @@ export function CoveragePage() {
   const profile = useCoverageProfile();
   const [params, setParams] = useSearchParams();
 
-  if (profile.isPending) return <LoadingState label="Chargement des affectations" variant="detail" />;
+  if (profile.isPending)
+    return <LoadingState label="Chargement des affectations" variant="detail" />;
   if (profile.error) {
-    return <ErrorState message="Impossible de charger les affectations." actionLabel="Réessayer" onAction={() => void profile.refetch()} />;
+    return (
+      <ErrorState
+        message="Impossible de charger les affectations."
+        actionLabel="Réessayer"
+        onAction={() => void profile.refetch()}
+      />
+    );
   }
 
   const { canManage, isTeacher, isSupervisor } = profile.data;
   const canDeclare = profile.data.capabilities?.declareEmptyClass ?? isSupervisor;
-  const tabs = [...(canManage ? ADMIN_TABS : []), ...(isTeacher ? TEACHER_TABS : []), ...(isSupervisor && !canManage ? SUPERVISOR_TABS : [])];
+  const tabs = [
+    ...(canManage ? ADMIN_TABS : []),
+    ...(isTeacher ? TEACHER_TABS : []),
+    ...(isSupervisor && !canManage ? SUPERVISOR_TABS : []),
+  ];
   const tab = tabs.find((t) => t.key === params.get('onglet')) ?? tabs[0];
 
   return (
@@ -67,10 +80,25 @@ export function CoveragePage() {
               : 'Vos affectations en cours, vos renforts et votre historique.'
         }
         actions={
-          (isTeacher || canDeclare) && (
+          (canManage || isTeacher || canDeclare) && (
             <>
+              {canManage && (
+                <Button
+                  component={RouterLink}
+                  to="/gardes/nouvelle"
+                  variant="contained"
+                  startIcon={<UserPlus aria-hidden="true" />}
+                >
+                  Nouvelle affectation
+                </Button>
+              )}
               {canDeclare && (
-                <Button component={RouterLink} to="/gardes/classe-vide" variant="contained" startIcon={<DoorOpen aria-hidden="true" />}>
+                <Button
+                  component={RouterLink}
+                  to="/gardes/classe-vide"
+                  variant={canManage ? 'outlined' : 'contained'}
+                  startIcon={<DoorOpen aria-hidden="true" />}
+                >
                   Déclarer une classe vide
                 </Button>
               )}
@@ -78,7 +106,7 @@ export function CoveragePage() {
                 <Button
                   component={RouterLink}
                   to="/gardes/signaler"
-                  variant={canDeclare ? 'outlined' : 'contained'}
+                  variant={canManage || canDeclare ? 'outlined' : 'contained'}
                   startIcon={<CalendarPlus aria-hidden="true" />}
                 >
                   Signaler un retard ou une absence
@@ -89,7 +117,9 @@ export function CoveragePage() {
         }
       />
       {!tab ? (
-        <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1.5, bgcolor: 'background.paper' }}>
+        <Box
+          sx={{ border: 1, borderColor: 'divider', borderRadius: 1.5, bgcolor: 'background.paper' }}
+        >
           <EmptyState
             icon={School}
             title="Aucune affectation pour vous"
@@ -111,7 +141,13 @@ export function CoveragePage() {
             sx={{ mb: 2 }}
           >
             {tabs.map((t) => (
-              <Tab key={t.key} value={t.key} label={t.label} id={`onglet-${t.key}`} aria-controls="panneau-gardes" />
+              <Tab
+                key={t.key}
+                value={t.key}
+                label={t.label}
+                id={`onglet-${t.key}`}
+                aria-controls="panneau-gardes"
+              />
             ))}
           </Tabs>
           <Box id="panneau-gardes" role="tabpanel" aria-labelledby={`onglet-${tab.key}`}>

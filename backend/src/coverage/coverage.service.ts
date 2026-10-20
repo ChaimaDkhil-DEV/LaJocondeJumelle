@@ -18,6 +18,7 @@ import type {
   CreateCoverageDto,
   ListCoverageQuery,
   OwnAvailabilityDto,
+  SlotCandidatesQuery,
   SetAvailabilityDto,
   TeacherRequestDto,
   UpdateTeacherRequestDto,
@@ -634,6 +635,19 @@ export class CoverageService {
       null;
     const candidates = await supervisorCandidates(this.prisma, this.actions.slot(row), floorId, row.id);
     return candidates.filter((c) => c.id !== row.assigneeId);
+  }
+
+  /**
+   * Surveillants proposables pour un créneau, avant création (FR-010, FR-019) : étage de la classe
+   * d'abord, disponibles d'abord ; un surveillant occupé sur un créneau qui chevauche est indisponible.
+   */
+  async slotCandidates(user: AuthenticatedUser, query: SlotCandidatesQuery, ctx: RequestContext): Promise<SupervisorCandidate[]> {
+    await this.assertCoverageAdmin(user, ctx);
+    const schoolClass = await this.prisma.schoolClass.findUnique({ where: { id: query.classId }, select: { active: true, floorId: true } });
+    if (!schoolClass || !schoolClass.active) throw new AppException('CLASS_INACTIVE');
+    const slot = { startAt: new Date(query.startAt), plannedEndAt: new Date(query.endAt) };
+    if (slot.plannedEndAt <= slot.startAt) throw new AppException('INVALID_RANGE');
+    return supervisorCandidates(this.prisma, slot, schoolClass.floorId);
   }
 
   /**

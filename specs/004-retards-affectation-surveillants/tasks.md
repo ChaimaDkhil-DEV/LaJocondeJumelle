@@ -215,14 +215,14 @@ n'est libéré qu'à la présence de `surveillant2`.
 
 ### Tests for User Story 3
 
-- [ ] T070 [P] [US3] Test d'intégration `backend/test/integration/supervision-direct.spec.ts` : scénarios 1 à 3 de US3 ; `POST /coverage` naît `ACCEPTED`, source `ADMIN_DIRECT`, `type` obligatoire, `endAt` obligatoire, `teacherId` facultatif ; champs retirés (`groupIds`, `categoryId`, `estimatedMinutes`, `absentTeacher`, `force`) refusés ; `409 NOT_AVAILABLE` ; réassignation en `ACCEPTED` (statut inchangé, `COVERAGE_LIFTED` et `ASSIGNED`, `REASSIGNED` tracé avec ancien et nouveau, FR-008k) ; réassignation en `ON_DUTY` → relève **assignée** au nouveau, l'ancien libéré par `RELIEVE` système à la présence du nouveau, statut principal « en cours » conservé (FR-008j) ; refus pour enseignant et surveillant journalisés.
-- [ ] T071 [P] [US3] Test frontend `frontend/tests/coverage/direct-assignment.test.tsx` (formulaire : classe, type, enseignant facultatif, début, fin, surveillant parmi les disponibles ; erreurs ; accessibilité).
+- [X] T070 [P] [US3] Test d'intégration `backend/test/integration/supervision-direct.spec.ts` : scénarios 1 à 3 de US3 ; `POST /coverage` naît `ACCEPTED`, source `ADMIN_DIRECT`, `type` obligatoire, `endAt` obligatoire, `teacherId` facultatif ; champs retirés (`groupIds`, `categoryId`, `estimatedMinutes`, `absentTeacher`, `force`) refusés ; `409 NOT_AVAILABLE` ; réassignation en `ACCEPTED` (statut inchangé, `COVERAGE_LIFTED` et `ASSIGNED`, `REASSIGNED` tracé avec ancien et nouveau, FR-008k) ; réassignation en `ON_DUTY` → relève **assignée** au nouveau, l'ancien libéré par `RELIEVE` système à la présence du nouveau, statut principal « en cours » conservé (FR-008j) ; refus pour enseignant et surveillant journalisés.
+- [X] T071 [P] [US3] Test frontend `frontend/tests/coverage/direct-assignment.test.tsx` (formulaire : classe, type, enseignant facultatif, début, fin, surveillant parmi les disponibles ; erreurs ; accessibilité).
 
 ### Implementation for User Story 3
 
-- [ ] T072 [US3] Modifier `CreateCoverageDto` et `CoverageService.create` dans `backend/src/coverage/coverage.dto.ts` et `coverage.service.ts` (contracts/rest-api.md `POST /coverage`) : catégorie de garde résolue côté serveur, `ACCEPTED`, `END_OF_SLOT`, notification `ASSIGNED`.
-- [ ] T073 [US3] `REASSIGN` sur `ON_DUTY`/`RELIEF_PENDING` via `createRelief` avec remplaçant désigné dans `backend/src/coverage/coverage-actions.service.ts` — fait passer T070 avec T072.
-- [ ] T074 [US3] Réécrire `frontend/src/features/coverage/CreateCoveragePage.tsx` (affectation directe ; plus de groupes ni de diffusion) et l'action « Réassigner » dans `CoverageActions.tsx` pour les statuts assignée et en cours — fait passer T071.
+- [X] T072 [US3] Modifier `CreateCoverageDto` et `CoverageService.create` dans `backend/src/coverage/coverage.dto.ts` et `coverage.service.ts` (contracts/rest-api.md `POST /coverage`) : catégorie de garde résolue côté serveur, `ACCEPTED`, `END_OF_SLOT`, notification `ASSIGNED`.
+- [X] T073 [US3] `REASSIGN` sur `ON_DUTY`/`RELIEF_PENDING` via `createRelief` avec remplaçant désigné dans `backend/src/coverage/coverage-actions.service.ts` — fait passer T070 avec T072.
+- [X] T074 [US3] Réécrire `frontend/src/features/coverage/CreateCoveragePage.tsx` (affectation directe ; plus de groupes ni de diffusion) et l'action « Réassigner » dans `CoverageActions.tsx` pour les statuts assignée et en cours — fait passer T071.
 
 **Checkpoint**: US1, US2, US3 indépendantes et vertes.
 

@@ -235,3 +235,26 @@ Résultat : lint sans erreur ; typages sans erreur ; frontend 197 / 197 (26 fich
   sonore des urgences » dans le menu des notifications.
 
 Résultat : lint et typages sans erreur ; frontend 216 / 216 (29 fichiers).
+
+## Phase 6 — US3, affectation directe par l'admin (T070 à T074)
+
+- **T070** (`supervision-direct.spec.ts`, 18 cas) : écrit d'abord. Premier passage : 16 verts,
+  2 rouges. La création directe (`ACCEPTED`, `ADMIN_DIRECT`, champs retirés refusés, `409
+  NOT_AVAILABLE`) et la réassignation (statut inchangé si assignée ; relève assignée au nouveau
+  si en cours, ancien relevé à sa présence) avaient été réécrites en phase 2 (commit 12a14ee) :
+  **T072 et T073 n'ont demandé aucun code nouveau**, ils sont vérifiés par T070. Les 2 rouges
+  portaient sur l'ajout ci-dessous, vert ensuite. La suite règle la catégorie de garde en preuve
+  « QR seul » ; la photo reste couverte par `coverage.spec.ts`.
+- **Ajout au contrat** : `GET /coverage/candidates?classId&startAt&endAt` (admins) : surveillants
+  proposables pour un créneau, avant toute création (scénario 2 : un surveillant occupé sur un
+  créneau qui chevauche n'est pas proposé). Même tri que `/:id/candidates`.
+- **T071** (`direct-assignment.test.tsx`, 5 cas) : rouge (page absente), puis vert.
+- **T074** : `CreateCoveragePage.tsx` réécrite (`/gardes/nouvelle`, bouton « Nouvelle affectation »
+  des admins) : classe, type, enseignant facultatif, date (jusqu'à 7 jours, borne du serveur),
+  début, fin, surveillant parmi ceux du créneau, motif, consigne. Les heures saisies sont celles
+  de l'école (`schoolTime.ts`, fuseau renvoyé par le serveur). Message vocal non repris dans ce
+  formulaire (toujours accepté par l'API). Dialogue « Réassigner » : sur une affectation en cours,
+  rappelle que le surveillant actuel reste jusqu'à la présence du nouveau.
+
+Résultat : lint et typages sans erreur ; unitaires 561 / 561 ; intégration 430 / 430 (39 suites) ;
+frontend 221 / 221 (30 fichiers).

@@ -72,6 +72,18 @@ export class CreateCoverageDto {
   voiceFileId?: string;
 }
 
+/** Surveillants proposables pour un créneau, avant la création (formulaire d'affectation directe). */
+export class SlotCandidatesQuery {
+  @IsUUID()
+  classId!: string;
+
+  @IsISO8601({ strict: true })
+  startAt!: string;
+
+  @IsISO8601({ strict: true })
+  endAt!: string;
+}
+
 const DATE_FORMAT = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_FORMAT = /^([01]\d|2[0-3]):[0-5]\d$/;
 
