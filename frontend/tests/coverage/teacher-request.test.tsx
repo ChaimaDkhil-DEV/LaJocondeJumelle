@@ -15,7 +15,10 @@ import { TeacherRequestPage } from '../../src/features/coverage/TeacherRequestPa
 type Call = { url: string; method: string; body: unknown };
 
 function json(status: number, body?: unknown): Response {
-  return new Response(body === undefined ? null : JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+  return new Response(body === undefined ? null : JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
 }
 
 const PROFILE = {
@@ -66,7 +69,15 @@ function detail(overrides: Record<string, unknown> = {}) {
     overdueStage: null,
     extensionCount: 0,
     durationMinutes: null,
-    timestamps: { createdAt: '2026-10-20T16:00:00.000Z', acceptedAt: null, departedAt: null, presenceAt: null, relievedAt: null, closedAt: null, cancelledAt: null },
+    timestamps: {
+      createdAt: '2026-10-20T16:00:00.000Z',
+      acceptedAt: null,
+      departedAt: null,
+      presenceAt: null,
+      relievedAt: null,
+      closedAt: null,
+      cancelledAt: null,
+    },
     view: 'TEACHER',
     reason: 'Rendez-vous',
     note: null,
@@ -82,12 +93,19 @@ function detail(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function setup(path: string, handler: (call: Call) => Response | undefined = () => undefined): Call[] {
+function setup(
+  path: string,
+  handler: (call: Call) => Response | Promise<Response> | undefined = () => undefined,
+): Call[] {
   const calls: Call[] = [];
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string, init: RequestInit = {}) => {
-      const call = { url, method: init.method ?? 'GET', body: typeof init.body === 'string' ? JSON.parse(init.body) : undefined };
+      const call = {
+        url,
+        method: init.method ?? 'GET',
+        body: typeof init.body === 'string' ? JSON.parse(init.body) : undefined,
+      };
       calls.push(call);
       const custom = handler(call);
       if (custom) return custom;
@@ -98,7 +116,9 @@ function setup(path: string, handler: (call: Call) => Response | undefined = () 
     }),
   );
   render(
-    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+    <QueryClientProvider
+      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+    >
       <ToastProvider>
         <MemoryRouter initialEntries={[path]}>
           <Routes>
@@ -121,7 +141,9 @@ describe('Signaler un retard ou une absence', () => {
   it('champs requis signalés un à un, sans envoi', async () => {
     const user = userEvent.setup();
     const calls = setup('/gardes/signaler');
-    expect(await screen.findByRole('heading', { name: 'Signaler un retard ou une absence' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'Signaler un retard ou une absence' }),
+    ).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Envoyer le signalement' }));
     expect(await screen.findByText('Choisissez la classe.')).toBeInTheDocument();
     expect(screen.getByText('Indiquez l’heure de début.')).toBeInTheDocument();
@@ -133,7 +155,9 @@ describe('Signaler un retard ou une absence', () => {
   it('envoi : type, classe, demain, début et fin ; motif facultatif ; retour à la liste', async () => {
     const user = userEvent.setup();
     const calls = setup('/gardes/signaler', (call) =>
-      call.url === '/api/coverage/teacher-requests' && call.method === 'POST' ? json(201, detail()) : undefined,
+      call.url === '/api/coverage/teacher-requests' && call.method === 'POST'
+        ? json(201, detail())
+        : undefined,
     );
     await user.click(await screen.findByRole('radio', { name: 'Absence' }));
     await user.click(screen.getByRole('combobox', { name: /Classe/ }));
@@ -145,7 +169,13 @@ describe('Signaler un retard ou une absence', () => {
     await waitFor(() => expect(posts(calls)).toHaveLength(1));
     expect(posts(calls)[0]).toMatchObject({
       url: '/api/coverage/teacher-requests',
-      body: { type: 'ABSENCE', classId: 'k2', date: '2026-10-21', startTime: '08:00', endTime: '09:00' },
+      body: {
+        type: 'ABSENCE',
+        classId: 'k2',
+        date: '2026-10-21',
+        startTime: '08:00',
+        endTime: '09:00',
+      },
     });
     expect(posts(calls)[0].body).not.toHaveProperty('reason');
     expect(posts(calls)[0].body).toHaveProperty('clientId');
@@ -165,7 +195,12 @@ describe('Signaler un retard ou une absence', () => {
     await user.type(screen.getByLabelText(/Motif/), 'Rendez-vous médical');
     await user.click(screen.getByRole('button', { name: 'Envoyer le signalement' }));
     await waitFor(() => expect(posts(calls)).toHaveLength(1));
-    expect(posts(calls)[0].body).toMatchObject({ date: '2026-10-20', startTime: '10:00', durationMinutes: 45, reason: 'Rendez-vous médical' });
+    expect(posts(calls)[0].body).toMatchObject({
+      date: '2026-10-20',
+      startTime: '10:00',
+      durationMinutes: 45,
+      reason: 'Rendez-vous médical',
+    });
     expect(posts(calls)[0].body).not.toHaveProperty('endTime');
   });
 
@@ -173,7 +208,13 @@ describe('Signaler un retard ou une absence', () => {
     const user = userEvent.setup();
     setup('/gardes/signaler', (call) =>
       call.url === '/api/coverage/teacher-requests'
-        ? json(400, { error: { code: 'INVALID_RANGE', message: 'Le créneau est invalide : la fin doit suivre le début et ne pas être déjà passée.' } })
+        ? json(400, {
+            error: {
+              code: 'INVALID_RANGE',
+              message:
+                'Le créneau est invalide : la fin doit suivre le début et ne pas être déjà passée.',
+            },
+          })
         : undefined,
     );
     await user.click(await screen.findByRole('combobox', { name: /Classe/ }));
@@ -189,9 +230,13 @@ describe('Modifier ou retirer un signalement', () => {
   it('en attente : champs préremplis (heure de l’école), envoi des modifications avec la version', async () => {
     const user = userEvent.setup();
     const calls = setup('/gardes/signalements/g1', (call) =>
-      call.url === '/api/coverage/g1/teacher-request' && call.method === 'PATCH' ? json(200, detail({ version: 4 })) : undefined,
+      call.url === '/api/coverage/g1/teacher-request' && call.method === 'PATCH'
+        ? json(200, detail({ version: 4 }))
+        : undefined,
     );
-    expect(await screen.findByRole('heading', { name: 'Modifier le signalement' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'Modifier le signalement' }),
+    ).toBeInTheDocument();
     expect(screen.getByLabelText(/Heure de début/)).toHaveValue('08:00');
     expect(screen.getByLabelText(/Heure de fin/)).toHaveValue('09:00');
     expect(screen.getByRole('radio', { name: /Demain/ })).toBeChecked();
@@ -203,31 +248,64 @@ describe('Modifier ou retirer un signalement', () => {
     expect(posts(calls)[0]).toMatchObject({
       url: '/api/coverage/g1/teacher-request',
       method: 'PATCH',
-      body: { version: 3, type: 'LATENESS', classId: 'k1', date: '2026-10-21', startTime: '08:00', endTime: '10:00', reason: 'Rendez-vous' },
+      body: {
+        version: 3,
+        type: 'LATENESS',
+        classId: 'k1',
+        date: '2026-10-21',
+        startTime: '08:00',
+        endTime: '10:00',
+        reason: 'Rendez-vous',
+      },
     });
   });
 
   it('retrait : motif facultatif, action WITHDRAW', async () => {
     const user = userEvent.setup();
-    const calls = setup('/gardes/signalements/g1', (call) =>
-      call.url === '/api/coverage/g1/actions' ? json(200, detail({ status: 'CANCELLED', mainStatus: 'CANCELLED', allowedActions: [] })) : undefined,
-    );
+    const withdrawn = detail({ status: 'CANCELLED', mainStatus: 'CANCELLED', allowedActions: [] });
+    let done = false;
+    const calls = setup('/gardes/signalements/g1', (call) => {
+      if (call.url === '/api/coverage/g1/actions') {
+        done = true;
+        return json(200, withdrawn);
+      }
+      // Relecture après le retrait : délai réseau, le temps que la page passe en lecture seule (comme en navigateur).
+      if (call.url === '/api/coverage/g1' && done)
+        return new Promise((resolve) => setTimeout(() => resolve(json(200, withdrawn)), 50));
+      return undefined;
+    });
     await user.click(await screen.findByRole('button', { name: 'Retirer la demande' }));
     const dialog = await screen.findByRole('dialog', { name: 'Retirer la demande' });
     await user.click(within(dialog).getByRole('button', { name: 'Retirer la demande' }));
     await waitFor(() => expect(posts(calls)).toHaveLength(1));
-    expect(posts(calls)[0]).toMatchObject({ url: '/api/coverage/g1/actions', body: { action: 'WITHDRAW', version: 3 } });
+    expect(posts(calls)[0]).toMatchObject({
+      url: '/api/coverage/g1/actions',
+      body: { action: 'WITHDRAW', version: 3 },
+    });
+    // La page passe en lecture seule ; la confirmation s'affiche quand même.
+    expect(await screen.findByText('Demande retirée.')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Mon signalement' })).toBeInTheDocument();
   });
 
   it('déjà assignée : lecture seule, nom du surveillant, plus de modification ni de retrait', async () => {
     setup('/gardes/signalements/g1', (call) =>
       call.url === '/api/coverage/g1'
-        ? json(200, detail({ status: 'ACCEPTED', mainStatus: 'ASSIGNED', assignee: { id: 's1', displayName: 'Surveillant' }, allowedActions: [] }))
+        ? json(
+            200,
+            detail({
+              status: 'ACCEPTED',
+              mainStatus: 'ASSIGNED',
+              assignee: { id: 's1', displayName: 'Surveillant' },
+              allowedActions: [],
+            }),
+          )
         : undefined,
     );
     expect(await screen.findByText(/Surveillant assigné : Surveillant/)).toBeInTheDocument();
     expect(screen.getByText('Assignée')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Enregistrer les modifications' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Enregistrer les modifications' }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Retirer la demande' })).not.toBeInTheDocument();
   });
 });

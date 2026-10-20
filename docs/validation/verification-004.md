@@ -338,3 +338,33 @@ Résultat : lint et typages sans erreur ; unitaires 571 / 571 ; intégration 441
   production en préproduction (quickstart, « Migration »), avec les validations V1 à V3 signées.
   Script de répétition non versionné (outil ponctuel) ; la procédure est celle de
   `docs/coverage-migration.md`.
+
+### T082 — Parcours de bout en bout
+
+- `e2e/coverage-class.spec.ts` réécrit : trois parcours, chacun à 360, 768 et 1280 px
+  (Chromium) : A. demande d'un enseignant → assignation → en route → présence QR + photo →
+  terminée ; B. classe vide → seconde déclaration en renfort → libération du renfort par l'admin →
+  terminée ; C. affectation directe → réassignation → annulation. Défilement horizontal et axe
+  vérifiés sur chaque écran traversé. Créneaux du jour : parcours ignorés après 22 h (heure de
+  l'école).
+- **Premier passage** : 3 échecs. Cause unique : à 360 px, le parcours B a échoué sur le message
+  « Remplaçante est libéré(e) » ; l'affectation restée ouverte a fait échouer les parcours
+  suivants (surveillant occupé, déclaration rattachée). Correctifs :
+  - **défaut réel de l'interface** : la libération du dernier renfort fonctionnait (historique
+    « Renfort libéré ») mais sans confirmation. La liste des renforts n'était montée que s'il en
+    restait ; TanStack Query n'exécute pas les rappels d'un `mutate` dont le composant a disparu.
+    La liste reste montée (rendu vide). **Même défaut** trouvé à la relecture sur le retrait d'une
+    demande par l'enseignant (la page passe en lecture seule, « Demande retirée. » perdu) : actions
+    sorties du formulaire. Deux tests de non-régression (`admin-duplicates.test.tsx`,
+    `teacher-request.test.tsx`) **rouges sans le correctif, verts avec** ; il a fallu que les faux
+    serveurs relisent l'état à jour avec un délai réseau, comme le vrai, pour reproduire le défaut ;
+  - **indépendance des parcours** : chacun commence par l'annulation, par l'API et avec la
+    session de l'admin, des affectations encore ouvertes.
+- Serveurs e2e orphelins après l'arrêt du premier passage (API et Vite de ce worktree) : arrêtés
+  après vérification de leur ligne de commande ; base e2e déjà arrêtée.
+- **Second passage** : 9 / 9 (3,7 min).
+- `e2e/a11y-responsive.spec.ts` : écrans des affectations à 320 px (enseignante, surveillant,
+  admin et ses cinq onglets, nouvelle affectation, statistiques, étages) : 3 / 3 (profil
+  `mobile-320`).
+
+Résultat : lint et typages sans erreur ; frontend 226 / 226 (31 fichiers).

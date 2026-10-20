@@ -20,7 +20,13 @@ import { PageHeader } from '../../components/PageHeader';
 import { SectionCard } from '../../components/SectionCard';
 import { useToast } from '../../components/Toast';
 import { icon } from '../../design/tokens';
-import { useCoverage, useCoverageClasses, useCoverageProfile, useSaveTeacherRequest, type TeacherRequestInput } from './api';
+import {
+  useCoverage,
+  useCoverageClasses,
+  useCoverageProfile,
+  useSaveTeacherRequest,
+  type TeacherRequestInput,
+} from './api';
 import { CoverageActions } from './CoverageActions';
 import { CoverageStatusBadge, TYPE_LABELS, formatTime } from './labels';
 import type { CoverageDetail } from './types';
@@ -41,24 +47,42 @@ interface Values {
 /** Date et heure locales de l'école d'un instant ISO. */
 function schoolParts(iso: string, timeZone: string): { date: string; time: string } {
   const parts = Object.fromEntries(
-    new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+    new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    })
       .formatToParts(new Date(iso))
       .map((p) => [p.type, p.value]),
   );
-  return { date: `${parts.year}-${parts.month}-${parts.day}`, time: `${parts.hour}:${parts.minute}` };
+  return {
+    date: `${parts.year}-${parts.month}-${parts.day}`,
+    time: `${parts.hour}:${parts.minute}`,
+  };
 }
 
 /** « mercredi 21 octobre » pour une date locale AAAA-MM-JJ. */
 function longDate(date: string): string {
-  return new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${date}T12:00:00Z`));
+  return new Intl.DateTimeFormat('fr-FR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    timeZone: 'UTC',
+  }).format(new Date(`${date}T12:00:00Z`));
 }
 
 function validate(v: Values): Record<string, string> {
   const errors: Record<string, string> = {};
   if (!v.classId) errors.classId = 'Choisissez la classe.';
   if (!TIME.test(v.startTime.trim())) errors.startTime = 'Indiquez l’heure de début.';
-  if (v.endMode === 'END' && !TIME.test(v.endTime.trim())) errors.endTime = 'Indiquez l’heure de fin ou une durée.';
-  if (v.endMode === 'DURATION' && !/^\d+$/.test(v.duration.trim())) errors.durationMinutes = 'Indiquez l’heure de fin ou une durée.';
+  if (v.endMode === 'END' && !TIME.test(v.endTime.trim()))
+    errors.endTime = 'Indiquez l’heure de fin ou une durée.';
+  if (v.endMode === 'DURATION' && !/^\d+$/.test(v.duration.trim()))
+    errors.durationMinutes = 'Indiquez l’heure de fin ou une durée.';
   return errors;
 }
 
@@ -68,7 +92,9 @@ function toInput(v: Values): TeacherRequestInput {
     classId: v.classId,
     date: v.date,
     startTime: v.startTime.trim(),
-    ...(v.endMode === 'END' ? { endTime: v.endTime.trim() } : { durationMinutes: Number(v.duration) }),
+    ...(v.endMode === 'END'
+      ? { endTime: v.endTime.trim() }
+      : { durationMinutes: Number(v.duration) }),
   };
 }
 
@@ -82,7 +108,8 @@ export function TeacherRequestPage() {
   const existing = useCoverage(id ?? '', Boolean(id));
   const back = { to: '/gardes?onglet=mes-signalements', label: 'Mes signalements' };
 
-  if (profile.isPending || (id && existing.isPending)) return <LoadingState label="Chargement du signalement" variant="detail" />;
+  if (profile.isPending || (id && existing.isPending))
+    return <LoadingState label="Chargement du signalement" variant="detail" />;
   if (profile.error || (id && existing.error)) {
     return (
       <>
@@ -92,15 +119,32 @@ export function TeacherRequestPage() {
     );
   }
   const detail = id ? existing.data : undefined;
-  if (detail && !detail.allowedActions.includes('UPDATE')) return <ReadOnlyRequest detail={detail} timeZone={profile.data.schoolDates.timezone} />;
-  return <RequestForm detail={detail} schoolDates={profile.data.schoolDates} />;
+  return (
+    <>
+      {detail && !detail.allowedActions.includes('UPDATE') ? (
+        <ReadOnlyRequest detail={detail} timeZone={profile.data.schoolDates.timezone} />
+      ) : (
+        <RequestForm detail={detail} schoolDates={profile.data.schoolDates} />
+      )}
+      {/* Hors du formulaire : après un retrait, la page passe en lecture seule et la confirmation doit s'afficher. */}
+      {detail && (
+        <Box sx={{ mt: 2 }}>
+          <CoverageActions detail={detail} exclude={['UPDATE']} />
+        </Box>
+      )}
+    </>
+  );
 }
 
 function ReadOnlyRequest({ detail, timeZone }: { detail: CoverageDetail; timeZone: string }) {
   const start = schoolParts(detail.startAt, timeZone);
   return (
     <>
-      <PageHeader title="Mon signalement" eyebrow={detail.reference} back={{ to: '/gardes?onglet=mes-signalements', label: 'Mes signalements' }} />
+      <PageHeader
+        title="Mon signalement"
+        eyebrow={detail.reference}
+        back={{ to: '/gardes?onglet=mes-signalements', label: 'Mes signalements' }}
+      />
       <SectionCard>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
           <Typography component="h2" variant="h6">
@@ -114,7 +158,9 @@ function ReadOnlyRequest({ detail, timeZone }: { detail: CoverageDetail; timeZon
           {detail.plannedEndAt ? ` à ${schoolParts(detail.plannedEndAt, timeZone).time}` : ''}
         </Typography>
         {detail.assignee ? (
-          <Typography variant="body2">Surveillant assigné : {detail.assignee.displayName}</Typography>
+          <Typography variant="body2">
+            Surveillant assigné : {detail.assignee.displayName}
+          </Typography>
         ) : (
           <Typography variant="body2" color="text.secondary">
             Aucun surveillant assigné.
@@ -131,7 +177,13 @@ function ReadOnlyRequest({ detail, timeZone }: { detail: CoverageDetail; timeZon
   );
 }
 
-function RequestForm({ detail, schoolDates }: { detail?: CoverageDetail; schoolDates: { timezone: string; today: string; tomorrow: string } }) {
+function RequestForm({
+  detail,
+  schoolDates,
+}: {
+  detail?: CoverageDetail;
+  schoolDates: { timezone: string; today: string; tomorrow: string };
+}) {
   const ids = { type: useId(), date: useId(), end: useId() };
   const navigate = useNavigate();
   const toast = useToast();
@@ -140,7 +192,16 @@ function RequestForm({ detail, schoolDates }: { detail?: CoverageDetail; schoolD
   const clientId = useRef(crypto.randomUUID());
   const [values, setValues] = useState<Values>(() => {
     if (!detail) {
-      return { type: 'LATENESS', classId: '', date: schoolDates.today, startTime: '', endMode: 'END', endTime: '', duration: '', reason: '' };
+      return {
+        type: 'LATENESS',
+        classId: '',
+        date: schoolDates.today,
+        startTime: '',
+        endMode: 'END',
+        endTime: '',
+        duration: '',
+        reason: '',
+      };
     }
     const start = schoolParts(detail.startAt, schoolDates.timezone);
     return {
@@ -149,7 +210,9 @@ function RequestForm({ detail, schoolDates }: { detail?: CoverageDetail; schoolD
       date: start.date,
       startTime: start.time,
       endMode: 'END',
-      endTime: detail.plannedEndAt ? schoolParts(detail.plannedEndAt, schoolDates.timezone).time : '',
+      endTime: detail.plannedEndAt
+        ? schoolParts(detail.plannedEndAt, schoolDates.timezone).time
+        : '',
       duration: '',
       reason: detail.reason ?? '',
     };
@@ -168,7 +231,9 @@ function RequestForm({ detail, schoolDates }: { detail?: CoverageDetail; schoolD
       : { ...toInput(values), clientId: clientId.current, ...(reason ? { reason } : {}) };
     save.mutate(body, {
       onSuccess: () => {
-        toast.success(detail ? 'Signalement modifié.' : 'Signalement envoyé : l’admin est prévenue.');
+        toast.success(
+          detail ? 'Signalement modifié.' : 'Signalement envoyé : l’admin est prévenue.',
+        );
         navigate('/gardes?onglet=mes-signalements');
       },
       onError: (error) => setErrors(fieldErrors(error)),
@@ -195,7 +260,12 @@ function RequestForm({ detail, schoolDates }: { detail?: CoverageDetail; schoolD
           <FormLabel component="legend" id={ids.type}>
             Type
           </FormLabel>
-          <RadioGroup row aria-labelledby={ids.type} value={values.type} onChange={(e) => set({ type: e.target.value as Values['type'] })}>
+          <RadioGroup
+            row
+            aria-labelledby={ids.type}
+            value={values.type}
+            onChange={(e) => set({ type: e.target.value as Values['type'] })}
+          >
             <FormControlLabel value="LATENESS" control={<Radio />} label="Retard" />
             <FormControlLabel value="ABSENCE" control={<Radio />} label="Absence" />
           </RadioGroup>
@@ -222,9 +292,22 @@ function RequestForm({ detail, schoolDates }: { detail?: CoverageDetail; schoolD
           <FormLabel component="legend" id={ids.date}>
             Date
           </FormLabel>
-          <RadioGroup row aria-labelledby={ids.date} value={values.date} onChange={(e) => set({ date: e.target.value })}>
-            <FormControlLabel value={schoolDates.today} control={<Radio />} label={`Aujourd’hui (${longDate(schoolDates.today)})`} />
-            <FormControlLabel value={schoolDates.tomorrow} control={<Radio />} label={`Demain (${longDate(schoolDates.tomorrow)})`} />
+          <RadioGroup
+            row
+            aria-labelledby={ids.date}
+            value={values.date}
+            onChange={(e) => set({ date: e.target.value })}
+          >
+            <FormControlLabel
+              value={schoolDates.today}
+              control={<Radio />}
+              label={`Aujourd’hui (${longDate(schoolDates.today)})`}
+            />
+            <FormControlLabel
+              value={schoolDates.tomorrow}
+              control={<Radio />}
+              label={`Demain (${longDate(schoolDates.tomorrow)})`}
+            />
           </RadioGroup>
           {errors.date && <FormHelperText>{errors.date}</FormHelperText>}
         </FormControl>
@@ -244,7 +327,12 @@ function RequestForm({ detail, schoolDates }: { detail?: CoverageDetail; schoolD
           <FormLabel component="legend" id={ids.end}>
             Fin du créneau
           </FormLabel>
-          <RadioGroup row aria-labelledby={ids.end} value={values.endMode} onChange={(e) => set({ endMode: e.target.value as Values['endMode'] })}>
+          <RadioGroup
+            row
+            aria-labelledby={ids.end}
+            value={values.endMode}
+            onChange={(e) => set({ endMode: e.target.value as Values['endMode'] })}
+          >
             <FormControlLabel value="END" control={<Radio />} label="Jusqu’à une heure précise" />
             <FormControlLabel value="DURATION" control={<Radio />} label="Durée" />
           </RadioGroup>
@@ -281,7 +369,9 @@ function RequestForm({ detail, schoolDates }: { detail?: CoverageDetail; schoolD
           value={values.reason}
           onChange={(e) => set({ reason: e.target.value })}
           error={Boolean(errors.reason)}
-          helperText={errors.reason ?? 'Visible seulement de l’admin. Le surveillant ne le voit pas.'}
+          helperText={
+            errors.reason ?? 'Visible seulement de l’admin. Le surveillant ne le voit pas.'
+          }
           slotProps={{ htmlInput: { maxLength: 1000 } }}
         />
 
@@ -291,16 +381,17 @@ function RequestForm({ detail, schoolDates }: { detail?: CoverageDetail; schoolD
           </Alert>
         )}
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-          <Button type="submit" variant="contained" size="large" loading={save.isPending} startIcon={<Send size={icon.md} aria-hidden="true" />}>
+          <Button
+            type="submit"
+            variant="contained"
+            size="large"
+            loading={save.isPending}
+            startIcon={<Send size={icon.md} aria-hidden="true" />}
+          >
             {detail ? 'Enregistrer les modifications' : 'Envoyer le signalement'}
           </Button>
         </Box>
       </SectionCard>
-      {detail && (
-        <Box sx={{ mt: 2 }}>
-          <CoverageActions detail={detail} exclude={['UPDATE']} />
-        </Box>
-      )}
     </>
   );
 }

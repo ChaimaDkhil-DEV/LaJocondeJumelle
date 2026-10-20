@@ -16,7 +16,16 @@ import { SupportsList, TeacherField } from './AdminCoverageTools';
 import { useCoverage } from './api';
 import { CoverageActions } from './CoverageActions';
 import { ClassHeading } from './EmployeeViews';
-import { COVERAGE_STATUS_LABELS, CoverageDeadline, Elapsed, PROOF_LABELS, SOURCE_LABELS, TYPE_LABELS, formatDuration, formatTime } from './labels';
+import {
+  COVERAGE_STATUS_LABELS,
+  CoverageDeadline,
+  Elapsed,
+  PROOF_LABELS,
+  SOURCE_LABELS,
+  TYPE_LABELS,
+  formatDuration,
+  formatTime,
+} from './labels';
 import type { CoverageDetail, CoverageHistoryEntry, CoverageSource, CoverageStatus } from './types';
 
 const EVENT_LABELS: Record<string, string> = {
@@ -43,15 +52,20 @@ const EVENT_LABELS: Record<string, string> = {
 function eventText(e: CoverageHistoryEntry): string {
   const to = e.toValue ?? {};
   const from = e.fromValue ?? {};
-  const teacherName = (v: Record<string, unknown>) => (v.teacherId ? String(v.teacherName ?? 'enseignant inconnu') : 'non précisé');
+  const teacherName = (v: Record<string, unknown>) =>
+    v.teacherId ? String(v.teacherName ?? 'enseignant inconnu') : 'non précisé';
   switch (e.type) {
     case 'CREATED':
-      return to.source ? `Affectation créée — ${SOURCE_LABELS[to.source as CoverageSource].toLowerCase()}` : EVENT_LABELS.CREATED;
+      return to.source
+        ? `Affectation créée — ${SOURCE_LABELS[to.source as CoverageSource].toLowerCase()}`
+        : EVENT_LABELS.CREATED;
     case 'STATUS_CHANGED':
       return `Statut : ${COVERAGE_STATUS_LABELS[to.status as CoverageStatus] ?? String(to.status)}`;
     case 'ASSIGNED':
       // Garde antérieure à 004 : prise par un volontaire ou affectation forcée.
-      return to.selfAccepted ? `Garde prise par ${String(to.assigneeName ?? '')}` : `Assignée à ${String(to.assigneeName ?? '')}${to.forced ? ' (affectation forcée)' : ''}`;
+      return to.selfAccepted
+        ? `Garde prise par ${String(to.assigneeName ?? '')}`
+        : `Assignée à ${String(to.assigneeName ?? '')}${to.forced ? ' (affectation forcée)' : ''}`;
     case 'REASSIGNED':
       return from.assigneeName
         ? `Réassignée de ${String(from.assigneeName)} à ${String(to.assigneeName ?? '')}`
@@ -63,9 +77,13 @@ function eventText(e: CoverageHistoryEntry): string {
     case 'TEACHER_SET':
       return `Enseignant : ${teacherName(from)} → ${teacherName(to)}`;
     case 'MERGE_DECIDED':
-      return to.decision === 'CONFIRM' ? 'Doublon tranché : rattachement confirmé' : 'Doublon tranché : affectations gardées distinctes';
+      return to.decision === 'CONFIRM'
+        ? 'Doublon tranché : rattachement confirmé'
+        : 'Doublon tranché : affectations gardées distinctes';
     case 'UPDATED':
-      return to.declaration ? 'Classe déclarée vide par un surveillant : demande prise en charge' : EVENT_LABELS.UPDATED;
+      return to.declaration
+        ? 'Classe déclarée vide par un surveillant : demande prise en charge'
+        : EVENT_LABELS.UPDATED;
     case 'RELEASED':
       return to.byManager ? 'Surveillant libéré par un admin' : 'Désistement (garde antérieure)';
     case 'PRESENCE_CONFIRMED':
@@ -75,7 +93,9 @@ function eventText(e: CoverageHistoryEntry): string {
     case 'GROUP_ADDED':
       return `Élargie au groupe ${String(to.groupName ?? '')}`;
     case 'OVERDUE':
-      return to.stage === 'ARRIVAL' ? 'Présence non confirmée à temps' : 'Délai de prise en charge dépassé';
+      return to.stage === 'ARRIVAL'
+        ? 'Présence non confirmée à temps'
+        : 'Délai de prise en charge dépassé';
     default:
       return EVENT_LABELS[e.type] ?? e.type;
   }
@@ -83,9 +103,17 @@ function eventText(e: CoverageHistoryEntry): string {
 
 function Timeline({ entries }: { entries: CoverageHistoryEntry[] }) {
   return (
-    <Box component="ol" aria-label="Historique de l’affectation" sx={{ listStyle: 'none', m: 0, p: 0, display: 'grid', gap: 1.5 }}>
+    <Box
+      component="ol"
+      aria-label="Historique de l’affectation"
+      sx={{ listStyle: 'none', m: 0, p: 0, display: 'grid', gap: 1.5 }}
+    >
       {entries.map((e) => (
-        <Box component="li" key={e.id} sx={{ display: 'grid', gap: 0.25, pl: 2, borderLeft: 2, borderColor: 'divider' }}>
+        <Box
+          component="li"
+          key={e.id}
+          sx={{ display: 'grid', gap: 0.25, pl: 2, borderLeft: 2, borderColor: 'divider' }}
+        >
           <Typography variant="body2">{eventText(e)}</Typography>
           <Typography variant="caption" color="text.secondary">
             {formatDateTime(e.createdAt)} · {e.actor ? e.actor.displayName : 'Système'}
@@ -109,7 +137,17 @@ function Times({ detail }: { detail: CoverageDetail }) {
     ['Annulation', t.cancelledAt],
   ];
   return (
-    <Box component="dl" sx={{ m: 0, display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: 2, rowGap: 0.75, fontSize: fontSize.sm }}>
+    <Box
+      component="dl"
+      sx={{
+        m: 0,
+        display: 'grid',
+        gridTemplateColumns: 'auto 1fr',
+        columnGap: 2,
+        rowGap: 0.75,
+        fontSize: fontSize.sm,
+      }}
+    >
       {rows
         .filter(([, value]) => value)
         .map(([label, value]) => (
@@ -148,7 +186,13 @@ export function CoverageDetailPage() {
     return (
       <>
         <PageHeader title="Garde" back={back} />
-        <ErrorState message={notFound ? 'Cette garde n’existe pas ou vous n’y avez pas accès.' : 'Impossible de charger la garde.'} />
+        <ErrorState
+          message={
+            notFound
+              ? 'Cette garde n’existe pas ou vous n’y avez pas accès.'
+              : 'Impossible de charger la garde.'
+          }
+        />
       </>
     );
   }
@@ -157,7 +201,14 @@ export function CoverageDetailPage() {
   return (
     <>
       <PageHeader title={`Garde — ${d.class.name}`} eyebrow={d.reference} back={back} />
-      <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1fr) 360px' }, alignItems: 'start' }}>
+      <Box
+        sx={{
+          display: 'grid',
+          gap: 2,
+          gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1fr) 360px' },
+          alignItems: 'start',
+        }}
+      >
         <Box sx={{ display: 'grid', gap: 2, minWidth: 0 }}>
           <SectionCard>
             <ClassHeading summary={d} level={2} />
@@ -167,21 +218,35 @@ export function CoverageDetailPage() {
               )}
               <CoverageDeadline summary={d} />
             </Box>
-            {d.status === 'CANCELLED' && d.cancelReason && <Alert severity="info">Annulée : {d.cancelReason}</Alert>}
-            {d.status === 'RELIEF_PENDING' && <Alert severity="warning">Relève demandée : le surveillant reste en charge de la classe jusqu’à l’arrivée du remplaçant.</Alert>}
+            {d.status === 'CANCELLED' && d.cancelReason && (
+              <Alert severity="info">Annulée : {d.cancelReason}</Alert>
+            )}
+            {d.status === 'RELIEF_PENDING' && (
+              <Alert severity="warning">
+                Relève demandée : le surveillant reste en charge de la classe jusqu’à l’arrivée du
+                remplaçant.
+              </Alert>
+            )}
             {d.alerts.includes('TAKEOVER_EXPIRED') && d.isManager && (
-              <Alert severity="error">Délai d’assignation dépassé : assignez un surveillant disponible.</Alert>
+              <Alert severity="error">
+                Délai d’assignation dépassé : assignez un surveillant disponible.
+              </Alert>
             )}
             {d.alerts.includes('DOUBLE_ASSIGNMENT') && d.isManager && (
               <Alert severity="error">
-                Ce surveillant a une autre affectation en cours sur ce créneau : réassignez l’une des deux si nécessaire.
+                Ce surveillant a une autre affectation en cours sur ce créneau : réassignez l’une
+                des deux si nécessaire.
               </Alert>
             )}
             {d.alerts.includes('POSSIBLE_DUPLICATE') && d.isManager && (
               <Alert
                 severity="warning"
                 action={
-                  <Box component={RouterLink} to="/gardes?onglet=doublons" sx={{ color: 'inherit', alignSelf: 'center', mr: 1 }}>
+                  <Box
+                    component={RouterLink}
+                    to="/gardes?onglet=doublons"
+                    sx={{ color: 'inherit', alignSelf: 'center', mr: 1 }}
+                  >
                     Trancher
                   </Box>
                 }
@@ -189,17 +254,31 @@ export function CoverageDetailPage() {
                 Doublon possible : une autre affectation concerne cette classe sur le même créneau.
               </Alert>
             )}
-            {d.status === 'UNFILLED' && d.isManager && <Alert severity="info">Créneau passé sans surveillant assigné.</Alert>}
+            {d.status === 'UNFILLED' && d.isManager && (
+              <Alert severity="info">Créneau passé sans surveillant assigné.</Alert>
+            )}
             {d.status === 'LATE' && d.isManager && (
-              <Alert severity="error">Présence non confirmée dans le délai : contactez le surveillant ou réassignez l’affectation.</Alert>
+              <Alert severity="error">
+                Présence non confirmée dans le délai : contactez le surveillant ou réassignez
+                l’affectation.
+              </Alert>
             )}
             {d.reason && (
               <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
                 Motif : {d.reason}
               </Typography>
             )}
-            {d.note && <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{d.note}</Typography>}
-            {d.voice && <VoicePlayer src={`/api/files/${d.voice.fileId}`} durationSeconds={d.voice.durationSeconds} />}
+            {d.note && (
+              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                {d.note}
+              </Typography>
+            )}
+            {d.voice && (
+              <VoicePlayer
+                src={`/api/files/${d.voice.fileId}`}
+                durationSeconds={d.voice.durationSeconds}
+              />
+            )}
             <CoverageActions detail={d} />
           </SectionCard>
 
@@ -220,7 +299,15 @@ export function CoverageDetailPage() {
                           component="img"
                           src={`/api/files/${p.fileId}`}
                           alt={`Photo de présence prise par ${p.by.displayName}`}
-                          sx={{ width: 200, height: 150, objectFit: 'cover', borderRadius: 1, border: 1, borderColor: 'divider', display: 'block' }}
+                          sx={{
+                            width: 200,
+                            height: 150,
+                            objectFit: 'cover',
+                            borderRadius: 1,
+                            border: 1,
+                            borderColor: 'divider',
+                            display: 'block',
+                          }}
                         />
                       </Box>
                     ) : (
@@ -235,8 +322,14 @@ export function CoverageDetailPage() {
                           bgcolor: tokensOf(theme).surfaceMuted,
                         })}
                       >
-                        {p.method === 'QR' ? <QrCode size={icon.md} aria-hidden="true" /> : <Camera size={icon.md} aria-hidden="true" />}
-                        <Typography variant="body2">{p.method === 'QR' ? 'QR code de la classe scanné' : 'Photo transmise'}</Typography>
+                        {p.method === 'QR' ? (
+                          <QrCode size={icon.md} aria-hidden="true" />
+                        ) : (
+                          <Camera size={icon.md} aria-hidden="true" />
+                        )}
+                        <Typography variant="body2">
+                          {p.method === 'QR' ? 'QR code de la classe scanné' : 'Photo transmise'}
+                        </Typography>
                       </Box>
                     )}
                     <Typography variant="caption" color="text.secondary">
@@ -262,7 +355,11 @@ export function CoverageDetailPage() {
                 <Typography variant="caption" color="text.secondary">
                   Surveillant
                 </Typography>
-                {d.assignee ? <Person name={d.assignee.displayName} id={d.assignee.id} size={28} /> : <Typography variant="body2">Aucun pour l’instant</Typography>}
+                {d.assignee ? (
+                  <Person name={d.assignee.displayName} id={d.assignee.id} size={28} />
+                ) : (
+                  <Typography variant="body2">Aucun pour l’instant</Typography>
+                )}
               </Box>
               <Box>
                 <Typography variant="caption" color="text.secondary">
@@ -271,22 +368,20 @@ export function CoverageDetailPage() {
                 <Person name={d.requester.displayName} id={d.requester.id} size={28} />
               </Box>
               {d.isManager && <TeacherField detail={d} />}
-              {d.supports.length > 0 &&
-                (d.isManager ? (
-                  <Box sx={{ display: 'grid', gap: 0.5 }}>
-                    <Typography variant="caption" color="text.secondary">
-                      Renfort
-                    </Typography>
-                    <SupportsList detail={d} />
-                  </Box>
-                ) : (
-                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
-                    <Users size={icon.sm} aria-hidden="true" style={{ marginTop: 3 }} />
-                    <Typography variant="body2">Renfort : {d.supports.map((s) => s.user.displayName).join(', ')}</Typography>
-                  </Box>
-                ))}
+              {/* Toujours monté pour l'admin : la confirmation de libération du dernier renfort doit s'afficher. */}
+              {d.isManager && <SupportsList detail={d} />}
+              {!d.isManager && d.supports.length > 0 && (
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                  <Users size={icon.sm} aria-hidden="true" style={{ marginTop: 3 }} />
+                  <Typography variant="body2">
+                    Renfort : {d.supports.map((s) => s.user.displayName).join(', ')}
+                  </Typography>
+                </Box>
+              )}
               <Typography variant="body2" color="text.secondary">
-                {[d.source && SOURCE_LABELS[d.source], d.type && TYPE_LABELS[d.type], d.floor?.name].filter(Boolean).join(' · ')}
+                {[d.source && SOURCE_LABELS[d.source], d.type && TYPE_LABELS[d.type], d.floor?.name]
+                  .filter(Boolean)
+                  .join(' · ')}
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Preuve demandée : {PROOF_LABELS[d.proofMode]}

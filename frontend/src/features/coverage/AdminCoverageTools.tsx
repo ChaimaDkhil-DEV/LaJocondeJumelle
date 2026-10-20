@@ -19,38 +19,69 @@ import type { CoverageDetail } from './types';
 
 const NO_TEACHER = 'none';
 
-/** Renforts présents dans la classe ; l'admin libère chacun d'eux (FR-015i). */
+/**
+ * Renforts présents dans la classe ; l'admin libère chacun d'eux (FR-015i). Rendu vide sans renfort,
+ * mais à garder monté : la mutation (et son message de confirmation) appartient à ce composant.
+ */
 export function SupportsList({ detail }: { detail: CoverageDetail }) {
   const toast = useToast();
   const action = useCoverageAction(detail.id);
   const canRelease = detail.allowedActions.includes('RELEASE_SUPPORT');
   if (detail.supports.length === 0) return null;
   return (
-    <Box component="ul" aria-label="Renforts" sx={{ listStyle: 'none', m: 0, p: 0, display: 'grid', gap: 1 }}>
-      {detail.supports.map((s) => (
-        <Box component="li" key={s.id} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, flexWrap: 'wrap' }}>
-          <Person name={s.user.displayName} id={s.user.id} size={28} secondary={`En renfort depuis ${formatTime(s.joinedAt)}`} />
-          {canRelease && (
-            <Button
-              size="small"
-              startIcon={<UserMinus size={icon.sm} aria-hidden="true" />}
-              aria-label={`Libérer ${s.user.displayName}`}
-              disabled={action.isPending}
-              onClick={() =>
-                action.mutate(
-                  { action: 'RELEASE_SUPPORT', supportId: s.id, version: detail.version },
-                  {
-                    onSuccess: () => toast.success(`${s.user.displayName} est libéré(e) et reprend sa tournée.`),
-                    onError: (err) => toast.error(err instanceof ApiError ? err.message : 'Libération impossible.'),
-                  },
-                )
-              }
-            >
-              Libérer
-            </Button>
-          )}
-        </Box>
-      ))}
+    <Box sx={{ display: 'grid', gap: 0.5 }}>
+      <Typography variant="caption" color="text.secondary">
+        Renfort
+      </Typography>
+      <Box
+        component="ul"
+        aria-label="Renforts"
+        sx={{ listStyle: 'none', m: 0, p: 0, display: 'grid', gap: 1 }}
+      >
+        {detail.supports.map((s) => (
+          <Box
+            component="li"
+            key={s.id}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 1,
+              flexWrap: 'wrap',
+            }}
+          >
+            <Person
+              name={s.user.displayName}
+              id={s.user.id}
+              size={28}
+              secondary={`En renfort depuis ${formatTime(s.joinedAt)}`}
+            />
+            {canRelease && (
+              <Button
+                size="small"
+                startIcon={<UserMinus size={icon.sm} aria-hidden="true" />}
+                aria-label={`Libérer ${s.user.displayName}`}
+                disabled={action.isPending}
+                onClick={() =>
+                  action.mutate(
+                    { action: 'RELEASE_SUPPORT', supportId: s.id, version: detail.version },
+                    {
+                      onSuccess: () =>
+                        toast.success(`${s.user.displayName} est libéré(e) et reprend sa tournée.`),
+                      onError: (err) =>
+                        toast.error(
+                          err instanceof ApiError ? err.message : 'Libération impossible.',
+                        ),
+                    },
+                  )
+                }
+              >
+                Libérer
+              </Button>
+            )}
+          </Box>
+        ))}
+      </Box>
     </Box>
   );
 }
@@ -65,9 +96,15 @@ export function TeacherField({ detail }: { detail: CoverageDetail }) {
         Enseignant
       </Typography>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-        <Typography variant="body2">{detail.teacher?.displayName ?? detail.absentTeacher ?? 'Enseignant non précisé'}</Typography>
+        <Typography variant="body2">
+          {detail.teacher?.displayName ?? detail.absentTeacher ?? 'Enseignant non précisé'}
+        </Typography>
         {canSet && (
-          <Button size="small" startIcon={<Pencil size={icon.sm} aria-hidden="true" />} onClick={() => setOpen(true)}>
+          <Button
+            size="small"
+            startIcon={<Pencil size={icon.sm} aria-hidden="true" />}
+            onClick={() => setOpen(true)}
+          >
             Corriger l’enseignant
           </Button>
         )}
@@ -88,13 +125,18 @@ function TeacherDialog({ detail, onClose }: { detail: CoverageDetail; onClose: (
   function save(): void {
     setError(null);
     action.mutate(
-      { action: 'SET_TEACHER', teacherId: teacherId === NO_TEACHER ? null : teacherId, version: detail.version },
+      {
+        action: 'SET_TEACHER',
+        teacherId: teacherId === NO_TEACHER ? null : teacherId,
+        version: detail.version,
+      },
       {
         onSuccess: () => {
           toast.success('Enseignant enregistré.');
           onClose();
         },
-        onError: (err) => setError(err instanceof ApiError ? err.message : 'Enregistrement impossible.'),
+        onError: (err) =>
+          setError(err instanceof ApiError ? err.message : 'Enregistrement impossible.'),
       },
     );
   }

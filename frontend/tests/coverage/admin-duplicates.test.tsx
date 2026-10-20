@@ -15,7 +15,10 @@ import { CoveragePage } from '../../src/features/coverage/CoveragePage';
 type Call = { url: string; method: string; body: Record<string, unknown> | undefined };
 
 function json(status: number, body?: unknown): Response {
-  return new Response(body === undefined ? null : JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+  return new Response(body === undefined ? null : JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
 }
 
 const NOW = new Date().toISOString();
@@ -52,7 +55,15 @@ function summary(id: string, className: string, extra: Record<string, unknown> =
     overdueStage: null,
     extensionCount: 0,
     durationMinutes: null,
-    timestamps: { createdAt: NOW, acceptedAt: NOW, departedAt: null, presenceAt: NOW, relievedAt: null, closedAt: null, cancelledAt: null },
+    timestamps: {
+      createdAt: NOW,
+      acceptedAt: NOW,
+      departedAt: null,
+      presenceAt: NOW,
+      relievedAt: null,
+      closedAt: null,
+      cancelledAt: null,
+    },
     ...extra,
   };
 }
@@ -80,10 +91,17 @@ function setup(path: string, routes: Record<string, unknown>): Call[] {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string, init: RequestInit = {}) => {
-      const call = { url, method: init.method ?? 'GET', body: typeof init.body === 'string' ? JSON.parse(init.body) : undefined };
+      const call = {
+        url,
+        method: init.method ?? 'GET',
+        body: typeof init.body === 'string' ? JSON.parse(init.body) : undefined,
+      };
       calls.push(call);
       const key = `${call.method} ${url}`;
-      if (key in routes) return json(200, routes[key]);
+      if (key in routes) {
+        const value = routes[key];
+        return json(200, typeof value === 'function' ? await (value as () => unknown)() : value);
+      }
       if (url === '/api/coverage/availability') {
         return json(200, {
           availability: 'AVAILABLE',
@@ -95,13 +113,16 @@ function setup(path: string, routes: Record<string, unknown>): Call[] {
           schoolDates: { timezone: 'Europe/Paris', today: '2026-10-20', tomorrow: '2026-10-21' },
         });
       }
-      if (url === '/api/coverage/teachers') return json(200, [{ id: 't1', displayName: 'Enseignante' }]);
+      if (url === '/api/coverage/teachers')
+        return json(200, [{ id: 't1', displayName: 'Enseignante' }]);
       if (call.method === 'GET') return json(200, []);
       return json(200, detail());
     }),
   );
   render(
-    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+    <QueryClientProvider
+      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+    >
       <ToastProvider>
         <MemoryRouter initialEntries={[path]}>
           <Routes>
@@ -129,7 +150,13 @@ describe('Doublons possibles', () => {
       decidedAt: null,
       finalPresentedAt: null,
       source: summary('1', '1ère année Violet', { alerts: ['POSSIBLE_DUPLICATE'] }),
-      target: summary('2', '1ère année Violet', { status: 'PENDING', mainStatus: 'PENDING', source: 'TEACHER_REQUEST', type: 'LATENESS', assignee: null }),
+      target: summary('2', '1ère année Violet', {
+        status: 'PENDING',
+        mainStatus: 'PENDING',
+        source: 'TEACHER_REQUEST',
+        type: 'LATENESS',
+        assignee: null,
+      }),
     },
     {
       id: 'p2',
@@ -138,14 +165,20 @@ describe('Doublons possibles', () => {
       createdAt: NOW,
       decidedAt: null,
       finalPresentedAt: NOW,
-      source: summary('3', 'CE2 Jaune', { status: 'CLOSED', mainStatus: 'DONE', subState: 'CLOSED' }),
+      source: summary('3', 'CE2 Jaune', {
+        status: 'CLOSED',
+        mainStatus: 'DONE',
+        subState: 'CLOSED',
+      }),
       target: summary('4', 'CE2 Jaune', { status: 'CANCELLED', mainStatus: 'CANCELLED' }),
     },
   ];
 
   it('onglet « Doublons » : paires, mention « non tranché », confirmation et refus', async () => {
     const user = userEvent.setup();
-    const calls = setup('/gardes?onglet=doublons', { 'GET /api/coverage/merge-proposals?status=PENDING': proposals });
+    const calls = setup('/gardes?onglet=doublons', {
+      'GET /api/coverage/merge-proposals?status=PENDING': proposals,
+    });
     const list = await screen.findByRole('list', { name: 'Doublons possibles' });
     const items = within(list).getAllByRole('listitem');
     expect(items).toHaveLength(2);
@@ -156,10 +189,16 @@ describe('Doublons possibles', () => {
 
     await user.click(within(items[0]).getByRole('button', { name: 'Confirmer le rattachement' }));
     await waitFor(() => expect(writes(calls)).toHaveLength(1));
-    expect(writes(calls)[0]).toMatchObject({ url: '/api/coverage/merge-proposals/p1/decision', body: { decision: 'CONFIRM' } });
+    expect(writes(calls)[0]).toMatchObject({
+      url: '/api/coverage/merge-proposals/p1/decision',
+      body: { decision: 'CONFIRM' },
+    });
     await user.click(within(items[1]).getByRole('button', { name: 'Garder distinctes' }));
     await waitFor(() => expect(writes(calls)).toHaveLength(2));
-    expect(writes(calls)[1]).toMatchObject({ url: '/api/coverage/merge-proposals/p2/decision', body: { decision: 'REJECT' } });
+    expect(writes(calls)[1]).toMatchObject({
+      url: '/api/coverage/merge-proposals/p2/decision',
+      body: { decision: 'REJECT' },
+    });
   });
 
   it('alertes dans la file : double affectation et doublon possible', async () => {
@@ -177,13 +216,34 @@ describe('Doublons possibles', () => {
 describe('Détail : renforts et enseignant', () => {
   it('libérer un renfort', async () => {
     const user = userEvent.setup();
+    // Comme le serveur : une fois libéré, le renfort n'apparaît plus à la relecture.
+    let released = false;
     const calls = setup('/gardes/1', {
-      'GET /api/coverage/1': detail({ supports: [{ id: 'sup1', user: { id: 's2', displayName: 'Remplaçante' }, joinedAt: NOW }] }),
+      // Relecture après l'action : délai réseau, le temps que React retire la liste vide (comme en navigateur).
+      'GET /api/coverage/1': async () => {
+        if (released) await new Promise((resolve) => setTimeout(resolve, 50));
+        return detail({
+          supports: released
+            ? []
+            : [{ id: 'sup1', user: { id: 's2', displayName: 'Remplaçante' }, joinedAt: NOW }],
+        });
+      },
+      'POST /api/coverage/1/actions': () => {
+        released = true;
+        return detail();
+      },
     });
     const supports = await screen.findByRole('list', { name: 'Renforts' });
     await user.click(within(supports).getByRole('button', { name: 'Libérer Remplaçante' }));
     await waitFor(() => expect(writes(calls)).toHaveLength(1));
-    expect(writes(calls)[0]).toMatchObject({ url: '/api/coverage/1/actions', body: { action: 'RELEASE_SUPPORT', supportId: 'sup1', version: 2 } });
+    expect(writes(calls)[0]).toMatchObject({
+      url: '/api/coverage/1/actions',
+      body: { action: 'RELEASE_SUPPORT', supportId: 'sup1', version: 2 },
+    });
+    // Dernier renfort libéré : la liste disparaît, la confirmation s'affiche quand même (vu en e2e).
+    expect(
+      await screen.findByText('Remplaçante est libéré(e) et reprend sa tournée.'),
+    ).toBeInTheDocument();
   });
 
   it('corriger l’enseignant : choix dans le groupe Enseignants ou « non précisé »', async () => {
@@ -196,11 +256,15 @@ describe('Détail : renforts et enseignant', () => {
     await user.click(await screen.findByRole('option', { name: 'Enseignante' }));
     await user.click(within(dialog).getByRole('button', { name: 'Enregistrer' }));
     await waitFor(() => expect(writes(calls)).toHaveLength(1));
-    expect(writes(calls)[0]).toMatchObject({ body: { action: 'SET_TEACHER', teacherId: 't1', version: 2 } });
+    expect(writes(calls)[0]).toMatchObject({
+      body: { action: 'SET_TEACHER', teacherId: 't1', version: 2 },
+    });
   });
 
   it('alerte double affectation sur le détail', async () => {
     setup('/gardes/1', { 'GET /api/coverage/1': detail({ alerts: ['DOUBLE_ASSIGNMENT'] }) });
-    expect(await screen.findByText(/Ce surveillant a une autre affectation en cours/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Ce surveillant a une autre affectation en cours/),
+    ).toBeInTheDocument();
   });
 });

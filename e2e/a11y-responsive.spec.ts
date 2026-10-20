@@ -10,7 +10,9 @@ import { login } from './support/login';
 const ONLY_320 = 'Scénario dédié au profil 320 px';
 
 async function expectNoHorizontalScroll(page: Page, screen: string): Promise<void> {
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - window.innerWidth,
+  );
   expect(overflow, `défilement horizontal sur « ${screen} »`).toBeLessThanOrEqual(0);
 }
 
@@ -22,7 +24,12 @@ async function checkScreen(page: Page, screen: string): Promise<void> {
 /** Avance au clavier (Tab) jusqu'à l'élément : échoue s'il n'est pas atteignable. */
 async function tabTo(page: Page, target: Locator, maxTabs = 60): Promise<void> {
   for (let i = 0; i < maxTabs; i += 1) {
-    if (await target.evaluate((el) => el === document.activeElement || el.contains(document.activeElement))) return;
+    if (
+      await target.evaluate(
+        (el) => el === document.activeElement || el.contains(document.activeElement),
+      )
+    )
+      return;
     await page.keyboard.press('Tab');
   }
   throw new Error(`Élément non atteignable au clavier : ${target.toString()}`);
@@ -45,12 +52,24 @@ async function chooseWithKeyboard(page: Page, combobox: Locator, option: string)
 
 async function createRequestByApi(page: Page, title: string): Promise<string> {
   const origin = new URL(page.url()).origin;
-  const categories = (await (await page.request.get('/api/categories')).json()) as Array<{ id: string; name: string }>;
+  const categories = (await (await page.request.get('/api/categories')).json()) as Array<{
+    id: string;
+    name: string;
+  }>;
   const category = categories.find((c) => c.name === 'Photocopies')!;
-  const recipients = (await (await page.request.get(`/api/categories/${category.id}/recipients`)).json()) as Array<{ id: string }>;
+  const recipients = (await (
+    await page.request.get(`/api/categories/${category.id}/recipients`)
+  ).json()) as Array<{ id: string }>;
   const res = await page.request.post('/api/requests', {
     headers: { Origin: origin },
-    data: { clientId: crypto.randomUUID(), title, description: 'Contrôle accessibilité', categoryId: category.id, recipientId: recipients[0].id, priority: 'NORMAL' },
+    data: {
+      clientId: crypto.randomUUID(),
+      title,
+      description: 'Contrôle accessibilité',
+      categoryId: category.id,
+      recipientId: recipients[0].id,
+      priority: 'NORMAL',
+    },
   });
   expect(res.status()).toBe(201);
   return ((await res.json()) as { id: string }).id;
@@ -104,7 +123,45 @@ test('V18 — chaque écran livré tient en 320 px, sans violation axe', async (
   await checkScreen(page, 'formulaire de catégorie');
 });
 
-test('V18 — création (V1), traitement (V5) et fil (V10) au clavier seul', async ({ page }, testInfo) => {
+test('004 — écrans des affectations à 320 px, sans violation axe', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile-320', ONLY_320);
+  test.slow();
+  const visit = async (path: string, heading: string, screen = path) => {
+    await page.goto(path);
+    await expect(page.getByRole('heading', { name: heading })).toBeVisible();
+    await checkScreen(page, screen);
+  };
+
+  // Enseignante : ses signalements et le formulaire.
+  await login(page, 'enseignante');
+  await visit('/gardes', 'Gardes de classe', 'Mes signalements');
+  await visit('/gardes/signaler', 'Signaler un retard ou une absence');
+  await page.getByRole('button', { name: 'Se déconnecter' }).click();
+
+  // Surveillant : ses affectations, la déclaration d'une classe vide.
+  await login(page, 'surveillant');
+  await visit('/gardes', 'Gardes de classe', 'Mes affectations');
+  await visit('/gardes?onglet=historique', 'Gardes de classe', 'Historique du surveillant');
+  await visit('/gardes/classe-vide', 'Déclarer une classe vide');
+  await page.getByRole('button', { name: 'Se déconnecter' }).click();
+
+  // Admin : file, onglets, affectation directe, statistiques.
+  await login(page, 'admin');
+  for (const tab of ['en-attente', 'en-cours', 'doublons', 'equipe', 'terminees']) {
+    await visit(`/gardes?onglet=${tab}`, 'Gardes de classe', `onglet ${tab}`);
+  }
+  await visit('/gardes/nouvelle', 'Nouvelle affectation');
+  await visit('/gardes/statistiques', 'Statistiques des affectations');
+  await page.getByRole('button', { name: 'Se déconnecter' }).click();
+
+  // Super administrateur : étages.
+  await login(page, 'superadmin');
+  await visit('/admin/etages', 'Étages');
+});
+
+test('V18 — création (V1), traitement (V5) et fil (V10) au clavier seul', async ({
+  page,
+}, testInfo) => {
   test.skip(testInfo.project.name !== 'mobile-320', ONLY_320);
   test.slow();
   const title = `Clavier ${Date.now()}`;
@@ -114,7 +171,11 @@ test('V18 — création (V1), traitement (V5) et fil (V10) au clavier seul', asy
   await page.goto('/demandes/nouvelle');
   await expect(page.getByRole('heading', { name: 'Nouvelle demande' })).toBeVisible();
   await chooseWithKeyboard(page, page.getByRole('combobox', { name: 'Catégorie' }), 'Photocopies');
-  await chooseWithKeyboard(page, page.getByRole('combobox', { name: 'Destinataire' }), 'Reprographie — Reprographie');
+  await chooseWithKeyboard(
+    page,
+    page.getByRole('combobox', { name: 'Destinataire' }),
+    'Reprographie — Reprographie',
+  );
   await tabTo(page, page.getByRole('radio', { name: 'Normale' }));
   await page.keyboard.press('Space');
   await expect(page.getByRole('radio', { name: 'Normale' })).toBeChecked();
