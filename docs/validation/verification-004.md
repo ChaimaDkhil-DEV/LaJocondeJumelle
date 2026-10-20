@@ -309,3 +309,32 @@ Résultat : lint et typages sans erreur ; unitaires 571 / 571 ; intégration 441
   renvoie que les capacités et la disponibilité de l'appelant (aucune donnée d'autrui).
 - Administration du module : `403` journalisé (SuperAdminGuard), écart déjà documenté en phase 2.
 - Résultat : unitaires 571 / 571 ; intégration 598 / 598 (42 suites).
+
+### T083 — Documentation
+
+`docs/ARCHITECTURE.md` (section 13 et tableaux mis à jour) et `docs/coverage-migration.md`
+(procédure 004 : pré-contrôle, validations V1 à V3, déploiement, contrôles, retour arrière).
+
+### T084 — Répétition de migration
+
+- **Base utilisée** : PostgreSQL embarqué jetable (port 55498, dossier temporaire), **pas une
+  copie de la production** : aucune n'est disponible dans cet environnement, et la base de
+  développement partagée (5433) n'a pas été utilisée. Données : état `0007` construit avec le jeu
+  des tests de migration (gardes dans chaque statut) + 2 000 gardes terminées, soit 2 011 gardes
+  et 2 011 événements.
+- **Outils réels** : `buildPreflightReport` (script `preflight:supervision`), `prisma migrate
+  deploy` pour `0008` puis `0009`, `prisma db execute` pour les `down.sql`.
+- **Résultats** :
+
+| Étape | Durée | Résultat |
+|---|---|---|
+| Pré-contrôle | 36 ms | lecture seule (aucun événement ajouté) ; 2 membres listés (V1) ; 0 garde sans équivalent (V2) ; 0 anonymisation à la première exécution (V3) |
+| `0008_supervision_schema` | 1,6 s | appliquée |
+| `0009_supervision_data` | 1,6 s | `BROADCAST` 1 → `PENDING` ; `UNFILLED` non terminée 1 → `PENDING` ; autres statuts inchangés ; `MANAGER` → `ADMIN` ; groupes `SUPERVISORS` et `TEACHERS` ; compte `enseignant-anonymise` inactif |
+| Contrôles | — | 2 011 événements conservés (tous les identifiants présents) + 2 ajoutés (`migration-0009`) ; journal d'audit inchangé (1 ligne) |
+| `0009/down.sql` puis `0008/down.sql` | 1,5 s chacun | statuts initiaux restaurés à l'identique, rôle `MANAGER` restauré, nouvelles tables supprimées ; historique en ajout seul : 2 événements ajoutés par le retour arrière, aucun supprimé |
+
+- **Reste à faire avant la mise en production** : la même répétition sur une copie de la base de
+  production en préproduction (quickstart, « Migration »), avec les validations V1 à V3 signées.
+  Script de répétition non versionné (outil ponctuel) ; la procédure est celle de
+  `docs/coverage-migration.md`.
