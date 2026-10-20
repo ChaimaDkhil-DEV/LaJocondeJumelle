@@ -7,7 +7,7 @@ import type { AdminContext } from '../users/users.service';
 import { isSettingKey, settingError, SettingsService, type SettingKey, type Settings } from './settings.service';
 
 /** Rôles dont les permissions sont paramétrables (le super administrateur a toujours tout). */
-export const CONFIGURABLE_ROLES = ['EMPLOYEE', 'MANAGER'] as const;
+export const CONFIGURABLE_ROLES = ['EMPLOYEE', 'ADMIN'] as const;
 export type ConfigurableRole = (typeof CONFIGURABLE_ROLES)[number];
 
 /** Permissions attribuables à ces rôles ; l'administration et l'audit restent au super administrateur. */
@@ -89,7 +89,7 @@ export class AdminSettingsService {
 
   async rolePermissions(): Promise<RolePermissions> {
     const rows = await this.prisma.rolePermission.findMany({ where: { role: { in: [...CONFIGURABLE_ROLES] } } });
-    const result: RolePermissions = { EMPLOYEE: [], MANAGER: [] };
+    const result: RolePermissions = { EMPLOYEE: [], ADMIN: [] };
     for (const row of rows) result[row.role as ConfigurableRole].push(row.permission);
     for (const role of CONFIGURABLE_ROLES) result[role].sort();
     return result;

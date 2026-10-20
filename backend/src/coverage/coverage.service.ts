@@ -467,7 +467,7 @@ export class CoverageService {
   async isCoverageManagerUser(user: AuthenticatedUser): Promise<boolean> {
     if (!user.active) return false;
     if (user.role === 'SUPER_ADMIN') return true;
-    if (user.role !== 'MANAGER') return false;
+    if (user.role !== 'ADMIN') return false;
     return (await this.prisma.categoryManager.count({ where: { userId: user.id, category: { kind: 'COVERAGE' } } })) > 0;
   }
 

@@ -37,12 +37,17 @@ export function coverageMainStatus(status: RequestStatus): DerivedStatus {
 }
 
 /** Statuts techniques de chaque statut principal (filtres `mainStatus`). */
-export const MAIN_STATUS_VALUES: Readonly<Record<MainStatus, readonly RequestStatus[]>> = Object.fromEntries(
-  MAIN_STATUSES.map((main) => [
-    main,
-    (Object.keys(MAPPING) as RequestStatus[]).filter((status) => MAPPING[status]!.mainStatus === main),
-  ]),
-) as Record<MainStatus, readonly RequestStatus[]>;
+const statusesOf = (main: MainStatus): readonly RequestStatus[] =>
+  (Object.keys(MAPPING) as RequestStatus[]).filter((status) => MAPPING[status]!.mainStatus === main);
+
+export const MAIN_STATUS_VALUES: Readonly<Record<MainStatus, readonly RequestStatus[]>> = {
+  PENDING: statusesOf('PENDING'),
+  ASSIGNED: statusesOf('ASSIGNED'),
+  IN_PROGRESS: statusesOf('IN_PROGRESS'),
+  DONE: statusesOf('DONE'),
+  CANCELLED: statusesOf('CANCELLED'),
+  UNFILLED: statusesOf('UNFILLED'),
+};
 
 /** Affectations non finales, « en attente » comprise (listes). */
 export const ACTIVE_STATUSES: readonly RequestStatus[] = [

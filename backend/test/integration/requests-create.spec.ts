@@ -70,7 +70,7 @@ describe('Création de demandes', () => {
 
     it('n’affiche pas une catégorie inactive ni une catégorie interdite au rôle', async () => {
       const hidden = await prisma.category.create({
-        data: { name: 'Réservée', circuit: 'A_DIRECT', creatorRoles: ['MANAGER'], closureMode: 'REQUESTER' },
+        data: { name: 'Réservée', circuit: 'A_DIRECT', creatorRoles: ['ADMIN'], closureMode: 'REQUESTER' },
       });
       const res = await api().get('/api/categories').set('Cookie', enseignante);
       expect(res.body.map((c: { id: string }) => c.id)).not.toContain(hidden.id);
@@ -208,7 +208,7 @@ describe('Création de demandes', () => {
 
     it('refuse une catégorie où le rôle ne peut pas créer (403)', async () => {
       const reserved = await prisma.category.create({
-        data: { name: 'Direction', circuit: 'A_DIRECT', creatorRoles: ['MANAGER'], closureMode: 'REQUESTER' },
+        data: { name: 'Direction', circuit: 'A_DIRECT', creatorRoles: ['ADMIN'], closureMode: 'REQUESTER' },
       });
       const res = await create(enseignante, { title: 'X', description: 'x', categoryId: reserved.id, recipientId: reprographieId });
       expect(res.status).toBe(403);

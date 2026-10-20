@@ -60,7 +60,7 @@ function initialValues(category: AdminCategory | null | undefined): Values {
     proofMode: category?.proofMode ?? 'BOTH',
     circuit: category?.circuit ?? 'A_DIRECT',
     routingMode: category?.routingMode ?? 'DIRECT',
-    creatorRoles: category?.creatorRoles ?? ['EMPLOYEE', 'MANAGER'],
+    creatorRoles: category?.creatorRoles ?? ['EMPLOYEE', 'ADMIN'],
     closureMode: category?.closureMode ?? 'REQUESTER',
     autoCloseAfterMinutes: String(category?.autoCloseAfterMinutes ?? 1440),
     finalValidation: category?.finalValidation ?? false,
@@ -160,7 +160,7 @@ async function saveCoverageCategory(current: AdminCategory | null, v: Values): P
   const fields = {
     name: v.name.trim(),
     circuit: 'A_DIRECT' as const,
-    creatorRoles: ['MANAGER'] as Role[],
+    creatorRoles: ['ADMIN'] as Role[],
     closureMode: 'MANAGER' as const,
     autoCloseAfterMinutes: 0,
     finalValidation: v.finalValidation,
@@ -199,7 +199,7 @@ export function CategoryFormDialog({ open, category, onClose, onSaved }: Categor
   const active = (users.data ?? []).filter((u) => u.active);
   const recipientOptions: Member[] = active.map((u) => ({ id: u.id, displayName: u.displayName }));
   const managerOptions: Member[] = active
-    .filter((u) => u.role === 'MANAGER' || u.role === 'SUPER_ADMIN')
+    .filter((u) => u.role === 'ADMIN' || u.role === 'SUPER_ADMIN')
     .map((u) => ({ id: u.id, displayName: u.displayName }));
 
   const mutation = useMutation({

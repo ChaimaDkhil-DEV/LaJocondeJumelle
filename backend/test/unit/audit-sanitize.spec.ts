@@ -10,12 +10,12 @@ describe('sanitizeAuditDetails', () => {
   it('retire mots de passe, jetons, cookies et contenus de message, même imbriqués', () => {
     const details = sanitizeAuditDetails({
       before: { role: 'EMPLOYEE', passwordHash: 'h', displayName: 'A' },
-      after: { role: 'MANAGER', password: 'p', token: 't', sid: 's', cookie: 'c' },
+      after: { role: 'ADMIN', password: 'p', token: 't', sid: 's', cookie: 'c' },
       changes: [{ field: 'text', text: 'contenu privé', message: 'm', content: 'c', secret: 'z' }],
     });
     expect(details).toEqual({
       before: { role: 'EMPLOYEE', displayName: 'A' },
-      after: { role: 'MANAGER' },
+      after: { role: 'ADMIN' },
       changes: [{ field: 'text' }],
     });
   });

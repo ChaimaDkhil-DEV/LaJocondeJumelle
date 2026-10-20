@@ -26,7 +26,7 @@ export { DEFAULT_DEADLINES };
 
 const DEMO_USERS: Array<{ username: string; displayName: string; jobTitle: string; role: Role; e2eOnly?: boolean }> = [
   { username: 'superadmin', displayName: 'Super administrateur', jobTitle: 'Administration', role: 'SUPER_ADMIN' },
-  { username: 'responsable', displayName: 'Responsable administratif', jobTitle: 'Direction', role: 'MANAGER' },
+  { username: 'responsable', displayName: 'Responsable administratif', jobTitle: 'Direction', role: 'ADMIN' },
   { username: 'enseignante', displayName: 'Enseignante', jobTitle: 'Professeure des écoles', role: 'EMPLOYEE' },
   { username: 'reprographie', displayName: 'Reprographie', jobTitle: 'Reprographie', role: 'EMPLOYEE' },
   { username: 'nouveau', displayName: 'Nouvel employé', jobTitle: 'Accueil', role: 'EMPLOYEE', e2eOnly: true },
@@ -51,7 +51,7 @@ async function seedCoverage(prisma: PrismaClient): Promise<void> {
         name: 'Garde de classe',
         kind: 'COVERAGE',
         circuit: 'A_DIRECT',
-        creatorRoles: ['MANAGER'],
+        creatorRoles: ['ADMIN'],
         closureMode: 'MANAGER',
         autoCloseAfterMinutes: 0,
         proofMode: 'BOTH',
@@ -173,7 +173,7 @@ export async function runSeed(prisma: PrismaClient, options: SeedOptions = {}): 
     name: 'Photocopies',
     data: {
       circuit: 'A_DIRECT',
-      creatorRoles: ['EMPLOYEE', 'MANAGER'],
+      creatorRoles: ['EMPLOYEE', 'ADMIN'],
       closureMode: 'AUTO',
       autoCloseAfterMinutes: 1440,
       photoRequired: false,
@@ -189,7 +189,7 @@ export async function runSeed(prisma: PrismaClient, options: SeedOptions = {}): 
     name: 'Petits travaux (démo photo)',
     data: {
       circuit: 'A_DIRECT',
-      creatorRoles: ['EMPLOYEE', 'MANAGER'],
+      creatorRoles: ['EMPLOYEE', 'ADMIN'],
       closureMode: 'REQUESTER',
       autoCloseAfterMinutes: 0,
       photoRequired: true,
@@ -203,7 +203,7 @@ export async function runSeed(prisma: PrismaClient, options: SeedOptions = {}): 
     name: 'Intervention technique (démo circuit B)',
     data: {
       circuit: 'B_ADMIN_VALIDATION',
-      creatorRoles: ['EMPLOYEE', 'MANAGER'],
+      creatorRoles: ['EMPLOYEE', 'ADMIN'],
       closureMode: 'MANAGER',
       autoCloseAfterMinutes: 0,
       finalValidation: true,

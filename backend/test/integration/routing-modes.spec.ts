@@ -78,7 +78,7 @@ describe('Modes de routage', () => {
     await addUser('absente', 'EMPLOYEE');
     await addUser('partie', 'EMPLOYEE');
     await addUser('tiers', 'EMPLOYEE');
-    await addUser('autre-responsable', 'MANAGER');
+    await addUser('autre-responsable', 'ADMIN');
     app = await createTestApp();
     for (const who of ['enseignante', 'reprographie', 'responsable', 'autre-responsable', 'superadmin', 'collegue', 'tiers']) {
       cookie[who] = await loginAs(app, who);
@@ -251,7 +251,7 @@ describe('Modes de routage', () => {
       expect(res.status).toBe(201);
       expect((await create('reprographie', viaAdmin)).status).toBe(201);
       // Un employé reste limité aux catégories ouvertes à son rôle.
-      const managersOnly = await post('superadmin', '/api/admin/categories', { name: 'Réservée administration', routingMode: 'DIRECT', creatorRoles: ['MANAGER'], closureMode: 'REQUESTER' });
+      const managersOnly = await post('superadmin', '/api/admin/categories', { name: 'Réservée administration', routingMode: 'DIRECT', creatorRoles: ['ADMIN'], closureMode: 'REQUESTER' });
       expect((await create('tiers', managersOnly.body.id)).status).toBe(403);
     });
 

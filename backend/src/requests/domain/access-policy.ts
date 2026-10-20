@@ -50,7 +50,7 @@ export function isReadOnlyStatus(status: RequestStatus): boolean {
 
 /** Administration : comptes Responsable (Admin) et super administrateur. */
 export function isAdministration(user: Pick<PolicyUser, 'role'>): boolean {
-  return user.role === 'MANAGER' || user.role === 'SUPER_ADMIN';
+  return user.role === 'ADMIN' || user.role === 'SUPER_ADMIN';
 }
 
 /** L'administration n'a d'action à faire qu'en mode « via l'administration » (validation, affectation). */
@@ -117,7 +117,7 @@ export function canCreateInCategory(user: PolicyUser, category: PolicyCategory):
   if (!user.active || !category.active) return false;
   if (user.role === 'SUPER_ADMIN') return true;
   // L'administration peut créer dans toutes les catégories (sans y être tenue).
-  if (user.role === 'MANAGER') return user.permissions.has('REQUEST_CREATE');
+  if (user.role === 'ADMIN') return user.permissions.has('REQUEST_CREATE');
   return category.creatorRoles.includes(user.role) && user.permissions.has('REQUEST_CREATE');
 }
 

@@ -130,7 +130,7 @@ describe('Onglet « Suivi » de l’administration', () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it('proposé aux responsables : charge toutes les demandes visibles (scope all)', async () => {
-    const calls = stub({ id: 'm1', displayName: 'Responsable', role: 'MANAGER', permissions: [], mustChangePassword: false });
+    const calls = stub({ id: 'm1', displayName: 'Responsable', role: 'ADMIN', permissions: [], mustChangePassword: false });
     renderAt('/');
     await userEvent.click(await screen.findByRole('tab', { name: 'Suivi' }));
     await waitFor(() => expect(calls.some((c) => c.url.startsWith('/api/requests?scope=all'))).toBe(true));

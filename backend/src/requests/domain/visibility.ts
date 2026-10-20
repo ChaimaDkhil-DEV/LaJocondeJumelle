@@ -28,7 +28,7 @@ export function visibleRequestsWhere(user: Pick<PolicyUser, 'id' | 'role' | 'act
           { assigneeId: user.id },
           { category: { managers: { some: { userId: user.id } } } },
           // Administration : consultation des demandes directes et entre enseignants (lecture seule).
-          ...(user.role === 'MANAGER' ? [{ category: { routingMode: { in: ['DIRECT', 'PEER'] as RoutingMode[] } } }] : []),
+          ...(user.role === 'ADMIN' ? [{ category: { routingMode: { in: ['DIRECT', 'PEER'] as RoutingMode[] } } }] : []),
         ],
       },
     ],

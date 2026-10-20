@@ -23,7 +23,7 @@ describe('Administration des catégories et réglages', () => {
   const base = {
     name: 'Matériel de sport',
     circuit: 'A_DIRECT',
-    creatorRoles: ['EMPLOYEE', 'MANAGER'],
+    creatorRoles: ['EMPLOYEE', 'ADMIN'],
     closureMode: 'REQUESTER',
     autoCloseAfterMinutes: 0,
     finalValidation: false,
@@ -120,7 +120,7 @@ describe('Administration des catégories et réglages', () => {
         ...base,
         name: 'Ménage',
         circuit: 'B_ADMIN_VALIDATION',
-        closureMode: 'MANAGER',
+        closureMode: 'ADMIN',
       });
       const id = created.body.id;
       expect((await send('patch', `/api/admin/categories/${id}`, { assignmentMode: 'AUTO', autoAssigneeId: reprographieId })).status).toBe(400);
@@ -156,11 +156,11 @@ describe('Administration des catégories et réglages', () => {
         EMPLOYEE: ['PRIORITY_CHANGE_OWN', 'REQUEST_CREATE'],
         MANAGER: ['PRIORITY_CHANGE_MANAGED', 'PRIORITY_CHANGE_OWN', 'REQUEST_CREATE', 'REQUEST_REASSIGN'],
       });
-      const res = await send('put', '/api/admin/role-permissions', { EMPLOYEE: ['REQUEST_CREATE'], MANAGER: current.body.MANAGER });
+      const res = await send('put', '/api/admin/role-permissions', { EMPLOYEE: ['REQUEST_CREATE'], ADMIN: current.body.ADMIN });
       expect(res.status).toBe(200);
       expect(res.body.EMPLOYEE).toEqual(['REQUEST_CREATE']);
       await expect(prisma.auditLog.count({ where: { action: 'ROLE_PERMISSIONS_CHANGED' } })).resolves.toBe(1);
-      expect((await send('put', '/api/admin/role-permissions', { EMPLOYEE: ['ADMIN_MANAGE'], MANAGER: [] })).status).toBe(400);
+      expect((await send('put', '/api/admin/role-permissions', { EMPLOYEE: ['ADMIN_MANAGE'], ADMIN: [] })).status).toBe(400);
       await send('put', '/api/admin/role-permissions', current.body).expect(200);
     });
   });

@@ -203,7 +203,7 @@ function SettingsForm({ settings }: { settings: AdminSettings }) {
   );
 }
 
-const ROLES: ConfigurableRole[] = ['EMPLOYEE', 'MANAGER'];
+const ROLES: ConfigurableRole[] = ['EMPLOYEE', 'ADMIN'];
 
 function RolePermissionsForm({ permissions }: { permissions: RolePermissions }) {
   const queryClient = useQueryClient();

@@ -218,7 +218,7 @@ describe('Onglet « À valider »', () => {
   }
 
   it('est proposé aux responsables et charge les demandes à valider de leurs catégories', async () => {
-    const calls = renderList('MANAGER');
+    const calls = renderList('ADMIN');
     await userEvent.click(await screen.findByRole('tab', { name: 'À valider' }));
     await waitFor(() =>
       expect(calls.some((c) => c.url === '/api/requests?scope=managed&status=PENDING_ADMIN_VALIDATION&status=PENDING_FINAL_VALIDATION')).toBe(true),

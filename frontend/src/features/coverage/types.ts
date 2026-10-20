@@ -1,7 +1,11 @@
 import type { Priority } from '../../api/types';
 
-/** Statuts d'une couverture de classe (machine à états côté serveur). */
+/**
+ * Statuts techniques d'une affectation (machine à états côté serveur). BROADCAST n'est plus posé
+ * depuis 004 (migré vers PENDING) mais reste dans l'énumération du serveur.
+ */
 export type CoverageStatus =
+  | 'PENDING'
   | 'BROADCAST'
   | 'UNFILLED'
   | 'ACCEPTED'

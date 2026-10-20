@@ -44,8 +44,8 @@ describe('Catégories proposées dans le formulaire de demande', () => {
   });
 
   it('liste aussitôt la nouvelle catégorie de travail pour tous les rôles autorisés, jamais une garde', async () => {
-    const id = await createCategory({ name: 'Surveillance', circuit: 'B_ADMIN_VALIDATION', creatorRoles: ['EMPLOYEE', 'MANAGER'], closureMode: 'REQUESTER' });
-    await createCategory({ name: 'Garde surveillance', kind: 'COVERAGE', circuit: 'A_DIRECT', creatorRoles: ['MANAGER'], closureMode: 'MANAGER' });
+    const id = await createCategory({ name: 'Surveillance', circuit: 'B_ADMIN_VALIDATION', creatorRoles: ['EMPLOYEE', 'ADMIN'], closureMode: 'REQUESTER' });
+    await createCategory({ name: 'Garde surveillance', kind: 'COVERAGE', circuit: 'A_DIRECT', creatorRoles: ['ADMIN'], closureMode: 'ADMIN' });
 
     for (const cookie of Object.values(cookies)) {
       const names = await formNames(cookie);
@@ -57,7 +57,7 @@ describe('Catégories proposées dans le formulaire de demande', () => {
   });
 
   it('respecte les rôles autorisés et l’activation', async () => {
-    const id = await createCategory({ name: 'Réservée aux responsables', circuit: 'A_DIRECT', creatorRoles: ['MANAGER'], closureMode: 'REQUESTER' });
+    const id = await createCategory({ name: 'Réservée aux responsables', circuit: 'A_DIRECT', creatorRoles: ['ADMIN'], closureMode: 'REQUESTER' });
     expect(await formNames(cookies.enseignante)).not.toContain('Réservée aux responsables');
     expect(await formNames(cookies.responsable)).toContain('Réservée aux responsables');
 

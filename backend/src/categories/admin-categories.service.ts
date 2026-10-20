@@ -229,7 +229,7 @@ export class AdminCategoriesService {
     return this.get(id);
   }
 
-  /** Responsables : comptes actifs de rôle MANAGER ou SUPER_ADMIN uniquement. */
+  /** Responsables : comptes actifs de rôle ADMIN ou SUPER_ADMIN uniquement. */
   async setManagers(id: string, userIds: string[], ctx: AdminContext): Promise<AdminCategory> {
     const current = await this.find(id);
     const users = await this.checkActiveUsers(userIds, 'userIds');

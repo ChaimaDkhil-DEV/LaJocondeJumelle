@@ -115,14 +115,14 @@ describe('Réaffectation', () => {
 
   it('est refusée à un responsable privé de la permission REQUEST_REASSIGN', async () => {
     const { id, version } = await create();
-    await prisma.rolePermission.delete({ where: { role_permission: { role: 'MANAGER', permission: 'REQUEST_REASSIGN' } } });
+    await prisma.rolePermission.delete({ where: { role_permission: { role: 'ADMIN', permission: 'REQUEST_REASSIGN' } } });
     try {
       const fresh = await loginAs(app, 'responsable');
       const detail = await api().get(`/api/requests/${id}`).set('Cookie', fresh);
       expect(detail.body.allowedActions).not.toContain('REASSIGN');
       expect((await act(fresh, id, { action: 'REASSIGN', version, assigneeId: backupId })).status).toBe(403);
     } finally {
-      await prisma.rolePermission.create({ data: { role: 'MANAGER', permission: 'REQUEST_REASSIGN' } });
+      await prisma.rolePermission.create({ data: { role: 'ADMIN', permission: 'REQUEST_REASSIGN' } });
     }
   });
 

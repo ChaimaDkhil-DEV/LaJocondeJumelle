@@ -19,7 +19,7 @@ import type { RulesSnapshot } from '../../src/requests/domain/request-state-mach
 const DEFAULT_PERMISSIONS: Record<Role, Permission[]> = {
   SUPER_ADMIN: [],
   EMPLOYEE: ['REQUEST_CREATE', 'PRIORITY_CHANGE_OWN'],
-  MANAGER: ['REQUEST_CREATE', 'PRIORITY_CHANGE_OWN', 'PRIORITY_CHANGE_MANAGED', 'REQUEST_REASSIGN'],
+  ADMIN: ['REQUEST_CREATE', 'PRIORITY_CHANGE_OWN', 'PRIORITY_CHANGE_MANAGED', 'REQUEST_REASSIGN'],
 };
 
 function user(id: string, role: Role, extra: Partial<PolicyUser> = {}): PolicyUser {
@@ -36,14 +36,14 @@ const enseignante = user('enseignante', 'EMPLOYEE');
 const reprographie = user('reprographie', 'EMPLOYEE');
 const reprographie2 = user('reprographie-2', 'EMPLOYEE');
 const autreEmploye = user('autre', 'EMPLOYEE');
-const responsable = user('responsable', 'MANAGER');
-const autreResponsable = user('autre-responsable', 'MANAGER');
+const responsable = user('responsable', 'ADMIN');
+const autreResponsable = user('autre-responsable', 'ADMIN');
 const superadmin = user('superadmin', 'SUPER_ADMIN');
 
 const category: PolicyCategory = {
   id: 'photocopies',
   active: true,
-  creatorRoles: ['EMPLOYEE', 'MANAGER'],
+  creatorRoles: ['EMPLOYEE', 'ADMIN'],
   recipientIds: new Set(['reprographie', 'reprographie-2']),
   managerIds: new Set(['responsable']),
   // Matrice historique : l'administration agit (validation, réaffectation). DIRECT et PEER : voir plus bas.
@@ -140,8 +140,8 @@ describe('allowedActions', () => {
 
   it('REASSIGN exige la permission REQUEST_REASSIGN', () => {
     expect(allowedActions(responsable, request('IN_PROGRESS'), category)).toContain('REASSIGN');
-    const sansReaffectation = user('responsable', 'MANAGER', {
-      permissions: permissionsFor('MANAGER', ['REQUEST_CREATE']),
+    const sansReaffectation = user('responsable', 'ADMIN', {
+      permissions: permissionsFor('ADMIN', ['REQUEST_CREATE']),
     });
     expect(allowedActions(sansReaffectation, request('IN_PROGRESS'), category)).not.toContain('REASSIGN');
     expect(allowedActions(superadmin, request('IN_PROGRESS'), category)).toContain('REASSIGN');
@@ -185,7 +185,7 @@ describe('canCreateInCategory', () => {
     expect(canCreateInCategory(enseignante, category)).toBe(true);
     expect(canCreateInCategory({ ...enseignante, active: false }, category)).toBe(false);
     expect(canCreateInCategory(enseignante, { ...category, active: false })).toBe(false);
-    expect(canCreateInCategory(enseignante, { ...category, creatorRoles: ['MANAGER'] })).toBe(false);
+    expect(canCreateInCategory(enseignante, { ...category, creatorRoles: ['ADMIN'] })).toBe(false);
     const sansCreation = user('x', 'EMPLOYEE', { permissions: permissionsFor('EMPLOYEE', []) });
     expect(canCreateInCategory(sansCreation, category)).toBe(false);
   });
@@ -276,7 +276,7 @@ describe('Mode de routage', () => {
   it('l’administration peut créer dans toute catégorie active', () => {
     const employeesOnly: PolicyCategory = { ...category, creatorRoles: ['EMPLOYEE'] };
     expect(canCreateInCategory(responsable, employeesOnly)).toBe(true);
-    expect(canCreateInCategory(enseignante, { ...category, creatorRoles: ['MANAGER'] })).toBe(false);
+    expect(canCreateInCategory(enseignante, { ...category, creatorRoles: ['ADMIN'] })).toBe(false);
     expect(canCreateInCategory(responsable, { ...employeesOnly, active: false })).toBe(false);
   });
 });

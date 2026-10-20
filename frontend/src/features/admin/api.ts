@@ -71,7 +71,7 @@ export interface AdminSettings {
   sessionMaxHours: number;
 }
 
-export type ConfigurableRole = 'EMPLOYEE' | 'MANAGER';
+export type ConfigurableRole = 'EMPLOYEE' | 'ADMIN';
 export type RolePermissions = Record<ConfigurableRole, string[]>;
 
 export interface AuditEntry {

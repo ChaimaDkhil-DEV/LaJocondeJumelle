@@ -18,7 +18,7 @@ const SUPER_ADMIN = { id: 'sa', displayName: 'Super administrateur', role: 'SUPE
 
 const USERS = [
   { id: 'e1', username: 'reprographie', displayName: 'Reprographie', jobTitle: 'Reprographie', role: 'EMPLOYEE', active: true, mustChangePassword: false, createdAt: '2026-09-01T08:00:00.000Z', recipientCategories: [{ id: 'c1', name: 'Photocopies' }] },
-  { id: 'm1', username: 'responsable', displayName: 'Responsable administratif', jobTitle: 'Direction', role: 'MANAGER', active: true, mustChangePassword: false, createdAt: '2026-09-01T08:00:00.000Z', recipientCategories: [] },
+  { id: 'm1', username: 'responsable', displayName: 'Responsable administratif', jobTitle: 'Direction', role: 'ADMIN', active: true, mustChangePassword: false, createdAt: '2026-09-01T08:00:00.000Z', recipientCategories: [] },
   { id: 'sa', username: 'superadmin', displayName: 'Super administrateur', jobTitle: null, role: 'SUPER_ADMIN', active: true, mustChangePassword: false, createdAt: '2026-09-01T08:00:00.000Z', recipientCategories: [] },
   { id: 'e2', username: 'technicien', displayName: 'Technicien', jobTitle: null, role: 'EMPLOYEE', active: true, mustChangePassword: true, createdAt: '2026-10-13T08:00:00.000Z', recipientCategories: [] },
 ];
@@ -36,7 +36,7 @@ const CATEGORY = {
   active: true,
   circuit: 'A_DIRECT',
   routingMode: 'DIRECT',
-  creatorRoles: ['EMPLOYEE', 'MANAGER'],
+  creatorRoles: ['EMPLOYEE', 'ADMIN'],
   closureMode: 'AUTO',
   autoCloseAfterMinutes: 1440,
   finalValidation: false,
@@ -76,7 +76,7 @@ function setup(path: string, handler: Handler = () => undefined, me: unknown = S
       if (url === '/api/admin/categories' && method === 'GET') return json(200, [CATEGORY]);
       if (url === '/api/admin/settings' && method === 'GET') return json(200, SETTINGS);
       if (url === '/api/admin/role-permissions' && method === 'GET')
-        return json(200, { EMPLOYEE: ['PRIORITY_CHANGE_OWN', 'REQUEST_CREATE'], MANAGER: ['REQUEST_CREATE'] });
+        return json(200, { EMPLOYEE: ['PRIORITY_CHANGE_OWN', 'REQUEST_CREATE'], ADMIN: ['REQUEST_CREATE'] });
       return json(404, { error: { code: 'NOT_FOUND', message: 'Élément introuvable.' } });
     }),
   );
@@ -93,7 +93,7 @@ describe('Accès à l’administration', () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it('refuse l’administration à un responsable, sans appeler les routes /admin', async () => {
-    const { calls } = setup('/admin/comptes', undefined, { ...SUPER_ADMIN, id: 'm1', role: 'MANAGER' });
+    const { calls } = setup('/admin/comptes', undefined, { ...SUPER_ADMIN, id: 'm1', role: 'ADMIN' });
     expect(await screen.findByText('Accès réservé au super administrateur.')).toBeVisible();
     expect(calls.some((c) => c.url.startsWith('/api/admin'))).toBe(false);
   });
@@ -325,16 +325,16 @@ describe('Réglages', () => {
   it('modifie les permissions d’un rôle', async () => {
     const { calls } = setup('/admin/reglages', (url, method) =>
       url === '/api/admin/role-permissions' && method === 'PUT'
-        ? json(200, { EMPLOYEE: ['PRIORITY_CHANGE_OWN', 'REQUEST_CREATE'], MANAGER: ['REQUEST_CREATE', 'REQUEST_REASSIGN'] })
+        ? json(200, { EMPLOYEE: ['PRIORITY_CHANGE_OWN', 'REQUEST_CREATE'], ADMIN: ['REQUEST_CREATE', 'REQUEST_REASSIGN'] })
         : undefined,
     );
-    const manager = await screen.findByRole('group', { name: 'Responsable' });
+    const manager = await screen.findByRole('group', { name: 'Admin' });
     await userEvent.click(within(manager).getByRole('checkbox', { name: 'Réaffecter une demande' }));
     await userEvent.click(screen.getByRole('button', { name: 'Enregistrer les permissions' }));
     await waitFor(() =>
       expect(calls.find((c) => c.method === 'PUT')).toMatchObject({
         url: '/api/admin/role-permissions',
-        body: { EMPLOYEE: ['PRIORITY_CHANGE_OWN', 'REQUEST_CREATE'], MANAGER: ['REQUEST_CREATE', 'REQUEST_REASSIGN'] },
+        body: { EMPLOYEE: ['PRIORITY_CHANGE_OWN', 'REQUEST_CREATE'], ADMIN: ['REQUEST_CREATE', 'REQUEST_REASSIGN'] },
       }),
     );
     expect(await screen.findByText('Permissions enregistrées.')).toBeVisible();

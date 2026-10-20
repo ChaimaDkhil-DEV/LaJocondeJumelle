@@ -6,7 +6,7 @@ import { canManageAdministration, canReadAudit, permissionsFor, type PolicyUser 
 const DEFAULT_PERMISSIONS: Record<Role, Permission[]> = {
   SUPER_ADMIN: [],
   EMPLOYEE: ['REQUEST_CREATE', 'PRIORITY_CHANGE_OWN'],
-  MANAGER: ['REQUEST_CREATE', 'PRIORITY_CHANGE_OWN', 'PRIORITY_CHANGE_MANAGED', 'REQUEST_REASSIGN'],
+  ADMIN: ['REQUEST_CREATE', 'PRIORITY_CHANGE_OWN', 'PRIORITY_CHANGE_MANAGED', 'REQUEST_REASSIGN'],
 };
 
 function user(id: string, role: Role): PolicyUser {
@@ -14,7 +14,7 @@ function user(id: string, role: Role): PolicyUser {
 }
 
 const enseignante = user('enseignante', 'EMPLOYEE');
-const responsable = user('responsable', 'MANAGER');
+const responsable = user('responsable', 'ADMIN');
 const superadmin = user('superadmin', 'SUPER_ADMIN');
 
 describe('permissionsFor', () => {

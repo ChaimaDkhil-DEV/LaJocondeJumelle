@@ -3,7 +3,7 @@ import type { AssignmentMode, CategoryKind, Circuit, ClosureMode, ProofMode, Rou
 
 export const ROLE_LABELS: Record<Role, string> = {
   EMPLOYEE: 'Employé',
-  MANAGER: 'Responsable',
+  ADMIN: 'Admin',
   SUPER_ADMIN: 'Super administrateur',
 };
 
