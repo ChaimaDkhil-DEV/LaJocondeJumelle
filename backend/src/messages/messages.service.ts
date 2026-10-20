@@ -167,7 +167,7 @@ export class MessagesService {
 
   /**
    * Participants notifiés d'un nouveau message : demandeur et employé affecté ; tant qu'aucun employé
-   * n'est affecté (circuit B en attente), les responsables de la catégorie.
+   * n'est affecté (circuit B en attente), les admins de la catégorie.
    */
   private participants(request: Request, category: CategoryWithMembers): string[] {
     if (request.assigneeId) return [request.requesterId, request.assigneeId];

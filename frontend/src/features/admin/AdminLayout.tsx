@@ -30,7 +30,7 @@ const SECTIONS: Array<{ to: string; label: string; icon: LucideIcon }> = [
   { to: '/admin/journal', label: 'Journal d’audit', icon: ScrollText },
 ];
 
-/** Administration (US8) : réservée au super administrateur ; le serveur refuse aussi tout autre rôle. */
+/** Espace « Administrateur » (US8, FR-004c) : réservé au super administrateur ; le serveur refuse aussi tout autre rôle. */
 export function AdminLayout() {
   const me = useCurrentUser();
   if (me.isPending) return <LoadingState />;
@@ -41,12 +41,12 @@ export function AdminLayout() {
   return (
     <Box>
       <PageHeader
-        title="Administration"
+        title="Administrateur"
         description="Tableau de bord, suivi des gardes, comptes, catégories, groupes, classes, réglages et journal d’audit de l’établissement."
       />
       <Box
         component="nav"
-        aria-label="Sections de l’administration"
+        aria-label="Sections de l’espace Administrateur"
         sx={{
           mb: 3,
           borderBottom: 1,

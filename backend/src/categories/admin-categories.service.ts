@@ -229,12 +229,12 @@ export class AdminCategoriesService {
     return this.get(id);
   }
 
-  /** Responsables : comptes actifs de rôle ADMIN ou SUPER_ADMIN uniquement. */
+  /** Admins de la catégorie : comptes actifs de rôle ADMIN ou SUPER_ADMIN uniquement. */
   async setManagers(id: string, userIds: string[], ctx: AdminContext): Promise<AdminCategory> {
     const current = await this.find(id);
     const users = await this.checkActiveUsers(userIds, 'userIds');
     if (users.some((u) => u.role === 'EMPLOYEE')) {
-      throw invalid('userIds', 'Seuls les responsables et super administrateurs peuvent gérer une catégorie.');
+      throw invalid('userIds', 'Seuls les admins et super administrateurs peuvent gérer une catégorie.');
     }
     const before = current.managers.map((m) => m.user.id).sort();
     await this.write(async (tx) => {
@@ -312,7 +312,7 @@ export class AdminCategoriesService {
       if (values.circuit !== 'A_DIRECT') throw invalid('circuit', 'Une catégorie de couverture utilise le circuit direct.');
       if (values.assignmentMode === 'AUTO') throw invalid('assignmentMode', 'Une couverture est prise par le premier employé disponible.');
       if (values.creatorRoles.includes('EMPLOYEE')) {
-        throw invalid('creatorRoles', 'Seuls les responsables et le super administrateur créent des demandes de couverture.');
+        throw invalid('creatorRoles', 'Seuls les admins et le super administrateur créent des affectations.');
       }
       return;
     }

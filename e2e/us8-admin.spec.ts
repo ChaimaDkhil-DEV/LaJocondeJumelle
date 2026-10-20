@@ -18,7 +18,7 @@ async function logout(page: Page): Promise<void> {
   await expect(page.getByRole('button', { name: 'Se connecter' })).toBeVisible();
 }
 
-test('V16 — le super administrateur crée un compte, une catégorie circuit B et ses délais ; un responsable est refusé', async ({ page }, testInfo) => {
+test('V16 — le super administrateur crée un compte, une catégorie circuit B et ses délais ; un admin est refusé', async ({ page }, testInfo) => {
   test.slow();
   const marker = `${testInfo.project.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now()}`;
   const username = `e2e.${marker}`;
@@ -26,7 +26,7 @@ test('V16 — le super administrateur crée un compte, une catégorie circuit B 
 
   await login(page, 'superadmin');
   await openNavigation(page);
-  await page.getByRole('link', { name: 'Administration' }).click();
+  await page.getByRole('link', { name: 'Administrateur' }).click();
   await expect(page.getByRole('heading', { name: 'Comptes' })).toBeVisible();
 
   // Compte : mot de passe provisoire affiché une seule fois.
@@ -46,7 +46,7 @@ test('V16 — le super administrateur crée un compte, une catégorie circuit B 
   await expect(page.getByLabel('Mot de passe', { exact: true })).toHaveCount(0);
   await expect(page.getByRole('listitem').filter({ hasText: username })).toContainText('Mot de passe à changer');
 
-  // Catégorie circuit B avec photo obligatoire, destinataire et responsable.
+  // Catégorie circuit B avec photo obligatoire, destinataire et admin de la catégorie.
   await page.getByRole('link', { name: 'Catégories' }).click();
   await page.getByRole('button', { name: 'Nouvelle catégorie' }).click();
   const categoryDialog = page.getByRole('dialog', { name: 'Nouvelle catégorie' });
@@ -55,8 +55,8 @@ test('V16 — le super administrateur crée un compte, une catégorie circuit B 
   await categoryDialog.getByRole('checkbox', { name: 'Photo de preuve obligatoire' }).check();
   await categoryDialog.getByRole('combobox', { name: 'Destinataires' }).click();
   await page.getByRole('option', { name: 'Reprographie', exact: true }).click();
-  await categoryDialog.getByRole('combobox', { name: 'Responsables' }).click();
-  await page.getByRole('option', { name: 'Responsable administratif', exact: true }).click();
+  await categoryDialog.getByRole('combobox', { name: 'Admins de la catégorie' }).click();
+  await page.getByRole('option', { name: 'Admin — surveillante générale', exact: true }).click();
   await expectNoA11yViolations(page);
   await categoryDialog.getByRole('button', { name: 'Enregistrer la catégorie' }).click();
   await expect(categoryDialog).toBeHidden();
@@ -76,7 +76,7 @@ test('V16 — le super administrateur crée un compte, une catégorie circuit B 
   // Réglages consultables (non modifiés : données partagées entre projets).
   await page.getByRole('link', { name: 'Réglages' }).click();
   await expect(page.getByLabel(/Durée maximale d’un vocal/)).toHaveValue(/^\d+$/);
-  await expect(page.getByRole('group', { name: 'Responsable' })).toBeVisible();
+  await expect(page.getByRole('group', { name: 'Admin' })).toBeVisible();
   await expectNoA11yViolations(page);
 
   // Journal d'audit : la création du compte est tracée.
@@ -86,11 +86,11 @@ test('V16 — le super administrateur crée un compte, une catégorie circuit B 
   await expect(page.getByRole('list', { name: 'Entrées du journal' }).getByRole('listitem').filter({ hasText: username }).first()).toBeVisible();
   await expectNoA11yViolations(page);
 
-  // Le responsable n'a ni menu ni accès (interface et API).
+  // L'admin n'a ni menu ni accès (interface et API).
   await logout(page);
   await login(page, 'admin');
   await openNavigation(page);
-  await expect(page.getByRole('link', { name: 'Administration' })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Administrateur' })).toHaveCount(0);
   await page.keyboard.press('Escape');
   await page.goto('/admin/comptes');
   await expect(page.getByText('Accès réservé au super administrateur.')).toBeVisible();

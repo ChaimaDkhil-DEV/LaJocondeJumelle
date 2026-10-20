@@ -116,3 +116,30 @@ Ajoutés : onglets du surveillant (« Mes affectations », « Historique »), an
 avec motif facultatif.
 
 Résultat : lint sans erreur ; typage frontend sans erreur ; frontend 180 / 180 (23 fichiers).
+
+## Phase 3 — US4, rôle « Admin » (T042 à T048)
+
+- **T042** (`role-admin-rename.spec.ts`) : écrit d'abord, rouge sur le message de l'API « Seuls les
+  responsables… » (1 échec sur 6), puis vert. **T043** (`role-labels.test.tsx`) : rouge (3 échecs),
+  puis vert ; un attendu corrigé (l'option « Par un admin » n'existe qu'une fois la liste ouverte).
+- **T044** : libellés de l'interface ; « Responsable » au sens de l'employé affecté → « Employé
+  affecté » (décision du 2026-10-17). Tests existants adaptés au libellé seul : `admin-pages`,
+  `CreateRequestPage`, `routing`, `HistoryTimeline`, `ApprovalPanel` (titres de cas).
+- **T046** : `auth`, `us5-admin-validation`, `us6-deadlines`, `us8-admin`, `admin-dashboard` :
+  10 / 10 sur Chromium (`npx playwright test --project=chromium …`, 3 min). Les autres profils
+  navigateurs sont exécutés en T086.
+
+### T048 — occurrences restantes de « responsable » (SC-007)
+
+`git grep -in responsable -- backend/src frontend/src e2e README.md docs` :
+
+| Fichier | Occurrences | Justification |
+| --- | --- | --- |
+| `backend/src`, `frontend/src`, `README.md` | 0 | — |
+| `e2e/coverage-class.spec.ts` | 6 | parcours de la diffusion supprimée, réécrit en T082 |
+| `docs/superadmin-fonctionnalites.md` | 13 | inventaire daté (PR #12), antérieur à 004 ; note en tête renvoyant à la spécification 004 |
+| `docs/coverage-migration.md` | 4 | décrit la migration `0002_coverage` (comptes `MANAGER` de l'époque) ; note en tête ; mise à jour en T083 |
+| `docs/validation/verification-004.md` | 1 | citation du message d'erreur remplacé (ci-dessus) |
+
+Les sens non liés au rôle (« le surveillant reste responsable » de la classe) ont été reformulés
+(« reste en charge de la classe ») plutôt que conservés.

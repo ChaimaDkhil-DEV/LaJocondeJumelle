@@ -151,7 +151,7 @@ export function CoverageDetailPage() {
               <CoverageDeadline summary={d} />
             </Box>
             {d.status === 'CANCELLED' && d.cancelReason && <Alert severity="info">Annulée : {d.cancelReason}</Alert>}
-            {d.status === 'RELIEF_PENDING' && <Alert severity="warning">Relève demandée : le surveillant reste responsable jusqu’à l’arrivée du remplaçant.</Alert>}
+            {d.status === 'RELIEF_PENDING' && <Alert severity="warning">Relève demandée : le surveillant reste en charge de la classe jusqu’à l’arrivée du remplaçant.</Alert>}
             {d.alerts.includes('TAKEOVER_EXPIRED') && d.isManager && (
               <Alert severity="error">Délai d’assignation dépassé : assignez un surveillant disponible.</Alert>
             )}

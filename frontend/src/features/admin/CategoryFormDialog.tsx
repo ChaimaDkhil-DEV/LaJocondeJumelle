@@ -91,7 +91,7 @@ const ids = (members: Member[]) => members.map((m) => m.id).sort();
 const same = (a: string[], b: string[]) => a.length === b.length && a.every((x, i) => x === b[i]);
 
 /**
- * Enregistre la catégorie puis ses destinataires et responsables (routes séparées, contracts/rest-api.md).
+ * Enregistre la catégorie puis ses destinataires et ses admins (routes séparées, contracts/rest-api.md).
  * L'affectation automatique exige que l'employé désigné soit déjà destinataire : l'ordre des appels en tient compte.
  */
 async function saveCategory(current: AdminCategory | null, v: Values): Promise<AdminCategory> {
@@ -153,8 +153,8 @@ async function saveCategory(current: AdminCategory | null, v: Values): Promise<A
 }
 
 /**
- * Catégorie de couverture : créée par les responsables, diffusée à des groupes d'employés (pas de
- * destinataires), preuve de présence et validation finale configurables. Le type ne change plus ensuite.
+ * Catégorie de garde : support technique des affectations (pas de destinataires), preuve de présence
+ * et validation finale configurables. Le type ne change plus ensuite.
  */
 async function saveCoverageCategory(current: AdminCategory | null, v: Values): Promise<AdminCategory> {
   const fields = {
@@ -187,7 +187,7 @@ interface CategoryFormDialogProps {
   onSaved: (message: string) => void;
 }
 
-/** Création ou modification d'une catégorie : circuit, modes, photo, destinataires et responsables. */
+/** Création ou modification d'une catégorie : circuit, modes, photo, destinataires et admins de la catégorie. */
 export function CategoryFormDialog({ open, category, onClose, onSaved }: CategoryFormDialogProps) {
   const titleId = useId();
   const queryClient = useQueryClient();
@@ -332,7 +332,7 @@ export function CategoryFormDialog({ open, category, onClose, onSaved }: Categor
                 <>
                   <FormControlLabel
                     control={<Checkbox checked={values.finalValidation} onChange={(e) => set({ finalValidation: e.target.checked })} />}
-                    label="Validation finale par un responsable"
+                    label="Validation finale par un admin"
                   />
                   <FormControl component="fieldset">
                     <FormLabel component="legend">Affectation après approbation</FormLabel>
@@ -444,16 +444,16 @@ export function CategoryFormDialog({ open, category, onClose, onSaved }: Categor
           )}
           <Autocomplete
             multiple
-            id="categorie-responsables"
+            id="categorie-admins"
             options={managerOptions}
             value={values.managers}
             onChange={(_e, managers) => set({ managers })}
             getOptionLabel={(o) => o.displayName}
             isOptionEqualToValue={(a, b) => a.id === b.id}
             loading={users.isPending}
-            noOptionsText="Aucun responsable"
+            noOptionsText="Aucun admin"
             renderInput={(params) => (
-              <TextField {...params} label="Responsables" helperText="Responsables et super administrateurs uniquement." />
+              <TextField {...params} label="Admins de la catégorie" helperText="Admins et super administrateurs uniquement." />
             )}
           />
 

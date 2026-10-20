@@ -166,7 +166,7 @@ export class RequestTransitionsService {
       throw new AppException('FORBIDDEN');
     }
     if (!result.ok) {
-      // Personne figée indisponible : le responsable doit choisir l'employé (EXC-2, D8, FR-011).
+      // Personne figée indisponible : l'admin doit choisir l'employé (EXC-2, D8, FR-011).
       if (result.code === 'ASSIGNEE_REQUIRED' && autoAssigneeUnavailable) throw new AppException('AUTO_ASSIGNEE_UNAVAILABLE');
       throw new AppException(result.code);
     }
@@ -343,7 +343,7 @@ export class RequestTransitionsService {
         const fromSnapshot = 'autoAssigneeId' in rules;
         const planned = fromSnapshot ? rules.autoAssigneeId : category.autoAssigneeId;
         if (planned && (await this.isAssignable(category, planned))) {
-          // Un employé proposé par le responsable est ignoré (FR-008).
+          // Un employé proposé par l'admin est ignoré (FR-008).
           return { assigneeId: planned, assigneeAllowed: true, assigneeSource: fromSnapshot ? 'SNAPSHOT' : 'CATEGORY_CURRENT' };
         }
         if (!input.assigneeId) return { autoAssigneeUnavailable: true };

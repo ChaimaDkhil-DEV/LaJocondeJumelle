@@ -91,7 +91,7 @@ function DeadlinesDialog({ category, onClose, onSaved }: { category: AdminCatego
 
 const ROUTING_SHORT: Record<RoutingMode, string> = { VIA_ADMIN: 'Via l’administration', DIRECT: 'Direct', PEER: 'Entre enseignants' };
 
-/** Catégories (US8) : mode de routage, clôture, photo, destinataires, responsables et délais. */
+/** Catégories (US8) : mode de routage, clôture, photo, destinataires, admins de la catégorie et délais. */
 export function CategoriesAdminPage() {
   const categories = useAdminCategories();
   const [form, setForm] = useState<{ category: AdminCategory | null } | null>(null);
@@ -103,7 +103,7 @@ export function CategoriesAdminPage() {
       <SectionHeader
         id="titre-categories"
         title="Catégories"
-        description="Types de demandes : mode de routage, destinataires, responsables et délais."
+        description="Types de demandes : mode de routage, destinataires, admins de la catégorie et délais."
         action={
           <Button variant="contained" startIcon={<FolderPlus size={icon.sm} aria-hidden="true" />} onClick={() => setForm({ category: null })}>
             Nouvelle catégorie
@@ -158,7 +158,7 @@ export function CategoriesAdminPage() {
                         {category.finalValidation ? ' · validation finale par l’administration' : ''}
                       </Typography>
                       <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
-                        Responsables : {names(category.managers)}
+                        Admins : {names(category.managers)}
                       </Typography>
                     </>
                   ) : (
@@ -168,7 +168,7 @@ export function CategoriesAdminPage() {
                         {category.finalValidation ? ' · validation finale' : ''}
                       </Typography>
                       <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
-                        Destinataires : {names(category.recipients)} · Responsables : {names(category.managers)}
+                        Destinataires : {names(category.recipients)} · Admins : {names(category.managers)}
                       </Typography>
                     </>
                   )}

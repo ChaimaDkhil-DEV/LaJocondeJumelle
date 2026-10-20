@@ -100,7 +100,7 @@ function setup(path: string, handler: Handler = () => undefined, me: unknown = S
 describe('Accès à l’administration', () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it('refuse l’administration à un responsable, sans appeler les routes /admin', async () => {
+  it('refuse l’espace Administrateur à un admin, sans appeler les routes /admin', async () => {
     const { calls } = setup('/admin/comptes', undefined, { ...SUPER_ADMIN, id: 'm1', role: 'ADMIN' });
     expect(await screen.findByText('Accès réservé au super administrateur.')).toBeVisible();
     expect(calls.some((c) => c.url.startsWith('/api/admin'))).toBe(false);
@@ -108,7 +108,7 @@ describe('Accès à l’administration', () => {
 
   it('propose une navigation entre les sections', async () => {
     setup('/admin');
-    const nav = await screen.findByRole('navigation', { name: 'Sections de l’administration' });
+    const nav = await screen.findByRole('navigation', { name: 'Sections de l’espace Administrateur' });
     for (const label of ['Comptes', 'Catégories', 'Réglages', 'Journal d’audit']) {
       expect(within(nav).getByRole('link', { name: label })).toBeVisible();
     }
@@ -230,7 +230,7 @@ describe('Comptes', () => {
 describe('Catégories', () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it('n’affiche les options de validation qu’en mode « via l’administration », puis enregistre catégorie, destinataires et responsables', async () => {
+  it('n’affiche les options de validation qu’en mode « via l’administration », puis enregistre catégorie, destinataires et admins', async () => {
     const created = { ...CATEGORY, id: 'c2', name: 'Travaux', circuit: 'B_ADMIN_VALIDATION', routingMode: 'VIA_ADMIN', recipients: [], managers: [] };
     const { calls } = setup('/admin/categories', (url, method) => {
       if (url === '/api/admin/categories' && method === 'POST') return json(201, created);
@@ -239,15 +239,15 @@ describe('Catégories', () => {
     });
     await userEvent.click(await screen.findByRole('button', { name: 'Nouvelle catégorie' }));
     const dialog = await screen.findByRole('dialog', { name: 'Nouvelle catégorie' });
-    expect(within(dialog).queryByRole('checkbox', { name: 'Validation finale par un responsable' })).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole('checkbox', { name: 'Validation finale par un admin' })).not.toBeInTheDocument();
 
     await userEvent.type(within(dialog).getByLabelText(/Nom de la catégorie/), 'Travaux');
     await userEvent.click(within(dialog).getByRole('radio', { name: /Via l’administration/ }));
-    await userEvent.click(within(dialog).getByRole('checkbox', { name: 'Validation finale par un responsable' }));
+    await userEvent.click(within(dialog).getByRole('checkbox', { name: 'Validation finale par un admin' }));
     await userEvent.click(within(dialog).getByRole('checkbox', { name: 'Photo de preuve obligatoire' }));
     await userEvent.click(within(dialog).getByRole('combobox', { name: 'Destinataires' }));
     await userEvent.click(await screen.findByRole('option', { name: 'Reprographie' }));
-    await userEvent.click(within(dialog).getByRole('combobox', { name: 'Responsables' }));
+    await userEvent.click(within(dialog).getByRole('combobox', { name: 'Admins de la catégorie' }));
     await userEvent.click(await screen.findByRole('option', { name: 'Responsable administratif' }));
     await userEvent.click(within(dialog).getByRole('button', { name: 'Enregistrer la catégorie' }));
 
@@ -272,7 +272,7 @@ describe('Catégories', () => {
     expect(within(dialog).getByText(/Un enseignant écrit directement à un collègue/)).toBeVisible();
 
     await userEvent.click(within(dialog).getByRole('combobox', { name: 'Clôture' }));
-    expect(await screen.findByRole('option', { name: 'Par un responsable' })).toHaveAttribute('aria-disabled', 'true');
+    expect(await screen.findByRole('option', { name: 'Par un admin' })).toHaveAttribute('aria-disabled', 'true');
     await userEvent.click(screen.getByRole('option', { name: 'Par le demandeur' }));
 
     await userEvent.click(within(dialog).getByRole('button', { name: 'Enregistrer la catégorie' }));

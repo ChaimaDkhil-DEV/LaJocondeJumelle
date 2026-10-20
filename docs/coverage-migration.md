@@ -1,5 +1,9 @@
 # Migration 0002_coverage : couverture de classe
 
+> **Document daté, antérieur à la fonctionnalité 004** : le rôle « Responsable » (`MANAGER`) y est
+> devenu « Admin » (`ADMIN`) et la diffusion des gardes a été remplacée par l'assignation par l'admin.
+> Voir `specs/004-retards-affectation-surveillants/` (migration : `contracts/migration.md`).
+
 Cette migration ajoute le module de couverture de classe (garde ou remplacement).
 
 ## Contenu

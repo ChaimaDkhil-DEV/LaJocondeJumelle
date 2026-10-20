@@ -214,7 +214,7 @@ const TRANSITIONS: readonly Transition[] = [
   { from: BEFORE_PRESENCE, action: 'CONFIRM_PRESENCE', to: 'ON_DUTY', actors: ['ASSIGNEE'], guards: [requiresProof] },
   { from: ON_SITE, action: 'CONFIRM_PRESENCE', to: 'same', actors: ['ASSIGNEE'], guards: [requiresAnyProof] },
 
-  // En cours, le surveillant ne part pas : il demande une relève et reste responsable.
+  // En cours, le surveillant ne part pas : il demande une relève et reste en charge de la classe.
   { from: ['ON_DUTY'], action: 'REQUEST_RELIEF', to: 'RELIEF_PENDING', actors: ['ASSIGNEE'], guards: [requiresReason] },
   { from: ON_SITE, action: 'RELEASE_BY_MANAGER', to: 'DONE', actors: ['ADMIN'], guards: [requiresReason] },
   { from: ON_SITE, action: 'RELIEVE', to: 'DONE', actors: ['ASSIGNEE', 'SYSTEM'] },

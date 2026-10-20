@@ -246,7 +246,7 @@ export function UserFormDialog({
                   errors.recipientCategoryIds ??
                   (values.recipientCategories.length === 0 && values.role === 'EMPLOYEE'
                     ? 'Sans catégorie, ce compte peut créer des demandes mais ne peut ni en recevoir ni être affecté.'
-                    : 'Ce compte pourra recevoir les demandes de ces catégories et y être affecté par leurs responsables.')
+                    : 'Ce compte pourra recevoir les demandes de ces catégories et y être affecté par leurs admins.')
                 }
               />
             )}

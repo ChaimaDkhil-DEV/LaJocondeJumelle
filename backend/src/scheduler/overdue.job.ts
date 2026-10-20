@@ -22,7 +22,7 @@ interface OverdueRow {
 /**
  * Détection des retards (research R4, FR-026) : marque « En retard » l'étape dont l'échéance est
  * dépassée, une seule fois par occurrence d'étape (mise à jour conditionnelle idempotente), trace
- * l'événement OVERDUE et notifie les responsables de la catégorie et l'employé affecté. La demande
+ * l'événement OVERDUE et notifie les admins de la catégorie et l'employé affecté. La demande
  * n'est jamais supprimée ni masquée. L'état étant lu en base, les échéances manquées pendant un
  * arrêt sont rattrapées au redémarrage. La version n'est pas incrémentée : marquer un retard
  * n'entre pas en conflit avec les actions des utilisateurs. Les couvertures de classe ont leur
@@ -65,7 +65,7 @@ export class OverdueJob {
       RETURNING "id", "currentStage", "status", "version", "priority", "requesterId", "assigneeId", "categoryId"`;
 
     for (const row of rows) {
-      // Responsables prévenus seulement en mode « via l'administration » : ailleurs, l'administration
+      // Admins de la catégorie prévenus seulement en mode « via l'administration » : ailleurs, l'administration
       // consulte sans avoir d'action à faire (le super administrateur garde ses propres alertes).
       const category = await this.prisma.category.findUnique({ where: { id: row.categoryId }, select: { routingMode: true } });
       const managers =

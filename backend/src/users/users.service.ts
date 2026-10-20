@@ -88,7 +88,7 @@ export class UsersService {
 
   /**
    * Crée un compte ; le mot de passe provisoire n'est renvoyé qu'ici, une seule fois.
-   * Les catégories choisies le rendent immédiatement destinataire, donc affectable par leurs responsables.
+   * Les catégories choisies le rendent immédiatement destinataire, donc affectable par leurs admins.
    */
   async create(dto: CreateUserDto, ctx: AdminContext): Promise<{ user: AdminUser; temporaryPassword: string }> {
     if (await this.prisma.user.findUnique({ where: { username: dto.username } })) {

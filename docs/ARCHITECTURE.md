@@ -95,7 +95,7 @@ Les colonnes « Dépend de » et « Utilisé par » ont été établies à parti
 | `auth/` | Connexion, déconnexion, changement de mot de passe (`AuthController`, `AuthService`) ; sessions serveur (`SessionService`) ; gardes globales `OriginGuard` (CSRF) et `SessionGuard` ; limitation des tentatives de connexion | audit, common, config, realtime, requests (`access-policy`), settings | presque tous (types `AuthenticatedUser`, décorateurs `@CurrentUser`, `@Public`) |
 | `settings/` | Réglages globaux en base avec valeurs par défaut (`SETTING_DEFAULTS`), permissions par rôle, administration | audit, auth, common, users | auth, cli, coverage, files, messages, requests |
 | `users/` | Administration des comptes (`/api/admin/users`) | audit, auth, common, realtime | categories, settings |
-| `categories/` | Catégories visibles par l'utilisateur et leur administration (circuit, destinataires, responsables, délais par priorité) | audit, auth, common, requests, users | — |
+| `categories/` | Catégories visibles par l'utilisateur et leur administration (circuit, destinataires, admins de la catégorie, délais par priorité) | audit, auth, common, requests, users | — |
 | `requests/` | Demandes de travail. Contient deux modules **purs** : `domain/request-state-machine.ts` et `domain/access-policy.ts`, ainsi que `domain/deadlines.ts` et `domain/visibility.ts`. S'y ajoutent les services `RequestsService` (création, lecture, priorité, brouillons) et `RequestTransitionsService` (actions de statut) | audit, auth, common, files, notifications, realtime, settings | auth, categories, coverage, files, messages, scheduler |
 | `messages/` | Fil de discussion d'une demande (texte, vocal, pièces jointes) | audit, auth, common, notifications, realtime, requests, settings | — |
 | `files/` | Envoi, contrôle (octets magiques, ffprobe, sharp), stockage privé sur disque (`FileStorageService`) et lecture authentifiée (`GET /api/files/:id`) | audit, auth, common, config, coverage, requests, settings | requests, scheduler |
@@ -307,7 +307,7 @@ sequenceDiagram
   end
   TS->>NS: flushAfterCommit → SocketNotificationPublisher
   NS->>RT: notification:new (salles user:{id})
-  TS->>RT: request:updated (demandeur, affecté, responsables)
+  TS->>RT: request:updated (demandeur, affecté, admins de la catégorie)
   RC->>RC: requests.detail(...) (relecture + allowedActions)
   RC-->>UI: 200 RequestDetail
 ```
@@ -352,7 +352,7 @@ Autre cas d'erreur vérifié dans le code : une requête modifiante sans en-têt
 erDiagram
   User ||--o{ Session : "a"
   User ||--o{ CategoryRecipient : "destinataire de"
-  User ||--o{ CategoryManager : "responsable de"
+  User ||--o{ CategoryManager : "admin de"
   User ||--o{ Request : "demandeur (requesterId)"
   User ||--o{ Request : "affecté (assigneeId)"
   User ||--o{ Message : "auteur"
@@ -632,7 +632,7 @@ docker compose -f deploy/docker-compose.yml --env-file deploy/.env exec api node
 ### Code dupliqué
 
 - **[VÉRIFIÉ]** Il existe deux machines à états, deux politiques d'accès, deux calculs de délais et deux jobs de délais, un jeu pour chaque `kind` (`requests/domain/*` et `coverage/domain/*`). Le partage de la table `Request` n'a pas permis de mutualiser cette logique.
-  **[DÉDUIT]** Une règle transverse (par exemple « un responsable peut toujours annuler ») devra être écrite deux fois.
+  **[DÉDUIT]** Une règle transverse (par exemple « un admin peut toujours annuler ») devra être écrite deux fois.
 - **[VÉRIFIÉ]** La fonction `originOf` est dupliquée dans `auth/origin.guard.ts` et `realtime/realtime.gateway.ts`. → **Corrigé** (`5ed613d`) : règle unique `common/origin.ts`.
 - **[VÉRIFIÉ]** Les listes de clés sensibles sont dupliquées, avec des différences : `app-logger.ts` contient `authorization`, absent d'`audit.service.ts`, et `audit.service.ts` contient `^message$`, absent du logger. → **Corrigé** (`5ed613d`) : liste unique, réunion des deux.
 - **[VÉRIFIÉ]** Les types du frontend dupliquent ceux du backend à la main (voir §7, point 5).

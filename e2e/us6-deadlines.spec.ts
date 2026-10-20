@@ -20,7 +20,7 @@ async function pageAs(browser: Browser, testInfo: TestInfo, account: AccountName
   return page;
 }
 
-test('V14 — compte à rebours, alerte, puis « En retard (prise en charge) » signalé au super administrateur, visible du responsable', async ({ page, browser }, testInfo) => {
+test('V14 — compte à rebours, alerte, puis « En retard (prise en charge) » signalé au super administrateur, visible de l’admin', async ({ page, browser }, testInfo) => {
   test.skip(!['chromium', 'iPhone 13'].includes(testInfo.project.name), 'Logique serveur : un moteur Chromium et un moteur WebKit suffisent');
   test.setTimeout(180_000);
 
@@ -67,7 +67,7 @@ test('V14 — compte à rebours, alerte, puis « En retard (prise en charge) » 
   await expect.poll(() => overdueFor(superadmin), { timeout: 30_000, intervals: [2000] }).toBe(true);
   await superadmin.context().close();
 
-  // Le responsable n'est pas notifié, mais la demande reste visible, en lecture seule.
+  // L'admin n'est pas notifié, mais la demande reste visible, en lecture seule.
   const manager = await pageAs(browser, testInfo, 'admin');
   expect(await overdueFor(manager)).toBe(false);
   await manager.goto(`/demandes/${id}`);

@@ -95,7 +95,7 @@ export const NOTIFICATION_LABELS: Record<NotificationType, string> = {
   COVERAGE_DOUBLE_ASSIGNMENT: 'Surveillant sur deux affectations',
   COVERAGE_LIFTED: 'Affectation levée',
   COVERAGE_UPDATED: 'Demande modifiée',
-  UNASSIGNED: 'Demande sans responsable',
+  UNASSIGNED: 'Demande sans employé affecté',
 };
 
 /** Page de la demande liée : les couvertures ont leurs propres écrans. */

@@ -9,7 +9,7 @@ interface ReassignDialogProps {
   onClose: () => void;
 }
 
-/** Réaffectation par un responsable (FR-027) : choix parmi les destinataires de la catégorie. */
+/** Réaffectation par un admin (FR-027) : choix parmi les destinataires de la catégorie. */
 export function ReassignDialog({ open, requestId, currentAssigneeId, pending, onConfirm, onClose }: ReassignDialogProps) {
   return (
     <ApprovalDialog

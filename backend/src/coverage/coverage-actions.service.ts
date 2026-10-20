@@ -534,7 +534,7 @@ export class CoverageActionsService {
       }
     }
     if (result.to === 'CANCELLED' && coverage.reliefForId) {
-      // Relève annulée : l'affectation d'origine redevient « en cours » (le surveillant reste responsable).
+      // Relève annulée : l'affectation d'origine redevient « en cours » (le surveillant reste en charge de la classe).
       await this.performSystemInTx(tx, coverage.reliefForId, 'RELIEF_ABANDONED', effects, { now });
     }
   }

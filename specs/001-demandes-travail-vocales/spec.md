@@ -1,5 +1,8 @@
 # Feature Specification: Lot 1 – Demandes de travail et messagerie vocale
 
+> **Depuis la fonctionnalité 004, le rôle « Responsable » s'appelle « Admin » ; la terminologie de la
+> spécification courante (`specs/004-retards-affectation-surveillants/spec.md`) fait foi.**
+
 **Feature Branch**: `001-demandes-travail-vocales`
 
 **Created**: 2026-10-12

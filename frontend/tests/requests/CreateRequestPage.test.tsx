@@ -90,7 +90,7 @@ describe('CreateRequestPage', () => {
     await screen.findByRole('heading', { name: 'Nouvelle demande' });
     await choose('Catégorie', 'Intervention technique');
     expect(screen.queryByRole('combobox', { name: 'Destinataire' })).not.toBeInTheDocument();
-    expect(screen.getByText(/validée par un responsable/)).toBeVisible();
+    expect(screen.getByText(/validée par un admin/)).toBeVisible();
   });
 
   it('signale chaque champ manquant sans envoyer', async () => {

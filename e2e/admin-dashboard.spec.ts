@@ -4,7 +4,7 @@ import { login } from './support/login';
 
 /**
  * Tableau de bord du super administrateur : une demande créée par une enseignante apparaît dans la
- * supervision, mène à son détail ; un responsable est refusé (interface et API). La base e2e est
+ * supervision, mène à son détail ; un admin est refusé (interface et API). La base e2e est
  * partagée entre projets : on vérifie la présence de la demande du test, jamais des totaux exacts.
  */
 
@@ -37,7 +37,7 @@ async function createUrgentRequest(page: Page, title: string): Promise<string> {
   return ((await res.json()) as { id: string }).id;
 }
 
-test('le super administrateur supervise les demandes depuis le tableau de bord ; un responsable est refusé', async ({ page }, testInfo) => {
+test('le super administrateur supervise les demandes depuis le tableau de bord ; un admin est refusé', async ({ page }, testInfo) => {
   test.slow();
   const title = uniqueTitle('Copies tableau de bord', testInfo);
 
@@ -48,8 +48,8 @@ test('le super administrateur supervise les demandes depuis le tableau de bord ;
   // Accès par le menu de l'administration.
   await login(page, 'superadmin');
   await openNavigation(page);
-  await page.getByRole('link', { name: 'Administration' }).click();
-  await page.getByRole('navigation', { name: 'Sections de l’administration' }).getByRole('link', { name: 'Tableau de bord' }).click();
+  await page.getByRole('link', { name: 'Administrateur' }).click();
+  await page.getByRole('navigation', { name: 'Sections de l’espace Administrateur' }).getByRole('link', { name: 'Tableau de bord' }).click();
   await expect(page).toHaveURL(/\/admin\/tableau-de-bord$/);
   await expect(page.getByRole('heading', { name: 'Tableau de bord' })).toBeVisible();
 
@@ -82,7 +82,7 @@ test('le super administrateur supervise les demandes depuis le tableau de bord ;
   await expect(activity).not.toContainText('Demande du tableau de bord');
   await expectNoA11yViolations(page);
 
-  // Le responsable n'y a pas accès, ni par l'interface ni par l'API.
+  // L'admin n'y a pas accès, ni par l'interface ni par l'API.
   await logout(page);
   await login(page, 'admin');
   await page.goto('/admin/tableau-de-bord');

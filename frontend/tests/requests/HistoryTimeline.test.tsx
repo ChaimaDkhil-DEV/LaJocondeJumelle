@@ -57,7 +57,7 @@ describe('HistoryTimeline', () => {
     });
     expect(describeEvent(assigned('SNAPSHOT'))).toBe('Affectée à Reprographie (personne prévue à la soumission)');
     expect(describeEvent(assigned('CATEGORY_CURRENT'))).toBe('Affectée à Reprographie (selon la catégorie actuelle, demande antérieure)');
-    expect(describeEvent(assigned('MANAGER_CHOICE'))).toBe('Affectée à Reprographie (choix du responsable)');
+    expect(describeEvent(assigned('MANAGER_CHOICE'))).toBe('Affectée à Reprographie (choix d’un admin)');
     expect(describeEvent(assigned())).toBe('Affectée à Reprographie');
   });
 });

@@ -45,7 +45,7 @@ export function useRequestList(scope: RequestScope, statuses: readonly string[] 
   });
 }
 
-/** Employés affectables (approbation en circuit B, réaffectation) — réservé aux responsables. */
+/** Employés affectables (approbation en circuit B, réaffectation) — réservé aux admins. */
 export function useAssignees(requestId: string, enabled: boolean) {
   return useQuery({
     queryKey: ['requests', 'detail', requestId, 'assignees'],

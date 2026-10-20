@@ -4,7 +4,7 @@ import type { PolicyUser } from '../../common/authorization';
 /**
  * Équivalent SQL (filtre Prisma) de canReadRequest, pour les listes, la recherche et les compteurs :
  * - brouillons : auteur uniquement ;
- * - autres statuts : demandeur, employé affecté actuel, responsables de la catégorie ;
+ * - autres statuts : demandeur, employé affecté actuel, admins de la catégorie ;
  * - super administrateur : toutes les demandes hors brouillons des autres.
  * Un compte désactivé ne voit rien. Les couvertures de classe (kind = COVERAGE) sont exclues :
  * elles ont leurs propres écrans et leur propre politique (coverage/).

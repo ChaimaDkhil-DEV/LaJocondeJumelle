@@ -1,12 +1,12 @@
 # La Joconde Jumelle — demandes de travail et messagerie vocale (lot 1)
 
 Application web pour une école privée : les employés adressent des demandes de travail à leurs
-collègues ou à leurs responsables en **parlant plutôt qu'en écrivant**, depuis un smartphone, une
+collègues ou à l'administration en **parlant plutôt qu'en écrivant**, depuis un smartphone, une
 tablette ou un ordinateur. Chaque demande a son fil de discussion (texte, vocaux, photos, PDF),
 un statut suivi, des délais et un historique complet. Les notifications arrivent en temps réel,
 dans l'application uniquement.
 
-- **Rôles** : employé, responsable, super administrateur.
+- **Rôles** : employé, admin, super administrateur (espace « Administrateur »).
 - **Circuits** : A (direct) et B (validation administrative préalable), au choix de chaque catégorie.
 - **Confidentialité** : fichiers privés servis uniquement par l'API, droits vérifiés côté serveur,
   journal d'audit non modifiable.

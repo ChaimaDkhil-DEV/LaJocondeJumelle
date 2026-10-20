@@ -36,11 +36,11 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/demandes/nouvelle', label: 'Nouvelle demande', icon: SquarePen, matches: (p) => p === '/demandes/nouvelle' },
 ];
 
-/** Gardes de classe : membres d'un groupe de remplacement, responsables et super administrateur. */
+/** Gardes de classe : admins, super administrateur, membres des groupes Surveillants ou Enseignants. */
 const COVERAGE_ITEM: NavItem = { to: '/gardes', label: 'Gardes', icon: School, matches: (p) => p.startsWith('/gardes') };
 
 /** Entrée réservée au super administrateur (le serveur refuse aussi /api/admin aux autres rôles). */
-const ADMIN_ITEM: NavItem = { to: '/admin', label: 'Administration', icon: Settings, matches: (p) => p.startsWith('/admin') };
+const ADMIN_ITEM: NavItem = { to: '/admin', label: 'Administrateur', icon: Settings, matches: (p) => p.startsWith('/admin') };
 
 /** Lien d'évitement : invisible jusqu'à ce qu'il reçoive le focus clavier. */
 function SkipLink() {

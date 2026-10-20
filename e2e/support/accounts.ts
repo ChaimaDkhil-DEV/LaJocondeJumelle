@@ -3,7 +3,7 @@ export const E2E_PASSWORD = 'MotDePasse-E2E-2026!';
 
 export const accounts = {
   superadmin: 'superadmin',
-  /** Admin (ex-« responsable », 004). */
+  /** Admin : rôle ADMIN (renommé en 004). */
   admin: 'admin',
   enseignante: 'enseignante',
   reprographie: 'reprographie',

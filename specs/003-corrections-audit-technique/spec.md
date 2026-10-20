@@ -1,5 +1,8 @@
 # Feature Specification: Corrections issues de l'audit technique
 
+> **Depuis la fonctionnalité 004, le rôle « Responsable » s'appelle « Admin » ; la terminologie de la
+> spécification courante (`specs/004-retards-affectation-surveillants/spec.md`) fait foi.**
+
 **Feature Branch**: `003-corrections-audit-technique`
 
 **Created**: 2026-10-15
