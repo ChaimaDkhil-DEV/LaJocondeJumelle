@@ -59,6 +59,14 @@ const SETTINGS = {
   deadlineWarnPercent: 20,
   sessionIdleMinutes: 60,
   sessionMaxHours: 12,
+  coverageUrgencyThresholdMinutes: 60,
+  coverageEscalationMinutes: 5,
+  coverageMorningReminderTime: '07:00',
+  coverageCloseReminderMinutes: 10,
+  coverageCloseEscalationMinutes: 10,
+  coverageSupportReminderMinutes: 10,
+  coverageSupportReminderMax: 3,
+  coverageRetentionMonths: 12,
 };
 
 function setup(path: string, handler: Handler = () => undefined, me: unknown = SUPER_ADMIN) {

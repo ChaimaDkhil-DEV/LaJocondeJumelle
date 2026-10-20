@@ -84,7 +84,7 @@ test('le super administrateur supervise les demandes depuis le tableau de bord ;
 
   // Le responsable n'y a pas accès, ni par l'interface ni par l'API.
   await logout(page);
-  await login(page, 'responsable');
+  await login(page, 'admin');
   await page.goto('/admin/tableau-de-bord');
   await expect(page.getByText('Accès réservé au super administrateur.')).toBeVisible();
   expect((await page.request.get('/api/admin/dashboard/summary')).status()).toBe(403);

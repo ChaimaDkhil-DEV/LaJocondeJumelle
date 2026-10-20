@@ -40,7 +40,7 @@ test('connexion, page d’accueil accessible puis déconnexion', async ({ page }
 });
 
 test('la page de changement de mot de passe est accessible', async ({ page }) => {
-  await login(page, 'responsable');
+  await login(page, 'admin');
   await page.goto('/mot-de-passe');
   await expect(page.getByRole('heading', { name: 'Changer votre mot de passe' })).toBeVisible();
   await expectNoA11yViolations(page);

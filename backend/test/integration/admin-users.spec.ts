@@ -25,7 +25,7 @@ describe('Administration des comptes', () => {
     await seedDemo(prisma);
     app = await createTestApp();
     superadmin = await loginAs(app, 'superadmin');
-    responsable = await loginAs(app, 'responsable');
+    responsable = await loginAs(app, 'admin');
     superadminId = await userId(prisma, 'superadmin');
   });
 
@@ -48,6 +48,7 @@ describe('Administration des comptes', () => {
       mustChangePassword: expect.any(Boolean),
       createdAt: expect.any(String),
       recipientCategories: expect.any(Array),
+      floor: null,
     });
     expect(JSON.stringify(res.body)).not.toContain('argon2');
   });
@@ -126,7 +127,7 @@ describe('Administration des comptes', () => {
   });
 
   it('refuse toute route d’administration à un non super administrateur (403, journalisé)', async () => {
-    const responsableId = await userId(prisma, 'responsable');
+    const responsableId = await userId(prisma, 'admin');
     for (const [method, url] of [
       ['get', '/api/admin/users'],
       ['post', '/api/admin/users'],

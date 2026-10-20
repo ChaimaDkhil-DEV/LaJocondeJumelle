@@ -17,6 +17,16 @@ export const SETTING_DEFAULTS = {
   deadlineWarnPercent: 20,
   sessionIdleMinutes: 60,
   sessionMaxHours: 12,
+  // Affectations des surveillants (004, data-model §3). Le délai de prise en charge reste
+  // DeadlineRule.takeoverMinutes de la catégorie de garde.
+  coverageUrgencyThresholdMinutes: 60,
+  coverageEscalationMinutes: 5,
+  coverageMorningReminderTime: '07:00',
+  coverageCloseReminderMinutes: 10,
+  coverageCloseEscalationMinutes: 10,
+  coverageSupportReminderMinutes: 10,
+  coverageSupportReminderMax: 3,
+  coverageRetentionMonths: 12,
 };
 
 export type Settings = typeof SETTING_DEFAULTS;
@@ -30,7 +40,8 @@ const TECHNICAL_MAX_BYTES = 25 * 1024 * 1024;
 type Rule =
   | { kind: 'int'; min: number; max: number; label: string }
   | { kind: 'boolean' }
-  | { kind: 'subset'; allowed: readonly string[] };
+  | { kind: 'subset'; allowed: readonly string[] }
+  | { kind: 'time' };
 
 /** Bornes de chaque réglage (administration, US8). */
 export const SETTING_RULES: Record<SettingKey, Rule> = {
@@ -44,6 +55,14 @@ export const SETTING_RULES: Record<SettingKey, Rule> = {
   deadlineWarnPercent: { kind: 'int', min: 1, max: 99, label: 'entre 1 et 99 %' },
   sessionIdleMinutes: { kind: 'int', min: 5, max: 1440, label: 'entre 5 et 1440 minutes' },
   sessionMaxHours: { kind: 'int', min: 1, max: 72, label: 'entre 1 et 72 heures' },
+  coverageUrgencyThresholdMinutes: { kind: 'int', min: 5, max: 720, label: 'entre 5 et 720 minutes' },
+  coverageEscalationMinutes: { kind: 'int', min: 1, max: 120, label: 'entre 1 et 120 minutes' },
+  coverageMorningReminderTime: { kind: 'time' },
+  coverageCloseReminderMinutes: { kind: 'int', min: 1, max: 240, label: 'entre 1 et 240 minutes' },
+  coverageCloseEscalationMinutes: { kind: 'int', min: 1, max: 240, label: 'entre 1 et 240 minutes' },
+  coverageSupportReminderMinutes: { kind: 'int', min: 1, max: 120, label: 'entre 1 et 120 minutes' },
+  coverageSupportReminderMax: { kind: 'int', min: 1, max: 10, label: 'entre 1 et 10' },
+  coverageRetentionMonths: { kind: 'int', min: 1, max: 60, label: 'entre 1 et 60 mois' },
 };
 
 /** Message d'erreur si la valeur est invalide pour ce réglage, sinon null. */
@@ -63,6 +82,8 @@ export function settingError(key: SettingKey, value: unknown): string | null {
         new Set(value).size === value.length
         ? null
         : `Au moins un type parmi : ${rule.allowed.join(', ')}.`;
+    case 'time':
+      return typeof value === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(value) ? null : 'Heure au format HH:MM attendue.';
   }
 }
 

@@ -1,11 +1,12 @@
 import type { Availability, Prisma, PrismaClient } from '@prisma/client';
+import { supervisorIds } from './coverage-groups';
 import { slotsOverlap, type Slot } from './domain/coverage-policy';
 import { ACTIVE_GUARD_STATUSES } from './domain/coverage-state-machine';
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
-/** Raison d'indisponibilité affichée aux responsables (jamais de détail sur la garde en cours aux autres employés). */
-export type UnavailableReason = 'INACTIVE' | 'ABSENT' | 'UNAVAILABLE' | 'ON_GUARD';
+/** Raison d'indisponibilité affichée aux admins (jamais de détail sur l'affectation en cours aux autres). */
+export type UnavailableReason = 'INACTIVE' | 'ABSENT' | 'UNAVAILABLE' | 'ON_GUARD' | 'SUPPORT';
 
 export interface EmployeeAvailability {
   userId: string;
@@ -13,14 +14,15 @@ export interface EmployeeAvailability {
   /** Disponible pour ce créneau. */
   available: boolean;
   reason: UnavailableReason | null;
-  /** Garde en cours qui chevauche le créneau (pour les responsables). */
+  /** Affectation (ou renfort) en cours qui chevauche le créneau (pour les admins). */
   guardRequestId: string | null;
 }
 
 /**
- * Disponibilité d'employés pour un créneau : seules les couvertures en cours (Acceptée, En route,
- * En retard, En garde, Relève demandée) qui chevauchent le créneau rendent indisponible, ainsi que
- * le statut déclaré (Indisponible, Absent). Les demandes de travail ne bloquent pas.
+ * Disponibilité pour un créneau (data-model §5, FR-010, FR-015i) : rendent indisponible le statut
+ * déclaré (Indisponible, Absent), une affectation active (assignée, en route, en retard, en cours,
+ * relève demandée) ou un renfort actif dont la plage chevauche (fin inconnue = +∞). Les demandes de
+ * travail ne bloquent pas.
  */
 export async function availabilityFor(
   db: Db,
@@ -30,63 +32,95 @@ export async function availabilityFor(
 ): Promise<Map<string, EmployeeAvailability>> {
   const ids = [...new Set(userIds)];
   if (ids.length === 0) return new Map();
-  const [users, guards] = await Promise.all([
+  const notExcluded = excludeRequestId ? { id: { not: excludeRequestId } } : {};
+  const [users, guards, supports] = await Promise.all([
     db.user.findMany({ where: { id: { in: ids } }, select: { id: true, active: true, availability: true } }),
     db.request.findMany({
-      where: {
-        kind: 'COVERAGE',
-        assigneeId: { in: ids },
-        status: { in: [...ACTIVE_GUARD_STATUSES] },
-        ...(excludeRequestId ? { id: { not: excludeRequestId } } : {}),
-      },
+      where: { kind: 'COVERAGE', assigneeId: { in: ids }, status: { in: [...ACTIVE_GUARD_STATUSES] }, ...notExcluded },
       select: { id: true, assigneeId: true, coverage: { select: { startAt: true, plannedEndAt: true } } },
+    }),
+    db.coverageSupport.findMany({
+      where: {
+        userId: { in: ids },
+        releasedAt: null,
+        request: { status: { in: [...ACTIVE_GUARD_STATUSES] }, ...notExcluded },
+      },
+      select: {
+        userId: true,
+        requestId: true,
+        request: { select: { coverage: { select: { startAt: true, plannedEndAt: true } } } },
+      },
     }),
   ]);
 
   const result = new Map<string, EmployeeAvailability>();
   for (const user of users) {
-    const guard = guards.find(
-      (g) => g.assigneeId === user.id && g.coverage !== null && slotsOverlap(slot, g.coverage),
+    const guard = guards.find((g) => g.assigneeId === user.id && g.coverage !== null && slotsOverlap(slot, g.coverage));
+    const support = supports.find(
+      (s) => s.userId === user.id && s.request.coverage !== null && slotsOverlap(slot, s.request.coverage),
     );
     let reason: UnavailableReason | null = null;
     if (!user.active) reason = 'INACTIVE';
     else if (user.availability === 'ABSENT') reason = 'ABSENT';
     else if (user.availability === 'UNAVAILABLE') reason = 'UNAVAILABLE';
     else if (guard) reason = 'ON_GUARD';
+    else if (support) reason = 'SUPPORT';
     result.set(user.id, {
       userId: user.id,
       availability: user.availability,
       available: reason === null,
       reason,
-      guardRequestId: guard?.id ?? null,
+      guardRequestId: guard?.id ?? support?.requestId ?? null,
     });
   }
   return result;
 }
 
-/** Membres actifs des groupes donnés. */
-export async function groupMemberIds(db: Db, groupIds: readonly string[]): Promise<string[]> {
-  if (groupIds.length === 0) return [];
-  const rows = await db.employeeGroupMember.findMany({
-    where: { groupId: { in: [...groupIds] }, user: { active: true } },
-    select: { userId: true },
-  });
-  return [...new Set(rows.map((r) => r.userId))];
+export interface SupervisorCandidate {
+  id: string;
+  displayName: string;
+  jobTitle: string | null;
+  floor: { id: string; name: string } | null;
+  /** Rattaché à l'étage de la classe. */
+  sameFloor: boolean;
+  available: boolean;
+  reason: UnavailableReason | null;
 }
 
-/** Membres disponibles des groupes donnés pour le créneau (destinataires d'une diffusion). */
-export async function availableMembers(
+/**
+ * Candidats à une affectation (FR-010) : membres actifs du groupe Surveillants, l'étage de la classe
+ * d'abord, puis les disponibles, puis par nom. Les indisponibles sont listés pour information.
+ */
+export async function supervisorCandidates(
   db: Db,
-  groupIds: readonly string[],
   slot: Slot,
+  floorId: string | null,
   excludeRequestId?: string,
-): Promise<string[]> {
-  const members = await groupMemberIds(db, groupIds);
-  const availability = await availabilityFor(db, members, slot, excludeRequestId);
-  return members.filter((id) => availability.get(id)?.available);
+): Promise<SupervisorCandidate[]> {
+  const ids = await supervisorIds(db);
+  const [users, availability] = await Promise.all([
+    db.user.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, displayName: true, jobTitle: true, floor: { select: { id: true, name: true } } },
+    }),
+    availabilityFor(db, ids, slot, excludeRequestId),
+  ]);
+  return users
+    .map((u) => ({
+      ...u,
+      sameFloor: floorId !== null && u.floor?.id === floorId,
+      available: availability.get(u.id)?.available ?? false,
+      reason: availability.get(u.id)?.reason ?? null,
+    }))
+    .sort(
+      (a, b) =>
+        Number(b.sameFloor) - Number(a.sameFloor) ||
+        Number(b.available) - Number(a.available) ||
+        a.displayName.localeCompare(b.displayName, 'fr'),
+    );
 }
 
-/** Verrou transactionnel par employé : sérialise les prises de garde d'un même employé. */
+/** Verrou transactionnel par surveillant : sérialise les assignations d'un même surveillant. */
 export async function lockEmployee(tx: Prisma.TransactionClient, userId: string): Promise<void> {
   await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`coverage-employee:${userId}`}))::text`;
 }

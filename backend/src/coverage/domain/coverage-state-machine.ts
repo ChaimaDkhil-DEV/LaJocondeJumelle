@@ -223,7 +223,8 @@ const TRANSITIONS: readonly Transition[] = [
   { from: ACTIVE, action: 'EXTEND', to: 'same', actors: ['ADMIN', 'ASSIGNEE'], guards: [requiresMinutes] },
   { from: ['DONE'], action: 'VALIDATE', to: 'CLOSED', actors: ['ADMIN'] },
   // Annulation par l'admin seulement, motif facultatif, y compris en cours (FR-008h).
-  { from: ACTIVE, action: 'CANCEL', to: 'CANCELLED', actors: ['ADMIN'] },
+  // SYSTEM : relève annulée en cascade quand l'affectation d'origine se termine.
+  { from: ACTIVE, action: 'CANCEL', to: 'CANCELLED', actors: ['ADMIN', 'SYSTEM'] },
 
   { from: COVERAGE_STATUSES, action: 'SET_TEACHER', to: 'same', actors: ['ADMIN'] },
   { from: ON_SITE, action: 'RELEASE_SUPPORT', to: 'same', actors: ['ADMIN'] },

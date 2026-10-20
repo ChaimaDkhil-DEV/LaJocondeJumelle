@@ -54,6 +54,12 @@ export class CreateUserDto {
   @ArrayUnique()
   @IsUUID('all', { each: true, message: 'Catégorie inconnue.' })
   recipientCategoryIds?: string[];
+
+  /** Affectations : étage de rattachement d'un surveillant, facultatif (004, FR-006). null efface. */
+  @IsOptional()
+  @ValidateIf((_o, v) => v !== null)
+  @IsUUID('all', { message: 'Étage inconnu.' })
+  floorId?: string | null;
 }
 
 export class UpdateUserDto {
@@ -89,4 +95,10 @@ export class UpdateUserDto {
   @ArrayUnique()
   @IsUUID('all', { each: true, message: 'Catégorie inconnue.' })
   recipientCategoryIds?: string[];
+
+  /** Affectations : étage de rattachement d'un surveillant, facultatif (004, FR-006). null efface. */
+  @IsOptional()
+  @ValidateIf((_o, v) => v !== null)
+  @IsUUID('all', { message: 'Étage inconnu.' })
+  floorId?: string | null;
 }

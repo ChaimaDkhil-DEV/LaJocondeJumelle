@@ -8,8 +8,9 @@ import { PrismaService } from '../common/prisma.service';
 import type { AppConfig } from '../config/config';
 import { APP_CONFIG } from '../config/config.module';
 import { CoverageActionsService } from './coverage-actions.service';
-import { availabilityFor, availableMembers } from './coverage-availability';
-import type { ClassDto, GroupDto, ListCoverageQuery } from './coverage.dto';
+import { availabilityFor } from './coverage-availability';
+import { supervisorIds } from './coverage-groups';
+import type { ClassDto, FloorDto, GroupDto, ListCoverageQuery, UpdateFloorDto } from './coverage.dto';
 import { COVERAGE_INCLUDE, toCoverageSummary, type CoverageRow } from './coverage.mapper';
 import { coverageFilters } from './coverage.service';
 import { ACTIVE_GUARD_STATUSES } from './domain/coverage-state-machine';
@@ -32,23 +33,22 @@ function conflict(message: string): AppException {
 
 /** Libellés des statuts pour l'export (mêmes libellés que l'interface). */
 export const COVERAGE_STATUS_LABELS: Partial<Record<RequestStatus, string>> = {
-  BROADCAST: 'Diffusée',
+  PENDING: 'En attente',
+  BROADCAST: 'En attente',
   UNFILLED: 'Non pourvue',
-  ACCEPTED: 'Acceptée',
-  EN_ROUTE: 'En route',
-  LATE: 'En retard',
-  ON_DUTY: 'En garde',
-  RELIEF_PENDING: 'Relève demandée',
-  DONE: 'Relevée',
-  CLOSED: 'Clôturée',
+  ACCEPTED: 'Assignée',
+  EN_ROUTE: 'Assignée (en route)',
+  LATE: 'Assignée (en retard)',
+  ON_DUTY: 'En cours',
+  RELIEF_PENDING: 'En cours (relève demandée)',
+  DONE: 'Terminée',
+  CLOSED: 'Terminée (clôturée après validation)',
   CANCELLED: 'Annulée',
 };
 
-const SECONDS = (ms: number) => Math.round(ms / 1000);
-
 /**
- * Administration des données de référence (groupes, classes et QR codes) et suivi des employés
- * pour le super administrateur. Toutes les routes sont protégées par SuperAdminGuard.
+ * Administration des données de référence (étages, groupes, classes et QR codes) et suivi des
+ * surveillants pour le super administrateur. Toutes les routes sont protégées par SuperAdminGuard.
  */
 @Injectable()
 export class CoverageAdminService {
@@ -58,6 +58,71 @@ export class CoverageAdminService {
     private readonly actions: CoverageActionsService,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
+
+  // ---------------------------------------------------------------------------
+  // Étages (FR-006, FR-006a)
+  // ---------------------------------------------------------------------------
+
+  /** Étages par position, avec surveillants rattachés (membres actifs du groupe Surveillants) et classes. */
+  async floors() {
+    const [floors, supervisors] = await Promise.all([
+      this.prisma.floor.findMany({
+        orderBy: [{ position: 'asc' }, { name: 'asc' }],
+        include: { _count: { select: { classes: true } } },
+      }),
+      this.prisma.user.findMany({ where: { id: { in: await supervisorIds(this.prisma) } }, select: { floorId: true } }),
+    ]);
+    return floors.map((f) => {
+      const supervisorCount = supervisors.filter((s) => s.floorId === f.id).length;
+      return {
+        id: f.id,
+        name: f.name,
+        position: f.position,
+        active: f.active,
+        supervisorCount,
+        classCount: f._count.classes,
+        // Avertissement non bloquant (FR-006a).
+        warning: supervisorCount === 0 ? ('NO_SUPERVISOR' as const) : null,
+      };
+    });
+  }
+
+  async createFloor(dto: FloorDto, ctx: AdminContext) {
+    const after = { name: dto.name, position: dto.position, active: dto.active ?? true };
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        const floor = await tx.floor.create({ data: after });
+        await this.audit.log(
+          'FLOOR_CHANGED',
+          { actorId: ctx.actor.id, ip: ctx.ip, targetType: 'Floor', targetId: floor.id, details: { after } },
+          tx,
+        );
+      });
+    } catch (error) {
+      throw this.uniqueName(error, 'Cet étage existe déjà.');
+    }
+    return this.floors();
+  }
+
+  async updateFloor(id: string, dto: UpdateFloorDto, ctx: AdminContext) {
+    const current = UUID.test(id) ? await this.prisma.floor.findUnique({ where: { id } }) : null;
+    if (!current) throw new AppException('NOT_FOUND');
+    const before = { name: current.name, position: current.position, active: current.active };
+    const after = { name: dto.name ?? current.name, position: dto.position ?? current.position, active: dto.active ?? current.active };
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.floor.update({ where: { id }, data: after });
+        await this.audit.log(
+          'FLOOR_CHANGED',
+          { actorId: ctx.actor.id, ip: ctx.ip, targetType: 'Floor', targetId: id, details: { before, after } },
+          tx,
+        );
+      });
+    } catch (error) {
+      throw this.uniqueName(error, 'Cet étage existe déjà.');
+    }
+    return this.floors();
+  }
 
   // ---------------------------------------------------------------------------
   // Groupes
@@ -72,14 +137,21 @@ export class CoverageAdminService {
     return Promise.all(
       groups.map(async (g) => {
         const members = g.members.map((m) => m.user).filter((u) => u.active);
-        const available = await availableMembers(this.prisma, [g.id], { startAt: now, plannedEndAt: null });
+        const availability = await availabilityFor(
+          this.prisma,
+          members.map((m) => m.id),
+          { startAt: now, plannedEndAt: null },
+        );
         return {
           id: g.id,
           name: g.name,
           active: g.active,
-          members: members.map((u) => ({ id: u.id, displayName: u.displayName })).sort((a, b) => a.displayName.localeCompare(b.displayName, 'fr')),
+          systemKey: g.systemKey,
+          members: members
+            .map((u) => ({ id: u.id, displayName: u.displayName }))
+            .sort((a, b) => a.displayName.localeCompare(b.displayName, 'fr')),
           memberCount: members.length,
-          availableCount: available.length,
+          availableCount: members.filter((m) => availability.get(m.id)?.available).length,
         };
       }),
     );
@@ -94,7 +166,13 @@ export class CoverageAdminService {
         });
         await this.audit.log(
           'GROUP_CHANGED',
-          { actorId: ctx.actor.id, ip: ctx.ip, targetType: 'EmployeeGroup', targetId: group.id, details: { after: { name: dto.name, memberIds: dto.memberIds } } },
+          {
+            actorId: ctx.actor.id,
+            ip: ctx.ip,
+            targetType: 'EmployeeGroup',
+            targetId: group.id,
+            details: { after: { name: dto.name, memberIds: dto.memberIds } },
+          },
           tx,
         );
       });
@@ -105,10 +183,10 @@ export class CoverageAdminService {
   }
 
   async updateGroup(id: string, dto: GroupDto, ctx: AdminContext) {
-    const current = UUID.test(id)
-      ? await this.prisma.employeeGroup.findUnique({ where: { id }, include: { members: true } })
-      : null;
+    const current = UUID.test(id) ? await this.prisma.employeeGroup.findUnique({ where: { id }, include: { members: true } }) : null;
     if (!current) throw new AppException('NOT_FOUND');
+    // Groupe à clé système : nom modifiable, jamais désactivé (R7).
+    if (current.systemKey && dto.active === false) throw new AppException('SYSTEM_GROUP');
     await this.checkMembers(dto.memberIds);
     try {
       await this.prisma.$transaction(async (tx) => {
@@ -136,10 +214,10 @@ export class CoverageAdminService {
     return this.groups();
   }
 
-  /** Membres : comptes actifs de rôle employé. */
+  /** Membres : comptes actifs (un admin ou un super administrateur peut être enseignant ou surveillant, R7). */
   private async checkMembers(userIds: string[]): Promise<void> {
-    const users = await this.prisma.user.findMany({ where: { id: { in: userIds }, active: true, role: 'EMPLOYEE' }, select: { id: true } });
-    if (users.length !== userIds.length) throw invalid('memberIds', 'Un des comptes choisis est introuvable, désactivé ou n’est pas un employé.');
+    const users = await this.prisma.user.findMany({ where: { id: { in: userIds }, active: true }, select: { id: true } });
+    if (users.length !== userIds.length) throw invalid('memberIds', 'Un des comptes choisis est introuvable ou désactivé.');
   }
 
   // ---------------------------------------------------------------------------
@@ -149,17 +227,34 @@ export class CoverageAdminService {
   async classes() {
     return this.prisma.schoolClass.findMany({
       orderBy: { name: 'asc' },
-      select: { id: true, name: true, room: true, active: true, qrVersion: true, updatedAt: true },
+      select: {
+        id: true,
+        name: true,
+        room: true,
+        active: true,
+        qrVersion: true,
+        updatedAt: true,
+        floor: { select: { id: true, name: true } },
+      },
     });
   }
 
   async createClass(dto: ClassDto, ctx: AdminContext) {
+    await this.checkFloor(dto.floorId);
     try {
       await this.prisma.$transaction(async (tx) => {
-        const created = await tx.schoolClass.create({ data: { name: dto.name, room: dto.room ?? null, active: dto.active ?? true } });
+        const created = await tx.schoolClass.create({
+          data: { name: dto.name, room: dto.room ?? null, active: dto.active ?? true, floorId: dto.floorId },
+        });
         await this.audit.log(
           'CLASS_CHANGED',
-          { actorId: ctx.actor.id, ip: ctx.ip, targetType: 'SchoolClass', targetId: created.id, details: { after: { name: dto.name, room: dto.room ?? null } } },
+          {
+            actorId: ctx.actor.id,
+            ip: ctx.ip,
+            targetType: 'SchoolClass',
+            targetId: created.id,
+            details: { after: { name: dto.name, room: dto.room ?? null, floorId: dto.floorId } },
+          },
           tx,
         );
       });
@@ -171,11 +266,12 @@ export class CoverageAdminService {
 
   async updateClass(id: string, dto: ClassDto, ctx: AdminContext) {
     const current = await this.findClass(id);
+    await this.checkFloor(dto.floorId);
     try {
       await this.prisma.$transaction(async (tx) => {
         await tx.schoolClass.update({
           where: { id },
-          data: { name: dto.name, room: dto.room ?? null, active: dto.active ?? current.active },
+          data: { name: dto.name, room: dto.room ?? null, active: dto.active ?? current.active, floorId: dto.floorId },
         });
         await this.audit.log(
           'CLASS_CHANGED',
@@ -185,8 +281,8 @@ export class CoverageAdminService {
             targetType: 'SchoolClass',
             targetId: id,
             details: {
-              before: { name: current.name, room: current.room, active: current.active },
-              after: { name: dto.name, room: dto.room ?? null, active: dto.active ?? current.active },
+              before: { name: current.name, room: current.room, active: current.active, floorId: current.floorId },
+              after: { name: dto.name, room: dto.room ?? null, active: dto.active ?? current.active, floorId: dto.floorId },
             },
           },
           tx,
@@ -196,6 +292,11 @@ export class CoverageAdminService {
       throw this.uniqueName(error, 'Cette classe existe déjà.');
     }
     return this.classes();
+  }
+
+  private async checkFloor(floorId: string): Promise<void> {
+    const floor = await this.prisma.floor.findUnique({ where: { id: floorId }, select: { active: true } });
+    if (!floor || !floor.active) throw invalid('floorId', 'Étage introuvable ou désactivé.');
   }
 
   /** Lien encodé dans le QR code imprimable de la classe (version en cours). */
@@ -254,7 +355,7 @@ export class CoverageAdminService {
     // Chiffres calculés sur les mêmes lignes que la liste (aucune source parallèle).
     const count = (...statuses: RequestStatus[]) => rows.filter((r) => statuses.includes(r.status)).length;
     const counts = {
-      open: count('BROADCAST'),
+      open: count('PENDING', 'BROADCAST'),
       unfilled: count('UNFILLED'),
       taken: count('ACCEPTED', 'EN_ROUTE'),
       late: count('LATE'),
@@ -264,7 +365,7 @@ export class CoverageAdminService {
       cancelled: count('CANCELLED'),
       total: rows.length,
     };
-    const active = rows.filter((r) => !['DONE', 'CLOSED', 'CANCELLED'].includes(r.status)).map(toCoverageSummary);
+    const active = rows.filter((r) => !['DONE', 'CLOSED', 'CANCELLED', 'UNFILLED'].includes(r.status)).map(toCoverageSummary);
 
     const [employees, groups] = await Promise.all([this.employeeStats(rows, query, now), this.groups()]);
     return {
@@ -273,33 +374,31 @@ export class CoverageAdminService {
       active,
       employees,
       emptyGroups: groups
-        .filter((g) => g.active && (g.memberCount === 0 || g.availableCount === 0))
+        .filter((g) => g.systemKey === 'SUPERVISORS' && (g.memberCount === 0 || g.availableCount === 0))
         .map((g) => ({ id: g.id, name: g.name, memberCount: g.memberCount, availableCount: g.availableCount })),
     };
   }
 
-  /** Statistiques par employé, sur la période et les filtres demandés. */
+  /** Statistiques par surveillant, sur la période et les filtres demandés. */
   private async employeeStats(rows: CoverageRow[], query: ListCoverageQuery, now: Date) {
     const employees = await this.prisma.user.findMany({
       where: {
         active: true,
-        role: 'EMPLOYEE',
         ...(query.assigneeId ? { id: query.assigneeId } : {}),
-        OR: [{ groupMemberships: { some: {} } }, { requestsAssigned: { some: { kind: 'COVERAGE' } } }],
+        OR: [{ id: { in: await supervisorIds(this.prisma) } }, { requestsAssigned: { some: { kind: 'COVERAGE' } } }],
       },
       select: { id: true, displayName: true, jobTitle: true },
       orderBy: { displayName: 'asc' },
     });
     const ids = employees.map((e) => e.id);
     const requestIds = rows.map((r) => r.id);
-    const [availability, events, current, workTasks] = await Promise.all([
+    const [availability, overdue, current, workTasks] = await Promise.all([
       availabilityFor(this.prisma, ids, { startAt: now, plannedEndAt: null }),
       this.prisma.requestEvent.findMany({
-        where: { requestId: { in: requestIds }, type: { in: ['STATUS_CHANGED', 'ASSIGNED', 'RELEASED', 'OVERDUE'] } },
-        select: { requestId: true, type: true, fromValue: true, toValue: true, createdAt: true },
-        orderBy: [{ createdAt: 'asc' }, { seq: 'asc' }],
+        where: { requestId: { in: requestIds }, type: 'OVERDUE' },
+        select: { toValue: true },
       }),
-      // Garde en cours, quelle que soit la période.
+      // Affectation en cours, quelle que soit la période.
       this.prisma.request.findMany({
         where: { kind: 'COVERAGE', assigneeId: { in: ids }, status: { in: [...ACTIVE_GUARD_STATUSES] } },
         include: COVERAGE_INCLUDE,
@@ -311,29 +410,13 @@ export class CoverageAdminService {
       }),
     ]);
 
-    // Délai de prise en charge : de la (re)diffusion à l'acceptation par l'employé lui-même.
-    const takeovers = new Map<string, number[]>();
     const lates = new Map<string, number>();
-    const releases = new Map<string, number>();
-    const broadcastAt = new Map<string, Date>();
-    for (const e of events) {
+    for (const e of overdue) {
       const to = (e.toValue ?? {}) as Record<string, unknown>;
-      const from = (e.fromValue ?? {}) as Record<string, unknown>;
-      if (e.type === 'STATUS_CHANGED' && to.status === 'BROADCAST') broadcastAt.set(e.requestId, e.createdAt);
-      if (e.type === 'ASSIGNED' && to.selfAccepted && typeof to.assigneeId === 'string') {
-        const start = broadcastAt.get(e.requestId);
-        if (start) takeovers.set(to.assigneeId, [...(takeovers.get(to.assigneeId) ?? []), e.createdAt.getTime() - start.getTime()]);
-      }
-      if (e.type === 'OVERDUE' && to.stage === 'ARRIVAL' && typeof to.assigneeId === 'string') {
-        lates.set(to.assigneeId, (lates.get(to.assigneeId) ?? 0) + 1);
-      }
-      if (e.type === 'RELEASED' && !to.byManager && typeof from.assigneeId === 'string') {
-        releases.set(from.assigneeId, (releases.get(from.assigneeId) ?? 0) + 1);
-      }
+      if (to.stage === 'ARRIVAL' && typeof to.assigneeId === 'string') lates.set(to.assigneeId, (lates.get(to.assigneeId) ?? 0) + 1);
     }
 
     return employees.map((e) => {
-      const durations = takeovers.get(e.id) ?? [];
       const guard = current.find((r) => r.assigneeId === e.id);
       const a = availability.get(e.id);
       return {
@@ -353,9 +436,7 @@ export class CoverageAdminService {
           : null,
         activeWorkTasks: workTasks.find((w) => w.assigneeId === e.id)?._count._all ?? 0,
         guardsDone: rows.filter((r) => r.assigneeId === e.id && (r.status === 'DONE' || r.status === 'CLOSED')).length,
-        averageTakeoverSeconds: durations.length ? SECONDS(durations.reduce((s, d) => s + d, 0) / durations.length) : null,
         lates: lates.get(e.id) ?? 0,
-        releases: releases.get(e.id) ?? 0,
       };
     });
   }
@@ -369,17 +450,17 @@ export class CoverageAdminService {
       take: 10_000,
     });
     const header = [
-      'Référence', 'Statut', 'Priorité', 'Classe', 'Salle', 'Groupes', 'Demandeur', 'Preneur', 'Enseignant absent',
-      'Création', 'Diffusion', 'Acceptation', 'Départ', 'Présence confirmée', 'Relève', 'Clôture', 'Annulation',
-      'Durée de garde (min)', 'Désistements', 'Prolongations', 'Motif d’annulation',
+      'Référence', 'Statut', 'Source', 'Type', 'Priorité', 'Classe', 'Salle', 'Étage', 'Demandeur', 'Surveillant', 'Enseignant',
+      'Création', 'Assignation', 'Départ', 'Présence confirmée', 'Fin', 'Clôture', 'Annulation',
+      'Durée (min)', 'Prolongations', 'Motif d’annulation',
     ];
     const lines = rows.map((r) => {
       const c = r.coverage!;
       return [
-        r.reference, COVERAGE_STATUS_LABELS[r.status] ?? r.status, r.priority, c.class.name, c.class.room,
-        c.targets.map((t) => t.group.name).join(', '), r.requester.displayName, r.assignee?.displayName, c.absentTeacher,
-        r.createdAt, c.broadcastAt, r.acceptedAt, c.departedAt, c.presenceAt, c.relievedAt, r.closedAt, r.cancelledAt,
-        c.durationMinutes, c.releaseCount, c.extensionCount, c.cancelReason,
+        r.reference, COVERAGE_STATUS_LABELS[r.status] ?? r.status, c.source, c.type, r.priority, c.class.name, c.class.room,
+        c.floor?.name, r.requester.displayName, r.assignee?.displayName, c.teacher?.displayName ?? c.absentTeacher,
+        r.createdAt, r.acceptedAt, c.departedAt, c.presenceAt, c.relievedAt, r.closedAt, r.cancelledAt,
+        c.durationMinutes, c.extensionCount, c.cancelReason,
       ];
     });
     return toCsv(header, lines);

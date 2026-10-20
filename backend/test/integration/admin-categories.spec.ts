@@ -38,7 +38,7 @@ describe('Administration des catégories et réglages', () => {
     superadmin = await loginAs(app, 'superadmin');
     enseignante = await loginAs(app, 'enseignante');
     reprographieId = await userId(prisma, 'reprographie');
-    responsableId = await userId(prisma, 'responsable');
+    responsableId = await userId(prisma, 'admin');
     enseignanteId = await userId(prisma, 'enseignante');
   });
 
@@ -55,7 +55,7 @@ describe('Administration des catégories et réglages', () => {
       expect(photocopies).toMatchObject({
         circuit: 'A_DIRECT',
         recipients: [{ id: reprographieId, displayName: 'Reprographie' }],
-        managers: [{ id: responsableId, displayName: 'Responsable administratif' }],
+        managers: [{ id: responsableId, displayName: 'Admin — surveillante générale' }],
       });
       expect(photocopies.deadlineRules).toHaveLength(4);
     });
@@ -112,7 +112,7 @@ describe('Administration des catégories et réglages', () => {
 
       expect((await send('put', `/api/admin/categories/${id}/managers`, { userIds: [enseignanteId] })).status).toBe(400);
       const managers = await send('put', `/api/admin/categories/${id}/managers`, { userIds: [responsableId] });
-      expect(managers.body.managers).toEqual([{ id: responsableId, displayName: 'Responsable administratif' }]);
+      expect(managers.body.managers).toEqual([{ id: responsableId, displayName: 'Admin — surveillante générale' }]);
     });
 
     it('exige que l’employé désigné en affectation automatique fasse partie des destinataires', async () => {
@@ -120,7 +120,7 @@ describe('Administration des catégories et réglages', () => {
         ...base,
         name: 'Ménage',
         circuit: 'B_ADMIN_VALIDATION',
-        closureMode: 'ADMIN',
+        closureMode: 'MANAGER',
       });
       const id = created.body.id;
       expect((await send('patch', `/api/admin/categories/${id}`, { assignmentMode: 'AUTO', autoAssigneeId: reprographieId })).status).toBe(400);
@@ -154,7 +154,7 @@ describe('Administration des catégories et réglages', () => {
       const current = await api().get('/api/admin/role-permissions').set('Cookie', superadmin);
       expect(current.body).toEqual({
         EMPLOYEE: ['PRIORITY_CHANGE_OWN', 'REQUEST_CREATE'],
-        MANAGER: ['PRIORITY_CHANGE_MANAGED', 'PRIORITY_CHANGE_OWN', 'REQUEST_CREATE', 'REQUEST_REASSIGN'],
+        ADMIN: ['PRIORITY_CHANGE_MANAGED', 'PRIORITY_CHANGE_OWN', 'REQUEST_CREATE', 'REQUEST_REASSIGN'],
       });
       const res = await send('put', '/api/admin/role-permissions', { EMPLOYEE: ['REQUEST_CREATE'], ADMIN: current.body.ADMIN });
       expect(res.status).toBe(200);

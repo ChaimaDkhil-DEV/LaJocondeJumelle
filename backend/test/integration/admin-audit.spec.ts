@@ -19,9 +19,9 @@ describe('Journal d’audit', () => {
     await seedDemo(prisma);
     app = await createTestApp();
     superadmin = await loginAs(app, 'superadmin');
-    await loginAs(app, 'responsable');
-    await api().post('/api/auth/login').set('Origin', TEST_ORIGIN).send({ username: 'responsable', password: 'mauvais' });
-    responsableId = await userId(prisma, 'responsable');
+    await loginAs(app, 'admin');
+    await api().post('/api/auth/login').set('Origin', TEST_ORIGIN).send({ username: 'admin', password: 'mauvais' });
+    responsableId = await userId(prisma, 'admin');
   });
 
   afterAll(async () => {
@@ -36,7 +36,7 @@ describe('Journal d’audit', () => {
     // Certaines entrées n'ont ni cible ni détails (null) : on vérifie la forme exacte.
     expect(Object.keys(res.body.items[0]).sort()).toEqual(['action', 'actor', 'createdAt', 'details', 'id', 'ip', 'targetId', 'targetType']);
     const failure = res.body.items.find((i: { action: string }) => i.action === 'LOGIN_FAILURE');
-    expect(failure.actor).toEqual({ id: responsableId, displayName: 'Responsable administratif' });
+    expect(failure.actor).toEqual({ id: responsableId, displayName: 'Admin — surveillante générale' });
     const dates = res.body.items.map((i: { createdAt: string }) => Date.parse(i.createdAt));
     expect([...dates].sort((a, b) => b - a)).toEqual(dates);
   });
@@ -46,7 +46,7 @@ describe('Journal d’audit', () => {
     expect(byActor.body.items.every((i: { actor: { id: string } }) => i.actor?.id === responsableId)).toBe(true);
     const failures = await api().get('/api/admin/audit?action=LOGIN_FAILURE').set('Cookie', superadmin);
     expect(failures.body.items).toHaveLength(1);
-    expect(failures.body.items[0].details).toMatchObject({ username: 'responsable', reason: 'BAD_PASSWORD' });
+    expect(failures.body.items[0].details).toMatchObject({ username: 'admin', reason: 'BAD_PASSWORD' });
     const future = await api().get('/api/admin/audit?from=2099-01-01').set('Cookie', superadmin);
     expect(future.body.items).toEqual([]);
     expect((await api().get('/api/admin/audit?action=INVENTE').set('Cookie', superadmin)).status).toBe(400);

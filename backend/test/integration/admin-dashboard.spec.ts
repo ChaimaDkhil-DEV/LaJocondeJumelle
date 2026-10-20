@@ -56,7 +56,7 @@ describe('Tableau de bord du super administrateur', () => {
     superadmin = await loginAs(app, 'superadmin');
     enseignante = await loginAs(app, 'enseignante');
     reprographie = await loginAs(app, 'reprographie');
-    responsable = await loginAs(app, 'responsable');
+    responsable = await loginAs(app, 'admin');
     reprographieId = await userId(prisma, 'reprographie');
     enseignanteId = await userId(prisma, 'enseignante');
     photocopies = await categoryId(prisma, CATEGORIES.photocopies);
@@ -161,7 +161,7 @@ describe('Tableau de bord du super administrateur', () => {
       expect((await get('summary?priority=URGENT&priority=NORMAL')).body.counts.total).toBe(5);
       expect((await get(`summary?categoryId=${circuitB}`)).body.counts.total).toBe(0);
       expect((await get(`summary?employeeId=${reprographieId}`)).body.counts.total).toBe(5);
-      const responsableId = await userId(prisma, 'responsable');
+      const responsableId = await userId(prisma, 'admin');
       expect((await get(`summary?employeeId=${responsableId}`)).body.counts.total).toBe(0);
       const past = await get('summary?from=2020-01-01&to=2020-01-31');
       expect(past.body.counts.total).toBe(0);
@@ -279,7 +279,7 @@ describe('Tableau de bord du super administrateur', () => {
     });
 
     it('affiche à zéro les comptes actifs sans demande, sans les super administrateurs ni les comptes désactivés', async () => {
-      const responsableId = await userId(prisma, 'responsable');
+      const responsableId = await userId(prisma, 'admin');
       const superadminId = await userId(prisma, 'superadmin');
       const inactive = await prisma.user.create({ data: { username: `inactif-${randomUUID()}`, displayName: 'Compte désactivé', role: 'EMPLOYEE', active: false, passwordHash: 'x' } });
 
@@ -293,7 +293,7 @@ describe('Tableau de bord du super administrateur', () => {
     });
 
     it('limite les comptes sans activité aux destinataires des catégories filtrées', async () => {
-      const responsableId = await userId(prisma, 'responsable');
+      const responsableId = await userId(prisma, 'admin');
       const listed = ((await get(`employees?categoryId=${photocopies}`)).body.items as Array<{ user: { id: string } }>).map((i) => i.user.id);
       expect(listed).toContain(reprographieId);
       expect(listed).not.toContain(responsableId);

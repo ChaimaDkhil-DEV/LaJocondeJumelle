@@ -80,8 +80,8 @@ describe('Affectation automatique figée à la soumission', () => {
     await seedDemo(prisma);
     app = await createTestApp();
     enseignante = await loginAs(app, 'enseignante');
-    responsable = await loginAs(app, 'responsable');
-    responsableId = await userId(prisma, 'responsable');
+    responsable = await loginAs(app, 'admin');
+    responsableId = await userId(prisma, 'admin');
   });
 
   afterAll(async () => {

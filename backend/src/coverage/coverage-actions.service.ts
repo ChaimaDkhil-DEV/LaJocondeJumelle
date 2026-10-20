@@ -13,33 +13,42 @@ import type { DeadlineState } from '../requests/domain/deadlines';
 import type { RequestContext } from '../requests/requests.service';
 import { SettingsService } from '../settings/settings.service';
 import { CoverageAccessLoader, readCoverageRules } from './coverage-access.loader';
-import { availabilityFor, availableMembers, groupMemberIds, lockEmployee } from './coverage-availability';
+import { availabilityFor, lockEmployee } from './coverage-availability';
+import { adminRecipients, groupFlagsOf, superAdminRecipients } from './coverage-groups';
 import { COVERAGE_INCLUDE, type CoverageRow } from './coverage.mapper';
-import { broadcastDeadline, nextCoverageDeadline } from './domain/coverage-deadlines';
-import { coverageAccess, coverageActors } from './domain/coverage-policy';
+import { nextCoverageDeadline } from './domain/coverage-deadlines';
+import { coverageActors, coverageView, isEligibleAssignee } from './domain/coverage-policy';
+import {
+  reminderChanges,
+  type CoverageTiming,
+  type OpenReminder,
+  type ReminderEvent,
+  type ReminderSettings,
+} from './domain/coverage-reminders';
 import {
   applyCoverageAction,
   isCoverageStatus,
-  OPEN_STATUSES,
+  USER_COVERAGE_ACTIONS,
   type CoverageAction,
   type CoverageContext,
   type CoverageResult,
+  type CoverageStatus,
 } from './domain/coverage-state-machine';
 import { qrKeyFrom, verifyQrToken } from './domain/qr-token';
 
 type Success = Extract<CoverageResult, { ok: true }>;
-type Tx = Prisma.TransactionClient;
+export type Tx = Prisma.TransactionClient;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MINUTE_MS = 60_000;
 
 export interface CoverageActionInput {
-  action: CoverageAction;
+  action: string;
   version?: number;
   reason?: string;
   assigneeId?: string;
-  force?: boolean;
-  groupId?: string;
+  teacherId?: string | null;
+  supportId?: string;
   minutes?: number;
   photoFileId?: string;
   qrToken?: string;
@@ -52,53 +61,45 @@ interface VerifiedProof {
 }
 
 /** Effets à publier après validation de la transaction (rien n'est émis pour une écriture annulée). */
-interface Effects {
+export interface Effects {
   notifications: Notification[];
   updated: Array<{ userIds: string[]; requestId: string; status: string; version: number }>;
-  taken: Array<{ userIds: string[]; requestId: string; takenBy: string }>;
 }
 
-/** Actions de gestion tracées dans le journal d'audit. */
-const AUDITED: readonly CoverageAction[] = ['ASSIGN', 'REASSIGN', 'WIDEN', 'RELEASE_BY_MANAGER', 'VALIDATE', 'CANCEL'];
+/** Actions d'administration tracées dans le journal d'audit. */
+const AUDITED: readonly CoverageAction[] = [
+  'ASSIGN',
+  'REASSIGN',
+  'RELEASE_BY_MANAGER',
+  'VALIDATE',
+  'CANCEL',
+  'SET_TEACHER',
+  'RELEASE_SUPPORT',
+];
 
-/** Limite de débit de « Je prends » : 10 tentatives par minute et par employé. */
-export class AcceptRateLimiter {
-  private readonly hits = new Map<string, number[]>();
+/** Actions de la route `POST /coverage/:id/actions` ; la modification passe par `PATCH …/teacher-request`. */
+const ROUTE_ACTIONS: readonly string[] = USER_COVERAGE_ACTIONS.filter((a) => a !== 'UPDATE');
 
-  constructor(
-    private readonly max = 10,
-    private readonly windowMs = 60_000,
-  ) {}
-
-  allow(userId: string, now = Date.now()): boolean {
-    const recent = (this.hits.get(userId) ?? []).filter((t) => now - t < this.windowMs);
-    if (recent.length >= this.max) {
-      this.hits.set(userId, recent);
-      return false;
-    }
-    recent.push(now);
-    this.hits.set(userId, recent);
-    return true;
-  }
-
-  reset(): void {
-    this.hits.clear();
-  }
-}
+const BEFORE_PRESENCE: readonly CoverageStatus[] = ['ACCEPTED', 'EN_ROUTE', 'LATE'];
+const RELIEF_OPEN: readonly CoverageStatus[] = ['PENDING', 'ACCEPTED', 'EN_ROUTE', 'LATE'];
 
 function fieldError(field: string, message: string): AppException {
   return new AppException('VALIDATION_ERROR', { fields: [{ field, messages: [message] }] }, message);
 }
 
+/** Enseignant auteur d'une demande (seul destinataire « enseignant » des notifications, FR-017a). */
+export function teacherAuthorOf(row: Pick<CoverageRow, 'requesterId' | 'coverage'>): string | null {
+  return row.coverage?.source === 'TEACHER_REQUEST' ? row.requesterId : null;
+}
+
 /**
- * Applique la machine à états des couvertures en base : mise à jour conditionnelle (statut + version)
- * qui garantit qu'un seul employé obtient la garde, historique, preuves, relève en cascade,
- * notifications et temps réel — le tout dans une transaction.
+ * Applique la machine à états des affectations en base, dans une transaction : mise à jour
+ * conditionnelle (statut + version), historique en ajout seul, échéances (CoverageReminder),
+ * renforts, relève en cascade, notifications et temps réel publiés après validation.
  */
 @Injectable()
 export class CoverageActionsService {
   private readonly qrKey: Buffer;
-  readonly limiter = new AcceptRateLimiter();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -107,7 +108,7 @@ export class CoverageActionsService {
     private readonly realtime: RealtimeService,
     private readonly audit: AuditService,
     private readonly settings: SettingsService,
-    @Inject(APP_CONFIG) config: AppConfig,
+    @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {
     this.qrKey = qrKeyFrom(config.sessionSecret);
   }
@@ -121,85 +122,64 @@ export class CoverageActionsService {
   // ---------------------------------------------------------------------------
 
   async perform(user: AuthenticatedUser, id: string, input: CoverageActionInput, ctx: RequestContext): Promise<void> {
-    // Limitation de débit de « Je prends », avant tout autre contrôle.
-    if (input.action === 'ACCEPT' && !this.limiter.allow(user.id)) throw new AppException('RATE_LIMITED');
+    if (!ROUTE_ACTIONS.includes(input.action)) throw new AppException('UNKNOWN_ACTION');
+    const action = input.action as CoverageAction;
     const row = await this.load(this.prisma, id);
-    const facts = row && (await this.access.facts(row, user.id));
-    const access = facts ? coverageAccess(user, facts) : 'none';
-    if (!row || !facts || access === 'none') {
+    const facts = row && (await this.access.facts(row));
+    const viewer = await this.access.viewer(user);
+    if (!row || !facts || !coverageView(viewer, facts)) {
       await this.logDenied(user, id, ctx, 'NOT_VISIBLE');
       throw new AppException('NOT_FOUND');
     }
-    if (access === 'limited') {
-      if (input.action === 'ACCEPT') throw this.alreadyTaken(row.assignee?.displayName);
-      await this.logDenied(user, id, ctx, 'COVERAGE_TAKEN');
-      throw new AppException('NOT_FOUND');
-    }
-    if (input.version !== undefined && input.action !== 'ACCEPT' && input.version !== row.version) {
-      throw new AppException('STATE_CHANGED');
-    }
+    if (input.version !== undefined && input.version !== row.version) throw new AppException('STATE_CHANGED');
 
     const now = new Date();
-    const actors = coverageActors(user, facts);
-    const { context, proof } = await this.buildContext(user, row, input, actors);
-    const result = applyCoverageAction(facts, input.action, context);
+    const { context, proof } = await this.buildContext(user, row, action, input, coverageActors(viewer, facts));
+    const result = applyCoverageAction(facts, action, context);
     if (!result.ok) {
       if (result.code === 'FORBIDDEN') {
-        await this.logDenied(user, id, ctx, `FORBIDDEN_${input.action}`);
+        await this.logDenied(user, id, ctx, `FORBIDDEN_${action}`);
         throw new AppException('FORBIDDEN');
-      }
-      if (result.code === 'INVALID_TRANSITION' && input.action === 'ACCEPT' && row.assigneeId) {
-        throw this.alreadyTaken(row.assignee?.displayName);
       }
       throw new AppException(result.code);
     }
 
-    try {
-      await this.run(async (tx, effects) => {
-        // Prise de garde : verrou par employé puis revérification de la disponibilité dans la transaction,
-        // pour que deux acceptations simultanées du même employé ne puissent pas toutes deux réussir.
-        if (typeof result.assigneeId === 'string' && !result.forced) {
-          await lockEmployee(tx, result.assigneeId);
-          const slot = { startAt: row.coverage!.startAt, plannedEndAt: row.coverage!.plannedEndAt };
-          const again = await availabilityFor(tx, [result.assigneeId], slot, row.id);
-          if (!again.get(result.assigneeId)?.available) throw new AppException('NOT_AVAILABLE');
-        }
-        await this.commit(tx, row, result, { actorId: user.id, now, input, proof, effects });
-        if (AUDITED.includes(input.action)) {
-          await this.audit.log(
-            'COVERAGE_MANAGED',
-            {
-              actorId: user.id,
-              ip: ctx.ip,
-              targetType: 'Request',
-              targetId: row.id,
-              details: {
-                action: input.action,
-                status: result.to,
-                ...(result.reason ? { reason: result.reason } : {}),
-                ...(result.forced ? { forced: true } : {}),
-                ...(result.assigneeId !== undefined
-                  ? { before: { assigneeId: row.assigneeId }, after: { assigneeId: result.assigneeId } }
-                  : {}),
-                ...(input.groupId ? { groupId: input.groupId } : {}),
-              },
-            },
-            tx,
-          );
-        }
-      });
-    } catch (error) {
-      if (error instanceof AppException && error.code === 'STATE_CHANGED' && input.action === 'ACCEPT') {
-        // Course perdue : un autre employé a été plus rapide.
-        const fresh = await this.load(this.prisma, id);
-        if (fresh?.assigneeId && fresh.assigneeId !== user.id) throw this.alreadyTaken(fresh.assignee?.displayName);
+    await this.run(async (tx, effects) => {
+      // Assignation : verrou par surveillant puis revérification de la disponibilité dans la
+      // transaction, pour que deux assignations simultanées du même surveillant ne réussissent pas toutes deux.
+      const target = typeof result.assigneeId === 'string' ? result.assigneeId : result.reliefAssigneeId;
+      if (target && action !== 'ATTACH_DECLARATION') {
+        await lockEmployee(tx, target);
+        const again = await availabilityFor(tx, [target], this.slot(row), row.id);
+        if (!again.get(target)?.available) throw new AppException('NOT_AVAILABLE');
       }
-      throw error;
-    }
+      await this.commit(tx, row, result, { actorId: user.id, now, input, proof, effects });
+      if (AUDITED.includes(action)) {
+        await this.audit.log(
+          'COVERAGE_MANAGED',
+          {
+            actorId: user.id,
+            ip: ctx.ip,
+            targetType: 'Request',
+            targetId: row.id,
+            details: {
+              action,
+              status: result.to,
+              ...(result.assigneeId !== undefined
+                ? { before: { assigneeId: row.assigneeId }, after: { assigneeId: result.assigneeId } }
+                : {}),
+              ...(result.reliefAssigneeId ? { reliefAssigneeId: result.reliefAssigneeId } : {}),
+              ...(input.supportId ? { supportId: input.supportId } : {}),
+            },
+          },
+          tx,
+        );
+      }
+    });
   }
 
   // ---------------------------------------------------------------------------
-  // Actions du système (tâche de délais)
+  // Actions du système (jobs, relève en cascade)
   // ---------------------------------------------------------------------------
 
   /** Applique une action système dans une transaction déjà ouverte ; false si elle n'est plus applicable. */
@@ -208,24 +188,24 @@ export class CoverageActionsService {
     requestId: string,
     action: CoverageAction,
     effects: Effects,
-    reason?: string,
+    opts: { reason?: string; now?: Date; assigneeId?: string } = {},
   ): Promise<boolean> {
     const row = await this.load(tx, requestId);
     if (!row || !isCoverageStatus(row.status)) return false;
     const rules = readCoverageRules(row);
-    const result = applyCoverageAction(
-      { status: row.status, assigneeId: row.assigneeId, rules },
-      action,
-      { actors: ['SYSTEM'], reason },
-    );
+    const result = applyCoverageAction({ status: row.status, assigneeId: row.assigneeId, rules }, action, {
+      actors: ['SYSTEM'],
+      reason: opts.reason,
+      assigneeId: opts.assigneeId,
+    });
     if (!result.ok) return false;
-    await this.commit(tx, row, result, { actorId: null, now: new Date(), effects });
+    await this.commit(tx, row, result, { actorId: null, now: opts.now ?? new Date(), effects });
     return true;
   }
 
   /** Exécute `fn` dans une transaction puis publie notifications et événements temps réel. */
   async run<T>(fn: (tx: Tx, effects: Effects) => Promise<T>): Promise<T> {
-    const effects: Effects = { notifications: [], updated: [], taken: [] };
+    const effects: Effects = { notifications: [], updated: [] };
     const value = await this.prisma.$transaction((tx) => fn(tx, effects), { timeout: 15_000 });
     await this.publish(effects);
     return value;
@@ -236,26 +216,56 @@ export class CoverageActionsService {
     for (const u of effects.updated) {
       this.realtime.emitToUsers(u.userIds, 'coverage:updated', { requestId: u.requestId, status: u.status, version: u.version });
     }
-    for (const t of effects.taken) {
-      this.realtime.emitToUsers(t.userIds, 'coverage:taken', { requestId: t.requestId, takenBy: t.takenBy });
-    }
   }
 
-  /** Diffusion d'une nouvelle couverture (création ou demande de relève) : notifie le groupe disponible. */
-  async broadcastInTx(tx: Tx, requestId: string, actorId: string | null, effects: Effects): Promise<number> {
-    const row = await this.load(tx, requestId);
-    if (!row) return 0;
-    const groupIds = row.coverage!.targets.map((t) => t.groupId);
-    const recipients = await availableMembers(tx, groupIds, this.slot(row), row.id);
-    effects.notifications.push(
-      ...(await this.notifications.notifyInTx(tx, recipients, actorId, {
-        type: 'COVERAGE_NEW',
-        requestId: row.id,
-        priority: row.priority,
-      })),
-    );
-    await this.pushUpdate(tx, row, row.status, row.version, effects, []);
-    return recipients.filter((id) => id !== actorId).length;
+  /** Notification dans la transaction (jamais à l'auteur de l'action). */
+  async notify(
+    tx: Tx,
+    effects: Effects,
+    users: ReadonlyArray<string | null | undefined>,
+    actorId: string | null,
+    type: NotificationType,
+    requestId: string,
+    priority: Priority,
+  ): Promise<void> {
+    effects.notifications.push(...(await this.notifications.notifyInTx(tx, users, actorId, { type, requestId, priority })));
+  }
+
+  // ---------------------------------------------------------------------------
+  // Échéances (CoverageReminder)
+  // ---------------------------------------------------------------------------
+
+  async reminderSettings(row: Pick<CoverageRow, 'rulesSnapshot'>): Promise<ReminderSettings> {
+    const s = await this.settings.getAll();
+    return {
+      timezone: this.config.schoolTimezone,
+      takeoverMinutes: readCoverageRules(row).takeoverMinutes ?? 2,
+      urgencyThresholdMinutes: s.coverageUrgencyThresholdMinutes,
+      escalationMinutes: s.coverageEscalationMinutes,
+      morningReminderTime: s.coverageMorningReminderTime,
+      closeReminderMinutes: s.coverageCloseReminderMinutes,
+      closeEscalationMinutes: s.coverageCloseEscalationMinutes,
+      supportReminderMinutes: s.coverageSupportReminderMinutes,
+      supportReminderMax: s.coverageSupportReminderMax,
+    };
+  }
+
+  /** Crée, recalcule ou résout les échéances d'une affectation après un changement (même transaction). */
+  async applyReminders(
+    tx: Tx,
+    row: Pick<CoverageRow, 'id' | 'rulesSnapshot'>,
+    event: ReminderEvent,
+    timing: CoverageTiming,
+    now: Date,
+  ): Promise<void> {
+    const open = await tx.coverageReminder.findMany({ where: { requestId: row.id, resolvedAt: null } });
+    const changes = reminderChanges(event, timing, open.map(toOpenReminder), now, await this.reminderSettings(row));
+    for (const r of changes.resolve) {
+      await tx.coverageReminder.update({ where: { id: r.id }, data: { resolvedAt: now, resolution: r.resolution } });
+    }
+    if (changes.create.length > 0) {
+      await tx.coverageReminder.createMany({ data: changes.create.map((plan) => ({ requestId: row.id, ...plan })) });
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -281,14 +291,7 @@ export class CoverageActionsService {
     const deadline =
       action === 'EXPIRE'
         ? { ...previousDeadline, overdueStage: row.currentStage } // marqueur persisté : une seule alerte par étape
-        : nextCoverageDeadline(
-            previousDeadline,
-            result.steps,
-            rules,
-            coverage.startAt,
-            now,
-            await this.settings.get('deadlineWarnPercent'),
-          );
+        : nextCoverageDeadline(previousDeadline, result.steps, rules, coverage.startAt, now, await this.settings.get('deadlineWarnPercent'));
 
     const data: Prisma.RequestUncheckedUpdateManyInput = { status: result.to, ...deadline, version: { increment: 1 } };
     if (result.assigneeId !== undefined) data.assigneeId = result.assigneeId;
@@ -307,19 +310,15 @@ export class CoverageActionsService {
     const { count } = await tx.request.updateMany({ where, data });
     if (count === 0) throw new AppException('STATE_CHANGED');
 
-    // Détail de la couverture : horodatages serveur et compteurs.
+    // Détail de l'affectation : horodatages serveur et compteurs.
     const coverageData: Prisma.CoverageDetailUncheckedUpdateInput = {};
     let plannedEndAt = coverage.plannedEndAt;
     switch (action) {
       case 'DEPART':
         coverageData.departedAt = now;
         break;
-      case 'RELEASE':
-        coverageData.releaseCount = { increment: 1 };
-        coverageData.departedAt = null;
-        break;
       case 'REASSIGN':
-        coverageData.departedAt = null;
+        if (BEFORE_PRESENCE.includes(result.from)) coverageData.departedAt = null;
         break;
       case 'EXTEND': {
         const base = coverage.plannedEndAt ?? now;
@@ -330,13 +329,18 @@ export class CoverageActionsService {
         break;
       }
       case 'CANCEL':
+      case 'WITHDRAW':
         coverageData.cancelReason = result.reason ?? null;
+        break;
+      case 'SET_TEACHER':
+        coverageData.teacherId = input?.teacherId ?? null;
         break;
       default:
         break;
     }
     if (result.to === 'ON_DUTY' && result.from !== 'ON_DUTY' && !coverage.presenceAt) coverageData.presenceAt = now;
-    if (result.steps.some((s) => s.to === 'DONE')) {
+    const done = result.steps.some((s) => s.to === 'DONE');
+    if (done) {
       coverageData.relievedAt = now;
       coverageData.durationMinutes = coverage.presenceAt
         ? Math.max(0, Math.round((now.getTime() - coverage.presenceAt.getTime()) / MINUTE_MS))
@@ -346,7 +350,7 @@ export class CoverageActionsService {
       await tx.coverageDetail.update({ where: { requestId: row.id }, data: coverageData });
     }
 
-    // Historique (ajout seul).
+    // Historique (ajout seul ; jamais de nom ni de motif d'enseignant dans les valeurs, R5).
     const event = (type: Prisma.RequestEventCreateManyInput['type'], extra: Partial<Prisma.RequestEventCreateManyInput> = {}) =>
       tx.requestEvent.create({ data: { requestId: row.id, actorId, type, ...extra } });
 
@@ -359,24 +363,19 @@ export class CoverageActionsService {
           type: 'STATUS_CHANGED',
           fromValue: { status: step.from },
           toValue: { status: step.to },
-          comment: index === 0 && action !== 'RELEASE' && action !== 'REQUEST_RELIEF' && action !== 'RELEASE_BY_MANAGER'
-            ? (result.reason ?? null)
-            : null,
+          comment:
+            index === 0 && action !== 'REQUEST_RELIEF' && action !== 'RELEASE_BY_MANAGER' ? (result.reason ?? null) : null,
         },
       });
     }
     if (typeof result.assigneeId === 'string') {
       await event(action === 'REASSIGN' ? 'REASSIGNED' : 'ASSIGNED', {
         fromValue: row.assigneeId ? { assigneeId: row.assigneeId } : undefined,
-        toValue: { assigneeId: result.assigneeId, ...(action === 'ACCEPT' ? { selfAccepted: true } : {}), ...(result.forced ? { forced: true } : {}) },
+        toValue: { assigneeId: result.assigneeId },
       });
     }
-    if (action === 'RELEASE' || action === 'RELEASE_BY_MANAGER') {
-      await event('RELEASED', {
-        fromValue: { assigneeId: row.assigneeId },
-        toValue: { byManager: action === 'RELEASE_BY_MANAGER' },
-        comment: result.reason ?? null,
-      });
+    if (action === 'RELEASE_BY_MANAGER') {
+      await event('RELEASED', { fromValue: { assigneeId: row.assigneeId }, toValue: { byManager: true }, comment: result.reason ?? null });
     }
     if (action === 'EXTEND') {
       await event('EXTENDED', {
@@ -387,24 +386,14 @@ export class CoverageActionsService {
     if (action === 'EXPIRE') {
       await event('OVERDUE', { toValue: { stage: row.currentStage, ...(row.assigneeId ? { assigneeId: row.assigneeId } : {}) } });
     }
-
-    let groupIds = coverage.targets.map((t) => t.groupId);
-    let addedGroupIds: string[] = [];
-    if (action === 'WIDEN' && input?.groupId) {
-      await tx.coverageTarget.create({ data: { requestId: row.id, groupId: input.groupId } });
-      const group = await tx.employeeGroup.findUnique({ where: { id: input.groupId }, select: { name: true } });
-      await event('GROUP_ADDED', { toValue: { groupId: input.groupId, groupName: group?.name ?? null } });
-      addedGroupIds = [input.groupId];
-      groupIds = [...groupIds, input.groupId];
+    if (action === 'SET_TEACHER') {
+      await event('TEACHER_SET', { fromValue: { teacherId: coverage.teacherId }, toValue: { teacherId: input?.teacherId ?? null } });
     }
 
     if (action === 'CONFIRM_PRESENCE' && opts.proof && actorId) {
       const methods: Array<'PHOTO' | 'QR'> = [];
       if (opts.proof.photoFileId) {
-        await tx.file.update({
-          where: { id: opts.proof.photoFileId },
-          data: { requestId: row.id, isCompletionProof: true },
-        });
+        await tx.file.update({ where: { id: opts.proof.photoFileId }, data: { requestId: row.id, isCompletionProof: true } });
         await tx.coveragePresence.create({
           data: { requestId: row.id, userId: actorId, method: 'PHOTO', fileId: opts.proof.photoFileId, createdAt: now },
         });
@@ -417,90 +406,102 @@ export class CoverageActionsService {
       await event('PRESENCE_CONFIRMED', { toValue: { methods } });
     }
 
-    let reliefRequestId: string | null = null;
-    if (action === 'REQUEST_RELIEF') {
-      reliefRequestId = await this.createRelief(tx, row, now, actorId, result.reason ?? '');
-      await event('RELIEF_REQUESTED', { toValue: { reliefRequestId }, comment: result.reason ?? null });
+    // Renforts : libération par l'admin, ou de tous à la fin et à l'annulation (FR-015i).
+    const released: string[] = [];
+    if (action === 'RELEASE_SUPPORT' && input?.supportId) released.push(input.supportId);
+    if (done || result.to === 'CANCELLED') released.push(...row.supports.map((s) => s.id));
+    for (const supportId of released) {
+      const support = row.supports.find((s) => s.id === supportId);
+      await tx.coverageSupport.update({
+        where: { id: supportId },
+        data: { releasedAt: now, releasedById: action === 'RELEASE_SUPPORT' || action === 'CANCEL' ? actorId : null },
+      });
+      await event('SUPPORT_RELEASED', { toValue: { supportId, userId: support?.user.id ?? null } });
     }
 
-    const after = await tx.request.findUniqueOrThrow({ where: { id: row.id }, select: { version: true, assigneeId: true, priority: true } });
+    let reliefRequestId: string | null = null;
+    if (action === 'REQUEST_RELIEF') {
+      reliefRequestId = await this.createRelief(tx, row, now, actorId, result.reason ?? '', null, effects);
+      await event('RELIEF_REQUESTED', { toValue: { reliefRequestId }, comment: result.reason ?? null });
+    }
+    if (action === 'REASSIGN' && result.reliefAssigneeId) {
+      // Sur site : relève assignée au nouveau surveillant ; l'ancien est libéré à sa présence (FR-008j).
+      reliefRequestId = await this.createRelief(tx, row, now, actorId, result.reason ?? '', result.reliefAssigneeId, effects);
+      await event('REASSIGNED', {
+        fromValue: { assigneeId: row.assigneeId },
+        toValue: { assigneeId: result.reliefAssigneeId, reliefRequestId },
+      });
+    }
 
-    // Notifications (jamais à l'auteur de l'action ; uniquement à des personnes qui ont accès à la demande).
-    const managers = await this.managersOf(tx, row);
-    const superAdmins = await this.superAdmins(tx);
-    const send = async (users: Array<string | null | undefined>, type: NotificationType, priority: Priority = row.priority) => {
-      effects.notifications.push(
-        ...(await this.notifications.notifyInTx(tx, users, actorId, { type, requestId: row.id, priority })),
-      );
+    const after = await tx.request.findUniqueOrThrow({ where: { id: row.id }, select: { version: true, assigneeId: true } });
+
+    // Échéances, dans la même transaction que la transition.
+    const timing: CoverageTiming = {
+      status: result.to,
+      source: coverage.source,
+      startAt: coverage.startAt,
+      plannedEndAt,
+      assigneeId: after.assigneeId,
     };
-    const assignee = typeof result.assigneeId === 'string' ? result.assigneeId : row.assigneeId;
-    const slot = { startAt: coverage.startAt, plannedEndAt };
+    if (action === 'RELEASE_SUPPORT' && input?.supportId) {
+      await this.applyReminders(tx, row, { type: 'SUPPORT_RELEASED', supportId: input.supportId }, timing, now);
+    } else {
+      await this.applyReminders(tx, row, { type: 'TRANSITION', action }, timing, now);
+    }
+
+    // Notifications (contracts/realtime-events.md ; jamais à l'auteur de l'action).
+    const send = (users: Array<string | null | undefined>, type: NotificationType, priority: Priority = row.priority) =>
+      this.notify(tx, effects, users, actorId, type, row.id, priority);
+    const admins = await adminRecipients(tx);
+    const superAdmins = await superAdminRecipients(tx);
+    const teacher = teacherAuthorOf(row);
 
     switch (action) {
-      case 'ACCEPT':
       case 'ASSIGN':
-      case 'REASSIGN': {
-        await send(managers, 'COVERAGE_ACCEPTED');
-        if (action !== 'ACCEPT') await send([assignee], 'ASSIGNED');
-        if (action === 'REASSIGN') await send([row.assigneeId], 'COVERAGE_RELEASED');
-        if (OPEN_STATUSES.includes(result.from)) {
-          // Les membres déjà prévenus apprennent que la garde est prise (sans autre détail).
-          const notified = await this.notifiedUsers(tx, row.id);
-          const others = notified.filter((id) => id !== assignee && !managers.includes(id));
-          await send(others, 'COVERAGE_TAKEN');
-          const takenBy = await tx.user.findUnique({ where: { id: assignee! }, select: { displayName: true } });
-          const members = await groupMemberIds(tx, groupIds);
-          effects.taken.push({
-            userIds: members.filter((id) => id !== assignee),
-            requestId: row.id,
-            takenBy: takenBy?.displayName ?? '',
-          });
+      case 'ATTACH_DECLARATION':
+        await send([after.assigneeId, teacher], 'ASSIGNED');
+        break;
+      case 'REASSIGN':
+        if (typeof result.assigneeId === 'string') {
+          await send([result.assigneeId, teacher], 'ASSIGNED');
+          await send([row.assigneeId], 'COVERAGE_LIFTED');
         }
         break;
-      }
-      case 'WIDEN': {
-        const recipients = await availableMembers(tx, addedGroupIds, slot, row.id);
-        await send(recipients, 'COVERAGE_NEW');
-        break;
-      }
       case 'CONFIRM_PRESENCE':
-        if (result.from !== result.to) await send([...managers, ...superAdmins], 'COVERAGE_PRESENCE');
+        if (result.from !== result.to) await send(admins, 'COVERAGE_PRESENCE');
         break;
-      case 'RELEASE': {
-        await send([...managers, ...superAdmins], 'COVERAGE_RELEASED');
-        const recipients = await availableMembers(tx, groupIds, slot, row.id);
-        await send(recipients.filter((id) => id !== row.assigneeId), 'COVERAGE_NEW');
-        break;
-      }
       case 'REQUEST_RELIEF':
-        await send([...managers, ...superAdmins], 'COVERAGE_RELIEF_REQUESTED', 'URGENT');
+        await send([...admins, ...superAdmins], 'COVERAGE_RELIEF_REQUESTED', 'URGENT');
         break;
       case 'RELEASE_BY_MANAGER':
-        await send([row.assigneeId, ...managers, ...superAdmins], 'COVERAGE_RELIEVED');
+        await send([row.assigneeId, ...admins, ...superAdmins], 'COVERAGE_RELIEVED');
         break;
       case 'RELIEVE':
-        await send([row.assigneeId, ...managers], 'COVERAGE_RELIEVED');
+        await send([row.assigneeId, ...admins], 'COVERAGE_RELIEVED');
         break;
       case 'EXTEND':
-        await send([row.assigneeId, ...managers], 'COVERAGE_EXTENDED');
+        await send([row.assigneeId, ...admins], 'COVERAGE_EXTENDED');
         break;
       case 'VALIDATE':
         await send([row.assigneeId], 'CLOSED');
         break;
-      case 'CANCEL': {
-        // Tous les notifiés sont prévenus, et l'employé qui avait accepté est libéré.
-        const notified = await this.notifiedUsers(tx, row.id);
-        await send([...notified, row.assigneeId, ...managers], 'CANCELLED');
+      case 'CANCEL':
+        await send([teacher], 'CANCELLED');
+        await send([row.assigneeId], 'COVERAGE_LIFTED');
+        break;
+      case 'WITHDRAW':
+        await send(admins, 'CANCELLED');
+        break;
+      case 'RELEASE_SUPPORT': {
+        const support = row.supports.find((s) => s.id === input?.supportId);
+        await send([support?.user.id], 'COVERAGE_LIFTED');
         break;
       }
       case 'EXPIRE':
-        if (result.to === 'UNFILLED') {
-          await send([...managers, ...superAdmins], 'COVERAGE_UNFILLED');
-          // Relance du groupe.
-          await send(await availableMembers(tx, groupIds, slot, row.id), 'COVERAGE_NEW');
-        } else {
-          await send([...managers, ...superAdmins, row.assigneeId], 'COVERAGE_LATE');
-        }
+        await send([...admins, ...superAdmins, row.assigneeId], 'COVERAGE_LATE');
+        break;
+      case 'EXPIRE_UNFILLED':
+        await send([...admins, teacher], 'COVERAGE_UNFILLED');
         break;
       case 'RELIEF_ABANDONED':
         await send([row.assigneeId], 'STATUS_CHANGED');
@@ -508,40 +509,53 @@ export class CoverageActionsService {
       default:
         break;
     }
+    if (result.to === 'CANCELLED' || done) {
+      const supportUsers = row.supports.map((s) => s.user.id);
+      if (action !== 'RELEASE_SUPPORT') await send(supportUsers, 'COVERAGE_LIFTED');
+    }
 
-    await this.pushUpdate(tx, row, result.to, after.version, effects, [row.assigneeId, after.assigneeId], groupIds);
+    await this.pushUpdate(tx, row, result.to, after.version, effects, [row.assigneeId, after.assigneeId]);
 
     // Relève en cascade, dans la même transaction.
-    if (reliefRequestId) {
-      await this.broadcastInTx(tx, reliefRequestId, actorId, effects);
-    }
     if (result.to === 'ON_DUTY' && result.from !== 'ON_DUTY' && coverage.reliefForId) {
-      // Le remplaçant a confirmé sa présence : le premier employé est relevé automatiquement.
-      await this.performSystemInTx(tx, coverage.reliefForId, 'RELIEVE', effects);
+      // Le remplaçant a confirmé sa présence : le premier surveillant est relevé automatiquement.
+      await this.performSystemInTx(tx, coverage.reliefForId, 'RELIEVE', effects, { now });
     }
-    if (result.steps.some((s) => s.to === 'DONE')) {
+    if (done) {
       const pending = await tx.coverageDetail.findMany({
-        where: { reliefForId: row.id, request: { status: { in: ['BROADCAST', 'UNFILLED', 'ACCEPTED', 'EN_ROUTE', 'LATE'] } } },
+        where: { reliefForId: row.id, request: { status: { in: [...RELIEF_OPEN] } } },
         select: { requestId: true },
       });
       for (const child of pending) {
-        await this.performSystemInTx(tx, child.requestId, 'CANCEL', effects, 'Garde d’origine terminée : relève annulée.');
+        await this.performSystemInTx(tx, child.requestId, 'CANCEL', effects, {
+          reason: 'Affectation d’origine terminée : relève annulée.',
+          now,
+        });
       }
     }
-    if (action === 'CANCEL' && coverage.reliefForId) {
-      // Relève annulée : la garde d'origine redevient une garde normale (l'employé reste responsable).
-      await this.performSystemInTx(tx, coverage.reliefForId, 'RELIEF_ABANDONED', effects);
+    if (result.to === 'CANCELLED' && coverage.reliefForId) {
+      // Relève annulée : l'affectation d'origine redevient « en cours » (le surveillant reste responsable).
+      await this.performSystemInTx(tx, coverage.reliefForId, 'RELIEF_ABANDONED', effects, { now });
     }
   }
 
-  /** Demande de relève urgente liée à la même classe et aux mêmes groupes. */
-  private async createRelief(tx: Tx, row: CoverageRow, now: Date, actorId: string | null, reason: string): Promise<string> {
+  /**
+   * Relève liée à la même classe : « en attente » d'assignation par l'admin (demande de relève), ou
+   * déjà assignée au surveillant désigné (réassignation sur site, FR-008j).
+   */
+  private async createRelief(
+    tx: Tx,
+    row: CoverageRow,
+    now: Date,
+    actorId: string | null,
+    reason: string,
+    assigneeId: string | null,
+    effects: Effects,
+  ): Promise<string> {
     const coverage = row.coverage!;
     const [{ n }] = await tx.$queryRaw<Array<{ n: number }>>`
       SELECT nextval(pg_get_serial_sequence('"Request"', 'number'))::int AS n`;
-    const remaining = coverage.plannedEndAt
-      ? Math.max(5, Math.round((coverage.plannedEndAt.getTime() - now.getTime()) / MINUTE_MS))
-      : null;
+    const plannedEndAt = coverage.plannedEndAt && coverage.plannedEndAt > now ? coverage.plannedEndAt : null;
     const rules = readCoverageRules(row);
     const urgentRule = await tx.deadlineRule.findUnique({
       where: { categoryId_priority: { categoryId: row.categoryId, priority: 'URGENT' } },
@@ -551,8 +565,17 @@ export class CoverageActionsService {
       takeoverMinutes: urgentRule?.takeoverMinutes ?? rules.takeoverMinutes,
       arrivalMinutes: urgentRule?.arrivalMinutes ?? rules.arrivalMinutes,
     };
-    // La demande de relève est diffusée immédiatement : le délai de prise en charge démarre.
-    const deadline = broadcastDeadline(snapshot, now, await this.settings.get('deadlineWarnPercent'));
+    const status: CoverageStatus = assigneeId ? 'ACCEPTED' : 'PENDING';
+    const deadline = assigneeId
+      ? nextCoverageDeadline(
+          { currentStage: null, currentDueAt: null, warnAt: null, overdueStage: null },
+          [{ from: 'PENDING', to: 'ACCEPTED', action: 'ASSIGN', actor: 'ADMIN' }],
+          snapshot,
+          now,
+          now,
+          await this.settings.get('deadlineWarnPercent'),
+        )
+      : {};
     const child = await tx.request.create({
       data: {
         kind: 'COVERAGE',
@@ -560,90 +583,90 @@ export class CoverageActionsService {
         reference: formatCoverageReference(n, now),
         clientId: randomUUID(),
         title: `Relève — ${coverage.class.name}`.slice(0, 120),
-        description: `Relève demandée : ${reason}`.slice(0, 4000),
+        description: reason ? `Relève demandée : ${reason}`.slice(0, 4000) : null,
         categoryId: row.categoryId,
         priority: 'URGENT',
-        requesterId: row.requesterId,
-        status: 'BROADCAST',
+        requesterId: actorId ?? row.requesterId,
+        assigneeId,
+        status,
         rulesSnapshot: snapshot as unknown as Prisma.InputJsonValue,
         createdAt: now,
         submittedAt: now,
+        ...(assigneeId ? { assignedAt: now, acceptedAt: now } : {}),
         ...deadline,
         coverage: {
           create: {
             classId: coverage.classId,
+            floorId: coverage.floorId,
+            source: 'ADMIN_DIRECT',
+            type: coverage.type,
+            teacherId: coverage.teacherId,
             absentTeacher: coverage.absentTeacher,
             startAt: now,
-            estimatedMinutes: remaining,
-            plannedEndAt: remaining ? new Date(now.getTime() + remaining * MINUTE_MS) : null,
-            broadcastAt: now,
+            plannedEndAt,
+            estimatedMinutes: plannedEndAt ? Math.max(1, Math.round((plannedEndAt.getTime() - now.getTime()) / MINUTE_MS)) : null,
             reliefForId: row.id,
-            targets: { create: coverage.targets.map((t) => ({ groupId: t.groupId })) },
           },
         },
       },
     });
     await tx.requestEvent.create({
-      data: {
-        requestId: child.id,
-        actorId,
-        type: 'CREATED',
-        toValue: { title: child.title, priority: child.priority, reliefForId: row.id },
-        comment: reason,
-      },
+      data: { requestId: child.id, actorId, type: 'CREATED', toValue: { title: child.title, priority: child.priority, reliefForId: row.id } },
     });
     await tx.requestEvent.create({
-      data: { requestId: child.id, actorId, type: 'STATUS_CHANGED', fromValue: Prisma.JsonNull, toValue: { status: 'BROADCAST' } },
+      data: { requestId: child.id, actorId, type: 'STATUS_CHANGED', fromValue: Prisma.JsonNull, toValue: { status } },
     });
+    if (assigneeId) {
+      await tx.requestEvent.create({ data: { requestId: child.id, actorId, type: 'ASSIGNED', toValue: { assigneeId } } });
+    }
+    await this.applyReminders(
+      tx,
+      child,
+      { type: 'CREATED' },
+      { status, source: 'ADMIN_DIRECT', startAt: now, plannedEndAt, assigneeId },
+      now,
+    );
+    if (assigneeId) {
+      await this.notify(tx, effects, [assigneeId, teacherAuthorOf(row)], actorId, 'ASSIGNED', child.id, 'URGENT');
+    }
     return child.id;
   }
 
   // ---------------------------------------------------------------------------
-  // Contexte de l'action (disponibilité, preuves, groupe)
+  // Contexte de l'action (assignation, enseignant, renfort, preuves)
   // ---------------------------------------------------------------------------
 
   private async buildContext(
     user: AuthenticatedUser,
     row: CoverageRow,
+    action: CoverageAction,
     input: CoverageActionInput,
     actors: CoverageContext['actors'],
   ): Promise<{ context: CoverageContext; proof?: VerifiedProof }> {
-    const context: CoverageContext = {
-      actors,
-      userId: user.id,
-      reason: input.reason,
-      minutes: input.minutes,
-      force: input.force === true,
-    };
-    const slot = this.slot(row);
+    const context: CoverageContext = { actors, userId: user.id, reason: input.reason, minutes: input.minutes };
 
-    if (input.action === 'ACCEPT') {
-      const availability = await availabilityFor(this.prisma, [user.id], slot, row.id);
-      context.available = availability.get(user.id)?.available ?? false;
-    }
-    if ((input.action === 'ASSIGN' || input.action === 'REASSIGN') && input.assigneeId) {
-      const candidate = await this.prisma.user.findUnique({
-        where: { id: input.assigneeId },
-        select: { id: true, active: true, role: true },
-      });
+    if ((action === 'ASSIGN' || action === 'REASSIGN') && input.assigneeId) {
+      const candidate = await this.prisma.user.findUnique({ where: { id: input.assigneeId }, select: { id: true, active: true } });
+      const flags = candidate ? await groupFlagsOf(this.prisma, candidate.id) : null;
       context.assigneeId = input.assigneeId;
-      context.assigneeEligible = candidate !== null && candidate.active && candidate.role === 'EMPLOYEE';
-      const availability = await availabilityFor(this.prisma, [input.assigneeId], slot, row.id);
+      context.assigneeEligible = candidate !== null && isEligibleAssignee({ active: candidate.active, ...flags! });
+      const availability = await availabilityFor(this.prisma, [input.assigneeId], this.slot(row), row.id);
       context.available = availability.get(input.assigneeId)?.available ?? false;
     }
-    if (input.action === 'WIDEN') {
-      const group = input.groupId
-        ? await this.prisma.employeeGroup.findUnique({ where: { id: input.groupId }, select: { id: true, active: true } })
-        : null;
-      if (!group || !group.active) throw fieldError('groupId', 'Groupe introuvable ou désactivé.');
-      if (row.coverage!.targets.some((t) => t.groupId === group.id)) {
-        throw fieldError('groupId', 'Ce groupe est déjà ciblé par la demande.');
+    if (action === 'SET_TEACHER') {
+      if (input.teacherId === undefined) throw fieldError('teacherId', 'Choisissez l’enseignant concerné, ou « non précisé ».');
+      if (input.teacherId !== null) {
+        const teacher = await this.prisma.user.findUnique({ where: { id: input.teacherId }, select: { active: true } });
+        const flags = teacher ? await groupFlagsOf(this.prisma, input.teacherId) : null;
+        if (!teacher || !flags?.isTeacher) throw fieldError('teacherId', 'Cet enseignant n’appartient pas au groupe Enseignants.');
       }
-      context.groupAdded = true;
+    }
+    if (action === 'RELEASE_SUPPORT' && !row.supports.some((s) => s.id === input.supportId)) {
+      throw fieldError('supportId', 'Ce renfort est introuvable ou déjà libéré.');
     }
 
     let proof: VerifiedProof | undefined;
-    if (input.action === 'CONFIRM_PRESENCE') {
+    if (action === 'CONFIRM_PRESENCE') {
       proof = { photoFileId: null, qr: false };
       if (input.photoFileId) proof.photoFileId = await this.verifyPhoto(user, input.photoFileId);
       if (input.qrToken !== undefined) {
@@ -655,7 +678,7 @@ export class CoverageActionsService {
     return { context, proof };
   }
 
-  /** Photo de présence : fichier PHOTO provisoire téléversé par l'employé lui-même (déjà validé et nettoyé de l'EXIF). */
+  /** Photo de présence : fichier PHOTO provisoire téléversé par le surveillant lui-même (déjà validé et nettoyé de l'EXIF). */
   private async verifyPhoto(user: AuthenticatedUser, fileId: string): Promise<string> {
     const file = UUID.test(fileId) ? await this.prisma.file.findUnique({ where: { id: fileId } }) : null;
     if (!file || file.kind !== 'PHOTO' || file.uploaderId !== user.id || file.requestId !== null) {
@@ -664,7 +687,7 @@ export class CoverageActionsService {
     return file.id;
   }
 
-  /** QR : signature, version en cours (non révoquée) et classe de la garde. */
+  /** QR : signature, version en cours (non révoquée) et classe de l'affectation. */
   async verifyQr(token: string, expectedClassId: string): Promise<void> {
     const parsed = verifyQrToken(this.qrKey, token);
     if (!parsed) throw new AppException('QR_INVALID');
@@ -682,56 +705,32 @@ export class CoverageActionsService {
     return db.request.findFirst({ where: { id, kind: 'COVERAGE' }, include: COVERAGE_INCLUDE });
   }
 
-  private slot(row: CoverageRow) {
+  slot(row: CoverageRow) {
     return { startAt: row.coverage!.startAt, plannedEndAt: row.coverage!.plannedEndAt };
   }
 
-  /** Responsables de la catégorie et auteur de la demande. */
-  private async managersOf(tx: Tx, row: Pick<CoverageRow, 'categoryId' | 'requesterId'>): Promise<string[]> {
-    const managers = await tx.categoryManager.findMany({ where: { categoryId: row.categoryId }, select: { userId: true } });
-    return [...new Set([row.requesterId, ...managers.map((m) => m.userId)])];
-  }
-
-  private async superAdmins(tx: Tx): Promise<string[]> {
-    const rows = await tx.user.findMany({ where: { role: 'SUPER_ADMIN', active: true }, select: { id: true } });
-    return rows.map((r) => r.id);
-  }
-
-  /** Utilisateurs déjà notifiés pour cette demande. */
-  private async notifiedUsers(tx: Tx, requestId: string): Promise<string[]> {
-    const rows = await tx.notification.findMany({ where: { requestId }, distinct: ['userId'], select: { userId: true } });
-    return rows.map((r) => r.userId);
-  }
-
   /** Les lecteurs rafraîchissent listes et détail (charge utile : identifiants seulement). */
-  private async pushUpdate(
+  async pushUpdate(
     tx: Tx,
     row: CoverageRow,
     status: string,
     version: number,
     effects: Effects,
     extra: Array<string | null>,
-    groupIds = row.coverage!.targets.map((t) => t.groupId),
   ): Promise<void> {
-    const [managers, superAdmins, members] = await Promise.all([
-      this.managersOf(tx, row),
-      this.superAdmins(tx),
-      groupMemberIds(tx, groupIds),
-    ]);
+    const [admins, superAdmins] = await Promise.all([adminRecipients(tx), superAdminRecipients(tx)]);
     effects.updated.push({
-      userIds: [...new Set([...managers, ...superAdmins, ...members, ...extra.filter((id): id is string => Boolean(id))])],
+      userIds: [
+        ...new Set(
+          [...admins, ...superAdmins, teacherAuthorOf(row), ...row.supports.map((s) => s.user.id), ...extra].filter(
+            (id): id is string => Boolean(id),
+          ),
+        ),
+      ],
       requestId: row.id,
       status,
       version,
     });
-  }
-
-  private alreadyTaken(name: string | undefined | null): AppException {
-    return new AppException(
-      'ALREADY_TAKEN',
-      name ? { takenBy: name } : undefined,
-      name ? `Déjà prise par ${name}.` : 'Cette garde a déjà été prise.',
-    );
   }
 
   private async logDenied(user: AuthenticatedUser, id: string, ctx: RequestContext, reason: string): Promise<void> {
@@ -744,6 +743,30 @@ export class CoverageActionsService {
     });
   }
 }
+
+function toOpenReminder(r: {
+  id: string;
+  kind: OpenReminder['kind'];
+  dueAt: Date;
+  targetUserId: string | null;
+  supportId: string | null;
+  attempts: number;
+  maxAttempts: number;
+  intervalMinutes: number | null;
+}): OpenReminder {
+  return {
+    id: r.id,
+    kind: r.kind,
+    dueAt: r.dueAt,
+    targetUserId: r.targetUserId,
+    supportId: r.supportId,
+    attempts: r.attempts,
+    maxAttempts: r.maxAttempts,
+    intervalMinutes: r.intervalMinutes,
+  };
+}
+
+export { toOpenReminder };
 
 export function formatCoverageReference(number: number, date: Date): string {
   return `G-${date.getUTCFullYear()}-${String(number).padStart(6, '0')}`;

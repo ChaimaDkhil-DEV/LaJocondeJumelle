@@ -50,7 +50,7 @@ describe('Délais et retards', () => {
     enseignante = await loginAs(app, 'enseignante');
     reprographie = await loginAs(app, 'reprographie');
     reprographieId = await userId(prisma, 'reprographie');
-    responsableId = await userId(prisma, 'responsable');
+    responsableId = await userId(prisma, 'admin');
   });
 
   afterAll(async () => {

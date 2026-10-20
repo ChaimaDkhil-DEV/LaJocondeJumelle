@@ -20,6 +20,7 @@ import { font, fontSize, icon, tokensOf, type Tone } from '../../design/tokens';
 import type { Availability, CoverageAction, CoverageStatus, CoverageSummary, ProofMode, UnavailableReason } from './types';
 
 export const COVERAGE_STATUS_LABELS: Record<CoverageStatus, string> = {
+  PENDING: 'En attente',
   BROADCAST: 'Diffusée',
   UNFILLED: 'Non pourvue',
   ACCEPTED: 'Acceptée',
@@ -33,6 +34,7 @@ export const COVERAGE_STATUS_LABELS: Record<CoverageStatus, string> = {
 };
 
 const STATUS_STYLE: Record<CoverageStatus, { tone: Tone; icon: LucideIcon }> = {
+  PENDING: { tone: 'info', icon: Radio },
   BROADCAST: { tone: 'info', icon: Radio },
   UNFILLED: { tone: 'error', icon: AlarmClock },
   ACCEPTED: { tone: 'accent', icon: ThumbsUp },

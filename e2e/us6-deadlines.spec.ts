@@ -68,7 +68,7 @@ test('V14 — compte à rebours, alerte, puis « En retard (prise en charge) » 
   await superadmin.context().close();
 
   // Le responsable n'est pas notifié, mais la demande reste visible, en lecture seule.
-  const manager = await pageAs(browser, testInfo, 'responsable');
+  const manager = await pageAs(browser, testInfo, 'admin');
   expect(await overdueFor(manager)).toBe(false);
   await manager.goto(`/demandes/${id}`);
   // Signalé à la fois par l'indicateur de la demande et par l'historique (US7).

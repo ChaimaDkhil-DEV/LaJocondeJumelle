@@ -10,7 +10,7 @@ import { createTestApp, TEST_ORIGIN } from '../utils/test-app';
 import { resetDatabase } from '../utils/test-db';
 
 /**
- * Non-régression : l'ajout des couvertures de classe ne change rien au comportement des demandes de
+ * Non-régression : l'ajout des gardes puis des affectations (004) ne change rien au comportement des demandes de
  * travail (listes, actions, visibilité, tâche des retards, clôture automatique, accès aux fichiers).
  */
 describe('Demandes de travail inchangées par le module de couverture', () => {
@@ -28,7 +28,7 @@ describe('Demandes de travail inchangées par le module de couverture', () => {
     await resetDatabase(prisma);
     await seedDemo(prisma);
     app = await createTestApp();
-    for (const u of ['enseignante', 'reprographie', 'responsable', 'superadmin', 'surveillant']) cookies[u] = await loginAs(app, u);
+    for (const u of ['enseignante', 'reprographie', 'admin', 'superadmin', 'surveillant']) cookies[u] = await loginAs(app, u);
     reprographieId = await userId(prisma, 'reprographie');
     coverageCategoryId = (await prisma.category.findUniqueOrThrow({ where: { name: 'Garde de classe' } })).id;
 
@@ -49,13 +49,15 @@ describe('Demandes de travail inchangées par le module de couverture', () => {
 
     const coverage = await api()
       .post('/api/coverage')
-      .set('Cookie', cookies.responsable)
+      .set('Cookie', cookies.admin)
       .set('Origin', TEST_ORIGIN)
       .send({
         clientId: randomUUID(),
-        categoryId: coverageCategoryId,
         classId: (await prisma.schoolClass.findUniqueOrThrow({ where: { name: '1ère année Violet' } })).id,
-        groupIds: [(await prisma.employeeGroup.findUniqueOrThrow({ where: { name: 'Surveillants/Remplaçants' } })).id],
+        type: 'ABSENCE',
+        startAt: new Date().toISOString(),
+        endAt: new Date(Date.now() + 60 * 60_000).toISOString(),
+        assigneeId: await userId(prisma, 'surveillant'),
       });
     expect(coverage.status).toBe(201);
     coverageId = coverage.body.id;
@@ -67,15 +69,15 @@ describe('Demandes de travail inchangées par le module de couverture', () => {
   });
 
   it('les listes de demandes de travail n’incluent jamais les couvertures', async () => {
-    for (const user of ['enseignante', 'reprographie', 'responsable', 'superadmin']) {
+    for (const user of ['enseignante', 'reprographie', 'admin', 'superadmin']) {
       const res = await api().get('/api/requests').set('Cookie', cookies[user]);
       expect(res.status).toBe(200);
       const listed = res.body.items.map((i: { id: string }) => i.id);
       expect(listed).not.toContain(coverageId);
-      if (user !== 'responsable') expect(listed).toContain(workId);
+      if (user !== 'admin') expect(listed).toContain(workId);
     }
     // Le responsable voit toujours les demandes des catégories qu'il gère.
-    const managed = await api().get('/api/requests').query({ scope: 'managed' }).set('Cookie', cookies.responsable);
+    const managed = await api().get('/api/requests').query({ scope: 'managed' }).set('Cookie', cookies.admin);
     expect(managed.body.items.map((i: { id: string }) => i.id)).toEqual([workId]);
   });
 
@@ -85,22 +87,22 @@ describe('Demandes de travail inchangées par le module de couverture', () => {
     }
     const res = await api()
       .post(`/api/requests/${coverageId}/actions`)
-      .set('Cookie', cookies.responsable)
+      .set('Cookie', cookies.admin)
       .set('Origin', TEST_ORIGIN)
       .send({ action: 'CANCEL', version: 0 });
     expect(res.status).toBe(404);
   });
 
   it('la catégorie de couverture n’est pas proposée pour une demande de travail et y est refusée', async () => {
-    const categories = await api().get('/api/categories').set('Cookie', cookies.responsable);
+    const categories = await api().get('/api/categories').set('Cookie', cookies.admin);
     expect(categories.body.map((c: { name: string }) => c.name)).not.toContain('Garde de classe');
     const res = await api()
       .post('/api/requests')
-      .set('Cookie', cookies.responsable)
+      .set('Cookie', cookies.admin)
       .set('Origin', TEST_ORIGIN)
       .send({ clientId: randomUUID(), title: 'x', description: 'x', categoryId: coverageCategoryId, priority: 'NORMAL' });
     expect(res.status).toBe(400);
-    expect((await api().get(`/api/categories/${coverageCategoryId}/recipients`).set('Cookie', cookies.responsable)).status).toBe(404);
+    expect((await api().get(`/api/categories/${coverageCategoryId}/recipients`).set('Cookie', cookies.admin)).status).toBe(404);
   });
 
   it('les actions sur une demande de travail fonctionnent comme avant', async () => {
@@ -124,11 +126,11 @@ describe('Demandes de travail inchangées par le module de couverture', () => {
     expect(await app.get(OverdueJob).runOnce()).toBe(1);
     expect((await prisma.request.findUniqueOrThrow({ where: { id: workId } })).overdueStage).toBe('COMPLETION');
     const coverage = await prisma.request.findUniqueOrThrow({ where: { id: coverageId } });
-    expect(coverage).toMatchObject({ status: 'BROADCAST', overdueStage: null });
+    expect(coverage).toMatchObject({ status: 'ACCEPTED', overdueStage: null });
 
     await prisma.request.update({ where: { id: coverageId }, data: { autoCloseAt: new Date(Date.now() - 1000) } });
     expect(await app.get(AutoCloseJob).runOnce()).toBe(0);
-    expect((await prisma.request.findUniqueOrThrow({ where: { id: coverageId } })).status).toBe('BROADCAST');
+    expect((await prisma.request.findUniqueOrThrow({ where: { id: coverageId } })).status).toBe('ACCEPTED');
   });
 
   it('l’accès aux fichiers des demandes de travail est inchangé', async () => {
@@ -140,14 +142,14 @@ describe('Demandes de travail inchangées par le module de couverture', () => {
       .field('requestId', workId)
       .attach('file', join(__dirname, '..', 'fixtures', 'images', 'photo.png'));
     expect(upload.status).toBe(201);
-    for (const user of ['enseignante', 'reprographie', 'responsable', 'superadmin']) {
+    for (const user of ['enseignante', 'reprographie', 'admin', 'superadmin']) {
       expect((await api().get(`/api/files/${upload.body.id}`).set('Cookie', cookies[user])).status).toBe(200);
     }
     expect((await api().get(`/api/files/${upload.body.id}`).set('Cookie', cookies.surveillant)).status).toBe(404);
     // Un fichier ne peut pas être rattaché à une couverture par la route des fichiers.
     const toCoverage = await api()
       .post('/api/files')
-      .set('Cookie', cookies.responsable)
+      .set('Cookie', cookies.admin)
       .set('Origin', TEST_ORIGIN)
       .field('kind', 'PHOTO')
       .field('requestId', coverageId)

@@ -18,7 +18,9 @@ describe('Seed', () => {
 
   it('enregistre les réglages par défaut provisoires', async () => {
     await runSeed(prisma, { log: () => undefined });
-    const settings = Object.fromEntries((await prisma.setting.findMany()).map((s) => [s.key, s.value]));
+    const settings = Object.fromEntries(
+      (await prisma.setting.findMany()).map((s) => [s.key, s.value]),
+    );
     expect(settings).toEqual(SETTING_DEFAULTS);
     expect(settings).toMatchObject({
       voiceMaxSeconds: 180,
@@ -35,9 +37,13 @@ describe('Seed', () => {
   it('crée les permissions par défaut par rôle', async () => {
     await runSeed(prisma, { log: () => undefined });
     const rows = await prisma.rolePermission.findMany();
-    const byRole = (role: string) => rows.filter((r) => r.role === role).map((r) => r.permission).sort();
+    const byRole = (role: string) =>
+      rows
+        .filter((r) => r.role === role)
+        .map((r) => r.permission)
+        .sort();
     expect(byRole('EMPLOYEE')).toEqual(['PRIORITY_CHANGE_OWN', 'REQUEST_CREATE']);
-    expect(byRole('MANAGER')).toEqual([
+    expect(byRole('ADMIN')).toEqual([
       'PRIORITY_CHANGE_MANAGED',
       'PRIORITY_CHANGE_OWN',
       'REQUEST_CREATE',
@@ -50,7 +56,11 @@ describe('Seed', () => {
     await runSeed(prisma, { log: () => undefined });
     const category = await prisma.category.findUniqueOrThrow({
       where: { name: 'Photocopies' },
-      include: { deadlineRules: true, recipients: { include: { user: true } }, managers: { include: { user: true } } },
+      include: {
+        deadlineRules: true,
+        recipients: { include: { user: true } },
+        managers: { include: { user: true } },
+      },
     });
     expect(category).toMatchObject({
       circuit: 'A_DIRECT',
@@ -60,11 +70,19 @@ describe('Seed', () => {
       finalValidation: false,
     });
     expect(category.recipients.map((r) => r.user.username)).toEqual(['reprographie']);
-    expect(category.managers.map((m) => m.user.username)).toEqual(['responsable']);
+    expect(category.managers.map((m) => m.user.username)).toEqual(['admin']);
 
     const rule = (priority: string) => category.deadlineRules.find((r) => r.priority === priority);
-    expect(rule('URGENT')).toMatchObject({ validationMinutes: null, takeoverMinutes: 1, completionMinutes: 5 });
-    expect(rule('NORMAL')).toMatchObject({ validationMinutes: null, takeoverMinutes: 1440, completionMinutes: 4320 });
+    expect(rule('URGENT')).toMatchObject({
+      validationMinutes: null,
+      takeoverMinutes: 1,
+      completionMinutes: 5,
+    });
+    expect(rule('NORMAL')).toMatchObject({
+      validationMinutes: null,
+      takeoverMinutes: 1440,
+      completionMinutes: 4320,
+    });
     expect(rule('MEDIUM')).toMatchObject({ takeoverMinutes: 480, completionMinutes: 2880 });
     expect(rule('HIGH')).toMatchObject({ takeoverMinutes: 120, completionMinutes: 1440 });
   });
@@ -75,7 +93,11 @@ describe('Seed', () => {
       where: { circuit: 'B_ADMIN_VALIDATION' },
       include: { deadlineRules: true },
     });
-    expect(category).toMatchObject({ finalValidation: true, photoRequired: true, assignmentMode: 'MANUAL' });
+    expect(category).toMatchObject({
+      finalValidation: true,
+      photoRequired: true,
+      assignmentMode: 'MANUAL',
+    });
     expect(category.deadlineRules.find((r) => r.priority === 'URGENT')).toMatchObject({
       validationMinutes: 30,
       takeoverMinutes: 15,
@@ -89,7 +111,11 @@ describe('Seed', () => {
       where: { name: 'Petits travaux (démo photo)' },
       include: { recipients: { include: { user: true } } },
     });
-    expect(category).toMatchObject({ circuit: 'A_DIRECT', closureMode: 'REQUESTER', photoRequired: true });
+    expect(category).toMatchObject({
+      circuit: 'A_DIRECT',
+      closureMode: 'REQUESTER',
+      photoRequired: true,
+    });
     expect(category.recipients.map((r) => r.user.username)).toEqual(['reprographie']);
   });
 
@@ -97,9 +123,9 @@ describe('Seed', () => {
     const passwords = await runSeed(prisma, { log: () => undefined });
     const users = await prisma.user.findMany({ orderBy: { username: 'asc' } });
     expect(users.map((u) => [u.username, u.role])).toEqual([
+      ['admin', 'ADMIN'],
       ['enseignante', 'EMPLOYEE'],
       ['reprographie', 'EMPLOYEE'],
-      ['responsable', 'MANAGER'],
       ['superadmin', 'SUPER_ADMIN'],
     ]);
     for (const user of users) {
@@ -113,14 +139,15 @@ describe('Seed', () => {
     await runSeed(prisma, { log: () => undefined, e2ePassword: 'MotDePasse-E2E-2026!' });
     const users = await prisma.user.findMany();
     expect(users.map((u) => u.username).sort()).toEqual([
+      'admin',
       'autre',
       'enseignante',
       'nouveau',
       'remplacant',
       'reprographie',
-      'responsable',
       'superadmin',
       'surveillant',
+      'surveillant2',
     ]);
     for (const user of users) {
       expect(user.mustChangePassword).toBe(user.username === 'nouveau');
@@ -137,7 +164,42 @@ describe('Seed', () => {
     // 3 catégories de demandes de travail + « Garde de classe » (couverture), 4 priorités chacune.
     await expect(prisma.category.count()).resolves.toBe(4);
     await expect(prisma.deadlineRule.count()).resolves.toBe(16);
-    await expect(prisma.employeeGroup.count()).resolves.toBe(1);
+    await expect(prisma.employeeGroup.count()).resolves.toBe(2);
     await expect(prisma.schoolClass.count()).resolves.toBe(2);
+    await expect(prisma.floor.count()).resolves.toBe(2);
+  });
+
+  it('affectations (004) : groupes à clé système, étages, classes et surveillants rattachés', async () => {
+    await runSeed(prisma, { log: () => undefined, e2ePassword: 'MotDePasse-E2E-2026!' });
+    const groups = await prisma.employeeGroup.findMany({
+      include: { members: { include: { user: true } } },
+      orderBy: { name: 'asc' },
+    });
+    expect(
+      groups.map((g) => [g.name, g.systemKey, g.members.map((m) => m.user.username).sort()]),
+    ).toEqual([
+      ['Enseignants', 'TEACHERS', ['enseignante']],
+      ['Surveillants', 'SUPERVISORS', ['remplacant', 'surveillant', 'surveillant2']],
+    ]);
+    const floors = await prisma.floor.findMany({
+      include: { classes: true, users: true },
+      orderBy: { position: 'asc' },
+    });
+    expect(
+      floors.map((f) => [
+        f.name,
+        f.classes.map((c) => c.name),
+        f.users.map((u) => u.username).sort(),
+      ]),
+    ).toEqual([
+      ['1er étage', ['1ère année Violet'], ['remplacant', 'surveillant']],
+      ['2e étage', ['2e année Bleu'], ['surveillant2']],
+    ]);
+    // Hors groupes : reprographie n'a pas accès au module.
+    const reprographie = await prisma.user.findUniqueOrThrow({
+      where: { username: 'reprographie' },
+      include: { groupMemberships: true },
+    });
+    expect(reprographie.groupMemberships).toEqual([]);
   });
 });

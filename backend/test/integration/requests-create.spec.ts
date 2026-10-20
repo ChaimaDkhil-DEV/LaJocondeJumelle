@@ -45,7 +45,7 @@ describe('Création de demandes', () => {
     app = await createTestApp();
     enseignante = await loginAs(app, 'enseignante');
     reprographie = await loginAs(app, 'reprographie');
-    responsable = await loginAs(app, 'responsable');
+    responsable = await loginAs(app, 'admin');
     photocopies = await categoryId(prisma, CATEGORIES.photocopies);
     circuitB = await categoryId(prisma, CATEGORIES.circuitB);
     reprographieId = await userId(prisma, 'reprographie');
@@ -147,7 +147,7 @@ describe('Création de demandes', () => {
 
     it('refuse un destinataire hors catégorie ou désactivé (422) sans rien créer (V2)', async () => {
       const before = await prisma.request.count();
-      const responsableId = await userId(prisma, 'responsable');
+      const responsableId = await userId(prisma, 'admin');
       const outside = await create(enseignante, { title: 'X', description: 'x', categoryId: photocopies, recipientId: responsableId });
       expect(outside.status).toBe(422);
       expect(outside.body.error.code).toBe('RECIPIENT_NOT_ALLOWED');
@@ -222,7 +222,7 @@ describe('Création de demandes', () => {
       expect(res.body).toMatchObject({ status: 'PENDING_ADMIN_VALIDATION', assignee: null });
 
       const notified = await prisma.notification.findMany({ where: { requestId: res.body.id } });
-      expect(notified.map((n) => n.userId)).toEqual([await userId(prisma, 'responsable')]);
+      expect(notified.map((n) => n.userId)).toEqual([await userId(prisma, 'admin')]);
 
       expect((await api().get(`/api/requests/${res.body.id}`).set('Cookie', reprographie)).status).toBe(404);
       expect((await api().get(`/api/requests/${res.body.id}`).set('Cookie', responsable)).status).toBe(200);

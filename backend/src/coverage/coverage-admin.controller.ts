@@ -5,9 +5,9 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { clientIp } from '../common/request-info';
 import { SuperAdminGuard } from '../audit/super-admin.guard';
 import { CoverageAdminService } from './coverage-admin.service';
-import { ClassDto, GroupDto, ListCoverageQuery } from './coverage.dto';
+import { ClassDto, FloorDto, GroupDto, ListCoverageQuery, UpdateFloorDto } from './coverage.dto';
 
-/** Données de référence et tableau de suivi des couvertures : super administrateur uniquement. */
+/** Données de référence et tableau de suivi des affectations : super administrateur uniquement. */
 @Controller('admin/coverage')
 @UseGuards(SuperAdminGuard)
 export class CoverageAdminController {
@@ -20,7 +20,7 @@ export class CoverageAdminController {
 
   @Get('export.csv')
   @Header('Content-Type', 'text/csv; charset=utf-8')
-  @Header('Content-Disposition', 'attachment; filename="suivi-couvertures.csv"')
+  @Header('Content-Disposition', 'attachment; filename="suivi-affectations.csv"')
   @Header('Cache-Control', 'private, no-store')
   exportCsv(@Query() query: ListCoverageQuery) {
     return this.admin.exportCsv(query);
@@ -66,5 +66,27 @@ export class CoverageAdminController {
   @Post('classes/:id/qr/revoke')
   revokeQr(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Req() req: Request) {
     return this.admin.revokeQr(id, { actor, ip: clientIp(req) });
+  }
+}
+
+/** Étages (004, FR-006) : super administrateur uniquement. */
+@Controller('admin/floors')
+@UseGuards(SuperAdminGuard)
+export class FloorsAdminController {
+  constructor(private readonly admin: CoverageAdminService) {}
+
+  @Get()
+  floors() {
+    return this.admin.floors();
+  }
+
+  @Post()
+  create(@CurrentUser() actor: AuthenticatedUser, @Body() dto: FloorDto, @Req() req: Request) {
+    return this.admin.createFloor(dto, { actor, ip: clientIp(req) });
+  }
+
+  @Patch(':id')
+  update(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Body() dto: UpdateFloorDto, @Req() req: Request) {
+    return this.admin.updateFloor(id, dto, { actor, ip: clientIp(req) });
   }
 }

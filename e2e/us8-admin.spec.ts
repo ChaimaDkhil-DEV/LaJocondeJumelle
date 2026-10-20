@@ -88,7 +88,7 @@ test('V16 — le super administrateur crée un compte, une catégorie circuit B 
 
   // Le responsable n'a ni menu ni accès (interface et API).
   await logout(page);
-  await login(page, 'responsable');
+  await login(page, 'admin');
   await openNavigation(page);
   await expect(page.getByRole('link', { name: 'Administration' })).toHaveCount(0);
   await page.keyboard.press('Escape');

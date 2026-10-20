@@ -14,7 +14,7 @@ describe('Catégories proposées dans le formulaire de demande', () => {
   const prisma = new PrismaClient();
   let app: INestApplication;
   let superadmin: string;
-  let cookies: Record<'enseignante' | 'responsable' | 'superadmin', string>;
+  let cookies: Record<'enseignante' | 'admin' | 'superadmin', string>;
 
   const api = () => request(app.getHttpServer());
 
@@ -35,7 +35,7 @@ describe('Catégories proposées dans le formulaire de demande', () => {
     await seedDemo(prisma);
     app = await createTestApp();
     superadmin = await loginAs(app, 'superadmin');
-    cookies = { enseignante: await loginAs(app, 'enseignante'), responsable: await loginAs(app, 'responsable'), superadmin };
+    cookies = { enseignante: await loginAs(app, 'enseignante'), admin: await loginAs(app, 'admin'), superadmin };
   });
 
   afterAll(async () => {
@@ -45,7 +45,7 @@ describe('Catégories proposées dans le formulaire de demande', () => {
 
   it('liste aussitôt la nouvelle catégorie de travail pour tous les rôles autorisés, jamais une garde', async () => {
     const id = await createCategory({ name: 'Surveillance', circuit: 'B_ADMIN_VALIDATION', creatorRoles: ['EMPLOYEE', 'ADMIN'], closureMode: 'REQUESTER' });
-    await createCategory({ name: 'Garde surveillance', kind: 'COVERAGE', circuit: 'A_DIRECT', creatorRoles: ['ADMIN'], closureMode: 'ADMIN' });
+    await createCategory({ name: 'Garde surveillance', kind: 'COVERAGE', circuit: 'A_DIRECT', creatorRoles: ['ADMIN'], closureMode: 'MANAGER' });
 
     for (const cookie of Object.values(cookies)) {
       const names = await formNames(cookie);
@@ -59,12 +59,12 @@ describe('Catégories proposées dans le formulaire de demande', () => {
   it('respecte les rôles autorisés et l’activation', async () => {
     const id = await createCategory({ name: 'Réservée aux responsables', circuit: 'A_DIRECT', creatorRoles: ['ADMIN'], closureMode: 'REQUESTER' });
     expect(await formNames(cookies.enseignante)).not.toContain('Réservée aux responsables');
-    expect(await formNames(cookies.responsable)).toContain('Réservée aux responsables');
+    expect(await formNames(cookies.admin)).toContain('Réservée aux responsables');
 
     const patch = (active: boolean) => api().patch(`/api/admin/categories/${id}`).set('Cookie', superadmin).set('Origin', TEST_ORIGIN).send({ active });
     expect((await patch(false)).status).toBe(200);
-    expect(await formNames(cookies.responsable)).not.toContain('Réservée aux responsables');
+    expect(await formNames(cookies.admin)).not.toContain('Réservée aux responsables');
     expect((await patch(true)).status).toBe(200);
-    expect(await formNames(cookies.responsable)).toContain('Réservée aux responsables');
+    expect(await formNames(cookies.admin)).toContain('Réservée aux responsables');
   });
 });

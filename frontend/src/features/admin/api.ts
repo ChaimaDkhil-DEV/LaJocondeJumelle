@@ -69,6 +69,15 @@ export interface AdminSettings {
   deadlineWarnPercent: number;
   sessionIdleMinutes: number;
   sessionMaxHours: number;
+  coverageUrgencyThresholdMinutes: number;
+  coverageEscalationMinutes: number;
+  /** Heure locale du rappel du matin (HH:MM). */
+  coverageMorningReminderTime: string;
+  coverageCloseReminderMinutes: number;
+  coverageCloseEscalationMinutes: number;
+  coverageSupportReminderMinutes: number;
+  coverageSupportReminderMax: number;
+  coverageRetentionMonths: number;
 }
 
 export type ConfigurableRole = 'EMPLOYEE' | 'ADMIN';

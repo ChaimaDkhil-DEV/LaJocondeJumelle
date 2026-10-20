@@ -47,7 +47,7 @@ describe('Historique et priorité', () => {
     app = await createTestApp();
     enseignante = await loginAs(app, 'enseignante');
     reprographie = await loginAs(app, 'reprographie');
-    responsable = await loginAs(app, 'responsable');
+    responsable = await loginAs(app, 'admin');
     reprographieId = await userId(prisma, 'reprographie');
   });
 
