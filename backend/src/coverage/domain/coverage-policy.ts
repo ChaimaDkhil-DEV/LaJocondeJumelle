@@ -1,4 +1,6 @@
 import type { CoverageSource, Role } from '@prisma/client';
+import { endOfLocalDay } from '../../common/school-time';
+import { schoolTimezoneFromEnv } from '../../config/config';
 import {
   availableCoverageActions,
   type CoverageAction,
@@ -112,14 +114,22 @@ export function coverageActionsFor(user: CoverageViewer, facts: CoverageFacts): 
   return availableCoverageActions(facts, coverageActors(user, facts));
 }
 
-/** Créneau [début, fin) ; fin null = ouverte (jusqu'à l'arrivée de l'enseignant ou la relève). */
+/** Créneau [début, fin) ; fin null = inconnue (jusqu'à l'arrivée de l'enseignant ou la relève). */
 export interface Slot {
   startAt: Date;
   plannedEndAt: Date | null;
 }
 
-export function slotsOverlap(a: Slot, b: Slot): boolean {
-  const aEnd = a.plannedEndAt?.getTime() ?? Number.POSITIVE_INFINITY;
-  const bEnd = b.plannedEndAt?.getTime() ?? Number.POSITIVE_INFINITY;
-  return a.startAt.getTime() < bEnd && b.startAt.getTime() < aEnd;
+/** Fin d'un créneau ; inconnue : fin de la journée locale de l'école (FR-016a, comme les rappels). */
+export function slotEnd(slot: Slot, timeZone = schoolTimezoneFromEnv()): Date {
+  return slot.plannedEndAt ?? endOfLocalDay(slot.startAt, timeZone);
+}
+
+export function slotsOverlap(a: Slot, b: Slot, timeZone = schoolTimezoneFromEnv()): boolean {
+  return a.startAt < slotEnd(b, timeZone) && b.startAt < slotEnd(a, timeZone);
+}
+
+/** Instant présent, pour « disponible maintenant » (équipe, tableaux de bord). */
+export function nowSlot(now = new Date()): Slot {
+  return { startAt: now, plannedEndAt: new Date(now.getTime() + 1) };
 }

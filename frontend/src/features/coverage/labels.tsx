@@ -183,10 +183,18 @@ export function formatTime(value: string | Date): string {
   return time.format(typeof value === 'string' ? new Date(value) : value);
 }
 
-/** « Maintenant » si la garde commence dans moins d'une minute, sinon l'heure. */
+const day = new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+
+/**
+ * Début d'une affectation : « Maintenant » à une minute près ; sinon l'heure, précédée du jour
+ * quand ce n'est pas aujourd'hui (demandes pour demain, affectations passées).
+ */
 export function formatStart(startAt: string): string {
-  const diff = Date.parse(startAt) - serverNow().getTime();
-  return diff <= 60_000 ? 'Maintenant' : `À ${formatTime(startAt)}`;
+  const start = new Date(startAt);
+  const now = serverNow();
+  if (Math.abs(start.getTime() - now.getTime()) <= 60_000) return 'Maintenant';
+  if (start.toDateString() === now.toDateString()) return `À ${formatTime(start)}`;
+  return `${day.format(start)} à ${formatTime(start)}`;
 }
 
 /** Heure serveur actualisée chaque seconde (chronomètres, temps écoulé). */

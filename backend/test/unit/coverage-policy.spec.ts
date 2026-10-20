@@ -204,7 +204,37 @@ describe('Permissions du module des affectations', () => {
     expect(canReadPresenceProof(user('sv-1', PROFILES.supervisor, false), f, 'sv-1')).toBe(false);
   });
 
-  it('chevauchement des créneaux : fin ouverte = jusqu’à la relève', () => {
+  it('fin inconnue = fin de la journée locale de l’école (FR-016a), pas « sans fin »', () => {
+    // Classe vide déclarée aujourd'hui (fin inconnue) et demande de demain 08:00 : pas de chevauchement.
+    const declared = { startAt: new Date('2026-10-20T19:10:00Z'), plannedEndAt: null };
+    const tomorrow = {
+      startAt: new Date('2026-10-21T06:00:00Z'),
+      plannedEndAt: new Date('2026-10-21T07:00:00Z'),
+    };
+    expect(slotsOverlap(declared, tomorrow, 'Europe/Paris')).toBe(false);
+    expect(slotsOverlap(tomorrow, declared, 'Europe/Paris')).toBe(false);
+    // Minuit de l'école, pas minuit UTC : 23:30 à Paris chevauche encore, 00:30 le lendemain non.
+    const lateToday = {
+      startAt: new Date('2026-10-20T21:30:00Z'),
+      plannedEndAt: new Date('2026-10-20T21:45:00Z'),
+    };
+    const afterMidnight = {
+      startAt: new Date('2026-10-20T22:30:00Z'),
+      plannedEndAt: new Date('2026-10-20T23:00:00Z'),
+    };
+    expect(slotsOverlap(declared, lateToday, 'Europe/Paris')).toBe(true);
+    expect(slotsOverlap(declared, afterMidnight, 'Europe/Paris')).toBe(false);
+    // Deux fins inconnues le même jour : chevauchement.
+    expect(
+      slotsOverlap(
+        declared,
+        { startAt: new Date('2026-10-20T20:00:00Z'), plannedEndAt: null },
+        'Europe/Paris',
+      ),
+    ).toBe(true);
+  });
+
+  it('chevauchement des créneaux', () => {
     const at = (h: number) => new Date(Date.UTC(2026, 9, 13, h));
     expect(
       slotsOverlap(

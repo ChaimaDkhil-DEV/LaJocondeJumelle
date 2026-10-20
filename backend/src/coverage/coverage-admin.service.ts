@@ -15,6 +15,7 @@ import { COVERAGE_INCLUDE, toCoverageSummary, type CoverageRow } from './coverag
 import { coverageFilters } from './coverage.service';
 import { ACTIVE_GUARD_STATUSES } from './domain/coverage-state-machine';
 import { signQrToken } from './domain/qr-token';
+import { nowSlot } from './domain/coverage-policy';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -140,7 +141,7 @@ export class CoverageAdminService {
         const availability = await availabilityFor(
           this.prisma,
           members.map((m) => m.id),
-          { startAt: now, plannedEndAt: null },
+          nowSlot(now),
         );
         return {
           id: g.id,
@@ -393,7 +394,7 @@ export class CoverageAdminService {
     const ids = employees.map((e) => e.id);
     const requestIds = rows.map((r) => r.id);
     const [availability, overdue, current, workTasks] = await Promise.all([
-      availabilityFor(this.prisma, ids, { startAt: now, plannedEndAt: null }),
+      availabilityFor(this.prisma, ids, nowSlot(now)),
       this.prisma.requestEvent.findMany({
         where: { requestId: { in: requestIds }, type: 'OVERDUE' },
         select: { toValue: true },

@@ -42,6 +42,7 @@ import {
   isCoverageAdmin,
   isEligibleAssignee,
   moduleCapabilities,
+  nowSlot,
 } from './domain/coverage-policy';
 import { applyCoverageAction, applyCoverageCreation, ACTIVE_GUARD_STATUSES } from './domain/coverage-state-machine';
 import { FINAL_STATUSES, MAIN_STATUS_VALUES } from './domain/coverage-status';
@@ -566,7 +567,7 @@ export class CoverageService {
     const availability = await availabilityFor(
       this.prisma,
       members.map((m) => m.id),
-      { startAt: new Date(), plannedEndAt: null },
+      nowSlot(),
     );
     return members.map((m) => ({
       ...m,

@@ -242,6 +242,33 @@ describe('Déclaration d’une classe vide par un surveillant (US2)', () => {
   });
 
   describe('surveillant déjà occupé (scénario 3, FR-015j)', () => {
+    it('affectation demain : pas une double affectation (fin inconnue = fin de journée, constat T085)', async () => {
+      const tomorrow = minutesFrom(new Date(), 24 * 60);
+      const planned = await createCoverage(prisma, {
+        status: 'ACCEPTED',
+        source: 'ADMIN_DIRECT',
+        className: '2e année Bleu',
+        startAt: tomorrow,
+        plannedEndAt: minutesFrom(tomorrow, 60),
+        assignee: 'surveillant',
+        teacher: null,
+      });
+      // Avant la déclaration : disponible maintenant dans l'équipe, malgré l'affectation de demain.
+      const team = await get('admin', '/api/coverage/team');
+      expect(team.body.find((m: { id: string }) => m.id === id.surveillant)).toMatchObject({
+        available: true,
+      });
+
+      const res = await declareOk();
+      expect(res).toMatchObject({ outcome: 'CREATED', doubleAssignment: false });
+      expect(await types('admin', res.coverage!.id)).toEqual(['COVERAGE_EMPTY_CLASS']);
+      const list = await adminList();
+      expect(list.find((c) => c.id === res.coverage!.id)?.alerts).not.toContain(
+        'DOUBLE_ASSIGNMENT',
+      );
+      expect(list.find((c) => c.id === planned)?.alerts).not.toContain('DOUBLE_ASSIGNMENT');
+    });
+
     it('affectation créée quand même, admins alertés en URGENT, alerte sur les deux affectations', async () => {
       const other = await createCoverage(prisma, {
         status: 'ON_DUTY',
