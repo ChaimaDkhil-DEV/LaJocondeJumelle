@@ -1,73 +1,114 @@
-import type { Role } from '@prisma/client';
+import type { CoverageSource, Role } from '@prisma/client';
 import {
   availableCoverageActions,
-  OPEN_STATUSES,
   type CoverageAction,
   type CoverageActor,
   type CoverageMachineState,
 } from './coverage-state-machine';
 
 /**
- * Politique d'accès des couvertures (fonctions pures, appliquées côté serveur à chaque route,
- * aux fichiers et aux listes) :
- * - super administrateur : tout ;
- * - responsables de la catégorie et auteur de la demande : tout, et actions de gestion ;
- * - preneur actuel : sa garde ;
- * - membre d'un groupe ciblé : la demande tant qu'elle est diffusée ou non pourvue ; ensuite
- *   uniquement « Déjà prise par [nom] », sans détail ni pièce jointe ;
- * - les autres : rien.
+ * Politique d'accès du module des affectations (fonctions pures, appliquées côté serveur à chaque
+ * route, aux fichiers et aux listes) — matrice « Permissions par rôle » de plan.md (004) :
+ * - admin et super administrateur : tout le module, vue complète, gestion ;
+ * - surveillant (groupe Surveillants) : ses affectations et ses renforts, sans le motif ;
+ * - enseignant (groupe Enseignants) : ses demandes ;
+ * - autres employés : rien (404, FR-023b).
+ * Les groupes sont repérés par clé système (R7), jamais par nom.
  */
 
 export interface CoverageViewer {
   id: string;
   role: Role;
   active: boolean;
+  /** Membre du groupe à clé `TEACHERS`. */
+  isTeacher: boolean;
+  /** Membre du groupe à clé `SUPERVISORS`. */
+  isSupervisor: boolean;
 }
 
 export interface CoverageFacts extends CoverageMachineState {
   requesterId: string;
-  managerIds: ReadonlySet<string>;
-  /** L'utilisateur appartient à un des groupes ciblés. */
-  inTargetGroup: boolean;
+  source: CoverageSource | null;
+  /** Surveillants en renfort actif sur l'affectation. */
+  supportUserIds: ReadonlySet<string>;
 }
 
-export type CoverageAccess = 'full' | 'limited' | 'none';
+/** Vue d'une affectation : complète, surveillant (sans motif) ou enseignant auteur. */
+export type CoverageView = 'ADMIN' | 'SUPERVISOR' | 'TEACHER';
+
+export interface ModuleCapabilities {
+  view: boolean;
+  /** Signaler un retard ou une absence. */
+  report: boolean;
+  declareEmptyClass: boolean;
+  /** Assigner, réassigner, annuler, créer en direct, décider fusions et renforts. */
+  manage: boolean;
+  stats: boolean;
+  /** Étages, rattachement des classes, étage d'un surveillant, réglages. */
+  configure: boolean;
+  /** Peut recevoir une affectation. */
+  assignable: boolean;
+}
+
+/** Admin du module : rôle ADMIN ou SUPER_ADMIN, compte actif (R9). */
+export function isCoverageAdmin(user: Pick<CoverageViewer, 'role' | 'active'>): boolean {
+  return user.active && (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN');
+}
+
+/** Éligibilité à une affectation : membre actif du groupe Surveillants (R7, FR-004b). */
+export function isEligibleAssignee(user: Pick<CoverageViewer, 'active' | 'isSupervisor'>): boolean {
+  return user.active && user.isSupervisor;
+}
+
+export function moduleCapabilities(user: CoverageViewer): ModuleCapabilities {
+  const admin = isCoverageAdmin(user);
+  const superAdmin = user.active && user.role === 'SUPER_ADMIN';
+  const teacher = user.active && user.isTeacher;
+  const supervisor = user.active && user.isSupervisor;
+  return {
+    view: admin || teacher || supervisor,
+    report: superAdmin || teacher,
+    declareEmptyClass: superAdmin || supervisor,
+    manage: admin,
+    stats: admin,
+    configure: superAdmin,
+    assignable: isEligibleAssignee(user),
+  };
+}
 
 export function coverageActors(user: CoverageViewer, facts: CoverageFacts): CoverageActor[] {
   if (!user.active) return [];
   const actors: CoverageActor[] = [];
-  if (user.role === 'SUPER_ADMIN' || facts.managerIds.has(user.id) || facts.requesterId === user.id) {
-    actors.push('MANAGER');
-  }
+  if (isCoverageAdmin(user)) actors.push('ADMIN');
   if (facts.assigneeId !== null && facts.assigneeId === user.id) actors.push('ASSIGNEE');
-  else if (facts.inTargetGroup) actors.push('CANDIDATE');
+  if (facts.supportUserIds.has(user.id)) actors.push('SUPPORT');
+  if (facts.source === 'TEACHER_REQUEST' && facts.requesterId === user.id) actors.push('REQUESTER_TEACHER');
+  if (user.isSupervisor) actors.push('SUPERVISOR');
   return actors;
 }
 
-export function coverageAccess(user: CoverageViewer, facts: CoverageFacts): CoverageAccess {
+export function coverageView(user: CoverageViewer, facts: CoverageFacts): CoverageView | null {
   const actors = coverageActors(user, facts);
-  if (actors.includes('MANAGER') || actors.includes('ASSIGNEE')) return 'full';
-  if (actors.includes('CANDIDATE')) return OPEN_STATUSES.includes(facts.status) ? 'full' : 'limited';
-  return 'none';
+  if (actors.includes('ADMIN')) return 'ADMIN';
+  if (actors.includes('ASSIGNEE') || actors.includes('SUPPORT')) return 'SUPERVISOR';
+  if (actors.includes('REQUESTER_TEACHER')) return 'TEACHER';
+  return null;
 }
 
-/** Gestionnaire de la couverture (voit l'historique complet et les photos de preuve). */
-export function isCoverageManager(user: CoverageViewer, facts: CoverageFacts): boolean {
-  return coverageActors(user, facts).includes('MANAGER');
+/** Motif détaillé : admin, super administrateur et enseignant auteur ; jamais le surveillant (FR-023c). */
+export function canSeeReason(user: CoverageViewer, facts: CoverageFacts): boolean {
+  const actors = coverageActors(user, facts);
+  return actors.includes('ADMIN') || actors.includes('REQUESTER_TEACHER');
 }
 
-/**
- * Photo de preuve : l'employé qui l'a prise, les responsables de la catégorie, l'auteur de la
- * demande et le super administrateur — jamais les autres membres du groupe, même si la demande
- * est rediffusée.
- */
+/** Photo de preuve : l'employé qui l'a prise, l'admin et le super administrateur. */
 export function canReadPresenceProof(user: CoverageViewer, facts: CoverageFacts, uploaderId: string): boolean {
   if (!user.active) return false;
-  return uploaderId === user.id || isCoverageManager(user, facts);
+  return uploaderId === user.id || coverageActors(user, facts).includes('ADMIN');
 }
 
 export function coverageActionsFor(user: CoverageViewer, facts: CoverageFacts): CoverageAction[] {
-  if (coverageAccess(user, facts) !== 'full') return [];
+  if (!coverageView(user, facts)) return [];
   return availableCoverageActions(facts, coverageActors(user, facts));
 }
 

@@ -22,9 +22,24 @@ export interface AppConfig {
   isProduction: boolean;
   /** Réglage `trust proxy` d'Express : booléen, nombre de proxys, ou liste de sous-réseaux. */
   trustProxy: boolean | number | string;
+  /** Fuseau de l'école (identifiant IANA) : jours et heures locales des affectations (R4). */
+  schoolTimezone: string;
 }
 
 export class ConfigError extends Error {}
+
+const DEFAULT_SCHOOL_TIMEZONE = 'Europe/Paris';
+
+/** Valide SCHOOL_TIMEZONE (défaut : Europe/Paris) : tout identifiant accepté par Intl. */
+function parseSchoolTimezone(raw: string | undefined): string {
+  const value = raw?.trim() || DEFAULT_SCHOOL_TIMEZONE;
+  try {
+    new Intl.DateTimeFormat('fr-FR', { timeZone: value });
+  } catch {
+    throw new ConfigError(`SCHOOL_TIMEZONE invalide : « ${value} » n'est pas un fuseau IANA (ex. Europe/Paris)`);
+  }
+  return value;
+}
 
 const MIN_SECRET_LENGTH = 32;
 const DEFAULT_LOGIN_RATE_LIMIT = 5;
@@ -91,5 +106,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     jobsEnabled: env.JOBS_ENABLED !== 'false',
     isProduction: env.NODE_ENV === 'production',
     trustProxy: parseTrustProxy(env.TRUST_PROXY),
+    schoolTimezone: parseSchoolTimezone(env.SCHOOL_TIMEZONE),
   };
 }

@@ -48,6 +48,22 @@ describe('loadConfig', () => {
   });
 });
 
+describe('loadConfig — SCHOOL_TIMEZONE (R4)', () => {
+  it('vaut Europe/Paris par défaut', () => {
+    expect(loadConfig(valid).schoolTimezone).toBe('Europe/Paris');
+    expect(loadConfig({ ...valid, SCHOOL_TIMEZONE: '  ' }).schoolTimezone).toBe('Europe/Paris');
+  });
+
+  it('accepte un identifiant IANA valide', () => {
+    expect(loadConfig({ ...valid, SCHOOL_TIMEZONE: ' America/Montreal ' }).schoolTimezone).toBe('America/Montreal');
+  });
+
+  it.each(['Europe/Nulle-Part', 'GMT+25', 'pas un fuseau'])('refuse « %s » au démarrage avec un message explicite', (value) => {
+    expect(() => loadConfig({ ...valid, SCHOOL_TIMEZONE: value })).toThrow(ConfigError);
+    expect(() => loadConfig({ ...valid, SCHOOL_TIMEZONE: value })).toThrow(/^SCHOOL_TIMEZONE invalide/);
+  });
+});
+
 describe('loadConfig — TRUST_PROXY (FR-004)', () => {
   const trustProxy = (value?: string) => loadConfig(value === undefined ? valid : { ...valid, TRUST_PROXY: value }).trustProxy;
 
