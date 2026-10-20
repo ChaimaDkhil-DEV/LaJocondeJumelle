@@ -255,7 +255,7 @@ motif sans toucher à l'historique ni à l'audit.
 
 ## Phase 8: Polish & Cross-Cutting Concerns
 
-- [ ] T081 [P] Test d'intégration transversal `backend/test/integration/supervision-permissions.spec.ts` : chaque route du module × chaque rôle de la matrice de plan.md ; refus journalisés `ACCESS_DENIED` ; `404` hors périmètre (principe V).
+- [X] T081 [P] Test d'intégration transversal `backend/test/integration/supervision-permissions.spec.ts` : chaque route du module × chaque rôle de la matrice de plan.md ; refus journalisés `ACCESS_DENIED` ; `404` hors périmètre (principe V).
 - [ ] T082 Réécrire `e2e/coverage-class.spec.ts` en trois parcours à 360, 768 et 1280 px : demande enseignant → assignation → en cours → terminée ; classe vide → seconde déclaration en renfort → décision de l'admin ; affectation directe → réassignation ; et `e2e/a11y-responsive.spec.ts` étendu aux nouveaux écrans (pas de défilement horizontal à 320 px, axe sans violation).
 - [ ] T083 [P] Mettre à jour `docs/ARCHITECTURE.md` (module affectations, jobs, statuts dérivés) et `docs/coverage-migration.md` (renvoi vers `specs/004-retards-affectation-surveillants/contracts/migration.md`, procédure de pré-contrôle et de retour arrière).
 - [ ] T084 Répétition de migration sur une copie de base (quickstart.md, « Migration ») : pré-contrôle, `0008`, `0009`, contrôles, `down.sql` à blanc ; consigner les résultats dans `docs/validation/verification-004.md`.

@@ -293,3 +293,19 @@ frontend 221 / 221 (30 fichiers).
 
 Résultat : lint et typages sans erreur ; unitaires 571 / 571 ; intégration 441 / 441 ; frontend
 226 / 226 (31 fichiers).
+
+## Phase 8 — Finitions (T081 à T086)
+
+### T081 — Matrice des permissions
+
+- `supervision-permissions.spec.ts` : 26 routes × 5 rôles + sans session, 157 cas. Premier
+  passage : 10 échecs, tous des écarts réels au principe V (aucun attendu corrigé) :
+  `GET /coverage/mine`, `GET /coverage/history` et `PATCH /coverage/availability` répondaient
+  200 à tout compte connecté (listes vides ou disponibilité modifiable par un employé hors
+  module) ; `POST /coverage/presence/resolve` donnait le nom de la classe d'un QR à un employé
+  hors module. Corrigé : espace du surveillant réservé au groupe Surveillants et au super
+  administrateur, page du QR aux membres du module ; refus `404` journalisés.
+- Exception assumée : `GET /coverage/availability` reste ouvert à tout compte connecté ; il ne
+  renvoie que les capacités et la disponibilité de l'appelant (aucune donnée d'autrui).
+- Administration du module : `403` journalisé (SuperAdminGuard), écart déjà documenté en phase 2.
+- Résultat : unitaires 571 / 571 ; intégration 598 / 598 (42 suites).

@@ -477,6 +477,7 @@ export class CoverageService {
 
   /** Affectations et renforts en cours du surveillant (« Mes affectations »). */
   async mine(user: AuthenticatedUser, ctx: RequestContext) {
+    await this.assertSupervisorSpace(user, ctx);
     const rows = await this.prisma.request.findMany({
       where: {
         kind: 'COVERAGE',
@@ -495,7 +496,8 @@ export class CoverageService {
   }
 
   /** Historique personnel : affectations effectuées ou annulées. */
-  async history(user: AuthenticatedUser) {
+  async history(user: AuthenticatedUser, ctx: RequestContext) {
+    await this.assertSupervisorSpace(user, ctx);
     const rows = await this.prisma.request.findMany({
       where: { kind: 'COVERAGE', assigneeId: user.id, status: { in: ['DONE', 'CLOSED', 'CANCELLED'] } },
       include: COVERAGE_INCLUDE,
@@ -533,6 +535,7 @@ export class CoverageService {
 
   /** Un surveillant se déclare disponible ou indisponible (« Absent » est réservé aux admins). */
   async setOwnAvailability(user: AuthenticatedUser, dto: OwnAvailabilityDto, ctx: RequestContext) {
+    await this.assertSupervisorSpace(user, ctx);
     const current = await this.prisma.user.findUniqueOrThrow({ where: { id: user.id }, select: { availability: true } });
     if (current.availability === 'ABSENT') {
       throw new AppException('FORBIDDEN', undefined, 'Vous êtes déclaré absent : seul un admin peut modifier ce statut.');
@@ -655,7 +658,12 @@ export class CoverageService {
    * surveillant d'une affectation de cette classe, l'affectation concernée ; la présence se valide
    * ensuite par un POST explicite (action CONFIRM_PRESENCE) qui revérifie tout.
    */
-  async resolveQr(user: AuthenticatedUser, token: string) {
+  async resolveQr(user: AuthenticatedUser, token: string, ctx: RequestContext) {
+    // Page du QR : membres du module seulement (un employé hors module n'apprend même pas la classe).
+    if (!moduleCapabilities(await this.access.viewer(user)).view) {
+      await this.logDenied(user, 'coverage', ctx, 'NOT_IN_MODULE');
+      throw new AppException('NOT_FOUND');
+    }
     const parsed = verifyQrToken(this.actions.key, token);
     const schoolClass = parsed ? await this.prisma.schoolClass.findUnique({ where: { id: parsed.classId } }) : null;
     if (!parsed || !schoolClass || !schoolClass.active || schoolClass.qrVersion !== parsed.version) {
@@ -682,6 +690,13 @@ export class CoverageService {
   /** Admin ou super administrateur (R9). */
   isCoverageManagerUser(user: AuthenticatedUser): boolean {
     return isCoverageAdmin(user);
+  }
+
+  /** Espace du surveillant (ses affectations, son historique, sa disponibilité) : groupe Surveillants ou super administrateur. */
+  private async assertSupervisorSpace(user: AuthenticatedUser, ctx: RequestContext): Promise<void> {
+    if (moduleCapabilities(await this.access.viewer(user)).declareEmptyClass) return;
+    await this.logDenied(user, 'coverage', ctx, 'NOT_SUPERVISOR');
+    throw new AppException('NOT_FOUND');
   }
 
   private async assertCoverageAdmin(user: AuthenticatedUser, ctx: RequestContext): Promise<void> {

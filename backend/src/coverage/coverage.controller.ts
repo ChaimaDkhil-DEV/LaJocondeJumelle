@@ -153,8 +153,8 @@ export class CoverageController {
 
   /** Surveillant : historique personnel. */
   @Get('history')
-  history(@CurrentUser() user: AuthenticatedUser) {
-    return this.coverage.history(user);
+  history(@CurrentUser() user: AuthenticatedUser, @Req() req: Request) {
+    return this.coverage.history(user, contextOf(req));
   }
 
   @Get('availability')
@@ -188,8 +188,8 @@ export class CoverageController {
   /** Page du QR code : affiche la classe et l'affectation concernée, sans rien enregistrer. */
   @Post('presence/resolve')
   @HttpCode(200)
-  resolveQr(@CurrentUser() user: AuthenticatedUser, @Body() dto: ResolveQrDto) {
-    return this.coverage.resolveQr(user, dto.token);
+  resolveQr(@CurrentUser() user: AuthenticatedUser, @Body() dto: ResolveQrDto, @Req() req: Request) {
+    return this.coverage.resolveQr(user, dto.token, contextOf(req));
   }
 
   @Get(':id')
