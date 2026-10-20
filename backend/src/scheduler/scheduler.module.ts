@@ -4,6 +4,7 @@ import { CoverageModule } from '../coverage/coverage.module';
 import { FilesModule } from '../files/files.module';
 import { RequestsModule } from '../requests/requests.module';
 import { AutoCloseJob } from './auto-close.job';
+import { CoverageAnonymizationJob } from './coverage-anonymization.job';
 import { CoverageDeadlinesJob } from './coverage-deadlines.job';
 import { CoverageRemindersJob } from './coverage-reminders.job';
 import { OrphanFilesJob } from './orphan-files.job';
@@ -20,6 +21,7 @@ import { SuperAdminAlertsJob } from './super-admin-alerts.job';
     OrphanFilesJob,
     CoverageDeadlinesJob,
     CoverageRemindersJob,
+    CoverageAnonymizationJob,
     SuperAdminAlertsJob,
   ],
 })

@@ -6,8 +6,10 @@ import { clientIp, requestPath } from '../common/request-info';
 import type { RequestContext } from '../requests/requests.service';
 import { CoverageActionsService } from './coverage-actions.service';
 import { CoverageDeclarationsService } from './coverage-declarations.service';
+import { CoverageStatsService } from './coverage-stats.service';
 import {
   CoverageActionDto,
+  CoverageStatsQuery,
   CreateCoverageDto,
   EmptyClassDto,
   ListCoverageQuery,
@@ -36,7 +38,14 @@ export class CoverageController {
     private readonly coverage: CoverageService,
     private readonly actions: CoverageActionsService,
     private readonly declarations: CoverageDeclarationsService,
+    private readonly statsService: CoverageStatsService,
   ) {}
+
+  /** Admins et super administrateur : statistiques (FR-022) ; aucun export. */
+  @Get('stats')
+  stats(@CurrentUser() user: AuthenticatedUser, @Query() query: CoverageStatsQuery, @Req() req: Request) {
+    return this.statsService.stats(user, query, contextOf(req));
+  }
 
   /** Formulaire d'affectation directe (admins) : classes et enseignants. */
   @Get('form-options')

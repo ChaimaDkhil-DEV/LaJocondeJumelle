@@ -2,7 +2,7 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
-import { CalendarPlus, DoorOpen, School, UserPlus } from 'lucide-react';
+import { BarChart3, CalendarPlus, DoorOpen, School, UserPlus } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Link as RouterLink, useSearchParams } from 'react-router';
 import { EmptyState } from '../../components/EmptyState';
@@ -90,6 +90,16 @@ export function CoveragePage() {
                   startIcon={<UserPlus aria-hidden="true" />}
                 >
                   Nouvelle affectation
+                </Button>
+              )}
+              {canManage && (
+                <Button
+                  component={RouterLink}
+                  to="/gardes/statistiques"
+                  variant="outlined"
+                  startIcon={<BarChart3 aria-hidden="true" />}
+                >
+                  Statistiques
                 </Button>
               )}
               {canDeclare && (

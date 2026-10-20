@@ -258,3 +258,38 @@ Résultat : lint et typages sans erreur ; frontend 216 / 216 (29 fichiers).
 
 Résultat : lint et typages sans erreur ; unitaires 561 / 561 ; intégration 430 / 430 (39 suites) ;
 frontend 221 / 221 (30 fichiers).
+
+## Phase 7 — US5, historique, statistiques, anonymisation (T075 à T080)
+
+- **T075** (`coverage-stats.spec.ts`, 10 cas) : rouge (module absent), puis vert avec
+  `domain/coverage-stats.ts`. Deux règles non écrites dans data-model §7, choisies et testées :
+  une relève est comptée avec l'affectation d'origine (pas un second retard) ; après
+  anonymisation, les affectations vont dans « Enseignant anonymisé », distinct de « Enseignant non
+  précisé ». Paire en suspens dont la demande est annulée : la déclaration reste l'événement.
+- **T076** (`supervision-stats.spec.ts`, 7 cas) : 4 rouges, 3 verts avant le code. Verts : le
+  scénario 1 (historique détaillé déjà servi par `GET /coverage/:id`) et les deux refus, qui
+  passaient alors pour une mauvaise raison (`/coverage/stats` tombait sur `/:id` → 404) ; ils
+  vérifient la vraie route depuis T078. Un attendu corrigé (nom d'affichage « Enseignante »).
+- **T077** (`supervision-anonymization.spec.ts`, 4 cas) : rouge (job absent), puis vert. Le compte
+  technique `enseignant-anonymise` (migration 0009) est recréé à l'identique s'il manque (base de
+  test réinitialisée) plutôt que de faire échouer le job. Attendu corrigé : le journal d'audit
+  n'est pas vidé entre les cas, le décompte se fait avant / après.
+- **T078** : `GET /coverage/stats` (admins et super administrateur ; période par défaut : mois en
+  cours de l'école ; 400 jours au plus ; aucun export, paramètre inconnu refusé).
+- **T079** : `CoverageAnonymizationService` + `CoverageAnonymizationJob` (toutes les heures,
+  verrou consultatif, lots de 200, idempotent). Pour une demande d'enseignant, l'auteur passe au
+  compte technique et la consigne est effacée ; le `cancelReason` saisi par l'admin est conservé.
+- **Correction (US2)** : les clés `sourceRequestId`, `targetRequestId`, `afterTheFact` du journal
+  d'audit de `COVERAGE_MERGE_DECIDED` étaient filtrées par la liste blanche ; ajoutées, avec
+  `retentionMonths` et `cutoff` (anonymisation).
+- **T080** : `CoverageStatsPage.tsx` (`/gardes/statistiques`, bouton « Statistiques » des admins) ;
+  historique du détail : sources, réassignations « de X à Y », renforts, correction de
+  l'enseignant, décisions de doublon, noms résolus à la lecture (jamais stockés, R5) ;
+  `stats.test.tsx` (5 cas) rouge puis vert.
+- **Passage complet** : un premier passage a eu 1 échec (`coverage.spec.ts`, cas « disponibilité »,
+  dépassement de 30 s ; la suite a pris 270 s). Repassée seule : 23 / 23 en 12 s ; repassage
+  complet : 441 / 441 (41 suites) en 212 s. Même instabilité ponctuelle de la base embarquée qu'en
+  phase 4 ; cause non établie.
+
+Résultat : lint et typages sans erreur ; unitaires 571 / 571 ; intégration 441 / 441 ; frontend
+226 / 226 (31 fichiers).

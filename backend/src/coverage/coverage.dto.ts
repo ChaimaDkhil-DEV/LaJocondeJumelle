@@ -72,6 +72,25 @@ export class CreateCoverageDto {
   voiceFileId?: string;
 }
 
+/** Statistiques (contracts/rest-api.md `GET /coverage/stats`) ; dates locales de l'école. */
+export class CoverageStatsQuery {
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'Date attendue (AAAA-MM-JJ).' })
+  from?: string;
+
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'Date attendue (AAAA-MM-JJ).' })
+  to?: string;
+
+  @IsOptional()
+  @IsIn(['teacher', 'class', 'period'])
+  groupBy?: 'teacher' | 'class' | 'period';
+
+  @IsOptional()
+  @IsIn(['week', 'month'])
+  period?: 'week' | 'month';
+}
+
 /** Surveillants proposables pour un créneau, avant la création (formulaire d'affectation directe). */
 export class SlotCandidatesQuery {
   @IsUUID()

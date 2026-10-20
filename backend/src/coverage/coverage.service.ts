@@ -696,11 +696,19 @@ export class CoverageService {
       include: { actor: { select: { id: true, displayName: true } } },
       orderBy: [{ createdAt: 'asc' }, { seq: 'asc' }],
     });
+    // Noms résolus à la lecture : l'historique ne stocke que des identifiants (R5).
+    const NAMED = [
+      ['assigneeId', 'assigneeName'],
+      ['userId', 'userName'],
+      ['teacherId', 'teacherName'],
+    ] as const;
     const ids = new Set<string>();
     for (const e of events) {
       for (const v of [e.fromValue, e.toValue]) {
-        const assigneeId = (v as { assigneeId?: unknown } | null)?.assigneeId;
-        if (typeof assigneeId === 'string') ids.add(assigneeId);
+        for (const [key] of NAMED) {
+          const value = (v as Record<string, unknown> | null)?.[key];
+          if (typeof value === 'string') ids.add(value);
+        }
       }
     }
     const names = new Map(
@@ -710,8 +718,13 @@ export class CoverageService {
       ]),
     );
     const withName = (value: Prisma.JsonValue | null) => {
-      const assigneeId = (value as { assigneeId?: unknown } | null)?.assigneeId;
-      return typeof assigneeId === 'string' ? { ...(value as Prisma.JsonObject), assigneeName: names.get(assigneeId) ?? null } : value;
+      if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+      const named: Prisma.JsonObject = { ...value };
+      for (const [key, nameKey] of NAMED) {
+        const id = value[key];
+        if (typeof id === 'string') named[nameKey] = names.get(id) ?? null;
+      }
+      return named;
     };
     return events.map((e) => ({
       id: e.id,

@@ -17,7 +17,7 @@ import { useCoverage } from './api';
 import { CoverageActions } from './CoverageActions';
 import { ClassHeading } from './EmployeeViews';
 import { COVERAGE_STATUS_LABELS, CoverageDeadline, Elapsed, PROOF_LABELS, SOURCE_LABELS, TYPE_LABELS, formatDuration, formatTime } from './labels';
-import type { CoverageDetail, CoverageHistoryEntry, CoverageStatus } from './types';
+import type { CoverageDetail, CoverageHistoryEntry, CoverageSource, CoverageStatus } from './types';
 
 const EVENT_LABELS: Record<string, string> = {
   CREATED: 'Affectation créée',
@@ -42,14 +42,30 @@ const EVENT_LABELS: Record<string, string> = {
 
 function eventText(e: CoverageHistoryEntry): string {
   const to = e.toValue ?? {};
+  const from = e.fromValue ?? {};
+  const teacherName = (v: Record<string, unknown>) => (v.teacherId ? String(v.teacherName ?? 'enseignant inconnu') : 'non précisé');
   switch (e.type) {
+    case 'CREATED':
+      return to.source ? `Affectation créée — ${SOURCE_LABELS[to.source as CoverageSource].toLowerCase()}` : EVENT_LABELS.CREATED;
     case 'STATUS_CHANGED':
       return `Statut : ${COVERAGE_STATUS_LABELS[to.status as CoverageStatus] ?? String(to.status)}`;
     case 'ASSIGNED':
       // Garde antérieure à 004 : prise par un volontaire ou affectation forcée.
       return to.selfAccepted ? `Garde prise par ${String(to.assigneeName ?? '')}` : `Assignée à ${String(to.assigneeName ?? '')}${to.forced ? ' (affectation forcée)' : ''}`;
     case 'REASSIGNED':
-      return `Réassignée à ${String(to.assigneeName ?? '')}${to.forced ? ' (affectation forcée)' : ''}`;
+      return from.assigneeName
+        ? `Réassignée de ${String(from.assigneeName)} à ${String(to.assigneeName ?? '')}`
+        : `Réassignée à ${String(to.assigneeName ?? '')}${to.forced ? ' (affectation forcée)' : ''}`;
+    case 'SUPPORT_JOINED':
+      return `Renfort arrivé : ${String(to.userName ?? '')}`;
+    case 'SUPPORT_RELEASED':
+      return `Renfort libéré : ${String(to.userName ?? '')}`;
+    case 'TEACHER_SET':
+      return `Enseignant : ${teacherName(from)} → ${teacherName(to)}`;
+    case 'MERGE_DECIDED':
+      return to.decision === 'CONFIRM' ? 'Doublon tranché : rattachement confirmé' : 'Doublon tranché : affectations gardées distinctes';
+    case 'UPDATED':
+      return to.declaration ? 'Classe déclarée vide par un surveillant : demande prise en charge' : EVENT_LABELS.UPDATED;
     case 'RELEASED':
       return to.byManager ? 'Surveillant libéré par un admin' : 'Désistement (garde antérieure)';
     case 'PRESENCE_CONFIRMED':
@@ -67,7 +83,7 @@ function eventText(e: CoverageHistoryEntry): string {
 
 function Timeline({ entries }: { entries: CoverageHistoryEntry[] }) {
   return (
-    <Box component="ol" sx={{ listStyle: 'none', m: 0, p: 0, display: 'grid', gap: 1.5 }}>
+    <Box component="ol" aria-label="Historique de l’affectation" sx={{ listStyle: 'none', m: 0, p: 0, display: 'grid', gap: 1.5 }}>
       {entries.map((e) => (
         <Box component="li" key={e.id} sx={{ display: 'grid', gap: 0.25, pl: 2, borderLeft: 2, borderColor: 'divider' }}>
           <Typography variant="body2">{eventText(e)}</Typography>

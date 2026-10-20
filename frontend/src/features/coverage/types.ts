@@ -165,6 +165,28 @@ export interface CoverageProfile {
   capabilities?: { declareEmptyClass: boolean; report: boolean; manage: boolean };
 }
 
+/** Statistiques (contracts/rest-api.md `GET /coverage/stats`). */
+export interface StatsCounters {
+  events: number;
+  lateness: number;
+  absence: number;
+  emptyClass: number;
+  cancelled: number;
+  unfilled: number;
+  unfilledRate: number;
+  averageDurationMinutes: number | null;
+}
+
+export interface CoverageStats {
+  from: string;
+  to: string;
+  groupBy: 'teacher' | 'class' | 'period';
+  period: 'week' | 'month';
+  timezone: string;
+  totals: StatsCounters & { undecidedDuplicates: number };
+  rows: Array<StatsCounters & { key: string; label: string }>;
+}
+
 /** Issue d'une déclaration de classe vide (contracts/rest-api.md `POST /coverage/empty-class`). */
 export type DeclarationOutcome = 'CREATED' | 'ATTACHED' | 'ALREADY_ASSIGNED' | 'SUPPORT' | 'MERGE_PROPOSED';
 

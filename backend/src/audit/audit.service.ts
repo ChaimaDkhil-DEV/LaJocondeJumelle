@@ -40,6 +40,12 @@ const ALLOWED_DETAIL_KEYS = new Set([
   'proposalId',
   'decision',
   'count',
+  'sourceRequestId',
+  'targetRequestId',
+  'afterTheFact',
+  // Anonymisation (FR-023a) : décompte et paramètres seulement
+  'retentionMonths',
+  'cutoff',
 ]);
 
 function scrub(value: unknown): unknown {
