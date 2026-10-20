@@ -2,7 +2,13 @@ import type { INestApplication } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import request from 'supertest';
 import { loginAs, seedDemo, userId } from '../utils/auth-helpers';
-import { addSupport, clearCoverages, createCoverage, minutesFrom } from '../utils/coverage-fixtures';
+import {
+  addSupport,
+  clearCoverages,
+  createCoverage,
+  minutesFrom,
+} from '../utils/coverage-fixtures';
+import { useMiddayTimezone } from '../utils/school-timezone';
 import { createTestApp, TEST_ORIGIN } from '../utils/test-app';
 import { resetDatabase } from '../utils/test-db';
 
@@ -12,6 +18,7 @@ import { resetDatabase } from '../utils/test-db';
  * rend occupé ; fin inconnue = +∞ ; un indisponible n'est jamais assigné (plus de forçage).
  */
 describe('Disponibilité des surveillants (004)', () => {
+  let restoreTz = () => undefined as void;
   const prisma = new PrismaClient();
   let app: INestApplication;
   const cookies: Record<string, string> = {};
@@ -39,6 +46,8 @@ describe('Disponibilité des surveillants (004)', () => {
     Object.fromEntries(((await candidates(as)).body as Candidate[]).map((c) => [c.displayName, c]));
 
   beforeAll(async () => {
+    // Créneaux « du jour » sans passage de minuit, quelle que soit l'heure d'exécution.
+    ({ restore: restoreTz } = useMiddayTimezone());
     app = await createTestApp();
     await resetDatabase(prisma);
     await seedDemo(prisma);
@@ -58,6 +67,7 @@ describe('Disponibilité des surveillants (004)', () => {
   });
 
   afterAll(async () => {
+    restoreTz();
     await app.close();
     await prisma.$disconnect();
   });
@@ -120,7 +130,7 @@ describe('Disponibilité des surveillants (004)', () => {
     expect(list['Surveillant 2e étage']).toMatchObject({ available: true, reason: null });
   });
 
-  it('fin inconnue (garde antérieure « jusqu’à l’arrivée ») : occupé jusqu’à la clôture', async () => {
+  it('fin inconnue (« jusqu’à l’arrivée ») : occupé jusqu’à la fin de la journée de l’école (FR-016a)', async () => {
     await createCoverage(prisma, {
       status: 'ON_DUTY',
       source: 'ADMIN_DIRECT',
@@ -128,7 +138,20 @@ describe('Disponibilité des surveillants (004)', () => {
       startAt: minutesFrom(now, -30),
       plannedEndAt: null,
     });
+    // Créneau plus tard dans la journée : occupé.
     expect((await byName())['Remplaçante']).toMatchObject({ available: false, reason: 'ON_GUARD' });
+    // Créneau du lendemain : disponible (la fin inconnue s'arrête à minuit, heure de l'école).
+    const tomorrow = await createCoverage(prisma, {
+      status: 'PENDING',
+      className: '2e année Bleu',
+      startAt: minutesFrom(now, 24 * 60),
+      plannedEndAt: minutesFrom(now, 25 * 60),
+    });
+    const next = (await candidates('admin', tomorrow)).body as Candidate[];
+    expect(next.find((c) => c.displayName === 'Remplaçante')).toMatchObject({
+      available: true,
+      reason: null,
+    });
   });
 
   it('un renfort actif rend occupé ; libéré, il redevient disponible (FR-015i)', async () => {

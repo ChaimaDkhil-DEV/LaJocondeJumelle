@@ -10,6 +10,7 @@ import {
   minutesFrom,
   notificationsOf,
 } from '../utils/coverage-fixtures';
+import { useMiddayTimezone } from '../utils/school-timezone';
 import { createTestApp, TEST_ORIGIN } from '../utils/test-app';
 import { resetDatabase } from '../utils/test-db';
 
@@ -18,6 +19,7 @@ import { resetDatabase } from '../utils/test-db';
  * FR-008h, FR-015 à FR-015j, R6, R10).
  */
 describe('Déclaration d’une classe vide par un surveillant (US2)', () => {
+  let restoreTz = () => undefined as void;
   const prisma = new PrismaClient();
   let app: INestApplication;
   let job: CoverageRemindersJob;
@@ -99,6 +101,8 @@ describe('Déclaration d’une classe vide par un surveillant (US2)', () => {
     });
 
   beforeAll(async () => {
+    // Créneaux « du jour » sans passage de minuit, quelle que soit l'heure d'exécution.
+    ({ restore: restoreTz } = useMiddayTimezone());
     await resetDatabase(prisma);
     await seedDemo(prisma);
     app = await createTestApp();
@@ -123,6 +127,7 @@ describe('Déclaration d’une classe vide par un surveillant (US2)', () => {
   beforeEach(() => clearCoverages(prisma));
 
   afterAll(async () => {
+    restoreTz();
     await app.close();
     await prisma.$disconnect();
   });

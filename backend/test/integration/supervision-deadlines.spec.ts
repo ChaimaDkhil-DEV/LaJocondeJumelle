@@ -6,6 +6,7 @@ import { addDays, atLocalTime, localDate, localTime } from '../../src/common/sch
 import { CoverageRemindersJob } from '../../src/scheduler/coverage-reminders.job';
 import { loginAs, seedDemo, userId } from '../utils/auth-helpers';
 import { clearCoverages, minutesFrom } from '../utils/coverage-fixtures';
+import { useMiddayTimezone } from '../utils/school-timezone';
 import { createTestApp, TEST_ORIGIN } from '../utils/test-app';
 import { resetDatabase } from '../utils/test-db';
 
@@ -16,7 +17,9 @@ import { resetDatabase } from '../utils/test-db';
  */
 describe('Délais et rappels d’une demande d’enseignant (US1)', () => {
   const prisma = new PrismaClient();
-  const TZ = 'Europe/Paris';
+  /** Fuseau de l'école pour la suite (voir useMiddayTimezone). */
+  let TZ = '';
+  let restoreTz = () => undefined as void;
   let app: INestApplication;
   let job: CoverageRemindersJob;
   const cookie: Record<string, string> = {};
@@ -71,6 +74,8 @@ describe('Délais et rappels d’une demande d’enseignant (US1)', () => {
     (await received(who, requestId)).map((n) => n.type);
 
   beforeAll(async () => {
+    // Créneaux « du jour » sans passage de minuit, quelle que soit l'heure d'exécution.
+    ({ tz: TZ, restore: restoreTz } = useMiddayTimezone());
     await resetDatabase(prisma);
     await seedDemo(prisma);
     app = await createTestApp();
@@ -86,6 +91,7 @@ describe('Délais et rappels d’une demande d’enseignant (US1)', () => {
   beforeEach(() => clearCoverages(prisma));
 
   afterAll(async () => {
+    restoreTz();
     await app.close();
     await prisma.$disconnect();
   });

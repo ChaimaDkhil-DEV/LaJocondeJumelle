@@ -5,6 +5,7 @@ import request from 'supertest';
 import { addDays, atLocalTime, localDate, localTime } from '../../src/common/school-time';
 import { loginAs, seedDemo, userId } from '../utils/auth-helpers';
 import { minutesFrom } from '../utils/coverage-fixtures';
+import { useMiddayTimezone } from '../utils/school-timezone';
 import { createTestApp, TEST_ORIGIN } from '../utils/test-app';
 import { resetDatabase } from '../utils/test-db';
 
@@ -14,7 +15,9 @@ import { resetDatabase } from '../utils/test-db';
  */
 describe('Signalement d’un retard ou d’une absence par un enseignant (US1)', () => {
   const prisma = new PrismaClient();
-  const TZ = 'Europe/Paris';
+  /** Fuseau de l'école pour la suite (voir useMiddayTimezone). */
+  let TZ = '';
+  let restoreTz = () => undefined as void;
   let app: INestApplication;
   const cookie: Record<string, string> = {};
   const id: Record<string, string> = {};
@@ -84,6 +87,8 @@ describe('Signalement d’un retard ou d’une absence par un enseignant (US1)',
   }
 
   beforeAll(async () => {
+    // Créneaux « du jour » sans passage de minuit, quelle que soit l'heure d'exécution.
+    ({ tz: TZ, restore: restoreTz } = useMiddayTimezone());
     await resetDatabase(prisma);
     await seedDemo(prisma);
     // Une seconde enseignante, membre du groupe Enseignants.
@@ -124,6 +129,7 @@ describe('Signalement d’un retard ou d’une absence par un enseignant (US1)',
   });
 
   afterAll(async () => {
+    restoreTz();
     await app.close();
     await prisma.$disconnect();
   });

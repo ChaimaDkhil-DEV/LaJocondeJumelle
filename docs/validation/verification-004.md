@@ -446,3 +446,17 @@ arrêtés), scripts de lecture temporaires et dossier d'artefacts du navigateur 
 
 Résultat final : lint et typages sans erreur ; unitaires 572 / 572 ; intégration 599 / 599 ;
 frontend 229 / 229 ; e2e complet vert après correctif (les deux échecs expliqués et repassés).
+
+### CI de la PR #18 — tests dépendants de l'heure
+
+Premier passage de la CI (21:09 UTC, soit 23:09 heure de l'école) : 6 échecs dans 3 suites
+d'intégration, verts localement plus tôt dans la journée. Cause : des créneaux « du jour » créés
+à partir de maintenant (jusqu'à +90 min) passaient minuit (demande refusée `INVALID_RANGE`), et
+un test de disponibilité supposait encore la fin « sans fin » remplacée en T085. Aucun défaut du
+code applicatif.
+
+Correctif : `test/utils/school-timezone.ts` place l'école, pour ces suites, dans un fuseau à
+décalage fixe où il est midi au moment de l'exécution (rétabli après la suite). Test de
+disponibilité réécrit selon la règle actuelle (occupé jusqu'à la fin de la journée de l'école,
+disponible le lendemain). Reproduit localement à 22:30 heure de l'école : **6 échecs avant,
+51 / 51 après** ; suite d'intégration complète : 599 / 599.
