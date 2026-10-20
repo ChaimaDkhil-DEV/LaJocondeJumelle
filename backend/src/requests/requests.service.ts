@@ -350,6 +350,17 @@ export class RequestsService {
           toValue: { priority: dto.priority },
         },
       });
+      await this.audit.log(
+        'REQUEST_MANAGED',
+        {
+          actorId: user.id,
+          ip: ctx.ip,
+          targetType: 'Request',
+          targetId: id,
+          details: { action: 'CHANGE_PRIORITY', before: { priority: request.priority }, after: { priority: dto.priority } },
+        },
+        tx,
+      );
       // Passage en « Urgente » : alerte du super administrateur, une seule fois par demande.
       return dto.priority === 'URGENT' ? this.superAdminAlerts.alertInTx(tx, id, 'URGENT', user.id) : [];
     });

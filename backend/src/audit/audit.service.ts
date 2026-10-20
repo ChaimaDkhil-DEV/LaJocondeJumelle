@@ -25,6 +25,10 @@ const ALLOWED_DETAIL_KEYS = new Set([
   'action',
   'forced',
   'groupId',
+  'groupIds',
+  'classId',
+  // Demandes de travail : motif saisi, sans son texte (consultable dans l'historique de la demande)
+  'reasonGiven',
 ]);
 
 function scrub(value: unknown): unknown {

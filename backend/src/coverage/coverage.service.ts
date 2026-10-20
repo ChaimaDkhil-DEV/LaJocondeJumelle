@@ -188,6 +188,17 @@ export class CoverageService {
         await tx.requestEvent.create({
           data: { requestId: request.id, actorId: user.id, type: 'STATUS_CHANGED', fromValue: Prisma.JsonNull, toValue: { status: 'BROADCAST' } },
         });
+        await this.audit.log(
+          'COVERAGE_CREATED',
+          {
+            actorId: user.id,
+            ip: ctx.ip,
+            targetType: 'Request',
+            targetId: request.id,
+            details: { categoryId: category.id, classId: schoolClass.id, groupIds: dto.groupIds, status: 'BROADCAST' },
+          },
+          tx,
+        );
         const notifiedCount = await this.actions.broadcastInTx(tx, request.id, user.id, effects);
         return { id: request.id, notifiedCount };
       });

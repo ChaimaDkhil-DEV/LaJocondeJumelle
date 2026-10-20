@@ -73,6 +73,8 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   QR_REVOKED: 'QR code révoqué',
   AVAILABILITY_CHANGED: 'Disponibilité modifiée',
   COVERAGE_MANAGED: 'Garde gérée par un responsable',
+  COVERAGE_CREATED: 'Garde créée',
+  REQUEST_MANAGED: 'Demande de travail gérée',
 };
 
 /** Durée en minutes, lisible (« 1 h 30 », « 2 j »). */

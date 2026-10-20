@@ -204,8 +204,9 @@ Consultation seule, filtres par auteur, action et période (`admin-audit.control
 | Permissions, réglages, catégories, délais | ✅ | `admin-settings.service.ts`, `admin-categories.service.ts` |
 | Groupes, classes, révocation de QR, disponibilité | ✅ | `coverage-admin.service.ts`, `coverage.service.ts` |
 | Gardes : affectation, réaffectation, élargissement, libération, validation, annulation | ✅ | `coverage-actions.service.ts:62` |
-| **Création d'une garde** | ❌ | — |
-| **Annulation, réaffectation, priorité, validation d'une demande de travail** | ❌ (historique de la demande uniquement) | `RequestEvent` |
+| Création d'une garde (catégorie, classe, groupes ciblés) | ✅ `COVERAGE_CREATED` | `coverage.service.ts` |
+| Demandes de travail : approbation, refus, réaffectation, annulation, validation finale, renvoi à corriger, changement de priorité (motif signalé, sans son texte) | ✅ `REQUEST_MANAGED` | `request-transitions.service.ts`, `requests.service.ts` |
+| Demandes de travail : accepter, commencer, terminer, décliner (actions courantes de l'employé) | ❌ par choix (historique de la demande) | `RequestEvent` |
 | Changement de rôle comme événement distinct | ❌ (inclus dans « Compte modifié ») | — |
 
 ## 3. Affectation des surveillants aux gardes
@@ -217,7 +218,7 @@ Consultation seule, filtres par auteur, action et période (`admin-audit.control
 | Remplacement d'un surveillant absent | Avant la présence : `REASSIGN` par le gestionnaire. Pendant la garde : le surveillant demande une relève (`REQUEST_RELIEF`), qui crée une demande de relève diffusée ; le remplaçant est relevé à la confirmation de présence. |
 | Mode d'affectation | Diffusion aux membres disponibles des groupes ciblés, puis premier qui accepte ; ou affectation manuelle par le gestionnaire. Pas d'affectation automatique. Créneau = heure de début et durée prévue (ou fin ouverte). Les classes sont le lieu, pas un critère d'affectation. |
 | Ce que voit le surveillant | Notification (« Garde à prendre », « Demande affectée »…), onglets « À prendre » et « Ma garde », confirmation de présence par photo et/ou QR code. |
-| Traçabilité | Journal d'audit `COVERAGE_MANAGED` pour affectation, réaffectation, élargissement, libération, validation, annulation, avec `forced: true` si l'indisponibilité a été passée outre ; historique de la garde (`RequestEvent`). Création et prise volontaire non journalisées dans l'audit. |
+| Traçabilité | Journal d'audit `COVERAGE_MANAGED` pour affectation, réaffectation, élargissement, libération, validation, annulation, avec `forced: true` si l'indisponibilité a été passée outre ; historique de la garde (`RequestEvent`). Création journalisée (`COVERAGE_CREATED`) ; prise volontaire non journalisée dans l'audit. |
 | Conflits gérés | Disponibilité vérifiée côté serveur (`coverage-availability.ts:52-54`) : compte inactif, absent, indisponible, ou déjà en garde sur un créneau qui chevauche → refus `NOT_AVAILABLE` (`coverage-state-machine.ts:153-155`). Double prise simultanée empêchée par un verrou par employé (`coverage-actions.service.ts:161-165`). Seul un employé actif de rôle Employé peut être affecté (`coverage-actions.service.ts:630`). |
 | Conflits non gérés | Le gestionnaire peut **forcer** l'affectation d'un employé indisponible (absent, déjà en garde) : tracé, mais pas bloqué. Aucun contrôle d'appartenance au groupe ciblé pour l'affectation manuelle. |
 
@@ -240,7 +241,6 @@ Consultation seule, filtres par auteur, action et période (`admin-audit.control
   (lecture seule de l'administration) ; seul le mode via l'administration le permet.
 - Modification d'une garde (classe, horaire) : absente ; seules la prolongation et l'élargissement
   existent. Suppression : absente (annulation motivée à la place).
-- Audit : création de garde et actions sur les demandes de travail non journalisées (§2.7).
 
 ### 4.3 Fonctionnalités partielles ou inutilisées
 
@@ -260,7 +260,7 @@ Consultation seule, filtres par auteur, action et période (`admin-audit.control
 | S06 Catégories | Oui | — |
 | S07 Groupes et Classes | Oui | « Utilisation » montrée en ciblant le groupe et la classe dans une garde. |
 | S08 Réglages | Oui | Effet visible : seuil d'alerte (compte à rebours orange) ou délai d'une catégorie. |
-| S09 Journal d'audit | Partiel | Les actions sur les demandes de travail n'y figurent pas (seulement dans l'historique). |
+| S09 Journal d'audit | Oui | Actions administratives sur les demandes de travail et création de garde journalisées ; actions courantes de l'employé dans l'historique seul. |
 | S10 Tableau de bord | Oui | — |
 | S11 Suivi des gardes | Oui | — |
 | S12 Affectation des surveillants | Partiel | Conflit de double affectation détecté (refus « indisponible ») ; remplacement par réaffectation avant présence ; pas de rôle « surveillante générale ». |
