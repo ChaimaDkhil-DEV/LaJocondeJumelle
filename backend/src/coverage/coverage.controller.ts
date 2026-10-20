@@ -5,7 +5,16 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { clientIp, requestPath } from '../common/request-info';
 import type { RequestContext } from '../requests/requests.service';
 import { CoverageActionsService } from './coverage-actions.service';
-import { CoverageActionDto, CreateCoverageDto, ListCoverageQuery, OwnAvailabilityDto, ResolveQrDto, SetAvailabilityDto } from './coverage.dto';
+import {
+  CoverageActionDto,
+  CreateCoverageDto,
+  ListCoverageQuery,
+  OwnAvailabilityDto,
+  ResolveQrDto,
+  SetAvailabilityDto,
+  TeacherRequestDto,
+  UpdateTeacherRequestDto,
+} from './coverage.dto';
 import { CoverageService } from './coverage.service';
 
 function contextOf(req: Request): RequestContext {
@@ -40,6 +49,42 @@ export class CoverageController {
     const { created, detail } = await this.coverage.create(user, dto, contextOf(req));
     res.status(created ? 201 : 200);
     return detail;
+  }
+
+  /** Enseignant : signaler un retard ou une absence ; 201 à la création, 200 pour un renvoi du même clientId. */
+  @Post('teacher-requests')
+  async createTeacherRequest(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: TeacherRequestDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { created, detail } = await this.coverage.createTeacherRequest(user, dto, contextOf(req));
+    res.status(created ? 201 : 200);
+    return detail;
+  }
+
+  /** Enseignant : ses signalements. */
+  @Get('my-requests')
+  myRequests(@CurrentUser() user: AuthenticatedUser, @Req() req: Request) {
+    return this.coverage.myRequests(user, contextOf(req));
+  }
+
+  /** Toutes les classes actives (formulaires de l'enseignant et du surveillant). */
+  @Get('classes')
+  classes(@CurrentUser() user: AuthenticatedUser, @Req() req: Request) {
+    return this.coverage.classes(user, contextOf(req));
+  }
+
+  /** Enseignant auteur : modifier sa demande tant qu'elle est « en attente » (FR-008g). */
+  @Patch(':id/teacher-request')
+  updateTeacherRequest(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateTeacherRequestDto,
+    @Req() req: Request,
+  ) {
+    return this.coverage.updateTeacherRequest(user, id, dto, contextOf(req));
   }
 
   /** Liste des affectations (admins, super administrateur). */

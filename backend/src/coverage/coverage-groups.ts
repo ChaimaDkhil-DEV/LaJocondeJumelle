@@ -1,4 +1,7 @@
 import type { GroupSystemKey, Prisma, PrismaClient } from '@prisma/client';
+import { groupFlagsOf } from '../common/group-flags';
+
+export { groupFlagsOf, type GroupFlags } from '../common/group-flags';
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
@@ -6,21 +9,6 @@ type Db = PrismaClient | Prisma.TransactionClient;
  * Groupes à clé système (R7) : enseignants et surveillants sont repérés par `EmployeeGroup.systemKey`,
  * jamais par le nom du groupe (modifiable par le super administrateur).
  */
-
-export interface GroupFlags {
-  isTeacher: boolean;
-  isSupervisor: boolean;
-}
-
-/** Appartenance d'un utilisateur aux groupes Enseignants et Surveillants (groupes actifs). */
-export async function groupFlagsOf(db: Db, userId: string): Promise<GroupFlags> {
-  const rows = await db.employeeGroupMember.findMany({
-    where: { userId, group: { active: true, systemKey: { not: null } } },
-    select: { group: { select: { systemKey: true } } },
-  });
-  const keys = new Set(rows.map((r) => r.group.systemKey));
-  return { isTeacher: keys.has('TEACHERS'), isSupervisor: keys.has('SUPERVISORS') };
-}
 
 /** Membres actifs d'un groupe à clé système. */
 export async function memberIdsByKey(db: Db, systemKey: GroupSystemKey): Promise<string[]> {

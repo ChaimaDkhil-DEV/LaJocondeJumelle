@@ -1,16 +1,27 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import { AppException } from '../common/errors';
 import { PrismaService } from '../common/prisma.service';
+import { addDays, atLocalTime, localDate, localTime, relativeDay } from '../common/school-time';
+import type { AppConfig } from '../config/config';
+import { APP_CONFIG } from '../config/config.module';
 import type { RequestContext } from '../requests/requests.service';
 import { SettingsService } from '../settings/settings.service';
 import { CoverageAccessLoader, type CoverageRulesSnapshot } from './coverage-access.loader';
 import { CoverageActionsService, formatCoverageReference } from './coverage-actions.service';
+import { adminRecipients } from './coverage-groups';
 import { availabilityFor, supervisorCandidates, type SupervisorCandidate } from './coverage-availability';
 import { groupFlagsOf, supervisorIds, teacherIds } from './coverage-groups';
-import type { CreateCoverageDto, ListCoverageQuery, OwnAvailabilityDto, SetAvailabilityDto } from './coverage.dto';
+import type {
+  CreateCoverageDto,
+  ListCoverageQuery,
+  OwnAvailabilityDto,
+  SetAvailabilityDto,
+  TeacherRequestDto,
+  UpdateTeacherRequestDto,
+} from './coverage.dto';
 import {
   COVERAGE_INCLUDE,
   coverageAlerts,
@@ -25,12 +36,13 @@ import { nextCoverageDeadline } from './domain/coverage-deadlines';
 import {
   canReadPresenceProof,
   coverageActionsFor,
+  coverageActors,
   coverageView,
   isCoverageAdmin,
   isEligibleAssignee,
   moduleCapabilities,
 } from './domain/coverage-policy';
-import { applyCoverageCreation, ACTIVE_GUARD_STATUSES } from './domain/coverage-state-machine';
+import { applyCoverageAction, applyCoverageCreation, ACTIVE_GUARD_STATUSES } from './domain/coverage-state-machine';
 import { FINAL_STATUSES, MAIN_STATUS_VALUES } from './domain/coverage-status';
 import { verifyQrToken } from './domain/qr-token';
 
@@ -52,7 +64,236 @@ export class CoverageService {
     private readonly actions: CoverageActionsService,
     private readonly settings: SettingsService,
     private readonly audit: AuditService,
+    @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
+
+  // ---------------------------------------------------------------------------
+  // Demande d'un enseignant (US1, FR-012 à FR-014, FR-008g)
+  // ---------------------------------------------------------------------------
+
+  /** « Aujourd'hui » et « demain » dans le fuseau de l'école (formulaire de l'enseignant). */
+  schoolDates(now = new Date()) {
+    const today = localDate(now, this.config.schoolTimezone);
+    return { timezone: this.config.schoolTimezone, today, tomorrow: addDays(today, 1) };
+  }
+
+  /** Toutes les classes actives, avec leur étage (FR-012 : choisie parmi toutes les classes). */
+  async classes(user: AuthenticatedUser, ctx: RequestContext) {
+    if (!moduleCapabilities(await this.access.viewer(user)).view) {
+      await this.logDenied(user, 'coverage', ctx, 'NOT_IN_MODULE');
+      throw new AppException('NOT_FOUND');
+    }
+    return this.prisma.schoolClass.findMany({
+      where: { active: true },
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true, room: true, floor: { select: { id: true, name: true } } },
+    });
+  }
+
+  /** « Mes signalements » : demandes de l'enseignant, les plus récentes d'abord. */
+  async myRequests(user: AuthenticatedUser, ctx: RequestContext): Promise<CoverageSummary[]> {
+    await this.assertCanReport(user, ctx);
+    const rows = await this.prisma.request.findMany({
+      where: { kind: 'COVERAGE', requesterId: user.id, coverage: { source: 'TEACHER_REQUEST' } },
+      include: COVERAGE_INCLUDE,
+      orderBy: [{ coverage: { startAt: 'desc' } }, { id: 'desc' }],
+      take: 100,
+    });
+    return rows.map(toCoverageSummary);
+  }
+
+  async createTeacherRequest(
+    user: AuthenticatedUser,
+    dto: TeacherRequestDto,
+    ctx: RequestContext,
+  ): Promise<{ created: boolean; detail: CoverageDetail }> {
+    await this.assertCanReport(user, ctx);
+    const existing = await this.prisma.request.findUnique({ where: { requesterId_clientId: { requesterId: user.id, clientId: dto.clientId } } });
+    if (existing) return { created: false, detail: await this.detail(user, existing.id, ctx) };
+
+    const category = await this.prisma.category.findFirst({ where: { kind: 'COVERAGE', active: true }, orderBy: { createdAt: 'asc' } });
+    if (!category) throw new AppException('NOT_FOUND', undefined, 'Catégorie de garde introuvable ou désactivée.');
+    const schoolClass = await this.prisma.schoolClass.findUnique({ where: { id: dto.classId } });
+    if (!schoolClass || !schoolClass.active) throw new AppException('CLASS_INACTIVE');
+    const now = new Date();
+    const { startAt, plannedEndAt } = this.teacherSlot(dto.date, dto.startTime, dto.endTime, dto.durationMinutes, now);
+    const creation = applyCoverageCreation('CREATE_TEACHER_REQUEST', { actors: ['REQUESTER_TEACHER'] });
+    if (!creation.ok) throw new AppException(creation.code);
+
+    const priority = 'URGENT';
+    const rule = await this.prisma.deadlineRule.findUnique({ where: { categoryId_priority: { categoryId: category.id, priority } } });
+    const rules: CoverageRulesSnapshot = {
+      kind: 'COVERAGE',
+      proofMode: category.proofMode,
+      finalValidation: category.finalValidation,
+      takeoverMinutes: rule?.takeoverMinutes ?? null,
+      arrivalMinutes: rule?.arrivalMinutes ?? null,
+    };
+
+    try {
+      const id = await this.actions.run(async (tx, effects) => {
+        const [{ n }] = await tx.$queryRaw<Array<{ n: number }>>`
+          SELECT nextval(pg_get_serial_sequence('"Request"', 'number'))::int AS n`;
+        const request = await tx.request.create({
+          data: {
+            kind: 'COVERAGE',
+            number: n,
+            reference: formatCoverageReference(n, now),
+            clientId: dto.clientId,
+            title: `${dto.type === 'LATENESS' ? 'Retard' : 'Absence'} — ${schoolClass.name}`.slice(0, 120),
+            categoryId: category.id,
+            priority,
+            requesterId: user.id,
+            status: 'PENDING',
+            rulesSnapshot: rules as unknown as Prisma.InputJsonValue,
+            createdAt: now,
+            submittedAt: now,
+            coverage: {
+              create: {
+                classId: schoolClass.id,
+                floorId: schoolClass.floorId,
+                source: 'TEACHER_REQUEST',
+                type: dto.type,
+                teacherId: user.id,
+                reason: dto.reason ?? null,
+                startAt,
+                plannedEndAt,
+                estimatedMinutes: Math.round((plannedEndAt.getTime() - startAt.getTime()) / MINUTE_MS),
+              },
+            },
+          },
+        });
+        // Historique sans motif (R5) : source, type et classe seulement.
+        await tx.requestEvent.create({
+          data: { requestId: request.id, actorId: user.id, type: 'CREATED', toValue: { source: 'TEACHER_REQUEST', type: dto.type, classId: schoolClass.id } },
+        });
+        await tx.requestEvent.create({
+          data: { requestId: request.id, actorId: user.id, type: 'STATUS_CHANGED', fromValue: Prisma.JsonNull, toValue: { status: 'PENDING' } },
+        });
+        await this.actions.applyReminders(
+          tx,
+          request,
+          { type: 'CREATED' },
+          { status: 'PENDING', source: 'TEACHER_REQUEST', startAt, plannedEndAt, assigneeId: null },
+          now,
+        );
+        await this.actions.notify(tx, effects, await adminRecipients(tx), user.id, 'COVERAGE_REQUESTED', request.id, priority);
+        const row = await this.actions.load(tx, request.id);
+        await this.actions.pushUpdate(tx, row!, 'PENDING', request.version, effects, []);
+        return request.id;
+      });
+      return { created: true, detail: await this.detail(user, id, ctx) };
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        const duplicate = await this.prisma.request.findUnique({ where: { requesterId_clientId: { requesterId: user.id, clientId: dto.clientId } } });
+        if (duplicate) return { created: false, detail: await this.detail(user, duplicate.id, ctx) };
+      }
+      throw error;
+    }
+  }
+
+  /** Modification par l'auteur tant que la demande est « en attente » ; tracée, échéances recalculées. */
+  async updateTeacherRequest(user: AuthenticatedUser, id: string, dto: UpdateTeacherRequestDto, ctx: RequestContext): Promise<CoverageDetail> {
+    const row = await this.actions.load(this.prisma, id);
+    const facts = row && (await this.access.facts(row));
+    const actors = facts ? coverageActors(await this.access.viewer(user), facts) : [];
+    if (!row || !facts || !actors.includes('REQUESTER_TEACHER')) {
+      await this.logDenied(user, id, ctx, 'NOT_VISIBLE');
+      throw new AppException('NOT_FOUND');
+    }
+    if (row.status !== 'PENDING') throw new AppException('NOT_PENDING');
+    if (dto.version !== row.version) throw new AppException('STATE_CHANGED');
+    const result = applyCoverageAction(facts, 'UPDATE', { actors });
+    if (!result.ok) throw new AppException(result.code);
+
+    const coverage = row.coverage!;
+    const tz = this.config.schoolTimezone;
+    let classId = coverage.classId;
+    let floorId = coverage.floorId;
+    let className = coverage.class.name;
+    if (dto.classId && dto.classId !== coverage.classId) {
+      const schoolClass = await this.prisma.schoolClass.findUnique({ where: { id: dto.classId } });
+      if (!schoolClass || !schoolClass.active) throw new AppException('CLASS_INACTIVE');
+      ({ id: classId, floorId, name: className } = schoolClass);
+    }
+    const slotChanged = [dto.date, dto.startTime, dto.endTime, dto.durationMinutes].some((v) => v !== undefined);
+    const now = new Date();
+    const { startAt, plannedEndAt } = slotChanged
+      ? this.teacherSlot(
+          dto.date ?? localDate(coverage.startAt, tz),
+          dto.startTime ?? localTime(coverage.startAt, tz),
+          dto.endTime ?? (dto.durationMinutes === undefined && coverage.plannedEndAt ? localTime(coverage.plannedEndAt, tz) : undefined),
+          dto.durationMinutes,
+          now,
+        )
+      : { startAt: coverage.startAt, plannedEndAt: coverage.plannedEndAt! };
+    const type = dto.type ?? coverage.type ?? 'LATENESS';
+    const reasonChanged = dto.reason !== undefined && (dto.reason ?? null) !== coverage.reason;
+
+    await this.actions.run(async (tx, effects) => {
+      const { count } = await tx.request.updateMany({
+        where: { id: row.id, status: 'PENDING', version: row.version },
+        data: { version: { increment: 1 }, title: `${type === 'LATENESS' ? 'Retard' : 'Absence'} — ${className}`.slice(0, 120) },
+      });
+      if (count === 0) throw new AppException('STATE_CHANGED');
+      await tx.coverageDetail.update({
+        where: { requestId: row.id },
+        data: {
+          classId,
+          floorId,
+          type,
+          startAt,
+          plannedEndAt,
+          estimatedMinutes: Math.round((plannedEndAt.getTime() - startAt.getTime()) / MINUTE_MS),
+          ...(dto.reason !== undefined ? { reason: dto.reason } : {}),
+        },
+      });
+      // Historique sans motif (R5) : seulement le fait qu'il a changé.
+      await tx.requestEvent.create({
+        data: {
+          requestId: row.id,
+          actorId: user.id,
+          type: 'UPDATED',
+          fromValue: { classId: coverage.classId, type: coverage.type, startAt: coverage.startAt.toISOString(), plannedEndAt: coverage.plannedEndAt?.toISOString() ?? null },
+          toValue: { classId, type, startAt: startAt.toISOString(), plannedEndAt: plannedEndAt.toISOString(), reasonChanged },
+        },
+      });
+      await this.actions.applyReminders(
+        tx,
+        row,
+        { type: 'TRANSITION', action: 'UPDATE' },
+        { status: 'PENDING', source: coverage.source, startAt, plannedEndAt, assigneeId: null },
+        now,
+      );
+      await this.actions.notify(tx, effects, await adminRecipients(tx), user.id, 'COVERAGE_UPDATED', row.id, row.priority);
+      await this.actions.pushUpdate(tx, row, 'PENDING', row.version + 1, effects, []);
+    });
+    return this.detail(user, row.id, ctx);
+  }
+
+  /**
+   * Plage d'une demande d'enseignant (FR-012) : date d'aujourd'hui ou de demain dans le fuseau de
+   * l'école, fin (heure ou durée, l'une des deux) après le début, plage pas entièrement passée.
+   */
+  private teacherSlot(date: string, startTime: string, endTime: string | undefined, durationMinutes: number | undefined, now: Date) {
+    if (endTime === undefined && durationMinutes === undefined) throw fieldError('endTime', 'Indiquez l’heure de fin ou une durée.');
+    if (endTime !== undefined && durationMinutes !== undefined) {
+      throw fieldError('durationMinutes', 'Indiquez l’heure de fin ou une durée, pas les deux.');
+    }
+    const tz = this.config.schoolTimezone;
+    if (!relativeDay(date, now, tz)) throw new AppException('INVALID_DATE');
+    const startAt = atLocalTime(date, startTime, tz);
+    const plannedEndAt = endTime !== undefined ? atLocalTime(date, endTime, tz) : new Date(startAt.getTime() + durationMinutes! * MINUTE_MS);
+    if (plannedEndAt <= startAt || plannedEndAt <= now) throw new AppException('INVALID_RANGE');
+    return { startAt, plannedEndAt };
+  }
+
+  /** Signaler : membre du groupe Enseignants, ou super administrateur ; sinon 404 journalisé. */
+  private async assertCanReport(user: AuthenticatedUser, ctx: RequestContext): Promise<void> {
+    if (moduleCapabilities(await this.access.viewer(user)).report) return;
+    await this.logDenied(user, 'coverage', ctx, 'NOT_TEACHER');
+    throw new AppException('NOT_FOUND');
+  }
 
   // ---------------------------------------------------------------------------
   // Affectation directe (admin, FR-019)
@@ -284,6 +525,8 @@ export class CoverageService {
       /** Admin ou super administrateur (écrans de gestion). */
       canManage: capabilities.manage,
       capabilities,
+      /** « Aujourd'hui » et « demain » de l'école (formulaire de l'enseignant). */
+      schoolDates: this.schoolDates(),
     };
   }
 

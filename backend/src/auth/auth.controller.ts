@@ -9,6 +9,8 @@ import { toMeResponse, type AuthContext, type AuthenticatedUser, type MeResponse
 import { CurrentAuth, CurrentUser } from './current-user.decorator';
 import { LoginThrottlerGuard } from './login-throttler.guard';
 import { Public } from './public.decorator';
+import { groupFlagsOf } from '../common/group-flags';
+import { PrismaService } from '../common/prisma.service';
 import { clientIp } from '../common/request-info';
 import { SESSION_COOKIE } from './session.guard';
 import { SessionService } from './session.service';
@@ -19,6 +21,7 @@ export class AuthController {
   constructor(
     private readonly auth: AuthService,
     private readonly sessions: SessionService,
+    private readonly prisma: PrismaService,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
@@ -42,7 +45,7 @@ export class AuthController {
   ): Promise<{ user: MeResponse }> {
     const { token, user } = await this.auth.login(dto.username, dto.password, clientIp(req));
     res.cookie(SESSION_COOKIE, token, { ...this.cookieOptions(), maxAge: await this.sessions.cookieMaxAgeMs() });
-    return { user: toMeResponse(user) };
+    return { user: toMeResponse(user, await groupFlagsOf(this.prisma, user.id)) };
   }
 
   @Post('logout')
@@ -57,8 +60,8 @@ export class AuthController {
   }
 
   @Get('me')
-  me(@CurrentUser() user: AuthenticatedUser): MeResponse {
-    return toMeResponse(user);
+  async me(@CurrentUser() user: AuthenticatedUser): Promise<MeResponse> {
+    return toMeResponse(user, await groupFlagsOf(this.prisma, user.id));
   }
 
   @Post('password')

@@ -12,6 +12,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  Matches,
   Max,
   MaxLength,
   Min,
@@ -69,6 +70,87 @@ export class CreateCoverageDto {
   @IsOptional()
   @IsUUID()
   voiceFileId?: string;
+}
+
+const DATE_FORMAT = /^\d{4}-\d{2}-\d{2}$/;
+const TIME_FORMAT = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+/** Demande d'un enseignant (contracts/rest-api.md `POST /coverage/teacher-requests`, FR-012). */
+export class TeacherRequestDto {
+  @IsUUID()
+  clientId!: string;
+
+  @IsIn(['LATENESS', 'ABSENCE'], { message: 'Type attendu : retard ou absence.' })
+  type!: 'LATENESS' | 'ABSENCE';
+
+  @IsUUID('all', { message: 'Choisissez la classe.' })
+  classId!: string;
+
+  /** Aujourd'hui ou demain, dans le fuseau de l'école. */
+  @Matches(DATE_FORMAT, { message: 'Date attendue (AAAA-MM-JJ).' })
+  date!: string;
+
+  @Matches(TIME_FORMAT, { message: 'Heure de début attendue (HH:MM).' })
+  startTime!: string;
+
+  /** Heure de fin, ou `durationMinutes` (l'un des deux exactement). */
+  @IsOptional()
+  @Matches(TIME_FORMAT, { message: 'Heure de fin attendue (HH:MM).' })
+  endTime?: string;
+
+  @IsOptional()
+  @IsInt({ message: 'Durée en minutes attendue.' })
+  @Min(5, { message: 'La durée doit être d’au moins 5 minutes.' })
+  @Max(720, { message: 'La durée ne doit pas dépasser 12 heures.' })
+  durationMinutes?: number;
+
+  /** Motif détaillé, facultatif : visible de l'admin, du super administrateur et de l'auteur. */
+  @IsOptional()
+  @Transform(trimOrUndefined)
+  @IsString()
+  @MaxLength(1000)
+  reason?: string;
+}
+
+/** Modification par l'auteur tant que la demande est « en attente » (FR-008g). */
+export class UpdateTeacherRequestDto {
+  @IsInt()
+  @Min(0)
+  version!: number;
+
+  @IsOptional()
+  @IsIn(['LATENESS', 'ABSENCE'], { message: 'Type attendu : retard ou absence.' })
+  type?: 'LATENESS' | 'ABSENCE';
+
+  @IsOptional()
+  @IsUUID('all', { message: 'Choisissez la classe.' })
+  classId?: string;
+
+  @IsOptional()
+  @Matches(DATE_FORMAT, { message: 'Date attendue (AAAA-MM-JJ).' })
+  date?: string;
+
+  @IsOptional()
+  @Matches(TIME_FORMAT, { message: 'Heure de début attendue (HH:MM).' })
+  startTime?: string;
+
+  @IsOptional()
+  @Matches(TIME_FORMAT, { message: 'Heure de fin attendue (HH:MM).' })
+  endTime?: string;
+
+  @IsOptional()
+  @IsInt({ message: 'Durée en minutes attendue.' })
+  @Min(5, { message: 'La durée doit être d’au moins 5 minutes.' })
+  @Max(720, { message: 'La durée ne doit pas dépasser 12 heures.' })
+  durationMinutes?: number;
+
+  /** null efface le motif. */
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() || null : value))
+  @ValidateIf((_o, v) => v !== null)
+  @IsString()
+  @MaxLength(1000)
+  reason?: string | null;
 }
 
 export class CoverageActionDto {

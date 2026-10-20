@@ -143,3 +143,22 @@ Résultat : lint sans erreur ; typage frontend sans erreur ; frontend 180 / 180 
 
 Les sens non liés au rôle (« le surveillant reste responsable » de la classe) ont été reformulés
 (« reste en charge de la classe ») plutôt que conservés.
+
+## Phase 4 — US1, demande d'un enseignant (T049 à T059)
+
+### Backend (T049, T050, T052 à T056)
+
+- **T049** (`supervision-teacher-request.spec.ts`, 17 cas) et **T050** (`supervision-deadlines.spec.ts`,
+  8 cas) : écrits d'abord, rouges (routes absentes, 17 échecs pour T049), puis verts. Deux attendus
+  de T049 corrigés : la sérialisation d'un `RequestEvent` complet échoue sur `seq` (BigInt) ; le
+  contrôle « pas de motif dans l'historique » porte désormais sur `fromValue`, `toValue`, `comment`.
+- **Ajouts au contrat** : `GET /coverage/classes` (toutes les classes actives, pour tout membre du
+  module, FR-012) ; `schoolDates` (`today`, `tomorrow`, fuseau) dans `GET /coverage/availability`,
+  le navigateur ne connaissant pas `SCHOOL_TIMEZONE` ; `isTeacher` et `isSupervisor` dans
+  `GET /auth/me` et la réponse de connexion (T059, menu « Gardes »). Le calcul des groupes est passé
+  dans `common/group-flags.ts` (ordre des couches : `auth` ne dépend pas de `coverage`).
+- `WITHDRAW` après assignation répond `409 NOT_PENDING`, comme la modification.
+- `auth.spec.ts` : réponse de `GET /auth/me` complétée des deux champs (ajout seul).
+- **Instabilité constatée une fois** : lors d'un passage complet, `admin-audit.spec.ts` n'a pas pu
+  joindre le PostgreSQL embarqué (`Can't reach database server at localhost:55433`). Repassé seul
+  puis dans la suite complète (397 / 397) sans erreur ; cause non établie, à surveiller.

@@ -141,6 +141,8 @@ export class CoverageActionsService {
         await this.logDenied(user, id, ctx, `FORBIDDEN_${action}`);
         throw new AppException('FORBIDDEN');
       }
+      // Demande déjà prise en charge : l'enseignant ne peut plus la retirer (FR-008g).
+      if (result.code === 'INVALID_TRANSITION' && action === 'WITHDRAW') throw new AppException('NOT_PENDING');
       throw new AppException(result.code);
     }
 
