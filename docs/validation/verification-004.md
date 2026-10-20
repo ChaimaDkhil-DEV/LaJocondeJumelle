@@ -88,3 +88,31 @@ de travail inchangés. `notifications.spec.ts` et `realtime.spec.ts` : verts san
 
 `npm run lint` sans erreur ; typage backend et frontend sans erreur ; unitaires backend 546 / 546 ;
 intégration 366 / 366 (34 suites) ; frontend 159 / 159.
+
+## Phase 2 — interface (T033, T036, T040, T041)
+
+- **T041** (`status-badges.test.tsx`) et **T036** (`floors.test.tsx`) : écrits d'abord, rouges
+  (18 et 5 échecs), puis verts. Deux attendus de `floors.test.tsx` corrigés après coup : attente
+  du chargement de la liste, et fermeture du dialogue au lieu du message du Toast (le
+  `ToastProvider` n'est pas monté dans ce harnais, comme pour les autres écrans d'administration).
+- **T040** (`coverage.test.tsx`) : réécrit avant le code, mais non exécuté entre les deux ; il
+  référençait des types absents et n'aurait échoué que par compilation.
+- **Écran de création** : `CreateCoveragePage.tsx` (diffusion à des groupes) et la route
+  `/gardes/nouvelle` sont retirés ; l'affectation directe sera réécrite en T074 (US3). D'ici là,
+  l'admin assigne les demandes en attente depuis leur détail.
+
+`frontend/tests/coverage/coverage.test.tsx` (T040) — cas supprimés ou remplacés :
+
+| Cas d'origine | Sort | Raison |
+| --- | --- | --- |
+| désistement : motif obligatoire | remplacé | désistement retiré (FR-008f) ; même contrôle sur la demande de relève |
+| affectation forcée d'un employé déjà en garde | remplacé | plus de forçage : indisponibles listés mais non sélectionnables |
+| onglet « À prendre » : « Je prends », course perdue | supprimé | diffusion supprimée (FR-011a) |
+| bouton « Je prends » désactivé | supprimé | idem |
+| détail « Déjà prise par [nom] » | supprimé | plus de vue réduite |
+| création rapide : groupe sans disponible | supprimé | création par diffusion retirée ; affectation directe en T071/T074 |
+
+Ajoutés : onglets du surveillant (« Mes affectations », « Historique »), annulation par l'admin
+avec motif facultatif.
+
+Résultat : lint sans erreur ; typage frontend sans erreur ; frontend 180 / 180 (23 fichiers).

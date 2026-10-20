@@ -1,16 +1,15 @@
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
-import { Plus, School } from 'lucide-react';
+import { School } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { Link as RouterLink, useSearchParams } from 'react-router';
+import { useSearchParams } from 'react-router';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
 import { PageHeader } from '../../components/PageHeader';
 import { useCoverageProfile } from './api';
-import { MyGuardTab, OpenCoverageTab, PersonalHistoryTab } from './EmployeeViews';
+import { MyGuardTab, PersonalHistoryTab } from './EmployeeViews';
 import { ManagedCoverageTab, TeamTab } from './ManagerViews';
 
 interface TabDef {
@@ -19,31 +18,33 @@ interface TabDef {
   render: () => ReactNode;
 }
 
-const EMPLOYEE_TABS: TabDef[] = [
-  { key: 'a-prendre', label: 'À prendre', render: () => <OpenCoverageTab /> },
-  { key: 'ma-garde', label: 'Ma garde', render: () => <MyGuardTab /> },
+const SUPERVISOR_TABS: TabDef[] = [
+  { key: 'mes-affectations', label: 'Mes affectations', render: () => <MyGuardTab /> },
   { key: 'historique', label: 'Historique', render: () => <PersonalHistoryTab /> },
 ];
 
-const MANAGER_TABS: TabDef[] = [
+const ADMIN_TABS: TabDef[] = [
   { key: 'en-cours', label: 'En cours', render: () => <ManagedCoverageTab finished={false} /> },
   { key: 'equipe', label: 'Équipe', render: () => <TeamTab /> },
   { key: 'terminees', label: 'Terminées', render: () => <ManagedCoverageTab finished /> },
 ];
 
 /**
- * « Gardes » : couverture de classe. Employé d'un groupe de remplacement : À prendre, Ma garde,
- * Historique. Responsable ou super administrateur : demandes en cours, équipe, terminées.
+ * « Gardes » : affectations des surveillants (004). Admin ou super administrateur : affectations en
+ * cours (en attente d'abord), équipe, terminées. Surveillant : ses affectations et renforts, historique.
+ * La diffusion à un groupe (« À prendre ») n'existe plus : seul l'admin assigne (FR-011a).
  */
 export function CoveragePage() {
   const profile = useCoverageProfile();
   const [params, setParams] = useSearchParams();
 
-  if (profile.isPending) return <LoadingState label="Chargement des gardes" variant="detail" />;
-  if (profile.error) return <ErrorState message="Impossible de charger les gardes." actionLabel="Réessayer" onAction={() => void profile.refetch()} />;
+  if (profile.isPending) return <LoadingState label="Chargement des affectations" variant="detail" />;
+  if (profile.error) {
+    return <ErrorState message="Impossible de charger les affectations." actionLabel="Réessayer" onAction={() => void profile.refetch()} />;
+  }
 
   const { canManage, inGroup } = profile.data;
-  const tabs = [...(canManage ? MANAGER_TABS : []), ...(inGroup && !canManage ? EMPLOYEE_TABS : [])];
+  const tabs = [...(canManage ? ADMIN_TABS : []), ...(inGroup && !canManage ? SUPERVISOR_TABS : [])];
   const tab = tabs.find((t) => t.key === params.get('onglet')) ?? tabs[0];
 
   return (
@@ -52,23 +53,16 @@ export function CoveragePage() {
         title="Gardes de classe"
         description={
           canManage
-            ? 'Diffusez un besoin de surveillance quand une enseignante est absente ou en retard, et suivez chaque garde en direct.'
-            : 'Les gardes à prendre de votre groupe, votre garde en cours et votre historique.'
-        }
-        actions={
-          canManage && (
-            <Button component={RouterLink} to="/gardes/nouvelle" variant="contained" startIcon={<Plus aria-hidden="true" />}>
-              Nouvelle demande de couverture
-            </Button>
-          )
+            ? 'Assignez un surveillant aux retards et absences signalés, et suivez chaque affectation en direct.'
+            : 'Vos affectations en cours, vos renforts et votre historique.'
         }
       />
       {!tab ? (
         <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1.5, bgcolor: 'background.paper' }}>
           <EmptyState
             icon={School}
-            title="Vous ne faites partie d’aucun groupe de remplacement"
-            description="Le super administrateur peut vous ajouter à un groupe (par exemple Surveillants/Remplaçants)."
+            title="Aucune affectation pour vous"
+            description="Le super administrateur peut vous ajouter au groupe Surveillants ou Enseignants."
           />
         </Box>
       ) : (

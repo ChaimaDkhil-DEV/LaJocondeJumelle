@@ -17,25 +17,37 @@ export type CoverageStatus =
   | 'CLOSED'
   | 'CANCELLED';
 
+/** Statut principal (R1, FR-008) : filtres, statistiques et alertes s'y fondent. */
+export type MainStatus = 'PENDING' | 'ASSIGNED' | 'IN_PROGRESS' | 'DONE' | 'CANCELLED' | 'UNFILLED';
+/** Sous-état affiché en badge (FR-008c). */
+export type SubState = 'EN_ROUTE' | 'LATE' | 'RELIEF_PENDING' | 'CLOSED';
+
+export type CoverageSource = 'TEACHER_REQUEST' | 'SUPERVISOR_REPORT' | 'ADMIN_DIRECT';
+export type CoverageType = 'LATENESS' | 'ABSENCE' | 'EMPTY_CLASS';
+
+/** Actions proposées par le serveur (`allowedActions`) ; la diffusion et le désistement n'existent plus. */
 export type CoverageAction =
-  | 'ACCEPT'
   | 'ASSIGN'
   | 'REASSIGN'
-  | 'WIDEN'
+  | 'UPDATE'
+  | 'WITHDRAW'
   | 'DEPART'
   | 'CONFIRM_PRESENCE'
-  | 'RELEASE'
   | 'REQUEST_RELIEF'
   | 'RELEASE_BY_MANAGER'
   | 'RELIEVE'
   | 'EXTEND'
   | 'VALIDATE'
-  | 'CANCEL';
+  | 'CANCEL'
+  | 'SET_TEACHER'
+  | 'RELEASE_SUPPORT';
 
 export type ProofMode = 'PHOTO' | 'QR' | 'BOTH';
 export type Availability = 'AVAILABLE' | 'UNAVAILABLE' | 'ABSENT';
-export type UnavailableReason = 'INACTIVE' | 'ABSENT' | 'UNAVAILABLE' | 'ON_GUARD';
+export type UnavailableReason = 'INACTIVE' | 'ABSENT' | 'UNAVAILABLE' | 'ON_GUARD' | 'SUPPORT';
 export type CoverageStage = 'TAKEOVER' | 'ARRIVAL';
+/** Vue de l'affectation selon l'acteur : admin (complète), surveillant (sans motif), enseignant auteur. */
+export type CoverageView = 'ADMIN' | 'SUPERVISOR' | 'TEACHER';
 
 export interface Named {
   id: string;
@@ -53,33 +65,47 @@ export interface SchoolClass {
   room: string | null;
 }
 
+export interface CoverageSupport {
+  id: string;
+  user: Person;
+  joinedAt: string;
+}
+
 export interface CoverageSummary {
   id: string;
   reference: string;
   status: CoverageStatus;
+  mainStatus: MainStatus;
+  subState: SubState | null;
+  source: CoverageSource | null;
+  type: CoverageType | null;
   priority: Priority;
   version: number;
   category: Named;
   class: SchoolClass;
+  floor: Named | null;
+  teacher: Person | null;
+  /** Texte libre des gardes antérieures à 004. */
   absentTeacher: string | null;
   startAt: string;
   estimatedMinutes: number | null;
   plannedEndAt: string | null;
-  groups: Named[];
   requester: Person;
   assignee: Person | null;
+  supports: CoverageSupport[];
+  /** `TAKEOVER_EXPIRED` : demande en attente dont le délai de prise en charge a expiré (FR-011e). */
+  alerts: string[];
   reliefForId: string | null;
+  mergedIntoId: string | null;
   hasVoice: boolean;
   hasNote: boolean;
   currentStage: CoverageStage | null;
   currentDueAt: string | null;
   overdueStage: CoverageStage | null;
-  releaseCount: number;
   extensionCount: number;
   durationMinutes: number | null;
   timestamps: {
     createdAt: string;
-    broadcastAt: string | null;
     acceptedAt: string | null;
     departedAt: string | null;
     presenceAt: string | null;
@@ -87,10 +113,6 @@ export interface CoverageSummary {
     closedAt: string | null;
     cancelledAt: string | null;
   };
-}
-
-export interface OpenCoverage extends CoverageSummary {
-  canAccept: boolean;
 }
 
 export interface PresenceView {
@@ -111,7 +133,9 @@ export interface CoverageHistoryEntry {
 }
 
 export interface CoverageDetail extends CoverageSummary {
-  limited: false;
+  view: CoverageView;
+  /** Motif détaillé : admin et enseignant auteur seulement (null pour le surveillant). */
+  reason: string | null;
   note: string | null;
   voice: { fileId: string; durationSeconds: number } | null;
   proofMode: ProofMode;
@@ -123,33 +147,24 @@ export interface CoverageDetail extends CoverageSummary {
   history: CoverageHistoryEntry[] | null;
 }
 
-/** Vue d'un membre du groupe une fois la garde prise : « Déjà prise par [nom] ». */
-export interface LimitedCoverage {
-  id: string;
-  reference: string;
-  limited: true;
-  takenBy: string | null;
-  finished: boolean;
-}
-
 export interface CoverageProfile {
   availability: Availability;
   activeGuards: Array<{ requestId: string; startAt: string; plannedEndAt: string | null }>;
+  isTeacher: boolean;
+  isSupervisor: boolean;
+  /** Membre du groupe Surveillants. */
   inGroup: boolean;
+  /** Admin ou super administrateur. */
   canManage: boolean;
-}
-
-export interface FormOptions {
-  categories: Array<Named & { proofMode: ProofMode }>;
-  classes: SchoolClass[];
-  groups: Array<Named & { memberCount: number; availableCount: number }>;
 }
 
 export interface Candidate {
   id: string;
   displayName: string;
   jobTitle: string | null;
-  inTargetGroup: boolean;
+  floor: Named | null;
+  /** Rattaché à l'étage de la classe. */
+  sameFloor: boolean;
   available: boolean;
   reason: UnavailableReason | null;
 }
@@ -158,7 +173,7 @@ export interface TeamMember {
   id: string;
   displayName: string;
   jobTitle: string | null;
-  groups: Named[];
+  floor: Named | null;
   availability: Availability;
   available: boolean;
   reason: UnavailableReason | null;
@@ -167,15 +182,6 @@ export interface TeamMember {
 
 export interface PersonalHistory {
   guards: CoverageSummary[];
-  releases: Array<{
-    id: string;
-    requestId: string;
-    reference: string;
-    class: { name: string; room: string | null } | null;
-    at: string;
-    reason: string | null;
-    byManager: boolean;
-  }>;
 }
 
 export interface QrResolution {
@@ -189,8 +195,8 @@ export interface ActionInput {
   version?: number;
   reason?: string;
   assigneeId?: string;
-  force?: boolean;
-  groupId?: string;
+  teacherId?: string | null;
+  supportId?: string;
   minutes?: number;
   photoFileId?: string;
   qrToken?: string;

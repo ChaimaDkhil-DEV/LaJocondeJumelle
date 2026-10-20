@@ -1,7 +1,6 @@
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import Checkbox from '@mui/material/Checkbox';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
@@ -17,14 +16,14 @@ import {
   CircleCheck,
   DoorOpen,
   Footprints,
-  Hand,
   LifeBuoy,
+  Pencil,
   QrCode,
   ShieldCheck,
   Timer,
   UserMinus,
   UserPlus,
-  UsersRound,
+  Users,
   type LucideIcon,
 } from 'lucide-react';
 import { useId, useState } from 'react';
@@ -34,7 +33,7 @@ import { LoadingState } from '../../components/LoadingState';
 import { useToast } from '../../components/Toast';
 import { icon } from '../../design/tokens';
 import { ReasonDialog } from '../requests/ReasonDialog';
-import { useCandidates, useCoverageAction, useFormOptions } from './api';
+import { useCandidates, useCoverageAction } from './api';
 import { CameraCapture, type CapturedPhoto } from './CameraCapture';
 import { ACTION_LABELS, PROOF_LABELS, UNAVAILABLE_REASONS } from './labels';
 import type { ActionInput, CoverageAction, CoverageDetail } from './types';
@@ -42,45 +41,51 @@ import type { ActionInput, CoverageAction, CoverageDetail } from './types';
 type Kind = 'primary' | 'secondary' | 'danger';
 
 const ACTION_STYLE: Record<CoverageAction, { kind: Kind; icon: LucideIcon }> = {
-  ACCEPT: { kind: 'primary', icon: Hand },
   DEPART: { kind: 'primary', icon: Footprints },
   CONFIRM_PRESENCE: { kind: 'primary', icon: DoorOpen },
   RELIEVE: { kind: 'primary', icon: CircleCheck },
   VALIDATE: { kind: 'primary', icon: ShieldCheck },
   ASSIGN: { kind: 'primary', icon: UserPlus },
   REASSIGN: { kind: 'secondary', icon: UserPlus },
-  WIDEN: { kind: 'secondary', icon: UsersRound },
+  UPDATE: { kind: 'secondary', icon: Pencil },
   EXTEND: { kind: 'secondary', icon: Timer },
   REQUEST_RELIEF: { kind: 'secondary', icon: LifeBuoy },
-  RELEASE: { kind: 'danger', icon: UserMinus },
+  SET_TEACHER: { kind: 'secondary', icon: Pencil },
+  RELEASE_SUPPORT: { kind: 'secondary', icon: Users },
   RELEASE_BY_MANAGER: { kind: 'danger', icon: UserMinus },
+  WITHDRAW: { kind: 'danger', icon: Ban },
   CANCEL: { kind: 'danger', icon: Ban },
 };
 
-/** Ordre d'affichage : action principale d'abord, actions destructrices en dernier. */
+/**
+ * Ordre d'affichage : action principale d'abord, actions destructrices en dernier. La modification
+ * d'une demande (UPDATE), la correction de l'enseignant et la libération d'un renfort ont leurs
+ * propres écrans (formulaire de l'enseignant, détail de l'admin).
+ */
 const ORDER: CoverageAction[] = [
-  'ACCEPT',
   'DEPART',
   'CONFIRM_PRESENCE',
   'RELIEVE',
   'VALIDATE',
   'ASSIGN',
   'REASSIGN',
-  'WIDEN',
   'EXTEND',
   'REQUEST_RELIEF',
-  'RELEASE',
   'RELEASE_BY_MANAGER',
+  'WITHDRAW',
   'CANCEL',
 ];
 
-const REASON_DIALOGS: Partial<Record<CoverageAction, { title: string; label: string; confirm: string; success: string }>> = {
-  RELEASE: {
-    title: 'Me désister de cette garde',
-    label: 'Motif du désistement',
-    confirm: 'Me désister',
-    success: 'Désistement enregistré : la demande a été rediffusée.',
-  },
+interface ReasonConfig {
+  title: string;
+  label: string;
+  confirm: string;
+  success: string;
+  /** Motif facultatif (annulation, retrait : FR-008a, FR-008g). */
+  optional?: boolean;
+}
+
+const REASON_DIALOGS: Partial<Record<CoverageAction, ReasonConfig>> = {
   REQUEST_RELIEF: {
     title: 'Demander une relève',
     label: 'Motif de la demande de relève',
@@ -88,36 +93,42 @@ const REASON_DIALOGS: Partial<Record<CoverageAction, { title: string; label: str
     success: 'Relève demandée. Restez en classe jusqu’à l’arrivée de votre remplaçant.',
   },
   CANCEL: {
-    title: 'Annuler la demande de couverture',
-    label: 'Motif de l’annulation',
-    confirm: 'Annuler la demande',
-    success: 'Demande annulée. Les employés concernés sont prévenus.',
+    title: 'Annuler l’affectation',
+    label: 'Motif de l’annulation (facultatif)',
+    confirm: 'Annuler l’affectation',
+    success: 'Affectation annulée. Les personnes concernées sont prévenues.',
+    optional: true,
+  },
+  WITHDRAW: {
+    title: 'Retirer la demande',
+    label: 'Motif du retrait (facultatif)',
+    confirm: 'Retirer la demande',
+    success: 'Demande retirée.',
+    optional: true,
   },
   RELEASE_BY_MANAGER: {
-    title: 'Libérer l’employé de sa garde',
+    title: 'Libérer le surveillant',
     label: 'Motif de la libération',
-    confirm: 'Libérer l’employé',
-    success: 'Employé libéré de sa garde.',
+    confirm: 'Libérer le surveillant',
+    success: 'Surveillant libéré de son affectation.',
   },
 };
 
 const SUCCESS: Partial<Record<CoverageAction, string>> = {
-  ACCEPT: 'Garde prise. Rendez-vous en classe.',
   DEPART: 'C’est noté : vous êtes en route.',
   CONFIRM_PRESENCE: 'Présence confirmée.',
-  RELIEVE: 'Garde terminée.',
-  VALIDATE: 'Garde validée et clôturée.',
-  ASSIGN: 'Garde affectée.',
-  REASSIGN: 'Garde réaffectée.',
-  WIDEN: 'Demande élargie au groupe choisi.',
-  EXTEND: 'Garde prolongée.',
+  RELIEVE: 'Affectation terminée.',
+  VALIDATE: 'Affectation validée et clôturée.',
+  ASSIGN: 'Surveillant assigné.',
+  REASSIGN: 'Affectation réassignée.',
+  EXTEND: 'Affectation prolongée.',
 };
 
 const EXTEND_OPTIONS = [15, 30, 45, 60, 90, 120];
 
 /**
- * Actions d'une couverture : uniquement celles que le serveur autorise (`allowedActions`), qui revérifie
- * tout. Boutons larges sur mobile ; motifs, prolongation, affectation et présence dans des dialogues.
+ * Actions d'une affectation : uniquement celles que le serveur autorise (`allowedActions`), qui revérifie
+ * tout. Boutons larges sur mobile ; motifs, prolongation, assignation et présence dans des dialogues.
  */
 export function CoverageActions({ detail, exclude = [] }: { detail: CoverageDetail; exclude?: CoverageAction[] }) {
   const toast = useToast();
@@ -149,7 +160,7 @@ export function CoverageActions({ detail, exclude = [] }: { detail: CoverageDeta
 
   function click(action: CoverageAction): void {
     setError(null);
-    if (action === 'ACCEPT' || action === 'DEPART') run({ action });
+    if (action === 'DEPART') run({ action });
     else setOpen(action);
   }
 
@@ -181,25 +192,25 @@ export function CoverageActions({ detail, exclude = [] }: { detail: CoverageDeta
           open
           title={reasonDialog.title}
           label={reasonDialog.label}
-          requiredMessage="Le motif est obligatoire."
+          optional={reasonDialog.optional}
           confirmLabel={reasonDialog.confirm}
           pending={mutation.isPending}
-          onConfirm={(reason) => run({ action: open!, reason })}
+          onConfirm={(reason) => run({ action: open!, ...(reason ? { reason } : {}) })}
           onClose={() => setOpen(null)}
         />
       )}
 
       <ConfirmDialog
         open={open === 'RELIEVE' || open === 'VALIDATE'}
-        title={open === 'VALIDATE' ? 'Valider et clôturer la garde ?' : 'Terminer la garde ?'}
-        confirmLabel={open === 'VALIDATE' ? 'Valider et clôturer' : 'Garde terminée'}
+        title={open === 'VALIDATE' ? 'Valider et clôturer l’affectation ?' : 'Terminer l’affectation ?'}
+        confirmLabel={open === 'VALIDATE' ? 'Valider et clôturer' : 'Terminer'}
         pending={mutation.isPending}
         error={error}
         onConfirm={() => run({ action: open! })}
         onClose={() => setOpen(null)}
       >
         {open === 'VALIDATE'
-          ? 'La garde sera clôturée et conservée dans l’historique.'
+          ? 'L’affectation sera clôturée et conservée dans l’historique.'
           : 'À confirmer quand l’enseignant est arrivé en classe. L’heure de fin et la durée sont calculées automatiquement.'}
       </ConfirmDialog>
 
@@ -212,12 +223,8 @@ export function CoverageActions({ detail, exclude = [] }: { detail: CoverageDeta
           pending={mutation.isPending}
           error={error}
           onClose={() => setOpen(null)}
-          onConfirm={(assigneeId, force) => run({ action: open, assigneeId, force })}
+          onConfirm={(assigneeId) => run({ action: open, assigneeId })}
         />
-      )}
-
-      {open === 'WIDEN' && (
-        <WidenDialog detail={detail} pending={mutation.isPending} error={error} onClose={() => setOpen(null)} onConfirm={(groupId) => run({ action: 'WIDEN', groupId })} />
       )}
 
       {open === 'CONFIRM_PRESENCE' && (
@@ -244,7 +251,7 @@ function ExtendDialog({ open, pending, error, onClose, onConfirm }: DialogBase &
   const [minutes, setMinutes] = useState(30);
   return (
     <Dialog open={open} onClose={onClose} aria-labelledby={titleId} fullWidth maxWidth="xs">
-      <DialogTitle id={titleId}>Prolonger la garde</DialogTitle>
+      <DialogTitle id={titleId}>Prolonger l’affectation</DialogTitle>
       <DialogContent sx={{ display: 'grid', gap: 2 }}>
         <TextField select label="Durée supplémentaire" value={minutes} onChange={(e) => setMinutes(Number(e.target.value))} sx={{ mt: 1 }}>
           {EXTEND_OPTIONS.map((m) => (
@@ -254,7 +261,7 @@ function ExtendDialog({ open, pending, error, onClose, onConfirm }: DialogBase &
           ))}
         </TextField>
         <Typography variant="body2" color="text.secondary">
-          La prolongation est journalisée et le responsable en est informé.
+          La prolongation est journalisée et l’admin en est informé.
         </Typography>
         {error && <Alert severity="error">{error}</Alert>}
       </DialogContent>
@@ -268,6 +275,10 @@ function ExtendDialog({ open, pending, error, onClose, onConfirm }: DialogBase &
   );
 }
 
+/**
+ * Assignation par l'admin (FR-009, FR-010) : surveillants de l'étage de la classe d'abord ; les
+ * indisponibles sont listés avec leur raison mais ne peuvent pas être choisis (plus de forçage).
+ */
 function AssignDialog({
   detail,
   action,
@@ -275,118 +286,54 @@ function AssignDialog({
   error,
   onClose,
   onConfirm,
-}: DialogBase & { detail: CoverageDetail; action: 'ASSIGN' | 'REASSIGN'; onConfirm: (assigneeId: string, force: boolean) => void }) {
+}: DialogBase & { detail: CoverageDetail; action: 'ASSIGN' | 'REASSIGN'; onConfirm: (assigneeId: string) => void }) {
   const titleId = useId();
   const candidates = useCandidates(detail.id, true);
   const [selected, setSelected] = useState('');
-  const [force, setForce] = useState(false);
   const [touched, setTouched] = useState(false);
-  const chosen = candidates.data?.find((c) => c.id === selected);
-  const needsForce = chosen !== undefined && !chosen.available;
+  const chosen = candidates.data?.find((c) => c.id === selected && c.available);
+  const title = action === 'ASSIGN' ? 'Assigner un surveillant' : 'Réassigner l’affectation';
 
   function confirm(): void {
     setTouched(true);
-    if (!chosen || (needsForce && !force)) return;
-    onConfirm(chosen.id, needsForce);
+    if (chosen) onConfirm(chosen.id);
   }
 
   return (
     <Dialog open onClose={onClose} aria-labelledby={titleId} fullWidth maxWidth="sm">
-      <DialogTitle id={titleId}>{action === 'ASSIGN' ? 'Affecter la garde' : 'Réaffecter la garde'}</DialogTitle>
+      <DialogTitle id={titleId}>{title}</DialogTitle>
       <DialogContent sx={{ display: 'grid', gap: 2 }}>
         {candidates.isPending ? (
-          <LoadingState label="Chargement des employés" variant="inline" />
+          <LoadingState label="Chargement des surveillants" variant="inline" />
         ) : candidates.error ? (
-          <Alert severity="error">Impossible de charger les employés.</Alert>
+          <Alert severity="error">Impossible de charger les surveillants.</Alert>
         ) : candidates.data.length === 0 ? (
-          <Alert severity="info">Aucun employé ne peut recevoir cette garde.</Alert>
+          <Alert severity="info">Aucun surveillant dans le groupe Surveillants.</Alert>
         ) : (
-          <RadioGroup
-            aria-labelledby={titleId}
-            value={selected}
-            onChange={(e) => {
-              setSelected(e.target.value);
-              setForce(false);
-            }}
-          >
+          <RadioGroup aria-labelledby={titleId} value={selected} onChange={(e) => setSelected(e.target.value)}>
             {candidates.data.map((c) => (
               <FormControlLabel
                 key={c.id}
                 value={c.id}
+                disabled={!c.available}
                 control={<Radio />}
-                label={
-                  <Box>
-                    <Typography variant="body2">{c.displayName}</Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {[c.available ? 'Disponible' : UNAVAILABLE_REASONS[c.reason ?? 'UNAVAILABLE'], c.inTargetGroup ? 'groupe ciblé' : 'hors groupe ciblé']
-                        .filter(Boolean)
-                        .join(' · ')}
-                    </Typography>
-                  </Box>
-                }
+                label={[
+                  c.displayName,
+                  c.floor?.name ?? 'sans étage',
+                  c.available ? 'Disponible' : UNAVAILABLE_REASONS[c.reason ?? 'UNAVAILABLE'],
+                ].join(' · ')}
                 sx={{ py: 0.5 }}
               />
             ))}
           </RadioGroup>
         )}
-        {touched && !chosen && <Alert severity="error">Choisissez un employé.</Alert>}
-        {needsForce && (
-          <Box>
-            <Alert severity="warning" sx={{ mb: 1 }}>
-              {chosen.displayName} n’est pas disponible ({UNAVAILABLE_REASONS[chosen.reason ?? 'UNAVAILABLE'].toLowerCase()}).
-              L’affectation forcée sera tracée dans l’historique.
-            </Alert>
-            <FormControlLabel
-              control={<Checkbox checked={force} onChange={(e) => setForce(e.target.checked)} />}
-              label="Je confirme l’affectation forcée"
-            />
-            {touched && !force && (
-              <Typography variant="caption" color="error" component="p">
-                Cochez la confirmation pour forcer l’affectation.
-              </Typography>
-            )}
-          </Box>
-        )}
+        {touched && !chosen && <Alert severity="error">Choisissez un surveillant disponible.</Alert>}
         {error && <Alert severity="error">{error}</Alert>}
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Retour</Button>
         <Button variant="contained" loading={pending} onClick={confirm}>
-          {action === 'ASSIGN' ? 'Affecter' : 'Réaffecter'}
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-}
-
-function WidenDialog({ detail, pending, error, onClose, onConfirm }: DialogBase & { detail: CoverageDetail; onConfirm: (groupId: string) => void }) {
-  const titleId = useId();
-  const options = useFormOptions();
-  const groups = (options.data?.groups ?? []).filter((g) => !detail.groups.some((t) => t.id === g.id));
-  const [groupId, setGroupId] = useState('');
-  return (
-    <Dialog open onClose={onClose} aria-labelledby={titleId} fullWidth maxWidth="xs">
-      <DialogTitle id={titleId}>Élargir à un autre groupe</DialogTitle>
-      <DialogContent sx={{ display: 'grid', gap: 2 }}>
-        {options.isPending ? (
-          <LoadingState label="Chargement des groupes" variant="inline" />
-        ) : groups.length === 0 ? (
-          <Alert severity="info">Tous les groupes sont déjà ciblés. Vous pouvez affecter quelqu’un manuellement.</Alert>
-        ) : (
-          <TextField select label="Groupe à ajouter" value={groupId} onChange={(e) => setGroupId(e.target.value)} sx={{ mt: 1 }}>
-            {groups.map((g) => (
-              <MenuItem key={g.id} value={g.id}>
-                {g.name} — {g.availableCount} disponible{g.availableCount > 1 ? 's' : ''}
-              </MenuItem>
-            ))}
-          </TextField>
-        )}
-        {error && <Alert severity="error">{error}</Alert>}
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Retour</Button>
-        <Button variant="contained" disabled={!groupId} loading={pending} onClick={() => onConfirm(groupId)}>
-          Diffuser au groupe
+          {action === 'ASSIGN' ? 'Assigner' : 'Réassigner'}
         </Button>
       </DialogActions>
     </Dialog>

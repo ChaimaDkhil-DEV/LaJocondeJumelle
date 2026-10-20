@@ -1,27 +1,31 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../../api/client';
-import type { Priority } from '../../api/types';
 import type {
   ActionInput,
   Availability,
   Candidate,
   CoverageDetail,
   CoverageProfile,
-  CoverageStatus,
   CoverageSummary,
-  FormOptions,
-  LimitedCoverage,
-  OpenCoverage,
+  CoverageType,
+  Named,
   PersonalHistory,
+  Person,
   QrResolution,
+  SchoolClass,
   TeamMember,
 } from './types';
+
+/** Formulaire d'affectation directe : classes (avec étage) et enseignants. */
+export interface FormOptions {
+  classes: Array<SchoolClass & { floor: Named | null }>;
+  teachers: Person[];
+}
 
 /** Toutes les clés commencent par « coverage » : un événement temps réel invalide tout le module. */
 export const coverageKeys = {
   all: ['coverage'] as const,
   profile: ['coverage', 'profile'] as const,
-  open: ['coverage', 'open'] as const,
   mine: ['coverage', 'mine'] as const,
   history: ['coverage', 'history'] as const,
   list: (query: string) => ['coverage', 'list', query] as const,
@@ -33,14 +37,6 @@ export const coverageKeys = {
 
 export function useCoverageProfile() {
   return useQuery({ queryKey: coverageKeys.profile, queryFn: () => apiFetch<CoverageProfile>('/api/coverage/availability') });
-}
-
-export function useOpenCoverage(enabled = true) {
-  return useQuery({
-    queryKey: coverageKeys.open,
-    queryFn: () => apiFetch<{ availability: CoverageProfile; items: OpenCoverage[] }>('/api/coverage/open'),
-    enabled,
-  });
 }
 
 export function useMyGuards(enabled = true) {
@@ -66,7 +62,7 @@ export function useCoverageList(query: string, enabled = true) {
 export function useCoverage(id: string) {
   return useQuery({
     queryKey: coverageKeys.detail(id),
-    queryFn: () => apiFetch<CoverageDetail | LimitedCoverage>(`/api/coverage/${id}`),
+    queryFn: () => apiFetch<CoverageDetail>(`/api/coverage/${id}`),
   });
 }
 
@@ -92,21 +88,22 @@ export function useCoverageAction(id: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: ActionInput) =>
-      apiFetch<CoverageDetail | LimitedCoverage>(`/api/coverage/${id}/actions`, { method: 'POST', body: input }),
+      apiFetch<CoverageDetail>(`/api/coverage/${id}/actions`, { method: 'POST', body: input }),
     onSuccess: (detail) => queryClient.setQueryData(coverageKeys.detail(id), detail),
     onSettled: () => queryClient.invalidateQueries({ queryKey: coverageKeys.all }),
   });
 }
 
+/** Affectation directe (contracts/rest-api.md `POST /coverage`). */
 export interface NewCoverageInput {
   clientId: string;
-  categoryId: string;
   classId: string;
-  groupIds: string[];
-  priority: Priority;
-  startAt?: string;
-  estimatedMinutes?: number;
-  absentTeacher?: string;
+  type: CoverageType;
+  teacherId?: string | null;
+  startAt: string;
+  endAt: string;
+  assigneeId: string;
+  reason?: string;
   note?: string;
   voiceFileId?: string;
 }
@@ -115,7 +112,7 @@ export function useCreateCoverage() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: NewCoverageInput) =>
-      apiFetch<CoverageDetail & { notifiedCount: number }>('/api/coverage', { method: 'POST', body: input }),
+      apiFetch<CoverageDetail>('/api/coverage', { method: 'POST', body: input }),
     onSettled: () => queryClient.invalidateQueries({ queryKey: coverageKeys.all }),
   });
 }
@@ -142,5 +139,3 @@ export function resolveQr(token: string): Promise<QrResolution> {
   return apiFetch<QrResolution>('/api/coverage/presence/resolve', { method: 'POST', body: { token } });
 }
 
-/** Statuts « en cours » pour la liste des responsables. */
-export const ACTIVE_STATUSES: CoverageStatus[] = ['BROADCAST', 'UNFILLED', 'ACCEPTED', 'EN_ROUTE', 'LATE', 'ON_DUTY', 'RELIEF_PENDING', 'DONE'];

@@ -10,19 +10,23 @@ interface ReasonDialogProps {
   open: boolean;
   title: string;
   label: string;
-  requiredMessage: string;
+  /** Message si le motif manque ; sans objet quand `optional` est vrai. */
+  requiredMessage?: string;
+  /** Motif facultatif : la confirmation est possible sans saisie. */
+  optional?: boolean;
   confirmLabel: string;
   pending?: boolean;
   onConfirm: (reason: string) => void;
   onClose: () => void;
 }
 
-/** Saisie d'un motif ou d'un commentaire obligatoire (refus, renvoi à corriger). */
+/** Saisie d'un motif ou d'un commentaire, obligatoire (refus, renvoi à corriger) ou facultatif. */
 export function ReasonDialog({
   open,
   title,
   label,
-  requiredMessage,
+  requiredMessage = 'Le motif est obligatoire.',
+  optional = false,
   confirmLabel,
   pending,
   onConfirm,
@@ -33,7 +37,7 @@ export function ReasonDialog({
   const [error, setError] = useState<string | null>(null);
 
   function confirm(): void {
-    if (!reason.trim()) {
+    if (!optional && !reason.trim()) {
       setError(requiredMessage);
       return;
     }

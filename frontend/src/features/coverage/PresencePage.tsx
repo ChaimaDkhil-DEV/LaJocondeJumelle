@@ -76,7 +76,7 @@ function ConfirmPresence({ coverageId, token }: { coverageId: string; token: str
   const [error, setError] = useState<string | null>(null);
 
   if (detail.isPending) return <LoadingState label="Chargement de votre garde" variant="detail" />;
-  if (detail.error || detail.data.limited) return <ErrorState message="Impossible de charger votre garde." />;
+  if (detail.error) return <ErrorState message="Impossible de charger votre garde." />;
   const d: CoverageDetail = detail.data;
   // Avant la présence : photo exigée sauf preuve « QR seul » ; pendant la garde, le QR suffit comme preuve supplémentaire.
   const onSite = d.status === 'ON_DUTY' || d.status === 'RELIEF_PENDING';
@@ -109,7 +109,7 @@ function ConfirmPresence({ coverageId, token }: { coverageId: string; token: str
               <MapPin size={icon.sm} aria-hidden="true" /> {d.class.room}
             </Typography>
           )}
-          <CoverageStatusBadge status={d.status} />
+          <CoverageStatusBadge mainStatus={d.mainStatus} subState={d.subState} />
         </Box>
       </Box>
       {!canConfirm ? (

@@ -1,5 +1,16 @@
 import Box from '@mui/material/Box';
-import { Activity, LayoutDashboard, School, ScrollText, SlidersHorizontal, Tags, Users, UsersRound, type LucideIcon } from 'lucide-react';
+import {
+  Activity,
+  Building2,
+  LayoutDashboard,
+  School,
+  ScrollText,
+  SlidersHorizontal,
+  Tags,
+  Users,
+  UsersRound,
+  type LucideIcon,
+} from 'lucide-react';
 import { NavLink, Outlet } from 'react-router';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
@@ -13,6 +24,7 @@ const SECTIONS: Array<{ to: string; label: string; icon: LucideIcon }> = [
   { to: '/admin/comptes', label: 'Comptes', icon: Users },
   { to: '/admin/categories', label: 'Catégories', icon: Tags },
   { to: '/admin/groupes', label: 'Groupes', icon: UsersRound },
+  { to: '/admin/etages', label: 'Étages', icon: Building2 },
   { to: '/admin/classes', label: 'Classes', icon: School },
   { to: '/admin/reglages', label: 'Réglages', icon: SlidersHorizontal },
   { to: '/admin/journal', label: 'Journal d’audit', icon: ScrollText },
@@ -35,7 +47,13 @@ export function AdminLayout() {
       <Box
         component="nav"
         aria-label="Sections de l’administration"
-        sx={{ mb: 3, borderBottom: 1, borderColor: 'divider', overflowX: 'auto', scrollbarWidth: 'none' }}
+        sx={{
+          mb: 3,
+          borderBottom: 1,
+          borderColor: 'divider',
+          overflowX: 'auto',
+          scrollbarWidth: 'none',
+        }}
       >
         <Box component="ul" sx={{ listStyle: 'none', m: 0, p: 0, display: 'flex', gap: 0.5 }}>
           {SECTIONS.map(({ to, label, icon: Icon }) => (
@@ -58,7 +76,10 @@ export function AdminLayout() {
                   mb: '-1px',
                   transition: `color ${motion.fast}ms, border-color ${motion.fast}ms`,
                   '&:hover': { color: tokensOf(theme).text },
-                  '&.active': { color: tokensOf(theme).text, borderBottomColor: tokensOf(theme).accent.main },
+                  '&.active': {
+                    color: tokensOf(theme).text,
+                    borderBottomColor: tokensOf(theme).accent.main,
+                  },
                   '&:focus-visible': { outlineOffset: -2 },
                 })}
               >

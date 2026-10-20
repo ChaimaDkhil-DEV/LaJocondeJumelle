@@ -14,6 +14,8 @@ export interface AdminUser {
   createdAt: string;
   /** Catégories dont le compte est destinataire (sans catégorie : jamais proposé à l'affectation). */
   recipientCategories: Array<{ id: string; name: string }>;
+  /** Affectations : étage de rattachement d'un surveillant (004). */
+  floor?: { id: string; name: string } | null;
 }
 
 export type Circuit = 'A_DIRECT' | 'B_ADMIN_VALIDATION';
@@ -111,19 +113,31 @@ export const adminKeys = {
 };
 
 export function useAdminUsers() {
-  return useQuery({ queryKey: adminKeys.users, queryFn: () => apiFetch<AdminUser[]>('/api/admin/users') });
+  return useQuery({
+    queryKey: adminKeys.users,
+    queryFn: () => apiFetch<AdminUser[]>('/api/admin/users'),
+  });
 }
 
 export function useAdminCategories() {
-  return useQuery({ queryKey: adminKeys.categories, queryFn: () => apiFetch<AdminCategory[]>('/api/admin/categories') });
+  return useQuery({
+    queryKey: adminKeys.categories,
+    queryFn: () => apiFetch<AdminCategory[]>('/api/admin/categories'),
+  });
 }
 
 export function useAdminSettings() {
-  return useQuery({ queryKey: adminKeys.settings, queryFn: () => apiFetch<AdminSettings>('/api/admin/settings') });
+  return useQuery({
+    queryKey: adminKeys.settings,
+    queryFn: () => apiFetch<AdminSettings>('/api/admin/settings'),
+  });
 }
 
 export function useRolePermissions() {
-  return useQuery({ queryKey: adminKeys.rolePermissions, queryFn: () => apiFetch<RolePermissions>('/api/admin/role-permissions') });
+  return useQuery({
+    queryKey: adminKeys.rolePermissions,
+    queryFn: () => apiFetch<RolePermissions>('/api/admin/role-permissions'),
+  });
 }
 
 export function useAuditLog(filters: AuditFilters) {
@@ -135,7 +149,9 @@ export function useAuditLog(filters: AuditFilters) {
       for (const [key, value] of Object.entries(filters)) if (value) params.set(key, value);
       if (pageParam) params.set('cursor', pageParam);
       const query = params.toString();
-      return apiFetch<{ items: AuditEntry[]; nextCursor: string | null }>(`/api/admin/audit${query ? `?${query}` : ''}`);
+      return apiFetch<{ items: AuditEntry[]; nextCursor: string | null }>(
+        `/api/admin/audit${query ? `?${query}` : ''}`,
+      );
     },
     getNextPageParam: (last) => last.nextCursor,
   });
