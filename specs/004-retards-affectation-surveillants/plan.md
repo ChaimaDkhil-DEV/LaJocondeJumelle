@@ -32,7 +32,7 @@ module parallèle :
   Seule la valeur du **rôle** `Role.MANAGER` change : le mode de clôture `ClosureMode.MANAGER` et
   l'acteur `'MANAGER'` des machines à états (demandes et gardes) sont d'autres notions et restent
   tels quels.
-- **Migration** : deux étapes, `0006` additive puis `0007` données, chacune avec un `down.sql`.
+- **Migration** : deux étapes, `0008` additive puis `0009` données, chacune avec un `down.sql`.
   Elle est précédée d'un pré-contrôle et de trois validations humaines. Chaque changement de
   statut est tracé par un événement ajouté ; aucun historique n'est réécrit.
 
@@ -46,8 +46,8 @@ Aucune nouvelle dépendance. Détails : [research.md](./research.md).
 React 19, Vite, TanStack Query 5, MUI — inchangés. **Aucun ajout** (fuseau via `Intl`, signal
 sonore via Web Audio API).
 
-**Storage**: PostgreSQL 17. Deux migrations : `0006_supervision_schema` (additive) et
-`0007_supervision_data` (données), chacune avec `down.sql` ([contracts/migration.md](./contracts/migration.md)).
+**Storage**: PostgreSQL 17. Deux migrations : `0008_supervision_schema` (additive) et
+`0009_supervision_data` (données), chacune avec `down.sql` ([contracts/migration.md](./contracts/migration.md)).
 Quatre tables (`Floor`, `CoverageSupport`, `CoverageMergeProposal`, `CoverageReminder`), colonnes
 sur `CoverageDetail`, `SchoolClass`, `User`, `EmployeeGroup` ([data-model.md](./data-model.md)).
 
@@ -173,7 +173,7 @@ et signal sonore facultatif ajouté au `NotificationCenter`.
 ## Validations avant migration
 
 Pré-contrôle en lecture seule et validations **V1** (membres non surveillants), **V2** (statuts
-sans équivalent, garde-fou SQL dans `0007`) et **V3** (durée de conservation) :
+sans équivalent, garde-fou SQL dans `0009`) et **V3** (durée de conservation) :
 [contracts/migration.md](./contracts/migration.md) étape 0.
 
 ## Stratégie de tests
@@ -200,7 +200,7 @@ US5), migration en premier pour la structure.
   - `supervision-jobs` : horloge simulée, escalades, non pourvue, anonymisation sans toucher à
     `RequestEvent` ni `AuditLog` ;
   - `supervision-permissions` : chaque refus est journalisé et répond `404` hors périmètre ;
-  - `migration-0007` : montée, contrôles, `down.sql`, garde-fous ;
+  - `migration-0009` : montée, contrôles, `down.sql`, garde-fous ;
   - `append-only.spec.ts` : inchangé.
 - **Adaptation des tests de gardes** :
   - `coverage.spec.ts` : les cas de diffusion et d'acceptation (1, 2, 2 bis, 3, 5, 5 bis, 6,
@@ -251,8 +251,8 @@ specs/004-retards-affectation-surveillants/
 backend/
 ├── prisma/
 │   ├── schema.prisma                         # enums, Floor, CoverageSupport, CoverageMergeProposal, CoverageReminder, colonnes
-│   ├── migrations/0006_supervision_schema/   # migration.sql + down.sql
-│   ├── migrations/0007_supervision_data/     # migration.sql + down.sql
+│   ├── migrations/0008_supervision_schema/   # migration.sql + down.sql
+│   ├── migrations/0009_supervision_data/     # migration.sql + down.sql
 │   └── seed.ts                               # admin, enseignante, surveillants, étages
 ├── scripts/supervision-preflight.ts          # pré-contrôle (lecture seule)
 └── src/

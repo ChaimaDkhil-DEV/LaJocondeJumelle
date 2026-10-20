@@ -20,7 +20,7 @@ Guide de vérification de bout en bout. Modèle : [data-model.md](./data-model.m
 
 ```text
 npm test -w backend                    # unitaires (machine d'états, statut principal, échéances, fuseau)
-npm run test:integration -w backend    # parcours, droits, migration 0006/0007 + down, jobs, anonymisation
+npm run test:integration -w backend    # parcours, droits, migration 0008/0009 + down, jobs, anonymisation
 npm test -w frontend                   # écrans, accessibilité, synchronisation des enums
 npx playwright test -c e2e/playwright.config.ts   # 3 parcours à 360, 768 et 1280 px
 ```
@@ -47,8 +47,8 @@ Attendu : tout au vert, y compris les tests existants adaptés (diffusion retir�
 
 1. Copie de la base de production en préproduction.
 2. `npm run preflight:supervision -w backend` → rapport ; validations V1–V3 consignées.
-3. Déploiement (`deploy/deploy.sh`) : sauvegarde, `0006`, `0007`.
+3. Déploiement (`deploy/deploy.sh`) : sauvegarde, `0008`, `0009`.
 4. Contrôles : gardes `BROADCAST` devenues « en attente » chez l'admin ; anciennes gardes
    terminées affichées « terminée » avec badge ; aucun événement d'historique disparu
    (décompte `RequestEvent` avant/après : seulement des ajouts).
-5. Retour arrière à blanc : `0007/down.sql`, `0006/down.sql`, contrôle de l'état initial.
+5. Retour arrière à blanc : `0009/down.sql`, `0008/down.sql`, contrôle de l'état initial.

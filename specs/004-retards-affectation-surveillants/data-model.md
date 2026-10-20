@@ -8,7 +8,7 @@ du schéma est inchangé.
 
 | Enum | Changement | Valeurs |
 | --- | --- | --- |
-| `Role` | renommage de valeur (migration 0007) | `SUPER_ADMIN`, **`ADMIN`** (ex-`MANAGER`), `EMPLOYEE` |
+| `Role` | renommage de valeur (migration 0009) | `SUPER_ADMIN`, **`ADMIN`** (ex-`MANAGER`), `EMPLOYEE` |
 | `RequestStatus` | ajout | **`PENDING`** (« en attente ») ; `BROADCAST` conservé mais plus jamais posé |
 | `CoverageSource` | **nouveau** | `TEACHER_REQUEST`, `SUPERVISOR_REPORT`, `ADMIN_DIRECT` |
 | `CoverageType` | **nouveau** | `LATENESS` (retard), `ABSENCE`, `EMPTY_CLASS` (classe vide) |
@@ -90,7 +90,7 @@ Index `(resolvedAt, dueAt)`. Une ligne n'est traitée que si `resolvedAt` est nu
 
 | Champ | Type | Règles |
 | --- | --- | --- |
-| `source` | `CoverageSource` | nullable en base (lignes anciennes avant 0007), obligatoire pour toute création ; 0007 pose `ADMIN_DIRECT` sur les gardes existantes |
+| `source` | `CoverageSource` | nullable en base (lignes anciennes avant 0009), obligatoire pour toute création ; 0009 pose `ADMIN_DIRECT` sur les gardes existantes |
 | `type` | `CoverageType?` | obligatoire pour toute création (FR-007a) ; null seulement pour les gardes antérieures |
 | `teacherId` | uuid? → User | enseignant concerné, membre du groupe `TEACHERS` ; facultatif pour une classe vide (FR-015a) ; null après anonymisation |
 | `reason` | varchar(1000)? | motif détaillé, visible de l'admin et du super administrateur seulement (FR-023c) |
