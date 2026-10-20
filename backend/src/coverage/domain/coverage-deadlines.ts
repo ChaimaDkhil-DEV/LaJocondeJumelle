@@ -5,13 +5,14 @@ import type { CoverageStep } from './coverage-state-machine';
 /**
  * Délais d'une couverture, configurables par catégorie et priorité (DeadlineRule) :
  *
- * | Étape    | Démarre à                                   | S'arrête à                         |
- * |----------|---------------------------------------------|------------------------------------|
- * | TAKEOVER | diffusion, rediffusion après désistement    | prise en charge, annulation        |
- * | ARRIVAL  | acceptation / affectation (max(maintenant, début) + délai) | présence confirmée, désistement, annulation |
+ * | Étape    | Démarre à                                              | S'arrête à                       |
+ * |----------|--------------------------------------------------------|----------------------------------|
+ * | ARRIVAL  | assignation (max(maintenant, début) + délai)           | présence confirmée, annulation   |
  *
- * Le dépassement (« Non pourvue », « En retard ») est marqué une seule fois par occurrence d'étape
- * grâce à `overdueStage` (marqueur persisté), voir scheduler/coverage-deadlines.job.ts.
+ * Le délai de prise en charge d'une demande « en attente » n'est plus une étape de la demande :
+ * c'est une échéance `CoverageReminder` (004, R2, coverage-reminders.ts).
+ * Le dépassement (« En retard ») est marqué une seule fois par occurrence d'étape grâce à
+ * `overdueStage` (marqueur persisté), voir scheduler/coverage-deadlines.job.ts.
  */
 export interface CoverageDurations {
   takeoverMinutes: number | null;
@@ -55,8 +56,6 @@ export function nextCoverageDeadline(
   // Statut inchangé (prolongation, élargissement, preuve supplémentaire) : le délai en cours continue.
   if (last.from === last.to) return previous;
   switch (last.to) {
-    case 'BROADCAST':
-      return stage('TAKEOVER', durations.takeoverMinutes, now, warnPercent);
     case 'ACCEPTED': {
       // Garde planifiée plus tard : le délai d'arrivée court à partir de l'heure de début.
       const from = startAt.getTime() > now.getTime() ? startAt : now;
@@ -64,8 +63,7 @@ export function nextCoverageDeadline(
     }
     case 'EN_ROUTE':
     case 'LATE':
-    case 'UNFILLED':
-      // En route : le délai d'arrivée continue. Non pourvue / En retard : le marqueur de retard reste.
+      // En route : le délai d'arrivée continue. En retard : le marqueur de retard reste.
       return previous;
     default:
       return NO_DEADLINE;

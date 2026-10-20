@@ -3,7 +3,12 @@ import { PrismaClient, type Role } from '@prisma/client';
 import { hash } from 'argon2';
 import request from 'supertest';
 import { resetDatabase } from '../utils/test-db';
-import { createTestApp, ProtectedProbeController, sessionCookie, TEST_ORIGIN } from '../utils/test-app';
+import {
+  createTestApp,
+  ProtectedProbeController,
+  sessionCookie,
+  TEST_ORIGIN,
+} from '../utils/test-app';
 
 /** T020 — authentification, sessions, mot de passe imposé, Origin, journalisation des refus. */
 describe('Authentification et sessions', () => {
@@ -11,7 +16,10 @@ describe('Authentification et sessions', () => {
   let app: INestApplication;
   const PASSWORD = 'Mot-de-passe-solide-2026';
 
-  async function createUser(username: string, extra: { role?: Role; mustChangePassword?: boolean; active?: boolean } = {}) {
+  async function createUser(
+    username: string,
+    extra: { role?: Role; mustChangePassword?: boolean; active?: boolean } = {},
+  ) {
     return prisma.user.create({
       data: {
         username,
@@ -63,29 +71,45 @@ describe('Authentification et sessions', () => {
       const res = await login('Enseignante');
 
       expect(res.status).toBe(200);
-      expect(res.body.user).toMatchObject({ id: user.id, displayName: 'enseignante', role: 'EMPLOYEE' });
+      expect(res.body.user).toMatchObject({
+        id: user.id,
+        displayName: 'enseignante',
+        role: 'EMPLOYEE',
+      });
       expect(res.body.user.passwordHash).toBeUndefined();
-      const cookie = (res.headers['set-cookie'] as unknown as string[]).find((c) => c.startsWith('sid='))!;
+      const cookie = (res.headers['set-cookie'] as unknown as string[]).find((c) =>
+        c.startsWith('sid='),
+      )!;
       expect(cookie).toMatch(/HttpOnly/i);
       expect(cookie).toMatch(/Secure/i);
       expect(cookie).toMatch(/SameSite=Strict/i);
 
       const session = await prisma.session.findFirstOrThrow({ where: { userId: user.id } });
       expect(cookie).not.toContain(session.id); // seul le haché du jeton est stocké
-      await expect(prisma.auditLog.count({ where: { action: 'LOGIN_SUCCESS', actorId: user.id } })).resolves.toBe(1);
+      await expect(
+        prisma.auditLog.count({ where: { action: 'LOGIN_SUCCESS', actorId: user.id } }),
+      ).resolves.toBe(1);
     });
 
     it.each([
       ['mauvais mot de passe', 'enseignante', 'faux-mot-de-passe'],
       ['identifiant inconnu', 'inconnu', PASSWORD],
-    ])('%s → 401 avec un message générique et audit LOGIN_FAILURE', async (_label, username, password) => {
-      await createUser('enseignante');
-      const res = await login(username, password);
-      expect(res.status).toBe(401);
-      expect(res.body.error).toEqual({ code: 'INVALID_CREDENTIALS', message: 'Identifiant ou mot de passe incorrect.' });
-      expect(res.headers['set-cookie']).toBeUndefined();
-      await expect(prisma.auditLog.count({ where: { action: 'LOGIN_FAILURE' } })).resolves.toBe(1);
-    });
+    ])(
+      '%s → 401 avec un message générique et audit LOGIN_FAILURE',
+      async (_label, username, password) => {
+        await createUser('enseignante');
+        const res = await login(username, password);
+        expect(res.status).toBe(401);
+        expect(res.body.error).toEqual({
+          code: 'INVALID_CREDENTIALS',
+          message: 'Identifiant ou mot de passe incorrect.',
+        });
+        expect(res.headers['set-cookie']).toBeUndefined();
+        await expect(prisma.auditLog.count({ where: { action: 'LOGIN_FAILURE' } })).resolves.toBe(
+          1,
+        );
+      },
+    );
 
     it('refuse un compte désactivé avec le même message générique', async () => {
       await createUser('ancien', { active: false });
@@ -103,7 +127,9 @@ describe('Authentification et sessions', () => {
       expect(res.status).toBe(429);
       expect(res.body.error.code).toBe('RATE_LIMITED');
       await expect(
-        prisma.auditLog.count({ where: { action: 'ACCESS_DENIED', details: { path: ['reason'], equals: 'RATE_LIMITED' } } }),
+        prisma.auditLog.count({
+          where: { action: 'ACCESS_DENIED', details: { path: ['reason'], equals: 'RATE_LIMITED' } },
+        }),
       ).resolves.toBe(1);
       // Une autre adresse IP n'est pas bloquée.
       expect((await login('enseignante', PASSWORD, '10.0.0.2')).status).toBe(200);
@@ -138,16 +164,24 @@ describe('Authentification et sessions', () => {
 
   describe('Routes protégées et sessions', () => {
     it('sans cookie → 401 et audit ACCESS_DENIED (UNAUTHENTICATED, route, IP)', async () => {
-      const res = await request(app.getHttpServer()).get('/api/test-probe').set('X-Forwarded-For', '10.0.0.9');
+      const res = await request(app.getHttpServer())
+        .get('/api/test-probe')
+        .set('X-Forwarded-For', '10.0.0.9');
       expect(res.status).toBe(401);
       expect(res.body.error.code).toBe('UNAUTHENTICATED');
       const entry = await prisma.auditLog.findFirstOrThrow({ where: { action: 'ACCESS_DENIED' } });
-      expect(entry.details).toMatchObject({ reason: 'UNAUTHENTICATED', route: '/api/test-probe', method: 'GET' });
+      expect(entry.details).toMatchObject({
+        reason: 'UNAUTHENTICATED',
+        route: '/api/test-probe',
+        method: 'GET',
+      });
       expect(entry.ip).toBe('10.0.0.9');
     });
 
     it('avec un cookie invalide → 401', async () => {
-      const res = await request(app.getHttpServer()).get('/api/test-probe').set('Cookie', 'sid=jeton-invente');
+      const res = await request(app.getHttpServer())
+        .get('/api/test-probe')
+        .set('Cookie', 'sid=jeton-invente');
       expect(res.status).toBe(401);
     });
 
@@ -178,21 +212,30 @@ describe('Authentification et sessions', () => {
         where: { userId: user.id },
         data: { lastSeenAt: new Date(Date.now() - 6 * 60_000) },
       });
-      expect((await request(app.getHttpServer()).get('/api/test-probe').set('Cookie', cookie)).status).toBe(401);
+      expect(
+        (await request(app.getHttpServer()).get('/api/test-probe').set('Cookie', cookie)).status,
+      ).toBe(401);
     });
 
     it('expire la session après sessionMaxHours, même active', async () => {
       const user = await createUser('enseignante');
       const cookie = await loginCookie('enseignante');
-      await prisma.session.updateMany({ where: { userId: user.id }, data: { expiresAt: new Date(Date.now() - 1000) } });
-      expect((await request(app.getHttpServer()).get('/api/test-probe').set('Cookie', cookie)).status).toBe(401);
+      await prisma.session.updateMany({
+        where: { userId: user.id },
+        data: { expiresAt: new Date(Date.now() - 1000) },
+      });
+      expect(
+        (await request(app.getHttpServer()).get('/api/test-probe').set('Cookie', cookie)).status,
+      ).toBe(401);
     });
 
     it('un compte désactivé perd immédiatement ses sessions', async () => {
       const user = await createUser('enseignante');
       const cookie = await loginCookie('enseignante');
       await prisma.user.update({ where: { id: user.id }, data: { active: false } });
-      expect((await request(app.getHttpServer()).get('/api/test-probe').set('Cookie', cookie)).status).toBe(401);
+      expect(
+        (await request(app.getHttpServer()).get('/api/test-probe').set('Cookie', cookie)).status,
+      ).toBe(401);
       await expect(prisma.session.count({ where: { userId: user.id } })).resolves.toBe(0);
     });
   });
@@ -202,7 +245,9 @@ describe('Authentification et sessions', () => {
       await createUser('nouveau', { mustChangePassword: true });
       const cookie = await loginCookie('nouveau');
 
-      const blocked = await request(app.getHttpServer()).get('/api/test-probe').set('Cookie', cookie);
+      const blocked = await request(app.getHttpServer())
+        .get('/api/test-probe')
+        .set('Cookie', cookie);
       expect(blocked.status).toBe(403);
       expect(blocked.body.error.code).toBe('PASSWORD_CHANGE_REQUIRED');
 
@@ -230,7 +275,10 @@ describe('Authentification et sessions', () => {
         .post('/api/auth/password')
         .set('Cookie', cookie)
         .set('Origin', TEST_ORIGIN)
-        .send({ currentPassword: 'mauvais-mot-de-passe', newPassword: 'Nouveau-mot-de-passe-2026' });
+        .send({
+          currentPassword: 'mauvais-mot-de-passe',
+          newPassword: 'Nouveau-mot-de-passe-2026',
+        });
       expect(res.status).toBe(400);
       expect(res.body.error.details.fields[0].field).toBe('currentPassword');
     });
@@ -247,11 +295,18 @@ describe('Authentification et sessions', () => {
         .send({ currentPassword: PASSWORD, newPassword: 'Nouveau-mot-de-passe-2026' });
       expect(res.status).toBe(204);
 
-      expect((await request(app.getHttpServer()).get('/api/test-probe').set('Cookie', cookie)).status).toBe(200);
-      expect((await request(app.getHttpServer()).get('/api/test-probe').set('Cookie', otherCookie)).status).toBe(401);
+      expect(
+        (await request(app.getHttpServer()).get('/api/test-probe').set('Cookie', cookie)).status,
+      ).toBe(200);
+      expect(
+        (await request(app.getHttpServer()).get('/api/test-probe').set('Cookie', otherCookie))
+          .status,
+      ).toBe(401);
       const updated = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
       expect(updated.mustChangePassword).toBe(false);
-      await expect(prisma.auditLog.count({ where: { action: 'PASSWORD_CHANGED', actorId: user.id } })).resolves.toBe(1);
+      await expect(
+        prisma.auditLog.count({ where: { action: 'PASSWORD_CHANGED', actorId: user.id } }),
+      ).resolves.toBe(1);
     });
   });
 
@@ -267,6 +322,8 @@ describe('Authentification et sessions', () => {
         role: 'EMPLOYEE',
         permissions: ['PRIORITY_CHANGE_OWN', 'REQUEST_CREATE'],
         mustChangePassword: false,
+        isTeacher: false,
+        isSupervisor: false,
       });
       expect(res.headers['x-server-time']).toBeDefined();
     });
@@ -281,8 +338,12 @@ describe('Authentification et sessions', () => {
       expect(res.status).toBe(204);
       expect(String(res.headers['set-cookie'])).toMatch(/sid=;/);
       await expect(prisma.session.count({ where: { userId: user.id } })).resolves.toBe(0);
-      await expect(prisma.auditLog.count({ where: { action: 'LOGOUT', actorId: user.id } })).resolves.toBe(1);
-      expect((await request(app.getHttpServer()).get('/api/test-probe').set('Cookie', cookie)).status).toBe(401);
+      await expect(
+        prisma.auditLog.count({ where: { action: 'LOGOUT', actorId: user.id } }),
+      ).resolves.toBe(1);
+      expect(
+        (await request(app.getHttpServer()).get('/api/test-probe').set('Cookie', cookie)).status,
+      ).toBe(401);
     });
   });
 });

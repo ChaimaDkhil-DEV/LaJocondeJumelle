@@ -1,5 +1,36 @@
 # Migration 0002_coverage : couverture de classe
 
+> **Document daté, antérieur à la fonctionnalité 004** : le rôle « Responsable » (`MANAGER`) y est
+> devenu « Admin » (`ADMIN`) et la diffusion des gardes a été remplacée par l'assignation par l'admin.
+> Voir `specs/004-retards-affectation-surveillants/` (migration : `contracts/migration.md`).
+
+## Migration 004 (`0008_supervision_schema`, `0009_supervision_data`)
+
+Référence : `specs/004-retards-affectation-surveillants/contracts/migration.md`. Résumé de la
+procédure :
+
+1. **Pré-contrôle** (lecture seule, sur la base cible) :
+   `npm run preflight:supervision -w backend` produit `supervision-preflight-<date>.md`.
+   Trois validations humaines y sont consignées avant tout déploiement :
+   - V1 : membres actuels du groupe des surveillants (les non-surveillants restent membres,
+     retrait éventuel ensuite dans l'administration) ;
+   - V2 : décision pour chaque garde sans statut cible évident (`0009` refuse de s'exécuter s'il
+     en reste) ;
+   - V3 : durée de conservation (`coverageRetentionMonths`, 12 mois proposés).
+2. **Déploiement** : `deploy/deploy.sh` (sauvegarde, puis `0008` additive et `0009` données ;
+   l'entrée de l'API refuse de migrer sans sauvegarde de moins de 60 min).
+3. **Juste après** : saisir la durée validée (V3), rattacher les classes et les surveillants à
+   leur étage dans l'administration.
+4. **Contrôles** : gardes diffusées devenues « en attente » chez l'admin ; aucun événement
+   d'historique disparu (décompte `RequestEvent` avant / après : seulement des ajouts, marqués
+   `migration-0009`).
+
+**Retour arrière** : redéployer le code précédent, puis `0009/down.sql`, puis
+`0008/down.sql`. Si les garde-fous refusent (données nouvelles déjà saisies), restaurer la
+sauvegarde prise au déploiement (`deploy/backup/restore.sh`).
+
+La suite de ce document décrit la migration `0002_coverage` (lot 2), inchangée.
+
 Cette migration ajoute le module de couverture de classe (garde ou remplacement).
 
 ## Contenu

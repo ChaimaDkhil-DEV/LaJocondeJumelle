@@ -474,6 +474,7 @@ const STATUS_LABELS: Record<RequestStatus, string> = {
   LATE: 'En retard',
   ON_DUTY: 'En poste',
   RELIEF_PENDING: 'Relève demandée',
+  PENDING: 'En attente',
 };
 
 const PRIORITY_LABELS: Record<Priority, string> = { NORMAL: 'Normale', MEDIUM: 'Moyenne', HIGH: 'Haute', URGENT: 'Urgente' };

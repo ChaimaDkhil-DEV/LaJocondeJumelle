@@ -185,7 +185,7 @@ export function CreateRequestPage() {
 
             {category && !isCircuitA ? (
               <Alert severity="info" sx={{ alignSelf: 'end' }}>
-                Cette demande sera d’abord validée par un responsable, qui choisira la personne chargée de la réaliser.
+                Cette demande sera d’abord validée par un admin, qui choisira la personne chargée de la réaliser.
               </Alert>
             ) : (
               <TextField

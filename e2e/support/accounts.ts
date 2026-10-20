@@ -3,16 +3,18 @@ export const E2E_PASSWORD = 'MotDePasse-E2E-2026!';
 
 export const accounts = {
   superadmin: 'superadmin',
-  responsable: 'responsable',
+  /** Admin : rôle ADMIN (renommé en 004). */
+  admin: 'admin',
   enseignante: 'enseignante',
   reprographie: 'reprographie',
   /** Seul compte e2e devant changer son mot de passe à la première connexion. */
   nouveau: 'nouveau',
   /** Employé sans lien avec les demandes de test (confidentialité). */
   autre: 'autre',
-  /** Couverture de classe : membres du groupe « Surveillants/Remplaçants ». */
+  /** Affectations : membres du groupe « Surveillants » (1er étage, puis 2e étage). */
   surveillant: 'surveillant',
   remplacant: 'remplacant',
+  surveillant2: 'surveillant2',
 } as const;
 
 export type AccountName = keyof typeof accounts;

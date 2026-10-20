@@ -7,6 +7,7 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import FormControlLabel from '@mui/material/FormControlLabel';
+import MenuItem from '@mui/material/MenuItem';
 import GlobalStyles from '@mui/material/GlobalStyles';
 import Paper from '@mui/material/Paper';
 import TextField from '@mui/material/TextField';
@@ -24,25 +25,27 @@ import { LoadingState } from '../../components/LoadingState';
 import { SectionHeader } from '../../components/SectionHeader';
 import { useToast } from '../../components/Toast';
 import { font, icon } from '../../design/tokens';
-import { useAdminClasses, useClassQr, useRevokeQr, useSaveClass, type AdminClass } from './adminApi';
+import { useAdminClasses, useAdminFloors, useClassQr, useRevokeQr, useSaveClass, type AdminClass } from './adminApi';
 
 function ClassFormDialog({ schoolClass, onClose, onSaved }: { schoolClass: AdminClass | null; onClose: () => void; onSaved: (message: string) => void }) {
   const titleId = useId();
   const save = useSaveClass();
+  const floors = useAdminFloors();
   const [name, setName] = useState(schoolClass?.name ?? '');
+  const [floorId, setFloorId] = useState(schoolClass?.floor?.id ?? '');
+  const [floorError, setFloorError] = useState<string | null>(null);
   const [room, setRoom] = useState(schoolClass?.room ?? '');
   const [active, setActive] = useState(schoolClass?.active ?? true);
   const [nameError, setNameError] = useState<string | null>(null);
 
   function submit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
-    if (!name.trim()) {
-      setNameError('Le nom est obligatoire.');
-      return;
-    }
-    setNameError(null);
+    setNameError(name.trim() ? null : 'Le nom est obligatoire.');
+    // Étage obligatoire à la création et à la modification (FR-006).
+    setFloorError(floorId ? null : 'Choisissez l’étage de la classe.');
+    if (!name.trim() || !floorId) return;
     save.mutate(
-      { id: schoolClass?.id, name: name.trim(), ...(room.trim() ? { room: room.trim() } : {}), active },
+      { id: schoolClass?.id, name: name.trim(), ...(room.trim() ? { room: room.trim() } : {}), active, floorId },
       { onSuccess: () => onSaved(schoolClass ? 'Classe enregistrée.' : 'Classe créée.') },
     );
   }
@@ -63,6 +66,24 @@ function ClassFormDialog({ schoolClass, onClose, onSaved }: { schoolClass: Admin
             slotProps={{ htmlInput: { maxLength: 80 } }}
           />
           <TextField id="classe-salle" label="Salle ou lieu (facultatif)" value={room} onChange={(e) => setRoom(e.target.value)} slotProps={{ htmlInput: { maxLength: 80 } }} />
+          <TextField
+            id="classe-etage"
+            select
+            label="Étage"
+            required
+            value={floorId}
+            onChange={(e) => setFloorId(e.target.value)}
+            error={Boolean(floorError)}
+            helperText={floorError ?? 'Les surveillants de cet étage sont proposés en premier.'}
+          >
+            {(floors.data ?? [])
+              .filter((f) => f.active || f.id === floorId)
+              .map((f) => (
+                <MenuItem key={f.id} value={f.id}>
+                  {f.name}
+                </MenuItem>
+              ))}
+          </TextField>
           {schoolClass && <FormControlLabel control={<Checkbox checked={active} onChange={(e) => setActive(e.target.checked)} />} label="Classe active" />}
           {save.error && <Alert severity="error">{save.error instanceof ApiError ? save.error.message : 'Enregistrement impossible.'}</Alert>}
         </DialogContent>
@@ -208,7 +229,7 @@ export function ClassesAdminPage() {
                     )}
                   </Box>
                   <Typography variant="body2" color="text.secondary">
-                    {[c.room, `QR version ${c.qrVersion}`].filter(Boolean).join(' · ')}
+                    {[c.room, c.floor?.name ?? 'Sans étage', `QR version ${c.qrVersion}`].filter(Boolean).join(' · ')}
                   </Typography>
                 </Box>
                 <Box sx={{ display: 'flex', gap: 0.5, flex: 'none' }}>

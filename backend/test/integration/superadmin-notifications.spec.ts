@@ -77,7 +77,7 @@ describe('Notifications du super administrateur', () => {
     superadmin = await loginAs(app, 'superadmin');
     superadminId = await userId(prisma, 'superadmin');
     reprographieId = await userId(prisma, 'reprographie');
-    responsableId = await userId(prisma, 'responsable');
+    responsableId = await userId(prisma, 'admin');
     photocopies = await categoryId(prisma, CATEGORIES.photocopies);
     circuitB = await categoryId(prisma, CATEGORIES.circuitB);
     // Le super administrateur est aussi responsable de ces catégories (sans filtrage, il recevrait tout).

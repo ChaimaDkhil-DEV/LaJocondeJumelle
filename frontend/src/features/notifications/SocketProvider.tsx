@@ -18,7 +18,10 @@ interface RealtimeState {
   dismissLatest: () => void;
 }
 
-const RealtimeContext = createContext<RealtimeState>({ latest: null, dismissLatest: () => undefined });
+const RealtimeContext = createContext<RealtimeState>({
+  latest: null,
+  dismissLatest: () => undefined,
+});
 
 export function useRealtime(): RealtimeState {
   return useContext(RealtimeContext);
@@ -47,7 +50,8 @@ export function SocketProvider({
 
   useEffect(() => {
     const socket = createSocket();
-    const invalidate = (queryKey: readonly unknown[]) => void queryClient.invalidateQueries({ queryKey });
+    const invalidate = (queryKey: readonly unknown[]) =>
+      void queryClient.invalidateQueries({ queryKey });
 
     socket.on('connect', () => {
       invalidate(NOTIFICATIONS_KEY);

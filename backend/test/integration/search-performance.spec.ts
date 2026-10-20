@@ -17,7 +17,7 @@ describe('Performance de la recherche', () => {
     await seedDemo(prisma);
     await seedVolume(prisma, 10_000);
     app = await createTestApp();
-    responsable = await loginAs(app, 'responsable');
+    responsable = await loginAs(app, 'admin');
   }, 120_000);
 
   afterAll(async () => {

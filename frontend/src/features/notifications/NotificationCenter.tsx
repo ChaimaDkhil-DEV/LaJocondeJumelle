@@ -12,6 +12,13 @@ import Typography from '@mui/material/Typography';
 import {
   AlarmClock,
   Ban,
+  CalendarClock,
+  Copy,
+  Hourglass,
+  Pencil,
+  Sunrise,
+  TriangleAlert,
+  UsersRound,
   Bell,
   BellOff,
   CheckCheck,
@@ -32,8 +39,10 @@ import {
   UserRound,
   type LucideIcon,
   UserRoundX,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
-import { useId, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { Link as RouterLink, useNavigate } from 'react-router';
 import { visuallyHidden } from '../../components/a11y';
 import { formatRelative } from '../../components/format';
@@ -47,6 +56,7 @@ import {
   type NotificationType,
 } from './api';
 import { useRealtime } from './SocketProvider';
+import { useUrgentSound } from './useUrgentSound';
 
 const NOTIFICATION_ICONS: Record<NotificationType, LucideIcon> = {
   REQUEST_NEW: FilePlus,
@@ -69,6 +79,17 @@ const NOTIFICATION_ICONS: Record<NotificationType, LucideIcon> = {
   COVERAGE_UNFILLED: AlarmClock,
   COVERAGE_EXTENDED: Timer,
   COVERAGE_RELIEVED: Lock,
+  COVERAGE_REQUESTED: CalendarClock,
+  COVERAGE_EMPTY_CLASS: School,
+  COVERAGE_TAKEOVER_EXPIRED: AlarmClock,
+  COVERAGE_ESCALATED: Siren,
+  COVERAGE_MORNING_REMINDER: Sunrise,
+  COVERAGE_CLOSE_REMINDER: Hourglass,
+  COVERAGE_DUPLICATE: Copy,
+  COVERAGE_SUPPORT_REMINDER: UsersRound,
+  COVERAGE_DOUBLE_ASSIGNMENT: TriangleAlert,
+  COVERAGE_LIFTED: UserMinus,
+  COVERAGE_UPDATED: Pencil,
   UNASSIGNED: UserRoundX,
 };
 
@@ -76,7 +97,13 @@ function UrgentMark() {
   return (
     <Box
       component="span"
-      sx={(theme) => ({ display: 'inline-flex', alignItems: 'center', gap: 0.5, color: tokensOf(theme).error.text, fontWeight: font.medium })}
+      sx={(theme) => ({
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 0.5,
+        color: tokensOf(theme).error.text,
+        fontWeight: font.medium,
+      })}
     >
       <Siren size={icon.sm - 2} aria-hidden="true" />
       Urgent
@@ -115,11 +142,22 @@ function NotificationRow({ item }: { item: NotificationItem }) {
           {NOTIFICATION_LABELS[item.type]} — {item.request.title}
         </Typography>
         <Typography variant="caption" color="text.secondary">
-          {item.request.reference} · <time dateTime={item.createdAt}>{formatRelative(item.createdAt)}</time>
+          {item.request.reference} ·{' '}
+          <time dateTime={item.createdAt}>{formatRelative(item.createdAt)}</time>
         </Typography>
       </Box>
       {/* Non lue : pastille discrète (les notifications listées ici sont toutes non lues). */}
-      <Box aria-hidden="true" sx={{ width: 8, height: 8, mt: 1, flex: 'none', borderRadius: '50%', bgcolor: 'primary.main' }} />
+      <Box
+        aria-hidden="true"
+        sx={{
+          width: 8,
+          height: 8,
+          mt: 1,
+          flex: 'none',
+          borderRadius: '50%',
+          bgcolor: 'primary.main',
+        }}
+      />
     </Box>
   );
 }
@@ -135,6 +173,13 @@ export function NotificationCenter() {
   const markRead = useMarkRead();
   const { latest, dismissLatest } = useRealtime();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const sound = useUrgentSound();
+  const { play } = sound;
+
+  // Signal sonore facultatif, en plus du bandeau et de l'annonce (jamais seul porteur de l'information).
+  useEffect(() => {
+    if (latest?.priority === 'URGENT') play();
+  }, [latest, play]);
 
   const total = unread.data?.unreadTotal ?? 0;
   const items = unread.data?.items ?? [];
@@ -169,7 +214,10 @@ export function NotificationCenter() {
         onClose={() => setAnchor(null)}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-        slotProps={{ list: { 'aria-label': 'Notifications' }, paper: { sx: { width: 380, maxWidth: 'calc(100vw - 16px)' } } }}
+        slotProps={{
+          list: { 'aria-label': 'Notifications' },
+          paper: { sx: { width: 380, maxWidth: 'calc(100vw - 16px)' } },
+        }}
       >
         {items.length === 0 && (
           <MenuItem disabled sx={{ '&.Mui-disabled': { opacity: 1 } }}>
@@ -180,11 +228,28 @@ export function NotificationCenter() {
           </MenuItem>
         )}
         {items.map((item) => (
-          <MenuItem key={item.id} onClick={() => open(item)} sx={{ whiteSpace: 'normal', alignItems: 'flex-start', py: 1.25 }}>
+          <MenuItem
+            key={item.id}
+            onClick={() => open(item)}
+            sx={{ whiteSpace: 'normal', alignItems: 'flex-start', py: 1.25 }}
+          >
             <NotificationRow item={item} />
           </MenuItem>
         ))}
-        {items.length > 0 && <Divider sx={{ my: 0.5 }} />}
+        <Divider sx={{ my: 0.5 }} />
+        <MenuItem
+          role="menuitemcheckbox"
+          aria-checked={sound.enabled}
+          onClick={() => sound.setEnabled(!sound.enabled)}
+          sx={{ color: 'text.secondary', gap: 1 }}
+        >
+          {sound.enabled ? (
+            <Volume2 size={icon.sm} aria-hidden="true" />
+          ) : (
+            <VolumeX size={icon.sm} aria-hidden="true" />
+          )}
+          Signal sonore des urgences : {sound.enabled ? 'activé' : 'désactivé'}
+        </MenuItem>
         {items.length > 0 && (
           <MenuItem
             onClick={() => {
@@ -217,7 +282,11 @@ export function NotificationCenter() {
             severity={latestUrgent ? 'error' : 'info'}
             variant={latestUrgent ? 'filled' : 'standard'}
             role={latestUrgent ? 'alert' : 'status'}
-            icon={latestUrgent ? <Siren size={icon.lg} data-testid="notification-urgente-icone" /> : undefined}
+            icon={
+              latestUrgent ? (
+                <Siren size={icon.lg} data-testid="notification-urgente-icone" />
+              ) : undefined
+            }
             onClose={dismissLatest}
             action={
               <Button
@@ -226,12 +295,20 @@ export function NotificationCenter() {
                 component={RouterLink}
                 to={requestPath(latest.requestId, latest.kind)}
                 onClick={dismissLatest}
-                sx={{ color: 'inherit', '&:hover': { bgcolor: 'transparent', textDecoration: 'underline' } }}
+                sx={{
+                  color: 'inherit',
+                  '&:hover': { bgcolor: 'transparent', textDecoration: 'underline' },
+                }}
               >
                 Voir
               </Button>
             }
-            sx={{ width: '100%', maxWidth: 480, boxShadow: shadow, ...(!latestUrgent && { bgcolor: 'background.paper' }) }}
+            sx={{
+              width: '100%',
+              maxWidth: 480,
+              boxShadow: shadow,
+              ...(!latestUrgent && { bgcolor: 'background.paper' }),
+            }}
           >
             {latestUrgent && <strong>Urgent — </strong>}
             {NOTIFICATION_LABELS[latest.type]} : {latest.title}

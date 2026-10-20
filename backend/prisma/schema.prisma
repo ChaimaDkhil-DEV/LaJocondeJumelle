@@ -14,7 +14,8 @@ datasource db {
 
 enum Role {
   SUPER_ADMIN
-  MANAGER
+  /// Ex-« Responsable » (MANAGER), renommé par la migration 0009 (004).
+  ADMIN
   EMPLOYEE
 }
 
@@ -44,6 +45,8 @@ enum RequestStatus {
   LATE
   ON_DUTY
   RELIEF_PENDING
+  /// Affectation « en attente » d'assignation par l'admin (004). BROADCAST n'est plus posé.
+  PENDING
 }
 
 /// Nature d'une demande ou d'une catégorie : demande de travail (lot 1) ou couverture de classe (lot 2).
@@ -141,6 +144,16 @@ enum RequestEventType {
   RELIEF_REQUESTED
   PRESENCE_CONFIRMED
   EXTENDED
+  // Affectations (004)
+  UPDATED
+  TEACHER_SET
+  SUPPORT_JOINED
+  SUPPORT_RELEASED
+  MERGE_PROPOSED
+  MERGE_DECIDED
+  REMINDER_SENT
+  ESCALATED
+  ANONYMIZED
 }
 
 enum AuditAction {
@@ -166,6 +179,10 @@ enum AuditAction {
   COVERAGE_CREATED
   // Demandes de travail : actions administratives
   REQUEST_MANAGED
+  // Affectations (004)
+  FLOOR_CHANGED
+  COVERAGE_ANONYMIZED
+  COVERAGE_MERGE_DECIDED
 }
 
 enum NotificationType {
@@ -192,6 +209,55 @@ enum NotificationType {
   COVERAGE_RELIEVED
   /// Super administrateur : demande active sans employé affecté, délai bientôt dépassé.
   UNASSIGNED
+  // Affectations (004)
+  COVERAGE_REQUESTED
+  COVERAGE_EMPTY_CLASS
+  COVERAGE_TAKEOVER_EXPIRED
+  COVERAGE_ESCALATED
+  COVERAGE_MORNING_REMINDER
+  COVERAGE_CLOSE_REMINDER
+  COVERAGE_DUPLICATE
+  COVERAGE_SUPPORT_REMINDER
+  COVERAGE_DOUBLE_ASSIGNMENT
+  COVERAGE_LIFTED
+  COVERAGE_UPDATED
+}
+
+/// Origine d'une affectation (004).
+enum CoverageSource {
+  TEACHER_REQUEST
+  SUPERVISOR_REPORT
+  ADMIN_DIRECT
+}
+
+/// Nature d'une affectation (004).
+enum CoverageType {
+  LATENESS
+  ABSENCE
+  EMPTY_CLASS
+}
+
+/// Groupes repérés par le code, jamais par leur nom (modifiable) (004, R7).
+enum GroupSystemKey {
+  TEACHERS
+  SUPERVISORS
+}
+
+/// Échéances des affectations, traitées par CoverageRemindersJob (004, R2).
+enum CoverageReminderKind {
+  TAKEOVER
+  TAKEOVER_ESCALATION
+  MORNING
+  END_OF_SLOT
+  END_OF_SLOT_ADMIN
+  SUPPORT_DECISION
+  SUPPORT_ESCALATION
+}
+
+enum MergeProposalStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
 }
 
 /// Utilisateur. `username` est unique et insensible à la casse : il est toujours
@@ -207,8 +273,17 @@ model User {
   active             Boolean      @default(true)
   /// Couverture de classe : disponibilité déclarée (les gardes en cours sont calculées à part).
   availability       Availability @default(AVAILABLE)
+  /// Affectations : étage de rattachement d'un surveillant (004, FR-006).
+  floorId            String?      @db.Uuid
   createdAt          DateTime     @default(now()) @db.Timestamptz(3)
   updatedAt          DateTime     @updatedAt @db.Timestamptz(3)
+
+  floor                    Floor?                  @relation(fields: [floorId], references: [id])
+  coverageTeacherOf        CoverageDetail[]        @relation("CoverageTeacher")
+  coverageSupports         CoverageSupport[]       @relation("CoverageSupportUser")
+  coverageSupportsReleased CoverageSupport[]       @relation("CoverageSupportReleasedBy")
+  mergeDecisions           CoverageMergeProposal[]
+  coverageReminders        CoverageReminder[]
 
   sessions         Session[]
   recipientOf      CategoryRecipient[]
@@ -331,61 +406,66 @@ model Setting {
 }
 
 model Request {
-  id               String         @id @default(uuid()) @db.Uuid
+  id                             String         @id @default(uuid()) @db.Uuid
   /// WORK : demande de travail ; COVERAGE : couverture de classe (détail dans CoverageDetail).
-  kind             RequestKind    @default(WORK)
+  kind                           RequestKind    @default(WORK)
   /// Numéro séquentiel servant à construire `reference` (D-AAAA-NNNNNN).
-  number           Int            @unique @default(autoincrement())
-  reference        String         @unique @db.VarChar(20)
+  number                         Int            @unique @default(autoincrement())
+  reference                      String         @unique @db.VarChar(20)
   /// Idempotence des renvois : unique par (requesterId, clientId).
-  clientId         String         @db.Uuid
-  title            String         @db.VarChar(120)
-  description      String?        @db.VarChar(4000)
-  voiceFileId      String?        @unique @db.Uuid
-  categoryId       String         @db.Uuid
-  priority         Priority
-  requesterId      String         @db.Uuid
-  assigneeId       String?        @db.Uuid
-  status           RequestStatus
+  clientId                       String         @db.Uuid
+  title                          String         @db.VarChar(120)
+  description                    String?        @db.VarChar(4000)
+  voiceFileId                    String?        @unique @db.Uuid
+  categoryId                     String         @db.Uuid
+  priority                       Priority
+  requesterId                    String         @db.Uuid
+  assigneeId                     String?        @db.Uuid
+  status                         RequestStatus
   /// Verrouillage optimiste.
-  version          Int            @default(0)
+  version                        Int            @default(0)
   /// Copie des règles de la catégorie à la création (FR-022).
-  rulesSnapshot    Json
-  currentStage     DeadlineStage?
-  currentDueAt     DateTime?      @db.Timestamptz(3)
-  warnAt           DateTime?      @db.Timestamptz(3)
-  overdueStage     DeadlineStage?
-  autoCloseAt      DateTime?      @db.Timestamptz(3)
-  rejectionReason  String?        @db.VarChar(1000)
-  createdAt        DateTime       @default(now()) @db.Timestamptz(3)
-  submittedAt      DateTime?      @db.Timestamptz(3)
-  approvedAt       DateTime?      @db.Timestamptz(3)
-  rejectedAt       DateTime?      @db.Timestamptz(3)
-  assignedAt       DateTime?      @db.Timestamptz(3)
-  acceptedAt       DateTime?      @db.Timestamptz(3)
-  startedAt        DateTime?      @db.Timestamptz(3)
-  doneAt           DateTime?      @db.Timestamptz(3)
-  finalValidatedAt DateTime?      @db.Timestamptz(3)
-  closedAt         DateTime?      @db.Timestamptz(3)
-  cancelledAt      DateTime?      @db.Timestamptz(3)
+  rulesSnapshot                  Json
+  currentStage                   DeadlineStage?
+  currentDueAt                   DateTime?      @db.Timestamptz(3)
+  warnAt                         DateTime?      @db.Timestamptz(3)
+  overdueStage                   DeadlineStage?
+  autoCloseAt                    DateTime?      @db.Timestamptz(3)
+  rejectionReason                String?        @db.VarChar(1000)
+  createdAt                      DateTime       @default(now()) @db.Timestamptz(3)
+  submittedAt                    DateTime?      @db.Timestamptz(3)
+  approvedAt                     DateTime?      @db.Timestamptz(3)
+  rejectedAt                     DateTime?      @db.Timestamptz(3)
+  assignedAt                     DateTime?      @db.Timestamptz(3)
+  acceptedAt                     DateTime?      @db.Timestamptz(3)
+  startedAt                      DateTime?      @db.Timestamptz(3)
+  doneAt                         DateTime?      @db.Timestamptz(3)
+  finalValidatedAt               DateTime?      @db.Timestamptz(3)
+  closedAt                       DateTime?      @db.Timestamptz(3)
+  cancelledAt                    DateTime?      @db.Timestamptz(3)
   /// Alertes du super administrateur : une seule fois par demande et par type, marqueur posé par
   /// mise à jour conditionnelle (urgente, sans employé affecté, en retard).
-  superAdminUrgentNotifiedAt     DateTime? @db.Timestamptz(3)
-  superAdminUnassignedNotifiedAt DateTime? @db.Timestamptz(3)
-  superAdminOverdueNotifiedAt    DateTime? @db.Timestamptz(3)
-  updatedAt        DateTime       @updatedAt @db.Timestamptz(3)
+  superAdminUrgentNotifiedAt     DateTime?      @db.Timestamptz(3)
+  superAdminUnassignedNotifiedAt DateTime?      @db.Timestamptz(3)
+  superAdminOverdueNotifiedAt    DateTime?      @db.Timestamptz(3)
+  updatedAt                      DateTime       @updatedAt @db.Timestamptz(3)
 
-  voiceFile     File?              @relation("RequestVoice", fields: [voiceFileId], references: [id])
-  category      Category           @relation(fields: [categoryId], references: [id])
-  requester     User               @relation("RequestRequester", fields: [requesterId], references: [id])
-  assignee      User?              @relation("RequestAssignee", fields: [assigneeId], references: [id])
-  files         File[]             @relation("RequestFiles")
+  voiceFile     File?                   @relation("RequestVoice", fields: [voiceFileId], references: [id])
+  category      Category                @relation(fields: [categoryId], references: [id])
+  requester     User                    @relation("RequestRequester", fields: [requesterId], references: [id])
+  assignee      User?                   @relation("RequestAssignee", fields: [assigneeId], references: [id])
+  files         File[]                  @relation("RequestFiles")
   messages      Message[]
   events        RequestEvent[]
   notifications Notification[]
   coverage      CoverageDetail?
-  reliefOf      CoverageDetail[]   @relation("CoverageRelief")
+  reliefOf      CoverageDetail[]        @relation("CoverageRelief")
   presences     CoveragePresence[]
+  mergedFrom    CoverageDetail[]        @relation("CoverageMergedInto")
+  supports      CoverageSupport[]
+  mergeSources  CoverageMergeProposal[] @relation("MergeSource")
+  mergeTargets  CoverageMergeProposal[] @relation("MergeTarget")
+  reminders     CoverageReminder[]
 
   @@unique([requesterId, clientId])
   @@index([kind, status])
@@ -518,19 +598,38 @@ model SchoolClass {
   room      String?  @db.VarChar(80)
   active    Boolean  @default(true)
   qrVersion Int      @default(1)
+  /// Obligatoire à la création et à la modification (DTO) ; null pour les classes antérieures (004).
+  floorId   String?  @db.Uuid
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
 
+  floor     Floor?           @relation(fields: [floorId], references: [id])
   coverages CoverageDetail[]
 }
 
-/// Groupe d'employés ciblé par les couvertures (ex. Surveillants/Remplaçants).
-model EmployeeGroup {
+/// Étage, géré par le super administrateur (004, FR-006). Désactivé, il reste lié à l'historique.
+model Floor {
   id        String   @id @default(uuid()) @db.Uuid
   name      String   @unique @db.VarChar(60)
+  position  Int
   active    Boolean  @default(true)
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  classes   SchoolClass[]
+  users     User[]
+  coverages CoverageDetail[]
+}
+
+/// Groupe d'employés. Un groupe à clé système (Enseignants, Surveillants) ne peut être ni
+/// supprimé ni désactivé (004, R7).
+model EmployeeGroup {
+  id        String          @id @default(uuid()) @db.Uuid
+  name      String          @unique @db.VarChar(60)
+  active    Boolean         @default(true)
+  systemKey GroupSystemKey? @unique
+  createdAt DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime        @updatedAt @db.Timestamptz(3)
 
   members EmployeeGroupMember[]
   targets CoverageTarget[]
@@ -550,34 +649,52 @@ model EmployeeGroupMember {
 /// Détail 1-1 d'une demande de couverture (Request.kind = COVERAGE).
 /// Toutes les heures sont posées par le serveur.
 model CoverageDetail {
-  requestId        String    @id @db.Uuid
-  classId          String    @db.Uuid
-  absentTeacher    String?   @db.VarChar(100)
-  startAt          DateTime  @db.Timestamptz(3)
+  requestId        String          @id @db.Uuid
+  classId          String          @db.Uuid
+  absentTeacher    String?         @db.VarChar(100)
+  startAt          DateTime        @db.Timestamptz(3)
   /// null = jusqu'à l'arrivée de l'enseignant.
   estimatedMinutes Int?
   /// startAt + estimatedMinutes (recalculé à chaque prolongation) ; null = fin ouverte.
-  plannedEndAt     DateTime? @db.Timestamptz(3)
-  broadcastAt      DateTime? @db.Timestamptz(3)
-  departedAt       DateTime? @db.Timestamptz(3)
-  presenceAt       DateTime? @db.Timestamptz(3)
-  relievedAt       DateTime? @db.Timestamptz(3)
+  plannedEndAt     DateTime?       @db.Timestamptz(3)
+  broadcastAt      DateTime?       @db.Timestamptz(3)
+  departedAt       DateTime?       @db.Timestamptz(3)
+  presenceAt       DateTime?       @db.Timestamptz(3)
+  relievedAt       DateTime?       @db.Timestamptz(3)
   /// Durée de garde (présence → relève), en minutes.
   durationMinutes  Int?
-  releaseCount     Int       @default(0)
-  extensionCount   Int       @default(0)
-  cancelReason     String?   @db.VarChar(1000)
+  releaseCount     Int             @default(0)
+  extensionCount   Int             @default(0)
+  cancelReason     String?         @db.VarChar(1000)
   /// Demande de relève : garde d'origine à relever quand le remplaçant confirme sa présence.
-  reliefForId      String?   @db.Uuid
+  reliefForId      String?         @db.Uuid
+  /// Affectations (004). Nullables en base pour les gardes antérieures ; obligatoires à la création.
+  source           CoverageSource?
+  type             CoverageType?
+  /// Enseignant concerné (groupe Enseignants) ; facultatif pour une classe vide ; null après anonymisation.
+  teacherId        String?         @db.Uuid
+  /// Motif détaillé : admin et super administrateur seulement (FR-023c).
+  reason           String?         @db.VarChar(1000)
+  /// Copie de l'étage de la classe à la création (historique stable).
+  floorId          String?         @db.Uuid
+  /// Affectation absorbée par une fusion confirmée (R6).
+  mergedIntoId     String?         @db.Uuid
+  anonymizedAt     DateTime?       @db.Timestamptz(3)
 
-  request   Request          @relation(fields: [requestId], references: [id])
-  class     SchoolClass      @relation(fields: [classId], references: [id])
-  reliefFor Request?         @relation("CoverageRelief", fields: [reliefForId], references: [id])
-  targets   CoverageTarget[]
+  request    Request          @relation(fields: [requestId], references: [id])
+  class      SchoolClass      @relation(fields: [classId], references: [id])
+  reliefFor  Request?         @relation("CoverageRelief", fields: [reliefForId], references: [id])
+  teacher    User?            @relation("CoverageTeacher", fields: [teacherId], references: [id])
+  floor      Floor?           @relation(fields: [floorId], references: [id])
+  mergedInto Request?         @relation("CoverageMergedInto", fields: [mergedIntoId], references: [id])
+  targets    CoverageTarget[]
 
   @@index([classId])
   @@index([startAt])
   @@index([reliefForId])
+  @@index([teacherId])
+  @@index([floorId])
+  @@index([source, type])
 }
 
 /// Groupes ciblés par une couverture (plusieurs après élargissement).
@@ -606,5 +723,71 @@ model CoveragePresence {
   user    User    @relation(fields: [userId], references: [id])
   file    File?   @relation(fields: [fileId], references: [id])
 
+  @@index([requestId])
+}
+
+/// Renfort : surveillant ayant déclaré une classe déjà couverte (004, FR-015f, FR-015i).
+/// Index unique partiel en SQL : un seul renfort actif (releasedAt null) par (requestId, userId).
+model CoverageSupport {
+  id           String    @id @default(uuid()) @db.Uuid
+  requestId    String    @db.Uuid
+  userId       String    @db.Uuid
+  joinedAt     DateTime  @default(now()) @db.Timestamptz(3)
+  releasedAt   DateTime? @db.Timestamptz(3)
+  /// null = système (fin de l'affectation).
+  releasedById String?   @db.Uuid
+
+  request    Request            @relation(fields: [requestId], references: [id])
+  user       User               @relation("CoverageSupportUser", fields: [userId], references: [id])
+  releasedBy User?              @relation("CoverageSupportReleasedBy", fields: [releasedById], references: [id])
+  reminders  CoverageReminder[]
+
+  @@index([requestId])
+  @@index([userId])
+}
+
+/// Proposition de rattachement d'une déclaration à une demande existante (004, FR-015g, FR-015h).
+model CoverageMergeProposal {
+  id               String              @id @default(uuid()) @db.Uuid
+  sourceRequestId  String              @db.Uuid
+  targetRequestId  String              @db.Uuid
+  status           MergeProposalStatus @default(PENDING)
+  createdAt        DateTime            @default(now()) @db.Timestamptz(3)
+  /// Dernière présentation quand les deux affectations sont finales (« non tranché »).
+  finalPresentedAt DateTime?           @db.Timestamptz(3)
+  decidedAt        DateTime?           @db.Timestamptz(3)
+  decidedById      String?             @db.Uuid
+
+  source    Request @relation("MergeSource", fields: [sourceRequestId], references: [id])
+  target    Request @relation("MergeTarget", fields: [targetRequestId], references: [id])
+  decidedBy User?   @relation(fields: [decidedById], references: [id])
+
+  @@unique([sourceRequestId, targetRequestId])
+  @@index([targetRequestId])
+  @@index([status])
+}
+
+/// Échéance d'une affectation (004, R2), traitée une seule fois par CoverageRemindersJob.
+model CoverageReminder {
+  id              String               @id @default(uuid()) @db.Uuid
+  requestId       String               @db.Uuid
+  kind            CoverageReminderKind
+  /// null = « les admins » ou « les super administrateurs » selon le type.
+  targetUserId    String?              @db.Uuid
+  supportId       String?              @db.Uuid
+  dueAt           DateTime             @db.Timestamptz(3)
+  attempts        Int                  @default(0)
+  maxAttempts     Int                  @default(1)
+  intervalMinutes Int?
+  resolvedAt      DateTime?            @db.Timestamptz(3)
+  /// SENT, ASSIGNED, CANCELLED, CLOSED, DECIDED, OBSOLETE.
+  resolution      String?              @db.VarChar(30)
+  createdAt       DateTime             @default(now()) @db.Timestamptz(3)
+
+  request    Request          @relation(fields: [requestId], references: [id])
+  targetUser User?            @relation(fields: [targetUserId], references: [id])
+  support    CoverageSupport? @relation(fields: [supportId], references: [id])
+
+  @@index([resolvedAt, dueAt])
   @@index([requestId])
 }

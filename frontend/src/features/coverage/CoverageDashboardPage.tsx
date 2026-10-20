@@ -6,7 +6,7 @@ import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import { Download, LifeBuoy, Printer, Radio, ScrollText, ShieldCheck, ThumbsUp, TriangleAlert, AlarmClock, type LucideIcon } from 'lucide-react';
+import { Download, LifeBuoy, Printer, Radio, ScrollText, ShieldCheck, TriangleAlert, AlarmClock, UserCheck, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 import { Link as RouterLink } from 'react-router';
 import { loadErrorMessage } from '../../api/client';
@@ -16,21 +16,21 @@ import { SectionCard } from '../../components/SectionCard';
 import { SectionHeader } from '../../components/SectionHeader';
 import { Person } from '../../components/UserAvatar';
 import { font, fontSize, icon, tokensOf, type Tone } from '../../design/tokens';
-import { useAdminClasses, useAdminGroups, useDashboard, type EmployeeStats } from './adminApi';
+import { useAdminClasses, useAdminFloors, useDashboard, type EmployeeStats } from './adminApi';
 import { CoverageRows } from './ManagerViews';
-import { AVAILABILITY_LABELS, COVERAGE_STATUS_LABELS, CoverageStatusBadge, Elapsed } from './labels';
-import type { CoverageStatus } from './types';
+import { AVAILABILITY_LABELS, CoverageStatusBadge, Elapsed, MAIN_STATUS_LABELS, derivedStatus } from './labels';
+import type { MainStatus } from './types';
 
 interface Filters {
   assigneeId: string;
   classId: string;
-  status: string;
-  groupId: string;
+  mainStatus: string;
+  floorId: string;
   from: string;
   to: string;
 }
 
-const EMPTY: Filters = { assigneeId: '', classId: '', status: '', groupId: '', from: '', to: '' };
+const EMPTY: Filters = { assigneeId: '', classId: '', mainStatus: '', floorId: '', from: '', to: '' };
 
 function toQuery(f: Filters): string {
   const params = new URLSearchParams();
@@ -59,19 +59,13 @@ function Kpi({ label, value, tone, icon: Icon }: { label: string; value: number;
   );
 }
 
-function seconds(value: number | null): string {
-  if (value === null) return '—';
-  if (value < 60) return `${value} s`;
-  return `${Math.floor(value / 60)} min ${String(value % 60).padStart(2, '0')} s`;
-}
-
 function EmployeeRow({ e }: { e: EmployeeStats }) {
   return (
     <Box
       component="li"
       sx={{
         display: 'grid',
-        gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1.4fr) minmax(0, 1.6fr) repeat(4, minmax(0, 0.7fr))' },
+        gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1.4fr) minmax(0, 1.6fr) repeat(2, minmax(0, 0.7fr))' },
         gap: { xs: 1, md: 2 },
         alignItems: 'center',
         p: 2,
@@ -81,7 +75,7 @@ function EmployeeRow({ e }: { e: EmployeeStats }) {
       }}
     >
       <Box sx={{ minWidth: 0 }}>
-        <Person name={e.displayName} id={e.id} size={28} secondary={e.available ? 'Disponible' : e.currentGuard ? 'En garde' : AVAILABILITY_LABELS[e.availability]} />
+        <Person name={e.displayName} id={e.id} size={28} secondary={e.available ? 'Disponible' : e.currentGuard ? 'Affecté' : AVAILABILITY_LABELS[e.availability]} />
       </Box>
       <Box sx={{ minWidth: 0, display: 'grid', gap: 0.5 }}>
         {e.currentGuard ? (
@@ -91,20 +85,18 @@ function EmployeeRow({ e }: { e: EmployeeStats }) {
               {e.currentGuard.class.room ? ` — ${e.currentGuard.class.room}` : ''}
             </Box>
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center', fontSize: fontSize.xs, color: 'text.secondary' }}>
-              <CoverageStatusBadge status={e.currentGuard.status} />
+              <CoverageStatusBadge {...derivedStatus(e.currentGuard.status)} />
               {e.currentGuard.since && <Elapsed since={e.currentGuard.since} prefix="depuis" />}
             </Box>
           </>
         ) : (
           <Typography variant="body2" color="text.secondary">
-            Aucune garde en cours{e.activeWorkTasks > 0 ? ` · ${e.activeWorkTasks} tâche${e.activeWorkTasks > 1 ? 's' : ''} en cours` : ''}
+            Aucune affectation en cours{e.activeWorkTasks > 0 ? ` · ${e.activeWorkTasks} tâche${e.activeWorkTasks > 1 ? 's' : ''} en cours` : ''}
           </Typography>
         )}
       </Box>
-      <Stat label="Gardes effectuées" value={String(e.guardsDone)} />
-      <Stat label="Délai moyen de prise" value={seconds(e.averageTakeoverSeconds)} />
+      <Stat label="Affectations effectuées" value={String(e.guardsDone)} />
       <Stat label="Retards" value={String(e.lates)} />
-      <Stat label="Désistements" value={String(e.releases)} />
     </Box>
   );
 }
@@ -123,15 +115,15 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 /**
- * Suivi des employés (super administrateur) : vue temps réel des demandes ouvertes, prises, gardes en
- * cours, retards et demandes non pourvues ; statistiques par employé ; filtres ; export CSV et impression.
+ * Suivi des affectations (super administrateur) : vue temps réel des demandes en attente, affectations
+ * assignées et en cours, retards et non pourvues ; statistiques par surveillant ; filtres ; export CSV et impression.
  */
 export function CoverageDashboardPage() {
   const [filters, setFilters] = useState<Filters>(EMPTY);
   const query = toQuery(filters);
   const dashboard = useDashboard(query);
   const classes = useAdminClasses();
-  const groups = useAdminGroups();
+  const floors = useAdminFloors();
   const set = (patch: Partial<Filters>) => setFilters((f) => ({ ...f, ...patch }));
 
   return (
@@ -147,8 +139,8 @@ export function CoverageDashboardPage() {
       />
       <SectionHeader
         id="titre-suivi"
-        title="Suivi des gardes"
-        description="Mis à jour en direct. Les chiffres sont calculés sur les demandes correspondant aux filtres."
+        title="Suivi des affectations"
+        description="Mis à jour en direct. Les chiffres sont calculés sur les affectations correspondant aux filtres."
         action={
           <Box className="no-print" sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
             <Button component="a" href={`/api/admin/coverage/export.csv${query ? `?${query}` : ''}`} download startIcon={<Download size={icon.sm} aria-hidden="true" />}>
@@ -165,7 +157,7 @@ export function CoverageDashboardPage() {
       />
 
       <Box className="no-print" sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', lg: 'repeat(6, minmax(0, 1fr))' }, mb: 3 }}>
-        <TextField select size="small" label="Employé" value={filters.assigneeId} onChange={(e) => set({ assigneeId: e.target.value })}>
+        <TextField select size="small" label="Surveillant" value={filters.assigneeId} onChange={(e) => set({ assigneeId: e.target.value })}>
           <MenuItem value="">Tous</MenuItem>
           {(dashboard.data?.employees ?? []).map((e) => (
             <MenuItem key={e.id} value={e.id}>
@@ -181,19 +173,19 @@ export function CoverageDashboardPage() {
             </MenuItem>
           ))}
         </TextField>
-        <TextField select size="small" label="Statut" value={filters.status} onChange={(e) => set({ status: e.target.value })}>
+        <TextField select size="small" label="Statut" value={filters.mainStatus} onChange={(e) => set({ mainStatus: e.target.value })}>
           <MenuItem value="">Tous</MenuItem>
-          {(Object.keys(COVERAGE_STATUS_LABELS) as CoverageStatus[]).map((s) => (
+          {(Object.keys(MAIN_STATUS_LABELS) as MainStatus[]).map((s) => (
             <MenuItem key={s} value={s}>
-              {COVERAGE_STATUS_LABELS[s]}
+              {MAIN_STATUS_LABELS[s]}
             </MenuItem>
           ))}
         </TextField>
-        <TextField select size="small" label="Groupe" value={filters.groupId} onChange={(e) => set({ groupId: e.target.value })}>
+        <TextField select size="small" label="Étage" value={filters.floorId} onChange={(e) => set({ floorId: e.target.value })}>
           <MenuItem value="">Tous</MenuItem>
-          {(groups.data ?? []).map((g) => (
-            <MenuItem key={g.id} value={g.id}>
-              {g.name}
+          {(floors.data ?? []).map((f) => (
+            <MenuItem key={f.id} value={f.id}>
+              {f.name}
             </MenuItem>
           ))}
         </TextField>
@@ -213,11 +205,11 @@ export function CoverageDashboardPage() {
         <Box sx={{ display: 'grid', gap: 3 }}>
           {dashboard.data.emptyGroups.length > 0 && (
             <Alert severity="warning" icon={<TriangleAlert size={icon.lg} aria-hidden="true" />}>
-              Groupes sans employé disponible :{' '}
+              Groupe Surveillants sans surveillant disponible :{' '}
               {dashboard.data.emptyGroups
                 .map((g) => `${g.name} (${g.memberCount === 0 ? 'vide' : `${g.memberCount} membre${g.memberCount > 1 ? 's' : ''}, aucun disponible`})`)
                 .join(', ')}
-              . <RouterLink to="/admin/groupes">Gérer les groupes</RouterLink>
+              . <RouterLink to="/admin/groupes">Gérer le groupe</RouterLink>
             </Alert>
           )}
 
@@ -226,27 +218,27 @@ export function CoverageDashboardPage() {
             aria-label="Chiffres clés"
             sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', md: 'repeat(3, minmax(0, 1fr))', lg: 'repeat(6, minmax(0, 1fr))' } }}
           >
-            <Kpi label="Diffusées" value={dashboard.data.counts.open} tone="info" icon={Radio} />
+            <Kpi label="En attente" value={dashboard.data.counts.open} tone="info" icon={Radio} />
             <Kpi label="Non pourvues" value={dashboard.data.counts.unfilled} tone="error" icon={AlarmClock} />
-            <Kpi label="Prises" value={dashboard.data.counts.taken} tone="accent" icon={ThumbsUp} />
+            <Kpi label="Assignées" value={dashboard.data.counts.taken} tone="accent" icon={UserCheck} />
             <Kpi label="En retard" value={dashboard.data.counts.late} tone="error" icon={AlarmClock} />
-            <Kpi label="En garde" value={dashboard.data.counts.onDuty} tone="success" icon={ShieldCheck} />
+            <Kpi label="En cours" value={dashboard.data.counts.onDuty} tone="success" icon={ShieldCheck} />
             <Kpi label="Relèves demandées" value={dashboard.data.counts.reliefPending} tone="warning" icon={LifeBuoy} />
           </Box>
 
           <Box component="section" aria-labelledby="titre-suivi-actives" sx={{ display: 'grid', gap: 1.5 }}>
             <Typography id="titre-suivi-actives" component="h3" variant="subtitle1">
-              Demandes en cours ({dashboard.data.active.length})
+              Affectations actives ({dashboard.data.active.length})
             </Typography>
-            <CoverageRows items={dashboard.data.active} empty="Aucune demande en cours pour ces filtres." />
+            <CoverageRows items={dashboard.data.active} empty="Aucune affectation active pour ces filtres." />
           </Box>
 
-          <SectionCard title={`Par employé (${dashboard.data.employees.length})`} flush>
+          <SectionCard title={`Par surveillant (${dashboard.data.employees.length})`} flush>
             <Box
               aria-hidden="true"
               sx={(theme) => ({
                 display: { xs: 'none', md: 'grid' },
-                gridTemplateColumns: 'minmax(0, 1.4fr) minmax(0, 1.6fr) repeat(4, minmax(0, 0.7fr))',
+                gridTemplateColumns: 'minmax(0, 1.4fr) minmax(0, 1.6fr) repeat(2, minmax(0, 0.7fr))',
                 gap: 2,
                 px: 2,
                 py: 1,
@@ -256,12 +248,10 @@ export function CoverageDashboardPage() {
                 borderColor: 'divider',
               })}
             >
-              <span>Employé</span>
-              <span>Tâche en cours</span>
-              <span>Gardes effectuées</span>
-              <span>Délai moyen de prise</span>
+              <span>Surveillant</span>
+              <span>Affectation en cours</span>
+              <span>Affectations effectuées</span>
               <span>Retards</span>
-              <span>Désistements</span>
             </Box>
             <Box component="ul" sx={{ listStyle: 'none', m: 0, p: 0 }}>
               {dashboard.data.employees.map((e) => (

@@ -50,7 +50,7 @@ test('V13 — refus motivé à la validation administrative', async ({ page, bro
   expect((await repro.request.get(`/api/requests/${id}`)).status()).toBe(404);
   await repro.context().close();
 
-  const manager = await pageAs(browser, testInfo, 'responsable');
+  const manager = await pageAs(browser, testInfo, 'admin');
   await openFromToValidate(manager, title);
   await expect(manager.getByText('En attente de validation administrative', { exact: true })).toBeVisible();
   await manager.getByRole('button', { name: 'Refuser' }).click();
@@ -73,7 +73,7 @@ test('V13 — approbation avec choix de l’employé, réalisation avec photo, v
   await login(page, 'enseignante');
   const id = await submitCircuitB(page, title);
 
-  const manager = await pageAs(browser, testInfo, 'responsable');
+  const manager = await pageAs(browser, testInfo, 'admin');
   await openFromToValidate(manager, title);
   await manager.getByRole('button', { name: 'Approuver' }).click();
   const approve = manager.getByRole('dialog', { name: 'Approuver la demande' });

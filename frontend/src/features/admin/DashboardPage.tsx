@@ -208,7 +208,7 @@ function GeneralView({ qs }: { qs: string }) {
         <Box sx={{ ...kpiGrid, gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, minmax(0, 1fr))' } }}>
           <Kpi label="En retard" value={s.current.overdueNow} tone={s.current.overdueNow > 0 ? 'error' : 'neutral'} icon={AlarmClock} hint="Échéance de l’étape en cours dépassée" />
           <Kpi label="Urgentes en cours" value={s.current.urgentActive} tone={s.current.urgentActive > 0 ? 'warning' : 'neutral'} icon={Siren} hint="Priorité urgente, non terminées" />
-          <Kpi label="Sans employé affecté" value={s.current.unassigned} icon={UserRoundX} hint="Envoyées ou en cours sans responsable" />
+          <Kpi label="Sans employé affecté" value={s.current.unassigned} icon={UserRoundX} hint="Envoyées ou en cours sans employé affecté" />
         </Box>
         {s.alerts.length === 0 ? (
           <EmptyState compact icon={CircleCheck} title="Aucune alerte" description="Aucune demande en retard ni urgente en cours." />
@@ -300,7 +300,7 @@ function AlertTable({ alerts }: { alerts: DashboardAlert[] }) {
             <TableCell>Priorité</TableCell>
             <TableCell>Statut</TableCell>
             <TableCell>Échéance</TableCell>
-            <TableCell>Responsable</TableCell>
+            <TableCell>Employé affecté</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -484,7 +484,7 @@ function EmployeesView({ qs }: { qs: string }) {
         </Table>
       </TableContainer>
       <Typography variant="body2" color="text.secondary">
-        « Reçues » : demandes de la période dont l’employé est actuellement responsable. Les comptes actifs sans demande sur la période (destinataires de la
+        « Reçues » : demandes de la période actuellement affectées à l’employé. Les comptes actifs sans demande sur la période (destinataires de la
         catégorie si elle est filtrée) figurent à zéro. « Dernière action » : dernière action enregistrée sur une demande ; elle
         n’indique ni la présence ni la disponibilité de la personne.
       </Typography>
@@ -514,7 +514,7 @@ function RequestsView({ filters }: { filters: string }) {
               <TableCell>Priorité</TableCell>
               <TableCell>Statut</TableCell>
               <TableCell>Demandeur</TableCell>
-              <TableCell>Responsable</TableCell>
+              <TableCell>Employé affecté</TableCell>
               <TableCell>Créée le</TableCell>
               <TableCell>Échéance</TableCell>
             </TableRow>

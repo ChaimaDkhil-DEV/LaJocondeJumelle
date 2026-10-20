@@ -3,7 +3,7 @@
  * par tests/api/enums-sync.test.ts.
  */
 
-export type Role = 'SUPER_ADMIN' | 'MANAGER' | 'EMPLOYEE';
+export type Role = 'SUPER_ADMIN' | 'ADMIN' | 'EMPLOYEE';
 
 export type Priority = 'NORMAL' | 'MEDIUM' | 'HIGH' | 'URGENT';
 
@@ -26,4 +26,7 @@ export interface Me {
   role: Role;
   permissions: string[];
   mustChangePassword: boolean;
+  /** Affectations (004) : membre des groupes Enseignants et Surveillants. */
+  isTeacher?: boolean;
+  isSupervisor?: boolean;
 }

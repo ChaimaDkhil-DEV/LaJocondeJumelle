@@ -95,7 +95,7 @@ Les colonnes « Dépend de » et « Utilisé par » ont été établies à parti
 | `auth/` | Connexion, déconnexion, changement de mot de passe (`AuthController`, `AuthService`) ; sessions serveur (`SessionService`) ; gardes globales `OriginGuard` (CSRF) et `SessionGuard` ; limitation des tentatives de connexion | audit, common, config, realtime, requests (`access-policy`), settings | presque tous (types `AuthenticatedUser`, décorateurs `@CurrentUser`, `@Public`) |
 | `settings/` | Réglages globaux en base avec valeurs par défaut (`SETTING_DEFAULTS`), permissions par rôle, administration | audit, auth, common, users | auth, cli, coverage, files, messages, requests |
 | `users/` | Administration des comptes (`/api/admin/users`) | audit, auth, common, realtime | categories, settings |
-| `categories/` | Catégories visibles par l'utilisateur et leur administration (circuit, destinataires, responsables, délais par priorité) | audit, auth, common, requests, users | — |
+| `categories/` | Catégories visibles par l'utilisateur et leur administration (circuit, destinataires, admins de la catégorie, délais par priorité) | audit, auth, common, requests, users | — |
 | `requests/` | Demandes de travail. Contient deux modules **purs** : `domain/request-state-machine.ts` et `domain/access-policy.ts`, ainsi que `domain/deadlines.ts` et `domain/visibility.ts`. S'y ajoutent les services `RequestsService` (création, lecture, priorité, brouillons) et `RequestTransitionsService` (actions de statut) | audit, auth, common, files, notifications, realtime, settings | auth, categories, coverage, files, messages, scheduler |
 | `messages/` | Fil de discussion d'une demande (texte, vocal, pièces jointes) | audit, auth, common, notifications, realtime, requests, settings | — |
 | `files/` | Envoi, contrôle (octets magiques, ffprobe, sharp), stockage privé sur disque (`FileStorageService`) et lecture authentifiée (`GET /api/files/:id`) | audit, auth, common, config, coverage, requests, settings | requests, scheduler |
@@ -110,12 +110,17 @@ Les colonnes « Dépend de » et « Utilisé par » ont été établies à parti
 > `request-info` et les règles transverses (`authorization.ts`) sont dans `common/` ; `files/` ne
 > dépend plus ni de `requests/` ni de `coverage/` (registre d'accès) ; le job des délais de
 > couverture est dans `scheduler/`. Les colonnes ci-dessus décrivent l'état du commit `595c3fc`.
+>
+> **Mise à jour (fonctionnalité 004)** : `coverage/` devient le module **affectations des
+> surveillants** (section 13) ; `scheduler/` y ajoute `coverage-reminders.job.ts` (échéances,
+> non pourvues) et `coverage-anonymization.job.ts` ; le calcul des groupes à clé système est dans
+> `common/group-flags.ts` (utilisé par `auth/` et `coverage/`).
 
 Scripts et données hors `src/` :
 
 | Dossier | Rôle |
 |---|---|
-| `backend/prisma/` | `schema.prisma`, migrations `0001_init` et `0002_coverage` (avec `down.sql`), `seed.ts` (données de démonstration), `seed-volume.ts` (volume de test) |
+| `backend/prisma/` | `schema.prisma`, migrations `0001_init` à `0009_supervision_data` (avec `down.sql` ; `0008`/`0009` : fonctionnalité 004), `seed.ts` (données de démonstration), `seed-volume.ts` (volume de test) |
 | `backend/scripts/` | Base de dev embarquée (`dev-db.ts`), serveur e2e, génération de fixtures, et trois scripts de maintenance ponctuels : `repair-employee-recipients.ts`, `check-users.ts`, `reset-superadmin-password.ts` (supprimé : sous-commande `bootstrap.js --reset-password`, commit `5ed613d`) |
 | `backend/test/` | 15 fichiers de tests unitaires, 24 d'intégration (base PostgreSQL réelle), fixtures audio, image et PDF |
 
@@ -307,7 +312,7 @@ sequenceDiagram
   end
   TS->>NS: flushAfterCommit → SocketNotificationPublisher
   NS->>RT: notification:new (salles user:{id})
-  TS->>RT: request:updated (demandeur, affecté, responsables)
+  TS->>RT: request:updated (demandeur, affecté, admins de la catégorie)
   RC->>RC: requests.detail(...) (relecture + allowedActions)
   RC-->>UI: 200 RequestDetail
 ```
@@ -352,7 +357,7 @@ Autre cas d'erreur vérifié dans le code : une requête modifiante sans en-têt
 erDiagram
   User ||--o{ Session : "a"
   User ||--o{ CategoryRecipient : "destinataire de"
-  User ||--o{ CategoryManager : "responsable de"
+  User ||--o{ CategoryManager : "admin de"
   User ||--o{ Request : "demandeur (requesterId)"
   User ||--o{ Request : "affecté (assigneeId)"
   User ||--o{ Message : "auteur"
@@ -632,7 +637,7 @@ docker compose -f deploy/docker-compose.yml --env-file deploy/.env exec api node
 ### Code dupliqué
 
 - **[VÉRIFIÉ]** Il existe deux machines à états, deux politiques d'accès, deux calculs de délais et deux jobs de délais, un jeu pour chaque `kind` (`requests/domain/*` et `coverage/domain/*`). Le partage de la table `Request` n'a pas permis de mutualiser cette logique.
-  **[DÉDUIT]** Une règle transverse (par exemple « un responsable peut toujours annuler ») devra être écrite deux fois.
+  **[DÉDUIT]** Une règle transverse (par exemple « un admin peut toujours annuler ») devra être écrite deux fois.
 - **[VÉRIFIÉ]** La fonction `originOf` est dupliquée dans `auth/origin.guard.ts` et `realtime/realtime.gateway.ts`. → **Corrigé** (`5ed613d`) : règle unique `common/origin.ts`.
 - **[VÉRIFIÉ]** Les listes de clés sensibles sont dupliquées, avec des différences : `app-logger.ts` contient `authorization`, absent d'`audit.service.ts`, et `audit.service.ts` contient `^message$`, absent du logger. → **Corrigé** (`5ed613d`) : liste unique, réunion des deux.
 - **[VÉRIFIÉ]** Les types du frontend dupliquent ceux du backend à la main (voir §7, point 5).
@@ -716,3 +721,70 @@ exécutions : `docs/validation/verification-003.md`. État au 2026-10-16.
 | N1 Blocage de l'approbation après passage en mode manuel | [VÉRIFIÉ] confirmé par test, corrigé | `0f2e97d`, `3b291ee` |
 | N2 Cycles plus étendus que l'audit (11 dossiers) | [VÉRIFIÉ] ; réduit à 4 dossiers hors périmètre | voir A09 |
 | N3 Ordre aléatoire des événements de même horodatage (relevé par la CI) | Corrigé | `36d400b`, `6aac605` |
+
+## 13. Affectations des surveillants (fonctionnalité 004)
+
+Spécification, plan et contrats : `specs/004-retards-affectation-surveillants/`. Vérifications :
+`docs/validation/verification-004.md`.
+
+### Principe
+
+La diffusion des gardes (« À prendre », « Je prends ») est remplacée par l'**assignation par
+l'admin**. Trois sources d'affectation (`CoverageDetail.source`) :
+
+| Source | Créée par | Naît | Route |
+|---|---|---|---|
+| `TEACHER_REQUEST` | enseignant (groupe Enseignants), pour aujourd'hui ou demain | `PENDING` | `POST /coverage/teacher-requests` |
+| `SUPERVISOR_REPORT` | surveillant (groupe Surveillants) : classe vide | `ON_DUTY` à son nom | `POST /coverage/empty-class` |
+| `ADMIN_DIRECT` | admin ou super administrateur | `ACCEPTED` | `POST /coverage` |
+
+Les rôles ne changent pas de nature : `MANAGER` est renommé `ADMIN` (migration 0009) ;
+enseignants et surveillants sont des `EMPLOYEE` repérés par des **groupes à clé système**
+(`EmployeeGroup.systemKey` : `TEACHERS`, `SUPERVISORS`), jamais par leur nom (R7).
+
+### Domaine pur (`backend/src/coverage/domain/`)
+
+| Fichier | Rôle |
+|---|---|
+| `coverage-state-machine.ts` | Transitions, acteurs (`ADMIN`, `ASSIGNEE`, `SUPPORT`, `REQUESTER_TEACHER`, `SUPERVISOR`, `SYSTEM`), créations ; plus de diffusion ni d'acceptation volontaire |
+| `coverage-status.ts` | **Statut principal dérivé** (`PENDING`, `ASSIGNED`, `IN_PROGRESS`, `DONE`, `CANCELLED`, `UNFILLED`) et sous-état (en route, en retard, relève demandée, clôturée) calculés depuis `Request.status`, seule source de vérité (R1) |
+| `coverage-policy.ts` | Vues (`ADMIN`, `SUPERVISOR`, `TEACHER` : le motif n'est jamais montré au surveillant), capacités du module, éligibilité à l'assignation |
+| `coverage-reminders.ts` | Échéances (`CoverageReminder`) : délai de prise en charge et escalade, rappel du matin, rappels de clôture, rappels de renfort (R2) |
+| `coverage-duplicates.ts` | Issue d'une déclaration de classe vide : création, rattachement, déjà assignée, renfort, proposition de rattachement |
+| `coverage-stats.ts` | Statistiques à la demande (annulées et doublons non tranchés à part) |
+| `common/school-time.ts` | Dates et heures locales de l'école (`SCHOOL_TIMEZONE`) |
+
+### Services
+
+| Service | Rôle |
+|---|---|
+| `CoverageService` | Demandes des enseignants, affectation directe, listes, détail, disponibilités, surveillants proposables |
+| `CoverageActionsService` | Application des transitions en transaction : mise à jour conditionnelle (statut + version), historique en ajout seul, échéances, renforts, relève en cascade, notifications publiées après validation |
+| `CoverageDeclarationsService` | Classes vides (verrou consultatif par classe), renforts, propositions de rattachement et décisions de l'admin |
+| `CoverageStatsService` | `GET /coverage/stats` (admins, aucun export) |
+| `CoverageAnonymizationService` | Anonymisation après `coverageRetentionMonths` (FR-023a) : historique, audit et notifications jamais modifiés |
+
+### Jobs (`backend/src/scheduler/`)
+
+| Job | Fréquence | Rôle |
+|---|---|---|
+| `coverage-reminders.job.ts` | `JOB_INTERVAL_MS` | Échéances dues (`FOR UPDATE SKIP LOCKED`, condition revérifiée avant chaque envoi) ; passage « non pourvue » des demandes jamais assignées |
+| `coverage-deadlines.job.ts` | `JOB_INTERVAL_MS` | Délai d'arrivée (présence non confirmée à temps) |
+| `coverage-anonymization.job.ts` | toutes les heures | Anonymisation par lots de 200, idempotente (`anonymizedAt`) |
+
+Chaque job prend un verrou consultatif transactionnel : une seule exécution à la fois, même
+avec plusieurs instances.
+
+### Accès
+
+Matrice testée route par route dans `test/integration/supervision-permissions.spec.ts` :
+hors périmètre, `404` et refus journalisé `ACCESS_DENIED` ; l'administration du module
+(`/admin/coverage/*`, `/admin/floors`) reste derrière `SuperAdminGuard` (`403`).
+
+### Frontend (`frontend/src/features/coverage/`)
+
+Menu « Gardes » visible des admins, du super administrateur et des membres des groupes
+Enseignants ou Surveillants (`canSeeCoverage`, d'après `GET /auth/me`). Écrans : file de l'admin
+(« En attente » en tête, « En cours », « Doublons », « Équipe », « Terminées »),
+`TeacherRequestPage`, `EmptyClassPage`, `CreateCoveragePage`, `CoverageStatsPage`, détail avec
+historique lisible ; alerte urgente avec signal sonore facultatif (`useUrgentSound`).

@@ -14,7 +14,7 @@ export interface PolicyCategory {
   creatorRoles: readonly Role[];
   /** Destinataires possibles (circuit A) et employés affectables (circuit B). */
   recipientIds: ReadonlySet<string>;
-  /** Responsables de la catégorie. */
+  /** Admins de la catégorie. */
   managerIds: ReadonlySet<string>;
   /** VIA_ADMIN : l'administration valide et affecte ; DIRECT, PEER : elle consulte en lecture seule. */
   routingMode: RoutingMode;
@@ -48,9 +48,9 @@ export function isReadOnlyStatus(status: RequestStatus): boolean {
   return READ_ONLY_STATUSES.includes(status);
 }
 
-/** Administration : comptes Responsable (Admin) et super administrateur. */
+/** Administration : comptes Admin et super administrateur. */
 export function isAdministration(user: Pick<PolicyUser, 'role'>): boolean {
-  return user.role === 'MANAGER' || user.role === 'SUPER_ADMIN';
+  return user.role === 'ADMIN' || user.role === 'SUPER_ADMIN';
 }
 
 /** L'administration n'a d'action à faire qu'en mode « via l'administration » (validation, affectation). */
@@ -59,7 +59,7 @@ export function administrationActs(category: Pick<PolicyCategory, 'routingMode'>
 }
 
 /**
- * Relations de l'utilisateur avec la demande. Le super administrateur agit comme responsable, mais
+ * Relations de l'utilisateur avec la demande. Le super administrateur agit comme admin de la catégorie, mais
  * seulement en mode « via l'administration » : en DIRECT et PEER, l'administration n'agit pas (sauf la
  * clôture, si elle lui a été confiée dans une catégorie antérieure au mode de routage).
  */
@@ -74,7 +74,7 @@ export function actorsFor(user: PolicyUser, req: PolicyRequest, category: Policy
 }
 
 /**
- * Administration en consultation : en DIRECT et PEER, tout compte Responsable (Admin) et le super
+ * Administration en consultation : en DIRECT et PEER, tout compte Admin et le super
  * administrateur voient les demandes soumises, en lecture seule, sans en être destinataires.
  */
 export function isObserver(user: PolicyUser, req: PolicyRequest, category: PolicyCategory): boolean {
@@ -117,7 +117,7 @@ export function canCreateInCategory(user: PolicyUser, category: PolicyCategory):
   if (!user.active || !category.active) return false;
   if (user.role === 'SUPER_ADMIN') return true;
   // L'administration peut créer dans toutes les catégories (sans y être tenue).
-  if (user.role === 'MANAGER') return user.permissions.has('REQUEST_CREATE');
+  if (user.role === 'ADMIN') return user.permissions.has('REQUEST_CREATE');
   return category.creatorRoles.includes(user.role) && user.permissions.has('REQUEST_CREATE');
 }
 
@@ -129,7 +129,7 @@ export function canPickRecipient(
   return candidate !== null && candidate.active && category.recipientIds.has(candidate.id);
 }
 
-/** Écrivent : le demandeur, l'employé affecté et, en mode « via l'administration » seulement, ses responsables. */
+/** Écrivent : le demandeur, l'employé affecté et, en mode « via l'administration » seulement, ses admins de catégorie. */
 export function canWriteInThread(user: PolicyUser, req: PolicyRequest, category: PolicyCategory): boolean {
   if (req.status === 'DRAFT' || isReadOnlyStatus(req.status) || !canReadRequest(user, req, category)) return false;
   const actors = actorsFor(user, req, category);

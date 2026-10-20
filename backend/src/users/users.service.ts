@@ -24,6 +24,8 @@ export interface AdminUser {
   createdAt: Date;
   /** Catégories dont le compte est destinataire : sans catégorie, il ne peut être ni destinataire ni affecté. */
   recipientCategories: Array<{ id: string; name: string }>;
+  /** Affectations : étage de rattachement d'un surveillant (004). */
+  floor: { id: string; name: string } | null;
 }
 
 const ADMIN_USER_SELECT = {
@@ -36,6 +38,7 @@ const ADMIN_USER_SELECT = {
   mustChangePassword: true,
   createdAt: true,
   recipientOf: { select: { category: { select: { id: true, name: true } } } },
+  floor: { select: { id: true, name: true } },
 } satisfies Prisma.UserSelect;
 
 type AdminUserRow = Prisma.UserGetPayload<{ select: typeof ADMIN_USER_SELECT }>;
@@ -52,7 +55,7 @@ function sameIds(a: readonly string[], b: readonly string[]): boolean {
 }
 
 /** Champs modifiables tracés avant/après dans l'audit. */
-const AUDITED_FIELDS = ['displayName', 'jobTitle', 'role', 'active'] as const;
+const AUDITED_FIELDS = ['displayName', 'jobTitle', 'role', 'active', 'floorId'] as const;
 
 export interface AdminContext {
   actor: AuthenticatedUser;
@@ -85,7 +88,7 @@ export class UsersService {
 
   /**
    * Crée un compte ; le mot de passe provisoire n'est renvoyé qu'ici, une seule fois.
-   * Les catégories choisies le rendent immédiatement destinataire, donc affectable par leurs responsables.
+   * Les catégories choisies le rendent immédiatement destinataire, donc affectable par leurs admins.
    */
   async create(dto: CreateUserDto, ctx: AdminContext): Promise<{ user: AdminUser; temporaryPassword: string }> {
     if (await this.prisma.user.findUnique({ where: { username: dto.username } })) {
@@ -93,6 +96,7 @@ export class UsersService {
     }
     const categoryIds = [...(dto.recipientCategoryIds ?? [])].sort();
     await this.checkCategories(categoryIds);
+    await this.checkFloor(dto.floorId);
     const password = temporaryPassword();
     let user: AdminUser;
     try {
@@ -105,6 +109,7 @@ export class UsersService {
             role: dto.role,
             passwordHash: await this.auth.hashPassword(password),
             mustChangePassword: true,
+            floorId: dto.floorId ?? null,
             recipientOf: { create: categoryIds.map((categoryId) => ({ categoryId })) },
           },
           select: ADMIN_USER_SELECT,
@@ -151,6 +156,7 @@ export class UsersService {
       if (dto.role !== undefined && dto.role !== 'SUPER_ADMIN') throw invalid('role', 'Vous ne pouvez pas retirer votre propre rôle de super administrateur.');
     }
 
+    await this.checkFloor(dto.floorId);
     const before: Record<string, unknown> = {};
     const after: Record<string, unknown> = {};
     for (const field of AUDITED_FIELDS) {
@@ -219,6 +225,13 @@ export class UsersService {
     });
     this.realtime.endUserSessions(id, 'PASSWORD_RESET');
     return { temporaryPassword: password };
+  }
+
+  /** Étage de rattachement : doit exister et être actif (null efface). */
+  private async checkFloor(floorId: string | null | undefined): Promise<void> {
+    if (!floorId) return;
+    const floor = await this.prisma.floor.findUnique({ where: { id: floorId }, select: { active: true } });
+    if (!floor || !floor.active) throw invalid('floorId', 'Étage introuvable ou désactivé.');
   }
 
   private async find(id: string): Promise<User> {

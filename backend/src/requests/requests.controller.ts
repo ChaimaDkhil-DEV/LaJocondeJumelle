@@ -60,7 +60,7 @@ export class RequestsController {
     return this.requests.changePriority(user, id, dto, contextOf(req));
   }
 
-  /** Employés affectables (responsables : approbation en circuit B, réaffectation). */
+  /** Employés affectables (admins : approbation en circuit B, réaffectation). */
   @Get(':id/assignees')
   assignees(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Req() req: Request) {
     return this.requests.assignees(user, id, contextOf(req));

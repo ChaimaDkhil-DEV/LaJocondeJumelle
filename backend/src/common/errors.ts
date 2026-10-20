@@ -54,6 +54,19 @@ export const ERROR_CATALOG = {
   QR_INVALID: { status: 422, message: 'Ce QR code n’est pas valide ou a été révoqué. Demandez le QR code à jour.' },
   QR_CLASS_MISMATCH: { status: 422, message: 'Ce QR code correspond à une autre classe que celle de votre garde.' },
   INVALID_DURATION: { status: 422, message: 'Durée invalide.' },
+  // Affectations des surveillants (004).
+  UNKNOWN_ACTION: { status: 400, message: 'Cette action n’existe pas pour une affectation.' },
+  SYSTEM_GROUP: {
+    status: 409,
+    message: 'Ce groupe est utilisé par le module des affectations : il ne peut être ni supprimé ni désactivé.',
+  },
+  NOT_PENDING: {
+    status: 409,
+    message: 'La demande a déjà été prise en charge : elle ne peut plus être modifiée ni retirée.',
+  },
+  INVALID_DATE: { status: 400, message: 'La date doit être aujourd’hui ou demain.' },
+  INVALID_RANGE: { status: 400, message: 'Le créneau est invalide : la fin doit suivre le début et ne pas être déjà passée.' },
+  CLASS_INACTIVE: { status: 400, message: 'Cette classe est introuvable ou désactivée.' },
   RATE_LIMITED: {
     status: 429,
     message: 'Trop de tentatives. Patientez une minute avant de réessayer.',

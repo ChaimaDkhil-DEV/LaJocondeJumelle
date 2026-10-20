@@ -41,7 +41,7 @@ const FILE_LABELS: Record<string, string> = { PHOTO: 'Photo jointe', DOCUMENT: '
 const ASSIGNEE_SOURCE_LABELS: Record<string, string> = {
   SNAPSHOT: 'personne prévue à la soumission',
   CATEGORY_CURRENT: 'selon la catégorie actuelle, demande antérieure',
-  MANAGER_CHOICE: 'choix du responsable',
+  MANAGER_CHOICE: 'choix d’un admin',
 };
 
 /** Description d'un événement d'historique en langage courant. */

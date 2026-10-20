@@ -1,12 +1,12 @@
 # La Joconde Jumelle — demandes de travail et messagerie vocale (lot 1)
 
 Application web pour une école privée : les employés adressent des demandes de travail à leurs
-collègues ou à leurs responsables en **parlant plutôt qu'en écrivant**, depuis un smartphone, une
+collègues ou à l'administration en **parlant plutôt qu'en écrivant**, depuis un smartphone, une
 tablette ou un ordinateur. Chaque demande a son fil de discussion (texte, vocaux, photos, PDF),
 un statut suivi, des délais et un historique complet. Les notifications arrivent en temps réel,
 dans l'application uniquement.
 
-- **Rôles** : employé, responsable, super administrateur.
+- **Rôles** : employé, admin, super administrateur (espace « Administrateur »).
 - **Circuits** : A (direct) et B (validation administrative préalable), au choix de chaque catégorie.
 - **Confidentialité** : fichiers privés servis uniquement par l'API, droits vérifiés côté serveur,
   journal d'audit non modifiable.
@@ -70,6 +70,10 @@ la base et les fichiers, puis reconstruit et redémarre les conteneurs. L'API re
 une migration sans sauvegarde de moins de `PRE_MIGRATION_BACKUP_MAX_AGE_MINUTES` minutes (60 par
 défaut) : un `docker compose … up` lancé sans le script s'arrête alors avec « Migration en attente
 sans sauvegarde récente : lancez deploy/deploy.sh. », sans toucher la base.
+
+Les jours et heures du module des affectations (« aujourd'hui », « demain », rappel de 7 h, fin
+de journée) suivent le fuseau de l'école `SCHOOL_TIMEZONE` (identifiant IANA, par défaut celui de
+`TZ`, sinon `Europe/Paris`) ; une valeur invalide empêche l'API de démarrer.
 
 Mot de passe du super administrateur perdu : la réinitialisation est tracée dans le journal
 d'audit, ferme toutes ses sessions et impose un nouveau mot de passe à la connexion suivante.

@@ -25,7 +25,7 @@ describe('Administration des comptes', () => {
     await seedDemo(prisma);
     app = await createTestApp();
     superadmin = await loginAs(app, 'superadmin');
-    responsable = await loginAs(app, 'responsable');
+    responsable = await loginAs(app, 'admin');
     superadminId = await userId(prisma, 'superadmin');
   });
 
@@ -48,6 +48,7 @@ describe('Administration des comptes', () => {
       mustChangePassword: expect.any(Boolean),
       createdAt: expect.any(String),
       recipientCategories: expect.any(Array),
+      floor: null,
     });
     expect(JSON.stringify(res.body)).not.toContain('argon2');
   });
@@ -85,11 +86,11 @@ describe('Administration des comptes', () => {
 
   it('modifie nom, fonction et rôle, avec un audit avant/après', async () => {
     const id = await userId(prisma, 'reprographie');
-    const res = await patch(superadmin, `/api/admin/users/${id}`, { role: 'MANAGER', jobTitle: 'Responsable reprographie' });
+    const res = await patch(superadmin, `/api/admin/users/${id}`, { role: 'ADMIN', jobTitle: 'Responsable reprographie' });
     expect(res.status).toBe(200);
-    expect(res.body).toMatchObject({ role: 'MANAGER', jobTitle: 'Responsable reprographie' });
+    expect(res.body).toMatchObject({ role: 'ADMIN', jobTitle: 'Responsable reprographie' });
     const audit = await prisma.auditLog.findFirstOrThrow({ where: { action: 'USER_UPDATED', targetId: id } });
-    expect(audit.details).toMatchObject({ before: { role: 'EMPLOYEE' }, after: { role: 'MANAGER' } });
+    expect(audit.details).toMatchObject({ before: { role: 'EMPLOYEE' }, after: { role: 'ADMIN' } });
     await patch(superadmin, `/api/admin/users/${id}`, { role: 'EMPLOYEE', jobTitle: 'Reprographie' }).expect(200);
   });
 
@@ -122,11 +123,11 @@ describe('Administration des comptes', () => {
 
   it('empêche le super administrateur de se désactiver ou de perdre son rôle', async () => {
     expect((await patch(superadmin, `/api/admin/users/${superadminId}`, { active: false })).status).toBe(400);
-    expect((await patch(superadmin, `/api/admin/users/${superadminId}`, { role: 'MANAGER' })).status).toBe(400);
+    expect((await patch(superadmin, `/api/admin/users/${superadminId}`, { role: 'ADMIN' })).status).toBe(400);
   });
 
   it('refuse toute route d’administration à un non super administrateur (403, journalisé)', async () => {
-    const responsableId = await userId(prisma, 'responsable');
+    const responsableId = await userId(prisma, 'admin');
     for (const [method, url] of [
       ['get', '/api/admin/users'],
       ['post', '/api/admin/users'],

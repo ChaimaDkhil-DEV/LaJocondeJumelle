@@ -78,9 +78,9 @@ describe('Modes de routage', () => {
     await addUser('absente', 'EMPLOYEE');
     await addUser('partie', 'EMPLOYEE');
     await addUser('tiers', 'EMPLOYEE');
-    await addUser('autre-responsable', 'MANAGER');
+    await addUser('autre-responsable', 'ADMIN');
     app = await createTestApp();
-    for (const who of ['enseignante', 'reprographie', 'responsable', 'autre-responsable', 'superadmin', 'collegue', 'tiers']) {
+    for (const who of ['enseignante', 'reprographie', 'admin', 'autre-responsable', 'superadmin', 'collegue', 'tiers']) {
       cookie[who] = await loginAs(app, who);
     }
     for (const who of ['enseignante', 'reprographie', 'collegue', 'absente', 'partie']) id[who] = await userId(prisma, who);
@@ -120,7 +120,7 @@ describe('Modes de routage', () => {
       const { body } = await create('enseignante', viaAdmin);
       expect(await visibility(body.id)).toEqual({
         enseignante: 200,
-        responsable: 200,
+        admin: 200,
         superadmin: 200,
         reprographie: 404,
         'autre-responsable': 404,
@@ -135,15 +135,15 @@ describe('Modes de routage', () => {
       const { body } = await create('enseignante', viaAdmin);
       expect((await act('enseignante', body.id, 'APPROVE', { assigneeId: id.reprographie })).status).toBe(403);
       expect((await act('autre-responsable', body.id, 'APPROVE', { assigneeId: id.reprographie })).status).toBe(404);
-      const noReason = await act('responsable', body.id, 'REJECT');
+      const noReason = await act('admin', body.id, 'REJECT');
       expect(noReason.status).toBe(422);
       expect(noReason.body.error.code).toBe('REASON_REQUIRED');
-      const approved = await act('responsable', body.id, 'APPROVE', { assigneeId: id.reprographie });
+      const approved = await act('admin', body.id, 'APPROVE', { assigneeId: id.reprographie });
       expect(approved.status).toBe(200);
       expect(approved.body).toMatchObject({ status: 'SENT', assignee: { id: id.reprographie } });
 
       const other = (await create('enseignante', viaAdmin)).body;
-      const rejected = await act('responsable', other.id, 'REJECT', { reason: 'Pas de surveillant disponible.' });
+      const rejected = await act('admin', other.id, 'REJECT', { reason: 'Pas de surveillant disponible.' });
       expect(rejected.body).toMatchObject({ status: 'REJECTED', rejectionReason: 'Pas de surveillant disponible.' });
     });
 
@@ -168,20 +168,20 @@ describe('Modes de routage', () => {
       expect(await visibility(body.id)).toEqual({
         enseignante: 200,
         reprographie: 200,
-        responsable: 200,
+        admin: 200,
         'autre-responsable': 200,
         superadmin: 200,
         collegue: 404,
         tiers: 404,
       });
-      for (const admin of ['responsable', 'autre-responsable', 'superadmin']) await expectReadOnly(admin, body.id);
+      for (const admin of ['admin', 'autre-responsable', 'superadmin']) await expectReadOnly(admin, body.id);
       const list = await get('autre-responsable', '/api/requests?scope=all&limit=100');
       expect(list.body.items.map((r: { id: string }) => r.id)).toContain(body.id);
     });
 
     it('la consultation ne notifie pas l’administration', async () => {
       const { body } = await create('enseignante', direct);
-      await get('responsable', `/api/requests/${body.id}`);
+      await get('admin', `/api/requests/${body.id}`);
       const notified = await prisma.notification.findMany({ where: { requestId: body.id }, select: { userId: true } });
       expect(notified.map((n) => n.userId)).toEqual([id.reprographie]);
     });
@@ -200,13 +200,13 @@ describe('Modes de routage', () => {
       expect(await visibility(body.id)).toEqual({
         enseignante: 200,
         collegue: 200,
-        responsable: 200,
+        admin: 200,
         'autre-responsable': 200,
         superadmin: 200,
         reprographie: 404,
         tiers: 404,
       });
-      for (const admin of ['responsable', 'autre-responsable', 'superadmin']) await expectReadOnly(admin, body.id);
+      for (const admin of ['admin', 'autre-responsable', 'superadmin']) await expectReadOnly(admin, body.id);
     });
 
     it('cas limites : destinataire obligatoire, jamais soi-même, compte désactivé refusé, absente signalée sans blocage', async () => {
@@ -236,11 +236,11 @@ describe('Modes de routage', () => {
         creatorRoles: ['EMPLOYEE'],
         closureMode: 'MANAGER',
         recipients: { create: [{ userId: id.reprographie }, { userId: id.collegue }] },
-        managers: { create: { userId: await userId(prisma, 'responsable') } },
+        managers: { create: { userId: await userId(prisma, 'admin') } },
       },
     });
     const { body } = await create('enseignante', legacy.id, { recipientId: id.reprographie });
-    const reassign = await act('responsable', body.id, 'REASSIGN', { assigneeId: id.collegue });
+    const reassign = await act('admin', body.id, 'REASSIGN', { assigneeId: id.collegue });
     expect(reassign.status).toBe(403);
     expect((await prisma.request.findUniqueOrThrow({ where: { id: body.id } })).assigneeId).toBe(id.reprographie);
   });
@@ -251,7 +251,7 @@ describe('Modes de routage', () => {
       expect(res.status).toBe(201);
       expect((await create('reprographie', viaAdmin)).status).toBe(201);
       // Un employé reste limité aux catégories ouvertes à son rôle.
-      const managersOnly = await post('superadmin', '/api/admin/categories', { name: 'Réservée administration', routingMode: 'DIRECT', creatorRoles: ['MANAGER'], closureMode: 'REQUESTER' });
+      const managersOnly = await post('superadmin', '/api/admin/categories', { name: 'Réservée administration', routingMode: 'DIRECT', creatorRoles: ['ADMIN'], closureMode: 'REQUESTER' });
       expect((await create('tiers', managersOnly.body.id)).status).toBe(403);
     });
 

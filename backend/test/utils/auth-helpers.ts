@@ -7,7 +7,7 @@ import { sessionCookie, TEST_ORIGIN } from './test-app';
 /** Mot de passe commun des comptes du seed en mode e2e/tests. */
 export const SEED_PASSWORD = 'MotDePasse-Tests-2026!';
 
-/** Charge le seed de démonstration (comptes enseignante, reprographie, responsable, superadmin, nouveau). */
+/** Charge le seed de démonstration (comptes enseignante, reprographie, admin, superadmin, nouveau, surveillants). */
 export async function seedDemo(prisma: PrismaClient): Promise<void> {
   await runSeed(prisma, { e2ePassword: SEED_PASSWORD, log: () => undefined });
 }

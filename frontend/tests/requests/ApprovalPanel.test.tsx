@@ -217,8 +217,8 @@ describe('Onglet « À valider »', () => {
     return calls;
   }
 
-  it('est proposé aux responsables et charge les demandes à valider de leurs catégories', async () => {
-    const calls = renderList('MANAGER');
+  it('est proposé aux admins et charge les demandes à valider de leurs catégories', async () => {
+    const calls = renderList('ADMIN');
     await userEvent.click(await screen.findByRole('tab', { name: 'À valider' }));
     await waitFor(() =>
       expect(calls.some((c) => c.url === '/api/requests?scope=managed&status=PENDING_ADMIN_VALIDATION&status=PENDING_FINAL_VALIDATION')).toBe(true),
@@ -263,7 +263,7 @@ describe('Réaffectation (US6)', () => {
     expect(await screen.findByRole('option', { name: 'Nouveau technicien — Climatisation' })).toBeVisible();
   });
 
-  it('un responsable confie la demande à un autre employé de la catégorie', async () => {
+  it('un admin confie la demande à un autre employé de la catégorie', async () => {
     const calls = renderActions(
       detail({
         status: 'IN_PROGRESS',

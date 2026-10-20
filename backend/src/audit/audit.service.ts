@@ -29,6 +29,23 @@ const ALLOWED_DETAIL_KEYS = new Set([
   'classId',
   // Demandes de travail : motif saisi, sans son texte (consultable dans l'historique de la demande)
   'reasonGiven',
+  // Affectations (004) : identifiants et décomptes seulement, jamais de nom ni de motif d'enseignant
+  'source',
+  'type',
+  'assigneeId',
+  'reliefAssigneeId',
+  'supportId',
+  'teacherId',
+  'floorId',
+  'proposalId',
+  'decision',
+  'count',
+  'sourceRequestId',
+  'targetRequestId',
+  'afterTheFact',
+  // Anonymisation (FR-023a) : décompte et paramètres seulement
+  'retentionMonths',
+  'cutoff',
 ]);
 
 function scrub(value: unknown): unknown {

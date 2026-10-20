@@ -24,6 +24,18 @@ export type NotificationType =
   | 'COVERAGE_UNFILLED'
   | 'COVERAGE_EXTENDED'
   | 'COVERAGE_RELIEVED'
+  // Affectations (004)
+  | 'COVERAGE_REQUESTED'
+  | 'COVERAGE_EMPTY_CLASS'
+  | 'COVERAGE_TAKEOVER_EXPIRED'
+  | 'COVERAGE_ESCALATED'
+  | 'COVERAGE_MORNING_REMINDER'
+  | 'COVERAGE_CLOSE_REMINDER'
+  | 'COVERAGE_DUPLICATE'
+  | 'COVERAGE_SUPPORT_REMINDER'
+  | 'COVERAGE_DOUBLE_ASSIGNMENT'
+  | 'COVERAGE_LIFTED'
+  | 'COVERAGE_UPDATED'
   // Super administrateur : demande active sans employé affecté, délai bientôt dépassé
   | 'UNASSIGNED';
 
@@ -72,7 +84,18 @@ export const NOTIFICATION_LABELS: Record<NotificationType, string> = {
   COVERAGE_UNFILLED: 'Garde non pourvue',
   COVERAGE_EXTENDED: 'Garde prolongée',
   COVERAGE_RELIEVED: 'Garde terminée',
-  UNASSIGNED: 'Demande sans responsable',
+  COVERAGE_REQUESTED: 'Retard ou absence signalé',
+  COVERAGE_EMPTY_CLASS: 'Classe vide signalée',
+  COVERAGE_TAKEOVER_EXPIRED: 'Demande en attente d’assignation',
+  COVERAGE_ESCALATED: 'Alerte non traitée',
+  COVERAGE_MORNING_REMINDER: 'Rappel : demande du jour en attente',
+  COVERAGE_CLOSE_REMINDER: 'Affectation à clôturer',
+  COVERAGE_DUPLICATE: 'Doublon possible',
+  COVERAGE_SUPPORT_REMINDER: 'Renfort à décider',
+  COVERAGE_DOUBLE_ASSIGNMENT: 'Surveillant sur deux affectations',
+  COVERAGE_LIFTED: 'Affectation levée',
+  COVERAGE_UPDATED: 'Demande modifiée',
+  UNASSIGNED: 'Demande sans employé affecté',
 };
 
 /** Page de la demande liée : les couvertures ont leurs propres écrans. */

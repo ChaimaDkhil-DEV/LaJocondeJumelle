@@ -3,7 +3,7 @@ import type { AssignmentMode, CategoryKind, Circuit, ClosureMode, ProofMode, Rou
 
 export const ROLE_LABELS: Record<Role, string> = {
   EMPLOYEE: 'Employé',
-  MANAGER: 'Responsable',
+  ADMIN: 'Admin',
   SUPER_ADMIN: 'Super administrateur',
 };
 
@@ -28,7 +28,7 @@ export const ROUTING_HINTS: Record<RoutingMode, string> = {
 export const CLOSURE_LABELS: Record<ClosureMode, string> = {
   AUTO: 'Automatique après un délai',
   REQUESTER: 'Par le demandeur',
-  MANAGER: 'Par un responsable',
+  MANAGER: 'Par un admin',
 };
 
 export const KIND_LABELS: Record<CategoryKind, string> = {
@@ -43,7 +43,7 @@ export const PROOF_MODE_LABELS: Record<ProofMode, string> = {
 };
 
 export const ASSIGNMENT_LABELS: Record<AssignmentMode, string> = {
-  MANUAL: 'Choisie par le responsable',
+  MANUAL: 'Choisie par un admin',
   AUTO: 'Automatique vers un employé désigné',
 };
 
@@ -72,9 +72,12 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   CLASS_CHANGED: 'Classe modifiée',
   QR_REVOKED: 'QR code révoqué',
   AVAILABILITY_CHANGED: 'Disponibilité modifiée',
-  COVERAGE_MANAGED: 'Garde gérée par un responsable',
-  COVERAGE_CREATED: 'Garde créée',
+  COVERAGE_MANAGED: 'Affectation gérée par un admin',
+  COVERAGE_CREATED: 'Affectation créée',
   REQUEST_MANAGED: 'Demande de travail gérée',
+  FLOOR_CHANGED: 'Étage modifié',
+  COVERAGE_ANONYMIZED: 'Affectations anonymisées',
+  COVERAGE_MERGE_DECIDED: 'Doublon tranché',
 };
 
 /** Durée en minutes, lisible (« 1 h 30 », « 2 j »). */

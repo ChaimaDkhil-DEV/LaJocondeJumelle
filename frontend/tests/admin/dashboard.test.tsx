@@ -137,7 +137,7 @@ describe('Tableau de bord', () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it('est réservé au super administrateur, sans appel aux routes /admin', async () => {
-    const { urls } = setup('/admin/tableau-de-bord', undefined, { ...SUPER_ADMIN, role: 'MANAGER' });
+    const { urls } = setup('/admin/tableau-de-bord', undefined, { ...SUPER_ADMIN, role: 'ADMIN' });
     expect(await screen.findByText('Accès réservé au super administrateur.')).toBeVisible();
     expect(urls.some((u) => u.startsWith('/api/admin'))).toBe(false);
   });

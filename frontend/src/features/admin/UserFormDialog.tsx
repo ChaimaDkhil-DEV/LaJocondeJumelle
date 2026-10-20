@@ -12,6 +12,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useId, useState, type FormEvent } from 'react';
 import { ApiError, apiFetch, fieldErrors } from '../../api/client';
 import type { Role } from '../../api/types';
+import { useAdminFloors } from '../coverage/adminApi';
 import { adminKeys, useAdminCategories, type AdminUser } from './api';
 import { ROLE_LABELS } from './labels';
 
@@ -32,6 +33,8 @@ interface Values {
   jobTitle: string;
   role: Role;
   recipientCategories: CategoryOption[];
+  /** Étage d'un surveillant ; '' = aucun. */
+  floorId: string;
 }
 
 interface CategoryOption {
@@ -46,16 +49,25 @@ function validate(values: Values, creating: boolean): Record<string, string> {
   const username = values.username.trim().toLowerCase();
   if (creating) {
     if (!username) errors.username = 'L’identifiant est obligatoire.';
-    else if (username.length < 3) errors.username = 'L’identifiant doit comporter au moins 3 caractères.';
+    else if (username.length < 3)
+      errors.username = 'L’identifiant doit comporter au moins 3 caractères.';
     else if (!USERNAME_FORMAT.test(username))
-      errors.username = 'L’identifiant ne peut contenir que des lettres sans accent, chiffres, points, tirets et soulignés.';
+      errors.username =
+        'L’identifiant ne peut contenir que des lettres sans accent, chiffres, points, tirets et soulignés.';
   }
   if (!values.displayName.trim()) errors.displayName = 'Le nom est obligatoire.';
   return errors;
 }
 
-/** Création ou modification d'un compte (nom, fonction, rôle). */
-export function UserFormDialog({ open, user, isSelf, onClose, onCreated, onSaved }: UserFormDialogProps) {
+/** Création ou modification d'un compte (nom, fonction, rôle, étage d'un surveillant). */
+export function UserFormDialog({
+  open,
+  user,
+  isSelf,
+  onClose,
+  onCreated,
+  onSaved,
+}: UserFormDialogProps) {
   const titleId = useId();
   const queryClient = useQueryClient();
   const creating = !user;
@@ -65,9 +77,14 @@ export function UserFormDialog({ open, user, isSelf, onClose, onCreated, onSaved
     jobTitle: user?.jobTitle ?? '',
     role: user?.role ?? 'EMPLOYEE',
     recipientCategories: user?.recipientCategories ?? [],
+    floorId: user?.floor?.id ?? '',
   });
+  const floors = useAdminFloors();
   const categories = useAdminCategories();
-  const categoryOptions: CategoryOption[] = (categories.data ?? []).map((c) => ({ id: c.id, name: c.name }));
+  const categoryOptions: CategoryOption[] = (categories.data ?? []).map((c) => ({
+    id: c.id,
+    name: c.name,
+  }));
   const [values, setValues] = useState<Values>(initial);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -82,6 +99,7 @@ export function UserFormDialog({ open, user, isSelf, onClose, onCreated, onSaved
               jobTitle: v.jobTitle.trim() || null,
               role: v.role,
               recipientCategoryIds: v.recipientCategories.map((c) => c.id),
+              ...(v.floorId ? { floorId: v.floorId } : {}),
             },
           })
         : apiFetch<AdminUser>(`/api/admin/users/${user.id}`, {
@@ -91,6 +109,7 @@ export function UserFormDialog({ open, user, isSelf, onClose, onCreated, onSaved
               jobTitle: v.jobTitle.trim() || null,
               ...(isSelf ? {} : { role: v.role }),
               recipientCategoryIds: v.recipientCategories.map((c) => c.id),
+              floorId: v.floorId || null,
             },
           }),
     onSuccess: async (result) => {
@@ -120,7 +139,11 @@ export function UserFormDialog({ open, user, isSelf, onClose, onCreated, onSaved
 
   const set = (patch: Partial<Values>) => setValues((v) => ({ ...v, ...patch }));
   const generalError =
-    mutation.error && !(mutation.error instanceof ApiError && ['VALIDATION_ERROR', 'CONFLICT'].includes(mutation.error.code))
+    mutation.error &&
+    !(
+      mutation.error instanceof ApiError &&
+      ['VALIDATION_ERROR', 'CONFLICT'].includes(mutation.error.code)
+    )
       ? mutation.error instanceof ApiError
         ? mutation.error.message
         : 'Enregistrement impossible.'
@@ -144,7 +167,9 @@ export function UserFormDialog({ open, user, isSelf, onClose, onCreated, onSaved
       }}
     >
       <Box component="form" noValidate onSubmit={submit}>
-        <DialogTitle id={titleId}>{creating ? 'Nouveau compte' : `Modifier : ${user.displayName}`}</DialogTitle>
+        <DialogTitle id={titleId}>
+          {creating ? 'Nouveau compte' : `Modifier : ${user.displayName}`}
+        </DialogTitle>
         <DialogContent sx={{ display: 'grid', gap: 2, pt: '8px !important' }}>
           {creating && (
             <TextField
@@ -154,8 +179,18 @@ export function UserFormDialog({ open, user, isSelf, onClose, onCreated, onSaved
               value={values.username}
               onChange={(e) => set({ username: e.target.value })}
               error={Boolean(errors.username)}
-              helperText={errors.username ?? 'Lettres sans accent, chiffres, points ou tirets (ex. prenom.nom).'}
-              slotProps={{ htmlInput: { maxLength: 64, autoCapitalize: 'none', autoCorrect: 'off', spellCheck: false } }}
+              helperText={
+                errors.username ??
+                'Lettres sans accent, chiffres, points ou tirets (ex. prenom.nom).'
+              }
+              slotProps={{
+                htmlInput: {
+                  maxLength: 64,
+                  autoCapitalize: 'none',
+                  autoCorrect: 'off',
+                  spellCheck: false,
+                },
+              }}
             />
           )}
           <TextField
@@ -211,11 +246,32 @@ export function UserFormDialog({ open, user, isSelf, onClose, onCreated, onSaved
                   errors.recipientCategoryIds ??
                   (values.recipientCategories.length === 0 && values.role === 'EMPLOYEE'
                     ? 'Sans catégorie, ce compte peut créer des demandes mais ne peut ni en recevoir ni être affecté.'
-                    : 'Ce compte pourra recevoir les demandes de ces catégories et y être affecté par leurs responsables.')
+                    : 'Ce compte pourra recevoir les demandes de ces catégories et y être affecté par leurs admins.')
                 }
               />
             )}
           />
+          <TextField
+            select
+            id="compte-etage"
+            label="Étage (surveillant)"
+            value={values.floorId}
+            onChange={(e) => set({ floorId: e.target.value })}
+            error={Boolean(errors.floorId)}
+            helperText={
+              errors.floorId ??
+              'Pour un membre du groupe Surveillants : il est proposé en premier pour les classes de cet étage.'
+            }
+          >
+            <MenuItem value="">Aucun</MenuItem>
+            {(floors.data ?? [])
+              .filter((f) => f.active || f.id === values.floorId)
+              .map((f) => (
+                <MenuItem key={f.id} value={f.id}>
+                  {f.name}
+                </MenuItem>
+              ))}
+          </TextField>
           {generalError && (
             <Alert severity="error" role="alert">
               {generalError}

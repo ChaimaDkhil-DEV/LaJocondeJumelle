@@ -18,7 +18,7 @@ const SUPER_ADMIN = { id: 'sa', displayName: 'Super administrateur', role: 'SUPE
 
 const USERS = [
   { id: 'e1', username: 'reprographie', displayName: 'Reprographie', jobTitle: 'Reprographie', role: 'EMPLOYEE', active: true, mustChangePassword: false, createdAt: '2026-09-01T08:00:00.000Z', recipientCategories: [{ id: 'c1', name: 'Photocopies' }] },
-  { id: 'm1', username: 'responsable', displayName: 'Responsable administratif', jobTitle: 'Direction', role: 'MANAGER', active: true, mustChangePassword: false, createdAt: '2026-09-01T08:00:00.000Z', recipientCategories: [] },
+  { id: 'm1', username: 'responsable', displayName: 'Responsable administratif', jobTitle: 'Direction', role: 'ADMIN', active: true, mustChangePassword: false, createdAt: '2026-09-01T08:00:00.000Z', recipientCategories: [] },
   { id: 'sa', username: 'superadmin', displayName: 'Super administrateur', jobTitle: null, role: 'SUPER_ADMIN', active: true, mustChangePassword: false, createdAt: '2026-09-01T08:00:00.000Z', recipientCategories: [] },
   { id: 'e2', username: 'technicien', displayName: 'Technicien', jobTitle: null, role: 'EMPLOYEE', active: true, mustChangePassword: true, createdAt: '2026-10-13T08:00:00.000Z', recipientCategories: [] },
 ];
@@ -36,7 +36,7 @@ const CATEGORY = {
   active: true,
   circuit: 'A_DIRECT',
   routingMode: 'DIRECT',
-  creatorRoles: ['EMPLOYEE', 'MANAGER'],
+  creatorRoles: ['EMPLOYEE', 'ADMIN'],
   closureMode: 'AUTO',
   autoCloseAfterMinutes: 1440,
   finalValidation: false,
@@ -59,6 +59,14 @@ const SETTINGS = {
   deadlineWarnPercent: 20,
   sessionIdleMinutes: 60,
   sessionMaxHours: 12,
+  coverageUrgencyThresholdMinutes: 60,
+  coverageEscalationMinutes: 5,
+  coverageMorningReminderTime: '07:00',
+  coverageCloseReminderMinutes: 10,
+  coverageCloseEscalationMinutes: 10,
+  coverageSupportReminderMinutes: 10,
+  coverageSupportReminderMax: 3,
+  coverageRetentionMonths: 12,
 };
 
 function setup(path: string, handler: Handler = () => undefined, me: unknown = SUPER_ADMIN) {
@@ -76,7 +84,7 @@ function setup(path: string, handler: Handler = () => undefined, me: unknown = S
       if (url === '/api/admin/categories' && method === 'GET') return json(200, [CATEGORY]);
       if (url === '/api/admin/settings' && method === 'GET') return json(200, SETTINGS);
       if (url === '/api/admin/role-permissions' && method === 'GET')
-        return json(200, { EMPLOYEE: ['PRIORITY_CHANGE_OWN', 'REQUEST_CREATE'], MANAGER: ['REQUEST_CREATE'] });
+        return json(200, { EMPLOYEE: ['PRIORITY_CHANGE_OWN', 'REQUEST_CREATE'], ADMIN: ['REQUEST_CREATE'] });
       return json(404, { error: { code: 'NOT_FOUND', message: 'Élément introuvable.' } });
     }),
   );
@@ -92,15 +100,15 @@ function setup(path: string, handler: Handler = () => undefined, me: unknown = S
 describe('Accès à l’administration', () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it('refuse l’administration à un responsable, sans appeler les routes /admin', async () => {
-    const { calls } = setup('/admin/comptes', undefined, { ...SUPER_ADMIN, id: 'm1', role: 'MANAGER' });
+  it('refuse l’espace Administrateur à un admin, sans appeler les routes /admin', async () => {
+    const { calls } = setup('/admin/comptes', undefined, { ...SUPER_ADMIN, id: 'm1', role: 'ADMIN' });
     expect(await screen.findByText('Accès réservé au super administrateur.')).toBeVisible();
     expect(calls.some((c) => c.url.startsWith('/api/admin'))).toBe(false);
   });
 
   it('propose une navigation entre les sections', async () => {
     setup('/admin');
-    const nav = await screen.findByRole('navigation', { name: 'Sections de l’administration' });
+    const nav = await screen.findByRole('navigation', { name: 'Sections de l’espace Administrateur' });
     for (const label of ['Comptes', 'Catégories', 'Réglages', 'Journal d’audit']) {
       expect(within(nav).getByRole('link', { name: label })).toBeVisible();
     }
@@ -222,7 +230,7 @@ describe('Comptes', () => {
 describe('Catégories', () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it('n’affiche les options de validation qu’en mode « via l’administration », puis enregistre catégorie, destinataires et responsables', async () => {
+  it('n’affiche les options de validation qu’en mode « via l’administration », puis enregistre catégorie, destinataires et admins', async () => {
     const created = { ...CATEGORY, id: 'c2', name: 'Travaux', circuit: 'B_ADMIN_VALIDATION', routingMode: 'VIA_ADMIN', recipients: [], managers: [] };
     const { calls } = setup('/admin/categories', (url, method) => {
       if (url === '/api/admin/categories' && method === 'POST') return json(201, created);
@@ -231,15 +239,15 @@ describe('Catégories', () => {
     });
     await userEvent.click(await screen.findByRole('button', { name: 'Nouvelle catégorie' }));
     const dialog = await screen.findByRole('dialog', { name: 'Nouvelle catégorie' });
-    expect(within(dialog).queryByRole('checkbox', { name: 'Validation finale par un responsable' })).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole('checkbox', { name: 'Validation finale par un admin' })).not.toBeInTheDocument();
 
     await userEvent.type(within(dialog).getByLabelText(/Nom de la catégorie/), 'Travaux');
     await userEvent.click(within(dialog).getByRole('radio', { name: /Via l’administration/ }));
-    await userEvent.click(within(dialog).getByRole('checkbox', { name: 'Validation finale par un responsable' }));
+    await userEvent.click(within(dialog).getByRole('checkbox', { name: 'Validation finale par un admin' }));
     await userEvent.click(within(dialog).getByRole('checkbox', { name: 'Photo de preuve obligatoire' }));
     await userEvent.click(within(dialog).getByRole('combobox', { name: 'Destinataires' }));
     await userEvent.click(await screen.findByRole('option', { name: 'Reprographie' }));
-    await userEvent.click(within(dialog).getByRole('combobox', { name: 'Responsables' }));
+    await userEvent.click(within(dialog).getByRole('combobox', { name: 'Admins de la catégorie' }));
     await userEvent.click(await screen.findByRole('option', { name: 'Responsable administratif' }));
     await userEvent.click(within(dialog).getByRole('button', { name: 'Enregistrer la catégorie' }));
 
@@ -264,7 +272,7 @@ describe('Catégories', () => {
     expect(within(dialog).getByText(/Un enseignant écrit directement à un collègue/)).toBeVisible();
 
     await userEvent.click(within(dialog).getByRole('combobox', { name: 'Clôture' }));
-    expect(await screen.findByRole('option', { name: 'Par un responsable' })).toHaveAttribute('aria-disabled', 'true');
+    expect(await screen.findByRole('option', { name: 'Par un admin' })).toHaveAttribute('aria-disabled', 'true');
     await userEvent.click(screen.getByRole('option', { name: 'Par le demandeur' }));
 
     await userEvent.click(within(dialog).getByRole('button', { name: 'Enregistrer la catégorie' }));
@@ -325,16 +333,16 @@ describe('Réglages', () => {
   it('modifie les permissions d’un rôle', async () => {
     const { calls } = setup('/admin/reglages', (url, method) =>
       url === '/api/admin/role-permissions' && method === 'PUT'
-        ? json(200, { EMPLOYEE: ['PRIORITY_CHANGE_OWN', 'REQUEST_CREATE'], MANAGER: ['REQUEST_CREATE', 'REQUEST_REASSIGN'] })
+        ? json(200, { EMPLOYEE: ['PRIORITY_CHANGE_OWN', 'REQUEST_CREATE'], ADMIN: ['REQUEST_CREATE', 'REQUEST_REASSIGN'] })
         : undefined,
     );
-    const manager = await screen.findByRole('group', { name: 'Responsable' });
+    const manager = await screen.findByRole('group', { name: 'Admin' });
     await userEvent.click(within(manager).getByRole('checkbox', { name: 'Réaffecter une demande' }));
     await userEvent.click(screen.getByRole('button', { name: 'Enregistrer les permissions' }));
     await waitFor(() =>
       expect(calls.find((c) => c.method === 'PUT')).toMatchObject({
         url: '/api/admin/role-permissions',
-        body: { EMPLOYEE: ['PRIORITY_CHANGE_OWN', 'REQUEST_CREATE'], MANAGER: ['REQUEST_CREATE', 'REQUEST_REASSIGN'] },
+        body: { EMPLOYEE: ['PRIORITY_CHANGE_OWN', 'REQUEST_CREATE'], ADMIN: ['REQUEST_CREATE', 'REQUEST_REASSIGN'] },
       }),
     );
     expect(await screen.findByText('Permissions enregistrées.')).toBeVisible();

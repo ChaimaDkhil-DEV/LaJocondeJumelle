@@ -11,7 +11,7 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import Paper from '@mui/material/Paper';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import { CircleOff, Pencil, TriangleAlert, UsersRound } from 'lucide-react';
+import { CircleOff, KeyRound, Pencil, TriangleAlert, UsersRound } from 'lucide-react';
 import { useId, useState, type FormEvent } from 'react';
 import { ApiError } from '../../api/client';
 import { Badge } from '../../components/Badge';
@@ -34,9 +34,8 @@ function GroupFormDialog({ group, onClose, onSaved }: { group: AdminGroup | null
   const [active, setActive] = useState(group?.active ?? true);
   const [members, setMembers] = useState<Person[]>(group?.members ?? []);
   const [nameError, setNameError] = useState<string | null>(null);
-  const options: Person[] = (users.data ?? [])
-    .filter((u) => u.active && u.role === 'EMPLOYEE')
-    .map((u) => ({ id: u.id, displayName: u.displayName }));
+  // Tout compte actif : un admin peut être enseignant, un super administrateur surveillant (R7).
+  const options: Person[] = (users.data ?? []).filter((u) => u.active).map((u) => ({ id: u.id, displayName: u.displayName }));
 
   function submit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
@@ -63,10 +62,12 @@ function GroupFormDialog({ group, onClose, onSaved }: { group: AdminGroup | null
             value={name}
             onChange={(e) => setName(e.target.value)}
             error={Boolean(nameError)}
-            helperText={nameError ?? 'Par exemple : Surveillants/Remplaçants.'}
+            helperText={nameError ?? (group?.systemKey ? 'Groupe utilisé par les affectations : le nom peut changer, pas son rôle.' : 'Par exemple : Équipe de cantine.')}
             slotProps={{ htmlInput: { maxLength: 60 } }}
           />
-          {group && <FormControlLabel control={<Checkbox checked={active} onChange={(e) => setActive(e.target.checked)} />} label="Groupe actif" />}
+          {group && !group.systemKey && (
+            <FormControlLabel control={<Checkbox checked={active} onChange={(e) => setActive(e.target.checked)} />} label="Groupe actif" />
+          )}
           <Autocomplete
             multiple
             id="groupe-membres"
@@ -77,9 +78,23 @@ function GroupFormDialog({ group, onClose, onSaved }: { group: AdminGroup | null
             isOptionEqualToValue={(a, b) => a.id === b.id}
             loading={users.isPending}
             noOptionsText="Aucun employé"
-            renderInput={(params) => <TextField {...params} label="Membres" helperText="Employés prévenus des demandes de couverture ciblant ce groupe." />}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Membres"
+                helperText={
+                  group?.systemKey === 'SUPERVISORS'
+                    ? 'Surveillants : ils peuvent être assignés et déclarer une classe vide.'
+                    : group?.systemKey === 'TEACHERS'
+                      ? 'Enseignants : ils peuvent signaler un retard ou une absence.'
+                      : 'Comptes membres du groupe.'
+                }
+              />
+            )}
           />
-          {members.length === 0 && <Alert severity="warning">Un groupe vide ne prévient personne : ajoutez au moins un employé.</Alert>}
+          {members.length === 0 && group?.systemKey === 'SUPERVISORS' && (
+            <Alert severity="warning">Sans surveillant, aucune affectation ne peut être assignée.</Alert>
+          )}
           {save.error && <Alert severity="error">{save.error instanceof ApiError ? save.error.message : 'Enregistrement impossible.'}</Alert>}
         </DialogContent>
         <DialogActions>
@@ -93,7 +108,7 @@ function GroupFormDialog({ group, onClose, onSaved }: { group: AdminGroup | null
   );
 }
 
-/** Groupes d'employés ciblés par les demandes de couverture ; les groupes vides sont signalés. */
+/** Groupes d'employés ; Surveillants et Enseignants sont utilisés par les affectations (clé système, R7). */
 export function GroupsAdminPage() {
   const groups = useAdminGroups();
   const toast = useToast();
@@ -104,7 +119,7 @@ export function GroupsAdminPage() {
       <SectionHeader
         id="titre-groupes"
         title="Groupes d’employés"
-        description="Les employés prévenus quand une classe doit être couverte."
+        description="Les membres du groupe Surveillants sont assignables ; ceux du groupe Enseignants signalent leurs retards et absences."
         action={
           <Button variant="contained" startIcon={<UsersRound size={icon.sm} aria-hidden="true" />} onClick={() => setForm({ group: null })}>
             Nouveau groupe
@@ -117,7 +132,7 @@ export function GroupsAdminPage() {
         <ErrorState message="Impossible de charger les groupes." actionLabel="Réessayer" onAction={() => void groups.refetch()} />
       ) : groups.data.length === 0 ? (
         <Paper variant="outlined">
-          <EmptyState icon={UsersRound} title="Aucun groupe" description="Créez un groupe, par exemple « Surveillants/Remplaçants »." />
+          <EmptyState icon={UsersRound} title="Aucun groupe" description="Les groupes Surveillants et Enseignants sont créés par la mise à jour." />
         </Paper>
       ) : (
         <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
@@ -127,6 +142,11 @@ export function GroupsAdminPage() {
                 <Box sx={{ minWidth: 0, flex: '1 1 auto' }}>
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
                     <Typography sx={{ fontWeight: font.medium }}>{g.name}</Typography>
+                    {g.systemKey && (
+                      <Badge tone="info" icon={KeyRound}>
+                        {g.systemKey === 'SUPERVISORS' ? 'Groupe des surveillants' : 'Groupe des enseignants'}
+                      </Badge>
+                    )}
                     {!g.active && (
                       <Badge tone="neutral" icon={CircleOff}>
                         Inactif

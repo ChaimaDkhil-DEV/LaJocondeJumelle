@@ -72,7 +72,7 @@ describe('Actions sur une demande — circuit direct', () => {
     app = await createTestApp();
     enseignante = await loginAs(app, 'enseignante');
     reprographie = await loginAs(app, 'reprographie');
-    responsable = await loginAs(app, 'responsable');
+    responsable = await loginAs(app, 'admin');
     photocopies = await categoryId(prisma, CATEGORIES.photocopies);
     petitsTravaux = await categoryId(prisma, CATEGORIES.petitsTravaux);
     reprographieId = await userId(prisma, 'reprographie');
@@ -247,7 +247,7 @@ describe('Actions sur une demande — circuit direct', () => {
         creatorRoles: ['EMPLOYEE'],
         closureMode: 'MANAGER',
         recipients: { create: { userId: reprographieId } },
-        managers: { create: { userId: await userId(prisma, 'responsable') } },
+        managers: { create: { userId: await userId(prisma, 'admin') } },
       },
     });
     const { id } = await createRequest(managed.id);

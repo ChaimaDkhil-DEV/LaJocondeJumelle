@@ -46,7 +46,7 @@ export class CreateUserDto {
 
   /**
    * Catégories dont le compte est destinataire : seuls ces comptes peuvent recevoir une demande
-   * (circuit A) ou y être affectés par un responsable (circuit B, réaffectation).
+   * (circuit A) ou y être affectés par un admin (circuit B, réaffectation).
    */
   @IsOptional()
   @IsArray()
@@ -54,6 +54,12 @@ export class CreateUserDto {
   @ArrayUnique()
   @IsUUID('all', { each: true, message: 'Catégorie inconnue.' })
   recipientCategoryIds?: string[];
+
+  /** Affectations : étage de rattachement d'un surveillant, facultatif (004, FR-006). null efface. */
+  @IsOptional()
+  @ValidateIf((_o, v) => v !== null)
+  @IsUUID('all', { message: 'Étage inconnu.' })
+  floorId?: string | null;
 }
 
 export class UpdateUserDto {
@@ -81,7 +87,7 @@ export class UpdateUserDto {
 
   /**
    * Catégories dont le compte est destinataire : seuls ces comptes peuvent recevoir une demande
-   * (circuit A) ou y être affectés par un responsable (circuit B, réaffectation).
+   * (circuit A) ou y être affectés par un admin (circuit B, réaffectation).
    */
   @IsOptional()
   @IsArray()
@@ -89,4 +95,10 @@ export class UpdateUserDto {
   @ArrayUnique()
   @IsUUID('all', { each: true, message: 'Catégorie inconnue.' })
   recipientCategoryIds?: string[];
+
+  /** Affectations : étage de rattachement d'un surveillant, facultatif (004, FR-006). null efface. */
+  @IsOptional()
+  @ValidateIf((_o, v) => v !== null)
+  @IsUUID('all', { message: 'Étage inconnu.' })
+  floorId?: string | null;
 }

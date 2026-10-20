@@ -1,5 +1,9 @@
 # Fonctionnalités du super administrateur — inventaire
 
+> **Document daté, antérieur à la fonctionnalité 004** : le rôle « Responsable » (`MANAGER`) y est
+> devenu « Admin » (`ADMIN`) et la diffusion des gardes a été remplacée par l'assignation par l'admin.
+> Voir `specs/004-retards-affectation-surveillants/` (migration : `contracts/migration.md`).
+
 > Établi le 2026-10-16 à partir du code de `master` (`258df07`, après les PR #6, #7, #9, #10 et
 > #11). Les références `fichier:ligne` pointent vers ce commit. « Serveur » = contrôle effectué par
 > l'API, indépendamment de l'interface. Aucun fichier de l'application n'a été modifié pour cet

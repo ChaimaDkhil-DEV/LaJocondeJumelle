@@ -160,7 +160,7 @@ function RequestRow({ request, received }: { request: RequestSummary; received: 
 export function RequestListPage() {
   const [params, setParams] = useSearchParams();
   const me = useCurrentUser();
-  const isManager = me.data?.role === 'MANAGER' || me.data?.role === 'SUPER_ADMIN';
+  const isManager = me.data?.role === 'ADMIN' || me.data?.role === 'SUPER_ADMIN';
   const tabs = TABS.filter((t) => !t.managersOnly || isManager);
   const tab = tabs.find((t) => t.key === params.get('onglet')) ?? tabs[0];
   const filters = readFilters(params);

@@ -9,7 +9,7 @@ import {
   Lock,
   Radio,
   ShieldCheck,
-  ThumbsUp,
+  UserCheck,
   type LucideIcon,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -17,43 +17,119 @@ import { serverNow } from '../../api/client';
 import { Badge } from '../../components/Badge';
 import { formatRemaining } from '../../components/Countdown';
 import { font, fontSize, icon, tokensOf, type Tone } from '../../design/tokens';
-import type { Availability, CoverageAction, CoverageStatus, CoverageSummary, ProofMode, UnavailableReason } from './types';
+import type {
+  Availability,
+  CoverageAction,
+  CoverageSource,
+  CoverageStatus,
+  CoverageSummary,
+  CoverageType,
+  MainStatus,
+  ProofMode,
+  SubState,
+  UnavailableReason,
+} from './types';
 
+/** Statut technique (historique) ; l'affichage courant passe par le statut principal et le sous-état. */
 export const COVERAGE_STATUS_LABELS: Record<CoverageStatus, string> = {
+  PENDING: 'En attente',
   BROADCAST: 'Diffusée',
   UNFILLED: 'Non pourvue',
-  ACCEPTED: 'Acceptée',
+  ACCEPTED: 'Assignée',
   EN_ROUTE: 'En route',
   LATE: 'En retard',
-  ON_DUTY: 'En garde',
+  ON_DUTY: 'En cours',
   RELIEF_PENDING: 'Relève demandée',
-  DONE: 'Relevée',
-  CLOSED: 'Clôturée',
+  DONE: 'Terminée',
+  CLOSED: 'Clôturée après validation',
   CANCELLED: 'Annulée',
 };
 
-const STATUS_STYLE: Record<CoverageStatus, { tone: Tone; icon: LucideIcon }> = {
-  BROADCAST: { tone: 'info', icon: Radio },
-  UNFILLED: { tone: 'error', icon: AlarmClock },
-  ACCEPTED: { tone: 'accent', icon: ThumbsUp },
-  EN_ROUTE: { tone: 'accent', icon: Footprints },
-  LATE: { tone: 'error', icon: AlarmClock },
-  ON_DUTY: { tone: 'success', icon: ShieldCheck },
-  RELIEF_PENDING: { tone: 'warning', icon: LifeBuoy },
-  DONE: { tone: 'success', icon: CircleCheck },
-  CLOSED: { tone: 'neutral', icon: Lock },
-  CANCELLED: { tone: 'neutral', icon: Ban },
+/** Six statuts principaux (FR-008). */
+export const MAIN_STATUS_LABELS: Record<MainStatus, string> = {
+  PENDING: 'En attente',
+  ASSIGNED: 'Assignée',
+  IN_PROGRESS: 'En cours',
+  DONE: 'Terminée',
+  CANCELLED: 'Annulée',
+  UNFILLED: 'Non pourvue',
 };
 
-/** Statut d'une couverture : icône + libellé ; la couleur n'est qu'un complément. */
-export function CoverageStatusBadge({ status }: { status: CoverageStatus }) {
-  const { tone, icon: Icon } = STATUS_STYLE[status];
+/** Sous-états affichés en badge, sans changer le statut principal (FR-008c). */
+export const SUB_STATE_LABELS: Record<SubState, string> = {
+  EN_ROUTE: 'En route',
+  LATE: 'En retard',
+  RELIEF_PENDING: 'Relève demandée',
+  CLOSED: 'Clôturée après validation',
+};
+
+const MAIN_STYLE: Record<MainStatus, { tone: Tone; icon: LucideIcon }> = {
+  PENDING: { tone: 'info', icon: Radio },
+  ASSIGNED: { tone: 'accent', icon: UserCheck },
+  IN_PROGRESS: { tone: 'success', icon: ShieldCheck },
+  DONE: { tone: 'success', icon: CircleCheck },
+  CANCELLED: { tone: 'neutral', icon: Ban },
+  UNFILLED: { tone: 'error', icon: AlarmClock },
+};
+
+const SUB_STYLE: Record<SubState, { tone: Tone; icon: LucideIcon }> = {
+  EN_ROUTE: { tone: 'accent', icon: Footprints },
+  LATE: { tone: 'error', icon: AlarmClock },
+  RELIEF_PENDING: { tone: 'warning', icon: LifeBuoy },
+  CLOSED: { tone: 'neutral', icon: Lock },
+};
+
+/**
+ * Statut principal et sous-état d'un statut technique : même table que le serveur (R1). Sert là où
+ * seul le statut technique est connu (tableau de suivi) ; une garde non migrée est « en attente ».
+ */
+export function derivedStatus(status: CoverageStatus): { mainStatus: MainStatus; subState: SubState | null } {
+  const table: Record<CoverageStatus, [MainStatus, SubState | null]> = {
+    PENDING: ['PENDING', null],
+    BROADCAST: ['PENDING', null],
+    ACCEPTED: ['ASSIGNED', null],
+    EN_ROUTE: ['ASSIGNED', 'EN_ROUTE'],
+    LATE: ['ASSIGNED', 'LATE'],
+    ON_DUTY: ['IN_PROGRESS', null],
+    RELIEF_PENDING: ['IN_PROGRESS', 'RELIEF_PENDING'],
+    DONE: ['DONE', null],
+    CLOSED: ['DONE', 'CLOSED'],
+    CANCELLED: ['CANCELLED', null],
+    UNFILLED: ['UNFILLED', null],
+  };
+  const [mainStatus, subState] = table[status];
+  return { mainStatus, subState };
+}
+
+/** Statut d'une affectation : statut principal, puis sous-état éventuel ; icône + libellé, la couleur n'est qu'un complément. */
+export function CoverageStatusBadge({ mainStatus, subState }: { mainStatus: MainStatus; subState?: SubState | null }) {
+  const main = MAIN_STYLE[mainStatus];
+  const sub = subState ? SUB_STYLE[subState] : null;
   return (
-    <Badge tone={tone} icon={Icon}>
-      {COVERAGE_STATUS_LABELS[status]}
-    </Badge>
+    <Box component="span" sx={{ display: 'inline-flex', flexWrap: 'wrap', gap: 0.5 }}>
+      <Badge tone={main.tone} icon={main.icon}>
+        {MAIN_STATUS_LABELS[mainStatus]}
+      </Badge>
+      {subState && sub && (
+        <Badge tone={sub.tone} icon={sub.icon}>
+          {SUB_STATE_LABELS[subState]}
+        </Badge>
+      )}
+    </Box>
   );
 }
+
+export const TYPE_LABELS: Record<CoverageType, string> = {
+  LATENESS: 'Retard',
+  ABSENCE: 'Absence',
+  EMPTY_CLASS: 'Classe vide',
+};
+
+export const SOURCE_LABELS: Record<CoverageSource, string> = {
+  TEACHER_REQUEST: 'Demande d’un enseignant',
+  SUPERVISOR_REPORT: 'Déclarée par un surveillant',
+  ADMIN_DIRECT: 'Affectation directe',
+};
 
 export const AVAILABILITY_LABELS: Record<Availability, string> = {
   AVAILABLE: 'Disponible',
@@ -65,7 +141,8 @@ export const UNAVAILABLE_REASONS: Record<UnavailableReason, string> = {
   INACTIVE: 'Compte désactivé',
   ABSENT: 'Absent',
   UNAVAILABLE: 'Indisponible',
-  ON_GUARD: 'Déjà en garde',
+  ON_GUARD: 'Déjà affecté sur ce créneau',
+  SUPPORT: 'En renfort dans une classe',
 };
 
 export const PROOF_LABELS: Record<ProofMode, string> = {
@@ -75,19 +152,20 @@ export const PROOF_LABELS: Record<ProofMode, string> = {
 };
 
 export const ACTION_LABELS: Record<CoverageAction, string> = {
-  ACCEPT: 'Je prends',
-  ASSIGN: 'Affecter',
-  REASSIGN: 'Réaffecter',
-  WIDEN: 'Élargir à un autre groupe',
+  ASSIGN: 'Assigner un surveillant',
+  REASSIGN: 'Réassigner',
+  UPDATE: 'Modifier la demande',
+  WITHDRAW: 'Retirer la demande',
   DEPART: 'Je suis en route',
   CONFIRM_PRESENCE: 'Confirmer ma présence',
-  RELEASE: 'Me désister',
   REQUEST_RELIEF: 'Demander une relève',
-  RELEASE_BY_MANAGER: 'Libérer l’employé',
-  RELIEVE: 'Garde terminée',
+  RELEASE_BY_MANAGER: 'Libérer le surveillant',
+  RELIEVE: 'Terminer',
   EXTEND: 'Prolonger',
   VALIDATE: 'Valider et clôturer',
-  CANCEL: 'Annuler la demande',
+  CANCEL: 'Annuler l’affectation',
+  SET_TEACHER: 'Corriger l’enseignant',
+  RELEASE_SUPPORT: 'Libérer un renfort',
 };
 
 /** « Jusqu'à l'arrivée de l'enseignant » ou « 1 h 30 ». */
@@ -105,10 +183,18 @@ export function formatTime(value: string | Date): string {
   return time.format(typeof value === 'string' ? new Date(value) : value);
 }
 
-/** « Maintenant » si la garde commence dans moins d'une minute, sinon l'heure. */
+const day = new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+
+/**
+ * Début d'une affectation : « Maintenant » à une minute près ; sinon l'heure, précédée du jour
+ * quand ce n'est pas aujourd'hui (demandes pour demain, affectations passées).
+ */
 export function formatStart(startAt: string): string {
-  const diff = Date.parse(startAt) - serverNow().getTime();
-  return diff <= 60_000 ? 'Maintenant' : `À ${formatTime(startAt)}`;
+  const start = new Date(startAt);
+  const now = serverNow();
+  if (Math.abs(start.getTime() - now.getTime()) <= 60_000) return 'Maintenant';
+  if (start.toDateString() === now.toDateString()) return `À ${formatTime(start)}`;
+  return `${day.format(start)} à ${formatTime(start)}`;
 }
 
 /** Heure serveur actualisée chaque seconde (chronomètres, temps écoulé). */

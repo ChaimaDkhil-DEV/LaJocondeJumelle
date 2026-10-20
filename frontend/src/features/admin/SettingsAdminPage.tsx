@@ -21,7 +21,10 @@ import { PERMISSION_LABELS, ROLE_LABELS } from './labels';
 
 const MB = 1024 * 1024;
 
-type NumberKey = Exclude<keyof AdminSettings, 'allowedPhotoTypes' | 'allowedDocumentTypes' | 'draftsEnabled'>;
+type NumberKey = Exclude<
+  keyof AdminSettings,
+  'allowedPhotoTypes' | 'allowedDocumentTypes' | 'draftsEnabled' | 'coverageMorningReminderTime'
+>;
 
 /** Réglages numériques : libellé, et conversion pour les tailles saisies en Mo. */
 const NUMBER_FIELDS: Array<{ key: NumberKey; label: string; megabytes?: boolean }> = [
@@ -32,7 +35,17 @@ const NUMBER_FIELDS: Array<{ key: NumberKey; label: string; megabytes?: boolean 
   { key: 'deadlineWarnPercent', label: 'Alerte d’échéance proche (% du délai restant)' },
   { key: 'sessionIdleMinutes', label: 'Déconnexion après inactivité (minutes)' },
   { key: 'sessionMaxHours', label: 'Durée maximale d’une session (heures)' },
+  // Affectations des surveillants (004).
+  { key: 'coverageUrgencyThresholdMinutes', label: 'Affectations : seuil d’urgence avant le début du créneau (minutes)' },
+  { key: 'coverageEscalationMinutes', label: 'Affectations : escalade au super administrateur après l’alerte (minutes)' },
+  { key: 'coverageCloseReminderMinutes', label: 'Affectations : rappel de clôture après la fin du créneau (minutes)' },
+  { key: 'coverageCloseEscalationMinutes', label: 'Affectations : rappel de clôture à l’admin ensuite (minutes)' },
+  { key: 'coverageSupportReminderMinutes', label: 'Affectations : intervalle des rappels de renfort (minutes)' },
+  { key: 'coverageSupportReminderMax', label: 'Affectations : nombre maximal de rappels de renfort' },
+  { key: 'coverageRetentionMonths', label: 'Affectations : durée de conservation avant anonymisation (mois)' },
 ];
+
+const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 const PHOTO_TYPES = [
   { value: 'image/jpeg', label: 'JPEG' },
@@ -42,13 +55,20 @@ const PHOTO_TYPES = [
 
 const DOCUMENT_TYPES = [{ value: 'application/pdf', label: 'PDF' }];
 
-type Draft = Record<NumberKey, string> & Pick<AdminSettings, 'allowedPhotoTypes' | 'allowedDocumentTypes' | 'draftsEnabled'>;
+type Draft = Record<NumberKey, string> &
+  Pick<AdminSettings, 'allowedPhotoTypes' | 'allowedDocumentTypes' | 'draftsEnabled' | 'coverageMorningReminderTime'>;
 
 function toDraft(s: AdminSettings): Draft {
   const numbers = Object.fromEntries(
     NUMBER_FIELDS.map((f) => [f.key, f.megabytes ? String(Math.round((s[f.key] / MB) * 100) / 100) : String(s[f.key])]),
   ) as Record<NumberKey, string>;
-  return { ...numbers, allowedPhotoTypes: s.allowedPhotoTypes, allowedDocumentTypes: s.allowedDocumentTypes, draftsEnabled: s.draftsEnabled };
+  return {
+    ...numbers,
+    allowedPhotoTypes: s.allowedPhotoTypes,
+    allowedDocumentTypes: s.allowedDocumentTypes,
+    draftsEnabled: s.draftsEnabled,
+    coverageMorningReminderTime: s.coverageMorningReminderTime,
+  };
 }
 
 /** Valeurs à envoyer (seulement celles modifiées) ou erreurs de saisie. */
@@ -69,6 +89,9 @@ function changes(draft: Draft, current: AdminSettings): { body: Partial<AdminSet
     if ([...draft[key]].sort().join() !== [...current[key]].sort().join()) body[key] = draft[key];
   }
   if (draft.draftsEnabled !== current.draftsEnabled) body.draftsEnabled = draft.draftsEnabled;
+  const morning = draft.coverageMorningReminderTime.trim();
+  if (!TIME_PATTERN.test(morning)) errors.coverageMorningReminderTime = 'Heure au format HH:MM attendue (ex. 07:00).';
+  else if (morning !== current.coverageMorningReminderTime) body.coverageMorningReminderTime = morning;
   return { body, errors };
 }
 
@@ -160,6 +183,15 @@ function SettingsForm({ settings }: { settings: AdminSettings }) {
             slotProps={{ htmlInput: { inputMode: field.megabytes ? 'decimal' : 'numeric' } }}
           />
         ))}
+        <TextField
+          id="reglage-coverageMorningReminderTime"
+          label="Affectations : heure du rappel du matin (HH:MM)"
+          value={draft.coverageMorningReminderTime}
+          onChange={(e) => set({ coverageMorningReminderTime: e.target.value })}
+          error={Boolean(errors.coverageMorningReminderTime)}
+          helperText={errors.coverageMorningReminderTime ?? ' '}
+          slotProps={{ htmlInput: { inputMode: 'numeric' } }}
+        />
       </Box>
       <TypeChoices
         legend="Types de photo acceptés"
@@ -203,7 +235,7 @@ function SettingsForm({ settings }: { settings: AdminSettings }) {
   );
 }
 
-const ROLES: ConfigurableRole[] = ['EMPLOYEE', 'MANAGER'];
+const ROLES: ConfigurableRole[] = ['EMPLOYEE', 'ADMIN'];
 
 function RolePermissionsForm({ permissions }: { permissions: RolePermissions }) {
   const queryClient = useQueryClient();

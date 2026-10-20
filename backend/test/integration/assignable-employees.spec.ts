@@ -70,7 +70,7 @@ describe('Employés affectables créés par le super administrateur', () => {
     await seedDemo(prisma);
     app = await createTestApp();
     superadmin = await loginAs(app, 'superadmin');
-    responsable = await loginAs(app, 'responsable');
+    responsable = await loginAs(app, 'admin');
     enseignante = await loginAs(app, 'enseignante');
     circuitB = await categoryId(prisma, CATEGORIES.circuitB);
     photocopies = await categoryId(prisma, CATEGORIES.photocopies);

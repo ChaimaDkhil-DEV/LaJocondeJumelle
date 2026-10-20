@@ -7,8 +7,9 @@ import { CoverageActionsService } from '../coverage/coverage-actions.service';
 import { JOB_INTERVAL_MS } from './job-interval';
 
 /**
- * Dépassements de délai des couvertures : « Non pourvue » (prise en charge) et « En retard »
- * (arrivée en classe). Idempotente et sans doublon, même avec plusieurs instances :
+ * Délai d'arrivée des affectations assignées : « En retard » (sous-état de « assignée »). Le délai
+ * de prise en charge et « non pourvue » relèvent désormais de CoverageRemindersJob (004, R2).
+ * Idempotente et sans doublon, même avec plusieurs instances :
  * - un verrou consultatif transactionnel global : une seule exécution traite les échéances à la fois ;
  * - chaque alerte s'appuie sur le marqueur persisté `overdueStage`, posé par une mise à jour
  *   conditionnelle (statut + version + overdueStage nul) : une seule alerte par occurrence d'étape.
@@ -47,8 +48,8 @@ export class CoverageDeadlinesJob {
       const due = await tx.request.findMany({
         where: {
           kind: 'COVERAGE',
-          status: { in: ['BROADCAST', 'ACCEPTED', 'EN_ROUTE'] },
-          currentStage: { not: null },
+          status: { in: ['ACCEPTED', 'EN_ROUTE'] },
+          currentStage: 'ARRIVAL',
           currentDueAt: { lt: now },
           overdueStage: null,
         },
@@ -59,9 +60,9 @@ export class CoverageDeadlinesJob {
       let signalled = 0;
       for (const { id } of due) {
         try {
-          if (await this.actions.performSystemInTx(tx, id, 'EXPIRE', effects)) signalled += 1;
+          if (await this.actions.performSystemInTx(tx, id, 'EXPIRE', effects, { now })) signalled += 1;
         } catch (error) {
-          // Action d'un utilisateur au même instant (prise, désistement) : l'échéance n'est plus d'actualité.
+          // Action d'un utilisateur au même instant (présence, réassignation) : l'échéance n'est plus d'actualité.
           if (!(error instanceof AppException && error.code === 'STATE_CHANGED')) throw error;
         }
       }

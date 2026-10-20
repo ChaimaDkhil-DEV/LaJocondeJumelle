@@ -22,9 +22,39 @@ export interface AppConfig {
   isProduction: boolean;
   /** Réglage `trust proxy` d'Express : booléen, nombre de proxys, ou liste de sous-réseaux. */
   trustProxy: boolean | number | string;
+  /** Fuseau de l'école (identifiant IANA) : jours et heures locales des affectations (R4). */
+  schoolTimezone: string;
 }
 
 export class ConfigError extends Error {}
+
+const DEFAULT_SCHOOL_TIMEZONE = 'Europe/Paris';
+
+/** Valide SCHOOL_TIMEZONE (défaut : Europe/Paris) : tout identifiant accepté par Intl. */
+function parseSchoolTimezone(raw: string | undefined): string {
+  const value = raw?.trim() || DEFAULT_SCHOOL_TIMEZONE;
+  try {
+    new Intl.DateTimeFormat('fr-FR', { timeZone: value });
+  } catch {
+    throw new ConfigError(
+      `SCHOOL_TIMEZONE invalide : « ${value} » n'est pas un fuseau IANA (ex. Europe/Paris)`,
+    );
+  }
+  return value;
+}
+
+let cachedTimezone: { raw: string | undefined; value: string } | null = null;
+
+/**
+ * Fuseau de l'école pour le code pur (règles de créneaux) : même lecture et même validation que
+ * `loadConfig` (déjà faite au démarrage), mise en cache.
+ */
+export function schoolTimezoneFromEnv(env: NodeJS.ProcessEnv = process.env): string {
+  if (!cachedTimezone || cachedTimezone.raw !== env.SCHOOL_TIMEZONE) {
+    cachedTimezone = { raw: env.SCHOOL_TIMEZONE, value: parseSchoolTimezone(env.SCHOOL_TIMEZONE) };
+  }
+  return cachedTimezone.value;
+}
 
 const MIN_SECRET_LENGTH = 32;
 const DEFAULT_LOGIN_RATE_LIMIT = 5;
@@ -46,7 +76,8 @@ function parseTrustProxy(raw: string | undefined): boolean | number | string {
   if (value === 'false') return false;
   if (/^\d+$/.test(value)) return Number(value);
   const entries = value.split(',').map((entry) => entry.trim());
-  if (entries.every((entry) => TRUST_PROXY_NAMES.has(entry) || isAddressOrRange(entry))) return entries.join(',');
+  if (entries.every((entry) => TRUST_PROXY_NAMES.has(entry) || isAddressOrRange(entry)))
+    return entries.join(',');
   throw new ConfigError(
     'TRUST_PROXY invalide : utilisez true, false, un nombre de proxys, ou une liste parmi loopback, linklocal, uniquelocal, adresses IP ou plages CIDR',
   );
@@ -87,9 +118,12 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     ffprobePath: env.FFPROBE_PATH?.trim() || 'ffprobe',
     cookieSecure: env.NODE_ENV === 'production' || env.COOKIE_SECURE !== 'false',
     loginRateLimit:
-      env.NODE_ENV !== 'production' && Number(env.LOGIN_RATE_LIMIT) > 0 ? Number(env.LOGIN_RATE_LIMIT) : DEFAULT_LOGIN_RATE_LIMIT,
+      env.NODE_ENV !== 'production' && Number(env.LOGIN_RATE_LIMIT) > 0
+        ? Number(env.LOGIN_RATE_LIMIT)
+        : DEFAULT_LOGIN_RATE_LIMIT,
     jobsEnabled: env.JOBS_ENABLED !== 'false',
     isProduction: env.NODE_ENV === 'production',
     trustProxy: parseTrustProxy(env.TRUST_PROXY),
+    schoolTimezone: parseSchoolTimezone(env.SCHOOL_TIMEZONE),
   };
 }

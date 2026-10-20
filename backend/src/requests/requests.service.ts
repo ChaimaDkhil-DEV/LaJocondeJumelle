@@ -82,7 +82,7 @@ export class RequestsService {
     if (dto.asDraft && !(await this.settings.get('draftsEnabled'))) {
       throw fieldError('asDraft', 'Les brouillons sont désactivés.');
     }
-    // En circuit B, le demandeur ne choisit pas l'agent : la demande va aux responsables.
+    // En circuit B, le demandeur ne choisit pas l'agent : la demande va aux admins de la catégorie.
     if (category.circuit === 'B_ADMIN_VALIDATION' && dto.recipientId) {
       throw new AppException('RECIPIENT_NOT_ALLOWED');
     }
@@ -240,7 +240,7 @@ export class RequestsService {
   }
 
   /**
-   * Employés auxquels un responsable peut confier la demande (approbation en circuit B, réaffectation) :
+   * Employés auxquels un admin peut confier la demande (approbation en circuit B, réaffectation) :
    * utilisateurs actifs parmi les destinataires de la catégorie.
    */
   async assignees(
@@ -317,7 +317,7 @@ export class RequestsService {
 
   /**
    * Changement de priorité (hors machine à états) : demandeur avec PRIORITY_CHANGE_OWN avant
-   * acceptation, responsable avec PRIORITY_CHANGE_MANAGED tant que la demande n'est ni terminée ni
+   * acceptation, admin avec PRIORITY_CHANGE_MANAGED tant que la demande n'est ni terminée ni
    * finale. Les échéances en cours ne sont pas recalculées (instantané des règles, FR-022).
    */
   async changePriority(user: AuthenticatedUser, id: string, dto: ChangePriorityDto, ctx: RequestContext): Promise<RequestDetail> {

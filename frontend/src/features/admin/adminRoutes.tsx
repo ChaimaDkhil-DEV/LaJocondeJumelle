@@ -3,6 +3,7 @@ import { Navigate, type RouteObject } from 'react-router';
 import { LoadingState } from '../../components/LoadingState';
 import { ClassesAdminPage } from '../coverage/ClassesAdminPage';
 import { CoverageDashboardPage } from '../coverage/CoverageDashboardPage';
+import { FloorsAdminPage } from '../coverage/FloorsAdminPage';
 import { GroupsAdminPage } from '../coverage/GroupsAdminPage';
 import { AdminLayout } from './AdminLayout';
 import { AuditLogPage } from './AuditLogPage';
@@ -12,7 +13,9 @@ import { UsersAdminPage } from './UsersAdminPage';
 
 // Chargée à la demande : les graphiques (Recharts) ne pèsent que sur cet écran ; le menu de
 // l'administration s'affiche pendant le chargement.
-const DashboardPage = lazy(() => import('./DashboardPage').then((m) => ({ default: m.DashboardPage })));
+const DashboardPage = lazy(() =>
+  import('./DashboardPage').then((m) => ({ default: m.DashboardPage })),
+);
 
 /** Routes /admin/* (super administrateur uniquement). */
 export const adminRoutes: RouteObject[] = [
@@ -33,9 +36,10 @@ export const adminRoutes: RouteObject[] = [
       { path: 'categories', element: <CategoriesAdminPage /> },
       { path: 'reglages', element: <SettingsAdminPage /> },
       { path: 'journal', element: <AuditLogPage /> },
-      // Couverture de classe : suivi des employés et données de référence.
+      // Affectations : suivi et données de référence (groupes, étages, classes).
       { path: 'suivi', element: <CoverageDashboardPage /> },
       { path: 'groupes', element: <GroupsAdminPage /> },
+      { path: 'etages', element: <FloorsAdminPage /> },
       { path: 'classes', element: <ClassesAdminPage /> },
     ],
   },

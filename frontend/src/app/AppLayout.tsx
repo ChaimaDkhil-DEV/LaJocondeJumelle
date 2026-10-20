@@ -5,15 +5,24 @@ import Link from '@mui/material/Link';
 import Typography from '@mui/material/Typography';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
-import { ClipboardList, Inbox, LogOut, Menu, School, Settings, SquarePen, type LucideIcon } from 'lucide-react';
+import {
+  ClipboardList,
+  Inbox,
+  LogOut,
+  Menu,
+  School,
+  Settings,
+  SquarePen,
+  type LucideIcon,
+} from 'lucide-react';
 import { useState } from 'react';
 import { Link as RouterLink, Outlet, useLocation, useNavigate } from 'react-router';
+import type { Me } from '../api/types';
 import { IconAction } from '../components/IconAction';
 import { Person } from '../components/UserAvatar';
 import { font, fontSize, icon, layout, motion, tokensOf } from '../design/tokens';
 import { ROLE_LABELS } from '../features/admin/labels';
 import { useCurrentUser, useLogout } from '../features/auth/useCurrentUser';
-import { useCoverageProfile } from '../features/coverage/api';
 import { NotificationCenter } from '../features/notifications/NotificationCenter';
 import { SocketProvider } from '../features/notifications/SocketProvider';
 
@@ -33,14 +42,39 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Inbox,
     matches: (p) => p === '/' || (p.startsWith('/demandes/') && p !== '/demandes/nouvelle'),
   },
-  { to: '/demandes/nouvelle', label: 'Nouvelle demande', icon: SquarePen, matches: (p) => p === '/demandes/nouvelle' },
+  {
+    to: '/demandes/nouvelle',
+    label: 'Nouvelle demande',
+    icon: SquarePen,
+    matches: (p) => p === '/demandes/nouvelle',
+  },
 ];
 
-/** Gardes de classe : membres d'un groupe de remplacement, responsables et super administrateur. */
-const COVERAGE_ITEM: NavItem = { to: '/gardes', label: 'Gardes', icon: School, matches: (p) => p.startsWith('/gardes') };
+/** Gardes de classe : admins, super administrateur, membres des groupes Surveillants ou Enseignants (FR-023b). */
+export function canSeeCoverage(me: Me | undefined): boolean {
+  if (!me) return false;
+  return (
+    me.role === 'ADMIN' ||
+    me.role === 'SUPER_ADMIN' ||
+    Boolean(me.isTeacher) ||
+    Boolean(me.isSupervisor)
+  );
+}
+
+const COVERAGE_ITEM: NavItem = {
+  to: '/gardes',
+  label: 'Gardes',
+  icon: School,
+  matches: (p) => p.startsWith('/gardes'),
+};
 
 /** Entrée réservée au super administrateur (le serveur refuse aussi /api/admin aux autres rôles). */
-const ADMIN_ITEM: NavItem = { to: '/admin', label: 'Administration', icon: Settings, matches: (p) => p.startsWith('/admin') };
+const ADMIN_ITEM: NavItem = {
+  to: '/admin',
+  label: 'Administrateur',
+  icon: Settings,
+  matches: (p) => p.startsWith('/admin'),
+};
 
 /** Lien d'évitement : invisible jusqu'à ce qu'il reçoive le focus clavier. */
 function SkipLink() {
@@ -120,7 +154,10 @@ function NavList({ items, onNavigate }: { items: NavItem[]; onNavigate?: () => v
                   color: active ? tokensOf(theme).text : tokensOf(theme).textSecondary,
                   bgcolor: active ? tokensOf(theme).surfaceMuted : 'transparent',
                   transition: `background-color ${motion.fast}ms, color ${motion.fast}ms`,
-                  '& svg': { color: active ? tokensOf(theme).accent.main : tokensOf(theme).textMuted, flex: 'none' },
+                  '& svg': {
+                    color: active ? tokensOf(theme).accent.main : tokensOf(theme).textMuted,
+                    flex: 'none',
+                  },
                   '&:hover': { bgcolor: tokensOf(theme).surfaceMuted, color: tokensOf(theme).text },
                   '@media (pointer: coarse)': { minHeight: 44 },
                 })}
@@ -143,8 +180,7 @@ export function AppLayout() {
   const me = useCurrentUser();
   const logout = useLogout();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const coverage = useCoverageProfile();
-  const showCoverage = Boolean(coverage.data && (coverage.data.inGroup || coverage.data.canManage));
+  const showCoverage = canSeeCoverage(me.data);
   const navItems = [
     ...NAV_ITEMS,
     ...(showCoverage ? [COVERAGE_ITEM] : []),
@@ -155,7 +191,14 @@ export function AppLayout() {
     logout.mutate(undefined, { onSettled: () => navigate('/connexion', { replace: true }) });
   }
 
-  const user = me.data && <Person name={me.data.displayName} id={me.data.id} size={32} secondary={ROLE_LABELS[me.data.role]} />;
+  const user = me.data && (
+    <Person
+      name={me.data.displayName}
+      id={me.data.id}
+      size={32}
+      secondary={ROLE_LABELS[me.data.role]}
+    />
+  );
 
   return (
     <SocketProvider>
@@ -179,12 +222,30 @@ export function AppLayout() {
               zIndex: (t) => t.zIndex.appBar,
             }}
           >
-            <Box component="header" sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, pl: 0.5 }}>
+            <Box
+              component="header"
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 1,
+                pl: 0.5,
+              }}
+            >
               <Brand />
               <NotificationCenter />
             </Box>
             <NavList items={navItems} />
-            <Box sx={{ mt: 'auto', display: 'grid', gap: 1.5, pt: 2, borderTop: 1, borderColor: 'divider' }}>
+            <Box
+              sx={{
+                mt: 'auto',
+                display: 'grid',
+                gap: 1.5,
+                pt: 2,
+                borderTop: 1,
+                borderColor: 'divider',
+              }}
+            >
               <Box sx={{ px: 0.5 }}>{user}</Box>
               <Button
                 onClick={handleLogout}
@@ -213,7 +274,12 @@ export function AppLayout() {
                 borderColor: 'divider',
               }}
             >
-              <IconAction icon={Menu} label="Ouvrir le menu" tooltip="Menu" onClick={() => setDrawerOpen(true)} />
+              <IconAction
+                icon={Menu}
+                label="Ouvrir le menu"
+                tooltip="Menu"
+                onClick={() => setDrawerOpen(true)}
+              />
               <Box sx={{ flexGrow: 1, minWidth: 0, ml: 0.5 }}>
                 <Brand />
               </Box>
@@ -221,10 +287,22 @@ export function AppLayout() {
               <IconAction icon={LogOut} label="Se déconnecter" onClick={handleLogout} />
             </Box>
             <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)}>
-              <Box sx={{ width: 280, maxWidth: '85vw', p: 2, display: 'flex', flexDirection: 'column', gap: 3, height: '100%' }}>
+              <Box
+                sx={{
+                  width: 280,
+                  maxWidth: '85vw',
+                  p: 2,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 3,
+                  height: '100%',
+                }}
+              >
                 <Brand />
                 <NavList items={navItems} onNavigate={() => setDrawerOpen(false)} />
-                {user && <Box sx={{ mt: 'auto', pt: 2, borderTop: 1, borderColor: 'divider' }}>{user}</Box>}
+                {user && (
+                  <Box sx={{ mt: 'auto', pt: 2, borderTop: 1, borderColor: 'divider' }}>{user}</Box>
+                )}
               </Box>
             </Drawer>
           </>
@@ -235,7 +313,14 @@ export function AppLayout() {
           tabIndex={-1}
           sx={{ ml: { md: `${layout.sidebar}px` }, '&:focus': { outline: 'none' } }}
         >
-          <Box sx={{ maxWidth: layout.content, mx: 'auto', px: { xs: 2, sm: 3, md: 4 }, py: { xs: 3, md: 4 } }}>
+          <Box
+            sx={{
+              maxWidth: layout.content,
+              mx: 'auto',
+              px: { xs: 2, sm: 3, md: 4 },
+              py: { xs: 3, md: 4 },
+            }}
+          >
             <Outlet />
           </Box>
         </Box>

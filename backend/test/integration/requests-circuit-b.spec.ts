@@ -42,11 +42,11 @@ describe('Circuit B — validation administrative', () => {
     app = await createTestApp();
     enseignante = await loginAs(app, 'enseignante');
     reprographie = await loginAs(app, 'reprographie');
-    responsable = await loginAs(app, 'responsable');
+    responsable = await loginAs(app, 'admin');
     circuitB = await categoryId(prisma, CATEGORIES.circuitB);
     reprographieId = await userId(prisma, 'reprographie');
     enseignanteId = await userId(prisma, 'enseignante');
-    responsableId = await userId(prisma, 'responsable');
+    responsableId = await userId(prisma, 'admin');
   });
 
   afterAll(async () => {

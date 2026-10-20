@@ -122,15 +122,15 @@ describe('Formulaire de demande selon le mode de routage', () => {
     await screen.findByRole('heading', { name: 'Nouvelle demande' });
     await choose('Catégorie', 'Surveillance');
     expect(screen.queryByRole('combobox', { name: /Destinataire/ })).not.toBeInTheDocument();
-    expect(screen.getByText(/validée par un responsable/)).toBeVisible();
+    expect(screen.getByText(/validée par un admin/)).toBeVisible();
   });
 });
 
 describe('Onglet « Suivi » de l’administration', () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it('proposé aux responsables : charge toutes les demandes visibles (scope all)', async () => {
-    const calls = stub({ id: 'm1', displayName: 'Responsable', role: 'MANAGER', permissions: [], mustChangePassword: false });
+  it('proposé aux admins : charge toutes les demandes visibles (scope all)', async () => {
+    const calls = stub({ id: 'm1', displayName: 'Responsable', role: 'ADMIN', permissions: [], mustChangePassword: false });
     renderAt('/');
     await userEvent.click(await screen.findByRole('tab', { name: 'Suivi' }));
     await waitFor(() => expect(calls.some((c) => c.url.startsWith('/api/requests?scope=all'))).toBe(true));
