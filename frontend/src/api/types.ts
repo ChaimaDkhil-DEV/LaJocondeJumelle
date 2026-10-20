@@ -26,4 +26,7 @@ export interface Me {
   role: Role;
   permissions: string[];
   mustChangePassword: boolean;
+  /** Affectations (004) : membre des groupes Enseignants et Surveillants. */
+  isTeacher?: boolean;
+  isSupervisor?: boolean;
 }

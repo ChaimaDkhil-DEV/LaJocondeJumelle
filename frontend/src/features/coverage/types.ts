@@ -156,6 +156,8 @@ export interface CoverageProfile {
   inGroup: boolean;
   /** Admin ou super administrateur. */
   canManage: boolean;
+  /** « Aujourd'hui » et « demain » dans le fuseau de l'école (formulaire de l'enseignant). */
+  schoolDates: { timezone: string; today: string; tomorrow: string };
 }
 
 export interface Candidate {

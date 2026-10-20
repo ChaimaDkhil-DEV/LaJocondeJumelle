@@ -120,21 +120,30 @@ export function CoverageRows({ items, empty }: { items: CoverageSummary[]; empty
   );
 }
 
-/** Liste en direct des affectations : en cours (en attente d'abord, délais expirés en tête) ou finales. */
-export function ManagedCoverageTab({ finished }: { finished: boolean }) {
-  const list = useCoverageList(finished ? 'mainStatus=DONE&mainStatus=CANCELLED&mainStatus=UNFILLED' : '');
+const SCOPES = {
+  pending: {
+    query: 'mainStatus=PENDING',
+    empty: 'Les retards et absences signalés par les enseignants apparaîtront ici.',
+  },
+  active: {
+    query: 'mainStatus=ASSIGNED&mainStatus=IN_PROGRESS',
+    empty: 'Les affectations assignées et en cours apparaîtront ici.',
+  },
+  finished: {
+    query: 'mainStatus=DONE&mainStatus=CANCELLED&mainStatus=UNFILLED',
+    empty: 'Les affectations terminées, annulées ou non pourvues apparaîtront ici.',
+  },
+} as const;
+
+/**
+ * Liste en direct des affectations : en attente (délais de prise en charge expirés en tête, FR-011e),
+ * assignées et en cours, ou finales. Le tri vient du serveur.
+ */
+export function ManagedCoverageTab({ scope }: { scope: keyof typeof SCOPES }) {
+  const list = useCoverageList(SCOPES[scope].query);
   if (list.isPending) return <LoadingState label="Chargement des affectations" />;
   if (list.error) return <ErrorState message="Impossible de charger les affectations." actionLabel="Réessayer" onAction={() => void list.refetch()} />;
-  return (
-    <CoverageRows
-      items={list.data}
-      empty={
-        finished
-          ? 'Les affectations terminées, annulées ou non pourvues apparaîtront ici.'
-          : 'Les retards et absences signalés et les classes vides déclarées apparaîtront ici.'
-      }
-    />
-  );
+  return <CoverageRows items={list.data} empty={SCOPES[scope].empty} />;
 }
 
 /** Équipe : surveillants, étage, disponibilités (y compris « Absent », réservé aux admins) et affectations en cours. */

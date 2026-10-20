@@ -162,3 +162,21 @@ Les sens non liés au rôle (« le surveillant reste responsable » de la classe
 - **Instabilité constatée une fois** : lors d'un passage complet, `admin-audit.spec.ts` n'a pas pu
   joindre le PostgreSQL embarqué (`Can't reach database server at localhost:55433`). Repassé seul
   puis dans la suite complète (397 / 397) sans erreur ; cause non établie, à surveiller.
+
+### Interface (T051, T057 à T059)
+
+- **T051** (`teacher-request.test.tsx`, 7 cas ; `admin-queue.test.tsx`, 7 cas) : écrits d'abord, rouges
+  (module absent, onglets et menu absents), puis verts au premier passage du code.
+- **T057** : `TeacherRequestPage.tsx` (création à `/gardes/signaler`, modification et retrait à
+  `/gardes/signalements/:id`, lecture seule une fois assignée) et onglet « Mes signalements ». Les
+  heures sont saisies en `HH:MM` dans un champ texte : la date et l'heure locales d'une demande
+  existante sont calculées dans le fuseau de l'école renvoyé par le serveur (`schoolDates`).
+- **T058** : file de l'admin avec l'onglet « En attente » en tête (`mainStatus=PENDING`, tri du
+  serveur : délais expirés d'abord), puis « En cours », « Équipe », « Terminées ». Le dialogue
+  d'assignation reste dans `CoverageActions.tsx` (pas de fichier `AssignDialog.tsx` séparé) ; il est
+  testé dans `coverage.test.tsx` (étage d'abord, indisponibles non sélectionnables).
+- **T059** : menu « Gardes » calculé depuis `GET /auth/me` (`canSeeCoverage`) : admin, super
+  administrateur, membre des groupes Enseignants ou Surveillants ; plus d'appel au profil du
+  module pour afficher le menu.
+
+Résultat : lint sans erreur ; typages sans erreur ; frontend 197 / 197 (26 fichiers).

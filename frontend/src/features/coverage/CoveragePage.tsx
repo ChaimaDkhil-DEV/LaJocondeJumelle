@@ -1,9 +1,10 @@
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
-import { School } from 'lucide-react';
+import { CalendarPlus, School } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { useSearchParams } from 'react-router';
+import { Link as RouterLink, useSearchParams } from 'react-router';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
@@ -11,6 +12,7 @@ import { PageHeader } from '../../components/PageHeader';
 import { useCoverageProfile } from './api';
 import { MyGuardTab, PersonalHistoryTab } from './EmployeeViews';
 import { ManagedCoverageTab, TeamTab } from './ManagerViews';
+import { MyRequestsTab } from './TeacherViews';
 
 interface TabDef {
   key: string;
@@ -18,21 +20,25 @@ interface TabDef {
   render: () => ReactNode;
 }
 
+/** File de l'admin : demandes en attente d'abord (délais expirés en tête, FR-011e). */
+const ADMIN_TABS: TabDef[] = [
+  { key: 'en-attente', label: 'En attente', render: () => <ManagedCoverageTab scope="pending" /> },
+  { key: 'en-cours', label: 'En cours', render: () => <ManagedCoverageTab scope="active" /> },
+  { key: 'equipe', label: 'Équipe', render: () => <TeamTab /> },
+  { key: 'terminees', label: 'Terminées', render: () => <ManagedCoverageTab scope="finished" /> },
+];
+
+const TEACHER_TABS: TabDef[] = [{ key: 'mes-signalements', label: 'Mes signalements', render: () => <MyRequestsTab /> }];
+
 const SUPERVISOR_TABS: TabDef[] = [
   { key: 'mes-affectations', label: 'Mes affectations', render: () => <MyGuardTab /> },
   { key: 'historique', label: 'Historique', render: () => <PersonalHistoryTab /> },
 ];
 
-const ADMIN_TABS: TabDef[] = [
-  { key: 'en-cours', label: 'En cours', render: () => <ManagedCoverageTab finished={false} /> },
-  { key: 'equipe', label: 'Équipe', render: () => <TeamTab /> },
-  { key: 'terminees', label: 'Terminées', render: () => <ManagedCoverageTab finished /> },
-];
-
 /**
- * « Gardes » : affectations des surveillants (004). Admin ou super administrateur : affectations en
- * cours (en attente d'abord), équipe, terminées. Surveillant : ses affectations et renforts, historique.
- * La diffusion à un groupe (« À prendre ») n'existe plus : seul l'admin assigne (FR-011a).
+ * « Gardes » : affectations des surveillants (004). Admin ou super administrateur : file en attente,
+ * affectations en cours, équipe, terminées. Enseignant : ses signalements. Surveillant : ses
+ * affectations et renforts, historique. Un même compte cumule les onglets de ses groupes.
  */
 export function CoveragePage() {
   const profile = useCoverageProfile();
@@ -43,8 +49,8 @@ export function CoveragePage() {
     return <ErrorState message="Impossible de charger les affectations." actionLabel="Réessayer" onAction={() => void profile.refetch()} />;
   }
 
-  const { canManage, inGroup } = profile.data;
-  const tabs = [...(canManage ? ADMIN_TABS : []), ...(inGroup && !canManage ? SUPERVISOR_TABS : [])];
+  const { canManage, isTeacher, isSupervisor } = profile.data;
+  const tabs = [...(canManage ? ADMIN_TABS : []), ...(isTeacher ? TEACHER_TABS : []), ...(isSupervisor && !canManage ? SUPERVISOR_TABS : [])];
   const tab = tabs.find((t) => t.key === params.get('onglet')) ?? tabs[0];
 
   return (
@@ -54,7 +60,16 @@ export function CoveragePage() {
         description={
           canManage
             ? 'Assignez un surveillant aux retards et absences signalés, et suivez chaque affectation en direct.'
-            : 'Vos affectations en cours, vos renforts et votre historique.'
+            : isTeacher
+              ? 'Signalez à l’avance un retard ou une absence : l’admin assigne un surveillant à votre classe.'
+              : 'Vos affectations en cours, vos renforts et votre historique.'
+        }
+        actions={
+          isTeacher && (
+            <Button component={RouterLink} to="/gardes/signaler" variant="contained" startIcon={<CalendarPlus aria-hidden="true" />}>
+              Signaler un retard ou une absence
+            </Button>
+          )
         }
       />
       {!tab ? (
