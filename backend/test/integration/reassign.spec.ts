@@ -83,6 +83,14 @@ describe('Réaffectation', () => {
 
       const event = await prisma.requestEvent.findFirstOrThrow({ where: { requestId: created.id, type: 'REASSIGNED' } });
       expect(event).toMatchObject({ actorId: responsableId, fromValue: { assigneeId: reprographieId }, toValue: { assigneeId: backupId } });
+      const audit = await prisma.auditLog.findFirstOrThrow({
+        where: { action: 'REQUEST_MANAGED', targetId: created.id, details: { path: ['action'], equals: 'REASSIGN' } },
+      });
+      expect(audit).toMatchObject({
+        actorId: responsableId,
+        targetType: 'Request',
+        details: { action: 'REASSIGN', status: 'SENT', before: { assigneeId: reprographieId }, after: { assigneeId: backupId } },
+      });
       await expect(
         prisma.notification.count({ where: { requestId: created.id, userId: backupId, type: 'URGENT' } }),
       ).resolves.toBe(1);

@@ -171,6 +171,14 @@ describe('Couverture de classe', () => {
     const created = await create({ absentTeacher: 'Mme Martin', estimatedMinutes: 60, note: 'Cahiers sur le bureau' });
     expect(created.status).toBe(201);
     const id = created.body.id;
+    // Création journalisée (métadonnées seules : ni consigne, ni enseignant absent).
+    const audit = await prisma.auditLog.findFirstOrThrow({ where: { action: 'COVERAGE_CREATED', targetId: id } });
+    expect(audit).toMatchObject({
+      actorId: ids.responsable,
+      targetType: 'Request',
+      details: { categoryId, classId: violet, groupIds: [groupId], status: 'BROADCAST' },
+    });
+    expect(JSON.stringify(audit.details)).not.toMatch(/Martin|Cahiers/);
     expect(created.body).toMatchObject({
       status: 'BROADCAST',
       priority: 'URGENT', // priorité par défaut

@@ -46,6 +46,18 @@ export interface ActionInput {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/**
+ * Actions administratives journalisées (REQUEST_MANAGED), comme pour les gardes. Les actions
+ * courantes de l'employé (accepter, commencer, terminer, décliner) restent dans l'historique seul.
+ */
+const AUDITED: readonly RequestAction[] = ['APPROVE', 'REJECT', 'REASSIGN', 'CANCEL', 'VALIDATE_FINAL', 'REQUEST_CORRECTION'];
+
+/** Action à journaliser avec la transition, dans la même transaction. */
+interface AuditedAction {
+  action: RequestAction;
+  ip: string | null;
+}
+
 /** Libellé du message système qui conserve le motif ou le commentaire dans le fil. */
 const REASON_LABELS: Partial<Record<RequestAction, string>> = {
   REJECT: 'Motif du refus',
@@ -159,7 +171,8 @@ export class RequestTransitionsService {
       throw new AppException(result.code);
     }
 
-    await this.commit(request, category, result, user.id, now, input.proofFileIds ?? [], assigneeSource);
+    const audited = AUDITED.includes(input.action) ? { action: input.action, ip: ctx.ip } : undefined;
+    await this.commit(request, category, result, user.id, now, input.proofFileIds ?? [], assigneeSource, audited);
   }
 
   /** Transition déclenchée par le système (job planifié). Renvoie false si elle n'est pas applicable. */
@@ -253,6 +266,7 @@ export class RequestTransitionsService {
     now: Date,
     proofFileIds: string[],
     assigneeSource?: AssigneeSource,
+    audited?: AuditedAction,
   ): Promise<void> {
     // Délais : l'étape suivie démarre, continue ou s'arrête selon la transition (US6).
     const deadline = nextDeadlineState(
@@ -281,6 +295,26 @@ export class RequestTransitionsService {
         });
       }
       const after = await tx.request.findUniqueOrThrow({ where: { id: request.id } });
+      if (audited) {
+        await this.audit.log(
+          'REQUEST_MANAGED',
+          {
+            actorId,
+            ip: audited.ip,
+            targetType: 'Request',
+            targetId: request.id,
+            details: {
+              action: audited.action,
+              status: result.to,
+              ...(result.reason ? { reasonGiven: true } : {}),
+              ...(result.assigneeId !== undefined
+                ? { before: { assigneeId: request.assigneeId }, after: { assigneeId: result.assigneeId } }
+                : {}),
+            },
+          },
+          tx,
+        );
+      }
       return { after, pending: await this.recordTransition(tx, request, after, category, result, actorId, assigneeSource) };
     });
     await this.notifications.flushAfterCommit(pending);

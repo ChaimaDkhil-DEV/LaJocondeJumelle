@@ -189,6 +189,53 @@ describe('Circuit B — validation administrative', () => {
     expect(res.body.timestamps.closedAt).toBeTruthy();
   });
 
+  it('journalise les actions administratives, sans le texte des motifs ni les actions courantes de l’employé', async () => {
+    const managed = async (requestId: string) =>
+      (await prisma.auditLog.findMany({ where: { action: 'REQUEST_MANAGED', targetId: requestId }, orderBy: { createdAt: 'asc' } })).map((e) => ({
+        actorId: e.actorId,
+        details: e.details,
+      }));
+    const photo = async () =>
+      (
+        await api()
+          .post('/api/files')
+          .set('Cookie', reprographie)
+          .set('Origin', TEST_ORIGIN)
+          .field('kind', 'PHOTO')
+          .attach('file', join(__dirname, '..', 'fixtures', 'images', 'photo.png'))
+      ).body.id as string;
+
+    const { id, version } = await submit();
+    let res = await act(responsable, id, { action: 'APPROVE', version, assigneeId: reprographieId });
+    res = await api().patch(`/api/requests/${id}/priority`).set('Cookie', responsable).set('Origin', TEST_ORIGIN).send({ priority: 'HIGH', version: res.body.version });
+    expect(res.status).toBe(200);
+    res = await act(reprographie, id, { action: 'ACCEPT', version: res.body.version });
+    res = await act(reprographie, id, { action: 'START', version: res.body.version });
+    res = await act(reprographie, id, { action: 'COMPLETE', version: res.body.version, proofFileIds: [await photo()] });
+    res = await act(responsable, id, { action: 'REQUEST_CORRECTION', version: res.body.version, reason: 'Le câble HDMI manque.' });
+    res = await act(reprographie, id, { action: 'RESUME', version: res.body.version });
+    res = await act(reprographie, id, { action: 'COMPLETE', version: res.body.version, proofFileIds: [await photo()] });
+    res = await act(responsable, id, { action: 'VALIDATE_FINAL', version: res.body.version });
+    expect(res.body.status).toBe('CLOSED');
+
+    expect(await managed(id)).toEqual([
+      { actorId: responsableId, details: { action: 'APPROVE', status: 'SENT', before: { assigneeId: null }, after: { assigneeId: reprographieId } } },
+      { actorId: responsableId, details: { action: 'CHANGE_PRIORITY', before: { priority: 'NORMAL' }, after: { priority: 'HIGH' } } },
+      { actorId: responsableId, details: { action: 'REQUEST_CORRECTION', status: 'TO_CORRECT', reasonGiven: true } },
+      { actorId: responsableId, details: { action: 'VALIDATE_FINAL', status: 'CLOSED' } },
+    ]);
+    const entries = await prisma.auditLog.findMany({ where: { targetId: id } });
+    expect(JSON.stringify(entries)).not.toContain('HDMI');
+
+    const rejected = await submit();
+    await act(responsable, rejected.id, { action: 'REJECT', version: rejected.version, reason: 'Matériel déjà commandé.' });
+    expect(await managed(rejected.id)).toEqual([{ actorId: responsableId, details: { action: 'REJECT', status: 'REJECTED', reasonGiven: true } }]);
+
+    const cancelled = await submit();
+    await act(enseignante, cancelled.id, { action: 'CANCEL', version: cancelled.version });
+    expect(await managed(cancelled.id)).toEqual([{ actorId: enseignanteId, details: { action: 'CANCEL', status: 'CANCELLED' } }]);
+  });
+
   it('un employé non responsable ne peut ni approuver ni valider (403, journalisé)', async () => {
     const { id, version } = await submit();
     const res = await act(enseignante, id, { action: 'APPROVE', version, assigneeId: reprographieId });

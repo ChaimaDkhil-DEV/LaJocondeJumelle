@@ -163,6 +163,9 @@ enum AuditAction {
   QR_REVOKED
   AVAILABILITY_CHANGED
   COVERAGE_MANAGED
+  COVERAGE_CREATED
+  // Demandes de travail : actions administratives
+  REQUEST_MANAGED
 }
 
 enum NotificationType {
