@@ -212,3 +212,26 @@ Résultat : lint sans erreur ; typages sans erreur ; frontend 197 / 197 (26 fich
   vérifiés de bout en bout par T061 (3 rappels à 10 min d'intervalle, puis escalade au super
   administrateur).
 - Résultat : lint et typages sans erreur ; unitaires 561 / 561 ; intégration 412 / 412 (38 suites).
+
+### Interface (T062, T067 à T069)
+
+- **T062** : `empty-class.test.tsx` (10 cas) et `urgent-alert.test.tsx` (4 cas) écrits d'abord.
+  Rouges : page absente, son et préférence absents. Deux cas de `urgent-alert` passaient déjà
+  (rôle `alert` et annonce assertive existants ; aucun son puisqu'il n'y en avait pas) : ils
+  décrivent un comportement déjà en place, conservé. Un cas corrigé après coup : le menu masque
+  le reste de la page aux technologies d'assistance pendant sa fermeture, le test attend donc
+  qu'il soit fermé avant d'envoyer l'alerte.
+- **T068** : testé par `admin-duplicates.test.tsx` (5 cas, écrit avant le code) : onglet
+  « Doublons » (confirmer, garder distinctes, « Non tranché »), pastilles « Surveillant sur deux
+  affectations » et « Doublon possible » dans la file, renforts à libérer et correction de
+  l'enseignant dans le détail. `admin-queue.test.tsx` : l'onglet « Doublons » s'ajoute après
+  « En cours ».
+- **T067** : `EmptyClassPage.tsx` (`/gardes/classe-vide`) ; la page du QR propose « Déclarer cette
+  classe vide » quand le surveillant n'a pas d'affectation pour cette classe (classe et QR
+  repris). « Mes affectations » (affectations, renforts, « Terminer ») existait depuis la phase 2.
+  Lien de retour de la page du QR corrigé (`onglet=mes-affectations`).
+- **T069** : `useUrgentSound.ts` : contexte audio créé à la première interaction seulement ;
+  préférence locale (`localStorage`, lectures et écritures protégées) ; case à cocher « Signal
+  sonore des urgences » dans le menu des notifications.
+
+Résultat : lint et typages sans erreur ; frontend 216 / 216 (29 fichiers).

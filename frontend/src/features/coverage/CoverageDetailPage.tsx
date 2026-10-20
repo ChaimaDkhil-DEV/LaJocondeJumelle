@@ -2,7 +2,7 @@ import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { Camera, History, Info, QrCode, Users } from 'lucide-react';
-import { useParams } from 'react-router';
+import { Link as RouterLink, useParams } from 'react-router';
 import { ApiError } from '../../api/client';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
@@ -12,6 +12,7 @@ import { Person } from '../../components/UserAvatar';
 import { formatDateTime } from '../../components/format';
 import { fontSize, icon, tokensOf } from '../../design/tokens';
 import { VoicePlayer } from '../voice/VoicePlayer';
+import { SupportsList, TeacherField } from './AdminCoverageTools';
 import { useCoverage } from './api';
 import { CoverageActions } from './CoverageActions';
 import { ClassHeading } from './EmployeeViews';
@@ -155,6 +156,23 @@ export function CoverageDetailPage() {
             {d.alerts.includes('TAKEOVER_EXPIRED') && d.isManager && (
               <Alert severity="error">Délai d’assignation dépassé : assignez un surveillant disponible.</Alert>
             )}
+            {d.alerts.includes('DOUBLE_ASSIGNMENT') && d.isManager && (
+              <Alert severity="error">
+                Ce surveillant a une autre affectation en cours sur ce créneau : réassignez l’une des deux si nécessaire.
+              </Alert>
+            )}
+            {d.alerts.includes('POSSIBLE_DUPLICATE') && d.isManager && (
+              <Alert
+                severity="warning"
+                action={
+                  <Box component={RouterLink} to="/gardes?onglet=doublons" sx={{ color: 'inherit', alignSelf: 'center', mr: 1 }}>
+                    Trancher
+                  </Box>
+                }
+              >
+                Doublon possible : une autre affectation concerne cette classe sur le même créneau.
+              </Alert>
+            )}
             {d.status === 'UNFILLED' && d.isManager && <Alert severity="info">Créneau passé sans surveillant assigné.</Alert>}
             {d.status === 'LATE' && d.isManager && (
               <Alert severity="error">Présence non confirmée dans le délai : contactez le surveillant ou réassignez l’affectation.</Alert>
@@ -236,12 +254,21 @@ export function CoverageDetailPage() {
                 </Typography>
                 <Person name={d.requester.displayName} id={d.requester.id} size={28} />
               </Box>
-              {d.supports.length > 0 && (
-                <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
-                  <Users size={icon.sm} aria-hidden="true" style={{ marginTop: 3 }} />
-                  <Typography variant="body2">Renfort : {d.supports.map((s) => s.user.displayName).join(', ')}</Typography>
-                </Box>
-              )}
+              {d.isManager && <TeacherField detail={d} />}
+              {d.supports.length > 0 &&
+                (d.isManager ? (
+                  <Box sx={{ display: 'grid', gap: 0.5 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      Renfort
+                    </Typography>
+                    <SupportsList detail={d} />
+                  </Box>
+                ) : (
+                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                    <Users size={icon.sm} aria-hidden="true" style={{ marginTop: 3 }} />
+                    <Typography variant="body2">Renfort : {d.supports.map((s) => s.user.displayName).join(', ')}</Typography>
+                  </Box>
+                ))}
               <Typography variant="body2" color="text.secondary">
                 {[d.source && SOURCE_LABELS[d.source], d.type && TYPE_LABELS[d.type], d.floor?.name].filter(Boolean).join(' · ')}
               </Typography>

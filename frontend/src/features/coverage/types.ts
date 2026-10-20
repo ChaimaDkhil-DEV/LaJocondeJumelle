@@ -93,7 +93,11 @@ export interface CoverageSummary {
   requester: Person;
   assignee: Person | null;
   supports: CoverageSupport[];
-  /** `TAKEOVER_EXPIRED` : demande en attente dont le délai de prise en charge a expiré (FR-011e). */
+  /**
+   * `TAKEOVER_EXPIRED` : demande en attente dont le délai de prise en charge a expiré (FR-011e) ;
+   * `DOUBLE_ASSIGNMENT` : surveillant sur deux affectations qui se chevauchent (FR-015j) ;
+   * `POSSIBLE_DUPLICATE` : proposition de rattachement en suspens (FR-015h).
+   */
   alerts: string[];
   reliefForId: string | null;
   mergedIntoId: string | null;
@@ -158,6 +162,30 @@ export interface CoverageProfile {
   canManage: boolean;
   /** « Aujourd'hui » et « demain » dans le fuseau de l'école (formulaire de l'enseignant). */
   schoolDates: { timezone: string; today: string; tomorrow: string };
+  capabilities?: { declareEmptyClass: boolean; report: boolean; manage: boolean };
+}
+
+/** Issue d'une déclaration de classe vide (contracts/rest-api.md `POST /coverage/empty-class`). */
+export type DeclarationOutcome = 'CREATED' | 'ATTACHED' | 'ALREADY_ASSIGNED' | 'SUPPORT' | 'MERGE_PROPOSED';
+
+export interface EmptyClassResult {
+  outcome: DeclarationOutcome;
+  coverage: CoverageDetail | null;
+  assignedTo: Person | null;
+  doubleAssignment: boolean;
+}
+
+/** Proposition de rattachement d'une déclaration à une demande existante (FR-015g, FR-015h). */
+export interface MergeProposal {
+  id: string;
+  status: 'PENDING' | 'CONFIRMED' | 'REJECTED';
+  /** « Non tranché » : sans décision après la dernière présentation. */
+  unresolved: boolean;
+  createdAt: string;
+  decidedAt: string | null;
+  finalPresentedAt: string | null;
+  source: CoverageSummary;
+  target: CoverageSummary;
 }
 
 export interface Candidate {

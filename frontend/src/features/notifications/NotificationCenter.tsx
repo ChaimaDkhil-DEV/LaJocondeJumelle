@@ -39,8 +39,10 @@ import {
   UserRound,
   type LucideIcon,
   UserRoundX,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
-import { useId, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { Link as RouterLink, useNavigate } from 'react-router';
 import { visuallyHidden } from '../../components/a11y';
 import { formatRelative } from '../../components/format';
@@ -54,6 +56,7 @@ import {
   type NotificationType,
 } from './api';
 import { useRealtime } from './SocketProvider';
+import { useUrgentSound } from './useUrgentSound';
 
 const NOTIFICATION_ICONS: Record<NotificationType, LucideIcon> = {
   REQUEST_NEW: FilePlus,
@@ -170,6 +173,13 @@ export function NotificationCenter() {
   const markRead = useMarkRead();
   const { latest, dismissLatest } = useRealtime();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const sound = useUrgentSound();
+  const { play } = sound;
+
+  // Signal sonore facultatif, en plus du bandeau et de l'annonce (jamais seul porteur de l'information).
+  useEffect(() => {
+    if (latest?.priority === 'URGENT') play();
+  }, [latest, play]);
 
   const total = unread.data?.unreadTotal ?? 0;
   const items = unread.data?.items ?? [];
@@ -226,7 +236,20 @@ export function NotificationCenter() {
             <NotificationRow item={item} />
           </MenuItem>
         ))}
-        {items.length > 0 && <Divider sx={{ my: 0.5 }} />}
+        <Divider sx={{ my: 0.5 }} />
+        <MenuItem
+          role="menuitemcheckbox"
+          aria-checked={sound.enabled}
+          onClick={() => sound.setEnabled(!sound.enabled)}
+          sx={{ color: 'text.secondary', gap: 1 }}
+        >
+          {sound.enabled ? (
+            <Volume2 size={icon.sm} aria-hidden="true" />
+          ) : (
+            <VolumeX size={icon.sm} aria-hidden="true" />
+          )}
+          Signal sonore des urgences : {sound.enabled ? 'activé' : 'désactivé'}
+        </MenuItem>
         {items.length > 0 && (
           <MenuItem
             onClick={() => {

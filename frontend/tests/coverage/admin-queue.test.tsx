@@ -96,7 +96,7 @@ describe('File de l’admin', () => {
       url === '/api/coverage?mainStatus=PENDING' ? json(200, [item('1', 'CE1 Vert', ['TAKEOVER_EXPIRED']), item('2', 'CE2 Jaune', [])]) : undefined,
     );
     const tabs = await screen.findAllByRole('tab');
-    expect(tabs.map((t) => t.textContent)).toEqual(['En attente', 'En cours', 'Équipe', 'Terminées']);
+    expect(tabs.map((t) => t.textContent)).toEqual(['En attente', 'En cours', 'Doublons', 'Équipe', 'Terminées']);
     expect(tabs[0]).toHaveAttribute('aria-selected', 'true');
     const rows = within(await screen.findByRole('list')).getAllByRole('listitem');
     expect(rows[0]).toHaveTextContent('CE1 Vert');

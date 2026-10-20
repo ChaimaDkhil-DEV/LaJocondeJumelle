@@ -8,6 +8,8 @@ import type {
   CoverageProfile,
   CoverageSummary,
   CoverageType,
+  EmptyClassResult,
+  MergeProposal,
   Named,
   PersonalHistory,
   Person,
@@ -29,6 +31,8 @@ export const coverageKeys = {
   mine: ['coverage', 'mine'] as const,
   myRequests: ['coverage', 'my-requests'] as const,
   classes: ['coverage', 'classes'] as const,
+  teachers: ['coverage', 'teachers'] as const,
+  mergeProposals: ['coverage', 'merge-proposals'] as const,
   history: ['coverage', 'history'] as const,
   list: (query: string) => ['coverage', 'list', query] as const,
   detail: (id: string) => ['coverage', 'detail', id] as const,
@@ -51,6 +55,38 @@ export function useCoverageClasses() {
   return useQuery({
     queryKey: coverageKeys.classes,
     queryFn: () => apiFetch<Array<SchoolClass & { floor: Named | null }>>('/api/coverage/classes'),
+  });
+}
+
+/** Membres du groupe Enseignants (champ facultatif de la déclaration, correction par l'admin). */
+export function useCoverageTeachers(enabled = true) {
+  return useQuery({ queryKey: coverageKeys.teachers, queryFn: () => apiFetch<Person[]>('/api/coverage/teachers'), enabled });
+}
+
+/** Déclaration d'une classe vide par un surveillant. */
+export function useDeclareEmptyClass() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { clientId: string; classId: string; teacherId: string | null; qrToken?: string }) =>
+      apiFetch<EmptyClassResult>('/api/coverage/empty-class', { method: 'POST', body: input }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: coverageKeys.all }),
+  });
+}
+
+/** Propositions de rattachement en suspens (admins). */
+export function useMergeProposals() {
+  return useQuery({
+    queryKey: coverageKeys.mergeProposals,
+    queryFn: () => apiFetch<MergeProposal[]>('/api/coverage/merge-proposals?status=PENDING'),
+  });
+}
+
+export function useDecideMerge() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, decision }: { id: string; decision: 'CONFIRM' | 'REJECT' }) =>
+      apiFetch<MergeProposal>(`/api/coverage/merge-proposals/${id}/decision`, { method: 'POST', body: { decision } }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: coverageKeys.all }),
   });
 }
 

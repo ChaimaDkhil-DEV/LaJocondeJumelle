@@ -1,10 +1,12 @@
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import { AlarmClock, School, UsersRound } from 'lucide-react';
+import { AlarmClock, Copy, School, Split, UsersRound } from 'lucide-react';
 import { Link as RouterLink } from 'react-router';
 import { ApiError } from '../../api/client';
+import { Badge } from '../../components/Badge';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
@@ -14,9 +16,27 @@ import { useToast } from '../../components/Toast';
 import { Person } from '../../components/UserAvatar';
 import { formatDateTime } from '../../components/format';
 import { fontSize, tokensOf } from '../../design/tokens';
-import { useCoverageList, useSetAvailability, useTeam } from './api';
+import { useCoverageList, useDecideMerge, useMergeProposals, useSetAvailability, useTeam } from './api';
 import { AVAILABILITY_LABELS, CoverageDeadline, CoverageStatusBadge, Elapsed, TYPE_LABELS, UNAVAILABLE_REASONS, formatStart } from './labels';
-import type { Availability, CoverageSummary } from './types';
+import type { Availability, CoverageSummary, MergeProposal } from './types';
+
+/** Alertes d'une affectation (FR-015h, FR-015j) : icône et libellé, jamais la seule couleur. */
+export function CoverageAlertBadges({ alerts }: { alerts: string[] }) {
+  return (
+    <>
+      {alerts.includes('DOUBLE_ASSIGNMENT') && (
+        <Badge tone="error" icon={Split}>
+          Surveillant sur deux affectations
+        </Badge>
+      )}
+      {alerts.includes('POSSIBLE_DUPLICATE') && (
+        <Badge tone="warning" icon={Copy}>
+          Doublon possible
+        </Badge>
+      )}
+    </>
+  );
+}
 
 /** Temps écoulé pertinent selon l'étape : depuis la création, l'assignation ou la présence. */
 function stageElapsed(c: CoverageSummary) {
@@ -30,7 +50,7 @@ function stageElapsed(c: CoverageSummary) {
 /** Ligne d'affectation (file de l'admin, tableau du super administrateur). */
 export function CoverageRow({ item }: { item: CoverageSummary }) {
   const takeoverExpired = item.alerts.includes('TAKEOVER_EXPIRED');
-  const alert = takeoverExpired || item.subState === 'LATE' || item.subState === 'RELIEF_PENDING' || item.mainStatus === 'UNFILLED';
+  const alert = takeoverExpired || item.alerts.includes('DOUBLE_ASSIGNMENT') || item.subState === 'LATE' || item.subState === 'RELIEF_PENDING' || item.mainStatus === 'UNFILLED';
   const teacher = item.teacher?.displayName ?? item.absentTeacher;
   return (
     <Box
@@ -71,6 +91,7 @@ export function CoverageRow({ item }: { item: CoverageSummary }) {
       <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
         <CoverageStatusBadge mainStatus={item.mainStatus} subState={item.subState} />
         <PriorityBadge priority={item.priority} />
+        <CoverageAlertBadges alerts={item.alerts} />
       </Box>
       <Box sx={{ display: 'grid', gap: 0.5, minWidth: 0 }}>
         {item.assignee ? (
@@ -144,6 +165,102 @@ export function ManagedCoverageTab({ scope }: { scope: keyof typeof SCOPES }) {
   if (list.isPending) return <LoadingState label="Chargement des affectations" />;
   if (list.error) return <ErrorState message="Impossible de charger les affectations." actionLabel="Réessayer" onAction={() => void list.refetch()} />;
   return <CoverageRows items={list.data} empty={SCOPES[scope].empty} />;
+}
+
+/** Une affectation d'une paire « doublon possible » : origine, classe, statut, surveillant, début. */
+function ProposalSide({ title, item }: { title: string; item: CoverageSummary }) {
+  return (
+    <Box sx={{ display: 'grid', gap: 0.5, minWidth: 0 }}>
+      <Typography variant="caption" color="text.secondary">
+        {title}
+      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+        <Box component={RouterLink} to={`/gardes/${item.id}`} sx={{ color: 'inherit', fontWeight: 500 }}>
+          {item.class.name}
+        </Box>
+        <CoverageStatusBadge mainStatus={item.mainStatus} subState={item.subState} />
+      </Box>
+      <Typography variant="caption" color="text.secondary">
+        {[
+          formatStart(item.startAt),
+          item.assignee ? `Surveillant : ${item.assignee.displayName}` : 'Sans surveillant',
+          item.teacher && `Enseignant : ${item.teacher.displayName}`,
+        ]
+          .filter(Boolean)
+          .join(' · ')}
+      </Typography>
+    </Box>
+  );
+}
+
+/**
+ * Doublons possibles (FR-015g, FR-015h) : déclaration d'un surveillant et demande existante pour la
+ * même classe. L'admin confirme le rattachement ou garde les deux affectations distinctes ; une
+ * paire terminée sans décision est marquée « non tranché » et reste décidable.
+ */
+export function MergeProposalsTab() {
+  const toast = useToast();
+  const proposals = useMergeProposals();
+  const decide = useDecideMerge();
+  if (proposals.isPending) return <LoadingState label="Chargement des doublons possibles" />;
+  if (proposals.error) {
+    return <ErrorState message="Impossible de charger les doublons possibles." actionLabel="Réessayer" onAction={() => void proposals.refetch()} />;
+  }
+  if (proposals.data.length === 0) {
+    return (
+      <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1.5, bgcolor: 'background.paper' }}>
+        <EmptyState
+          icon={Copy}
+          title="Aucun doublon à trancher"
+          description="Quand un surveillant déclare une classe déjà signalée sans préciser l’enseignant, la paire apparaît ici."
+        />
+      </Box>
+    );
+  }
+  function send(p: MergeProposal, decision: 'CONFIRM' | 'REJECT'): void {
+    decide.mutate(
+      { id: p.id, decision },
+      {
+        onSuccess: () => toast.success(decision === 'CONFIRM' ? 'Rattachement confirmé.' : 'Affectations gardées distinctes.'),
+        onError: (err) => toast.error(err instanceof ApiError ? err.message : 'Décision impossible.'),
+      },
+    );
+  }
+  return (
+    <Box
+      component="ul"
+      aria-label="Doublons possibles"
+      sx={{ listStyle: 'none', m: 0, p: 0, border: 1, borderColor: 'divider', borderRadius: 1.5, bgcolor: 'background.paper', overflow: 'hidden' }}
+    >
+      {proposals.data.map((p) => (
+        <Box
+          component="li"
+          key={p.id}
+          sx={{ display: 'grid', gap: 1.5, p: 2, borderTop: 1, borderColor: 'divider', '&:first-of-type': { borderTop: 0 } }}
+        >
+          {p.unresolved && (
+            <Box>
+              <Badge tone="warning" icon={AlarmClock}>
+                Non tranché
+              </Badge>
+            </Box>
+          )}
+          <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
+            <ProposalSide title="Déclaration du surveillant" item={p.source} />
+            <ProposalSide title={p.target.source === 'TEACHER_REQUEST' ? 'Demande de l’enseignant' : 'Affectation existante'} item={p.target} />
+          </Box>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+            <Button variant="contained" size="small" disabled={decide.isPending} onClick={() => send(p, 'CONFIRM')}>
+              Confirmer le rattachement
+            </Button>
+            <Button size="small" disabled={decide.isPending} onClick={() => send(p, 'REJECT')}>
+              Garder distinctes
+            </Button>
+          </Box>
+        </Box>
+      ))}
+    </Box>
+  );
 }
 
 /** Équipe : surveillants, étage, disponibilités (y compris « Absent », réservé aux admins) et affectations en cours. */

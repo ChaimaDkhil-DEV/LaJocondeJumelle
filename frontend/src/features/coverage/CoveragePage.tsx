@@ -2,7 +2,7 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
-import { CalendarPlus, School } from 'lucide-react';
+import { CalendarPlus, DoorOpen, School } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Link as RouterLink, useSearchParams } from 'react-router';
 import { EmptyState } from '../../components/EmptyState';
@@ -11,7 +11,7 @@ import { LoadingState } from '../../components/LoadingState';
 import { PageHeader } from '../../components/PageHeader';
 import { useCoverageProfile } from './api';
 import { MyGuardTab, PersonalHistoryTab } from './EmployeeViews';
-import { ManagedCoverageTab, TeamTab } from './ManagerViews';
+import { ManagedCoverageTab, MergeProposalsTab, TeamTab } from './ManagerViews';
 import { MyRequestsTab } from './TeacherViews';
 
 interface TabDef {
@@ -24,6 +24,7 @@ interface TabDef {
 const ADMIN_TABS: TabDef[] = [
   { key: 'en-attente', label: 'En attente', render: () => <ManagedCoverageTab scope="pending" /> },
   { key: 'en-cours', label: 'En cours', render: () => <ManagedCoverageTab scope="active" /> },
+  { key: 'doublons', label: 'Doublons', render: () => <MergeProposalsTab /> },
   { key: 'equipe', label: 'Équipe', render: () => <TeamTab /> },
   { key: 'terminees', label: 'Terminées', render: () => <ManagedCoverageTab scope="finished" /> },
 ];
@@ -50,6 +51,7 @@ export function CoveragePage() {
   }
 
   const { canManage, isTeacher, isSupervisor } = profile.data;
+  const canDeclare = profile.data.capabilities?.declareEmptyClass ?? isSupervisor;
   const tabs = [...(canManage ? ADMIN_TABS : []), ...(isTeacher ? TEACHER_TABS : []), ...(isSupervisor && !canManage ? SUPERVISOR_TABS : [])];
   const tab = tabs.find((t) => t.key === params.get('onglet')) ?? tabs[0];
 
@@ -65,10 +67,24 @@ export function CoveragePage() {
               : 'Vos affectations en cours, vos renforts et votre historique.'
         }
         actions={
-          isTeacher && (
-            <Button component={RouterLink} to="/gardes/signaler" variant="contained" startIcon={<CalendarPlus aria-hidden="true" />}>
-              Signaler un retard ou une absence
-            </Button>
+          (isTeacher || canDeclare) && (
+            <>
+              {canDeclare && (
+                <Button component={RouterLink} to="/gardes/classe-vide" variant="contained" startIcon={<DoorOpen aria-hidden="true" />}>
+                  Déclarer une classe vide
+                </Button>
+              )}
+              {isTeacher && (
+                <Button
+                  component={RouterLink}
+                  to="/gardes/signaler"
+                  variant={canDeclare ? 'outlined' : 'contained'}
+                  startIcon={<CalendarPlus aria-hidden="true" />}
+                >
+                  Signaler un retard ou une absence
+                </Button>
+              )}
+            </>
           )
         }
       />

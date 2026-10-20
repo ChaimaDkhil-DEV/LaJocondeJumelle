@@ -20,14 +20,29 @@ class FakeSocket implements SocketLike {
     return this;
   }
   emit(event: string, payload?: unknown): void {
-    for (const handler of this.handlers.get(event) ?? []) (handler as (p?: unknown) => void)(payload);
+    for (const handler of this.handlers.get(event) ?? [])
+      (handler as (p?: unknown) => void)(payload);
   }
 }
 
-type Notif = { id: string; type: string; priority: string; request: { id: string; reference: string; title: string }; createdAt: string; readAt: null };
+type Notif = {
+  id: string;
+  type: string;
+  priority: string;
+  request: { id: string; reference: string; title: string };
+  createdAt: string;
+  readAt: null;
+};
 
 function notif(id: string, type: string, priority = 'NORMAL', title = 'Photocopies'): Notif {
-  return { id, type, priority, request: { id: `r-${id}`, reference: `D-2026-00000${id}`, title }, createdAt: '2026-10-12T10:00:00.000Z', readAt: null };
+  return {
+    id,
+    type,
+    priority,
+    request: { id: `r-${id}`, reference: `D-2026-00000${id}`, title },
+    createdAt: '2026-10-12T10:00:00.000Z',
+    readAt: null,
+  };
 }
 
 function setup(initial: Notif[]) {
@@ -37,11 +52,18 @@ function setup(initial: Notif[]) {
     'fetch',
     vi.fn(async (url: string, init: RequestInit = {}) => {
       const method = init.method ?? 'GET';
-      calls.push({ url, method, body: typeof init.body === 'string' ? JSON.parse(init.body) : undefined });
+      calls.push({
+        url,
+        method,
+        body: typeof init.body === 'string' ? JSON.parse(init.body) : undefined,
+      });
       if (url.startsWith('/api/notifications?')) {
-        return new Response(JSON.stringify({ items: unread, nextCursor: null, unreadTotal: unread.length }), {
-          headers: { 'Content-Type': 'application/json' },
-        });
+        return new Response(
+          JSON.stringify({ items: unread, nextCursor: null, unreadTotal: unread.length }),
+          {
+            headers: { 'Content-Type': 'application/json' },
+          },
+        );
       }
       if (url === '/api/notifications/read') {
         unread = [];
@@ -142,19 +164,30 @@ describe('NotificationCenter', () => {
     expect(alert).toHaveTextContent('Photocopies brevet');
     expect(within(alert).getByTestId('notification-urgente-icone')).toBeInTheDocument();
     expect(screen.getByTestId('annonce-urgente')).toHaveAttribute('aria-live', 'assertive');
-    expect(screen.getByTestId('annonce-urgente')).toHaveTextContent('Demande urgente : Photocopies brevet');
+    expect(screen.getByTestId('annonce-urgente')).toHaveTextContent(
+      'Demande urgente : Photocopies brevet',
+    );
   });
 
   it('liste les notifications, ouvre la demande et permet de tout marquer comme lu', async () => {
-    const env = setup([notif('1', 'TO_CORRECT', 'NORMAL', 'Étagère'), notif('2', 'URGENT', 'URGENT', 'Brevet')]);
-    await userEvent.click(await screen.findByRole('button', { name: 'Notifications (2 non lues)' }));
+    const env = setup([
+      notif('1', 'TO_CORRECT', 'NORMAL', 'Étagère'),
+      notif('2', 'URGENT', 'URGENT', 'Brevet'),
+    ]);
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Notifications (2 non lues)' }),
+    );
     const menu = await screen.findByRole('menu', { name: 'Notifications' });
-    expect(within(menu).getByRole('menuitem', { name: /Demande à corriger.*Étagère/ })).toBeVisible();
+    expect(
+      within(menu).getByRole('menuitem', { name: /Demande à corriger.*Étagère/ }),
+    ).toBeVisible();
     expect(within(menu).getByRole('menuitem', { name: /Urgent.*Brevet/ })).toBeVisible();
 
     await userEvent.click(within(menu).getByRole('menuitem', { name: 'Tout marquer comme lu' }));
     await waitFor(() =>
-      expect(env.calls.find((c) => c.url === '/api/notifications/read')?.body).toEqual({ all: true }),
+      expect(env.calls.find((c) => c.url === '/api/notifications/read')?.body).toEqual({
+        all: true,
+      }),
     );
     expect(await screen.findByRole('button', { name: 'Notifications (0 non lue)' })).toBeVisible();
   });
@@ -162,18 +195,34 @@ describe('NotificationCenter', () => {
   it('cliquer une notification la marque comme lue et ouvre la demande', async () => {
     const env = setup([notif('1', 'MESSAGE_NEW', 'NORMAL', 'Photocopies')]);
     await userEvent.click(await screen.findByRole('button', { name: 'Notifications (1 non lue)' }));
-    await userEvent.click(await screen.findByRole('menuitem', { name: /Nouveau message.*Photocopies/ }));
+    await userEvent.click(
+      await screen.findByRole('menuitem', { name: /Nouveau message.*Photocopies/ }),
+    );
     expect(await screen.findByText('Détail de la demande')).toBeVisible();
-    expect(env.calls.find((c) => c.url === '/api/notifications/read')?.body).toEqual({ ids: ['1'] });
+    expect(env.calls.find((c) => c.url === '/api/notifications/read')?.body).toEqual({
+      ids: ['1'],
+    });
   });
 
   it('request:updated et message:new rafraîchissent les données concernées', async () => {
     const env = setup([]);
     await screen.findByRole('button', { name: 'Notifications (0 non lue)' });
-    act(() => env.socket.emit('request:updated', { requestId: 'r9', status: 'ACCEPTED', version: 2, overdueStage: null }));
+    act(() =>
+      env.socket.emit('request:updated', {
+        requestId: 'r9',
+        status: 'ACCEPTED',
+        version: 2,
+        overdueStage: null,
+      }),
+    );
     act(() => env.socket.emit('message:new', { requestId: 'r9', messageId: 'm1' }));
     const keys = env.invalidate.mock.calls.map(([filters]) => JSON.stringify(filters?.queryKey));
-    expect(keys).toEqual(expect.arrayContaining([JSON.stringify(['requests', 'detail', 'r9']), JSON.stringify(['requests', 'list'])]));
+    expect(keys).toEqual(
+      expect.arrayContaining([
+        JSON.stringify(['requests', 'detail', 'r9']),
+        JSON.stringify(['requests', 'list']),
+      ]),
+    );
   });
 
   it('session:ended renvoie vers la page de connexion', async () => {

@@ -34,7 +34,7 @@ export function PresencePage() {
     retry: false,
     staleTime: 0,
   });
-  const header = <PageHeader title="Confirmer ma présence" back={{ to: '/gardes?onglet=ma-garde', label: 'Ma garde' }} />;
+  const header = <PageHeader title="Confirmer ma présence" back={{ to: '/gardes?onglet=mes-affectations', label: 'Mes affectations' }} />;
 
   if (!token) return (<>{header}<ErrorState message="Lien de QR code incomplet. Scannez de nouveau le QR code de la classe." /></>);
   if (resolution.isPending) return (<>{header}<LoadingState label="Vérification du QR code" variant="detail" /></>);
@@ -56,6 +56,17 @@ export function PresencePage() {
             ? `Ce QR code correspond à la classe ${schoolClass.name}, qui n’est pas celle de votre garde.`
             : `Vous n’avez pas de garde en cours pour la classe ${schoolClass.name}.`}
         </Alert>
+        {/* Classe trouvée vide pendant le tour : déclaration directe, classe et QR repris (FR-015, R10). */}
+        <Box sx={{ mt: 2 }}>
+          <Button
+            component={RouterLink}
+            to={`/gardes/classe-vide?classe=${encodeURIComponent(schoolClass.id)}&c=${encodeURIComponent(token)}`}
+            variant="contained"
+            startIcon={<DoorOpen size={icon.md} aria-hidden="true" />}
+          >
+            Déclarer cette classe vide
+          </Button>
+        </Box>
       </>
     );
   }
@@ -90,7 +101,7 @@ function ConfirmPresence({ coverageId, token }: { coverageId: string; token: str
       {
         onSuccess: () => {
           toast.success(`Présence confirmée en classe ${d.class.name}.`);
-          navigate('/gardes?onglet=ma-garde', { replace: true });
+          navigate('/gardes?onglet=mes-affectations', { replace: true });
         },
         onError: (e) => setError(e instanceof ApiError ? e.message : 'La présence n’a pas pu être confirmée. Réessayez.'),
       },
