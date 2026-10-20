@@ -260,7 +260,7 @@ motif sans toucher à l'historique ni à l'audit.
 - [X] T083 [P] Mettre à jour `docs/ARCHITECTURE.md` (module affectations, jobs, statuts dérivés) et `docs/coverage-migration.md` (renvoi vers `specs/004-retards-affectation-surveillants/contracts/migration.md`, procédure de pré-contrôle et de retour arrière).
 - [X] T084 Répétition de migration sur une copie de base (quickstart.md, « Migration ») : pré-contrôle, `0008`, `0009`, contrôles, `down.sql` à blanc ; consigner les résultats dans `docs/validation/verification-004.md`.
 - [X] T085 Dérouler les 11 scénarios manuels de `quickstart.md` et consigner les résultats dans `docs/validation/verification-004.md`.
-- [ ] T086 `npm run verify` (lint, tous les tests, `npm audit --audit-level=high`), `npm run -w backend typecheck`, `npm run -w frontend typecheck`, Playwright complet ; consigner dans `docs/validation/verification-004.md` ; aucune nouvelle dépendance dans `package-lock.json` (R15).
+- [X] T086 `npm run verify` (lint, tous les tests, `npm audit --audit-level=high`), `npm run -w backend typecheck`, `npm run -w frontend typecheck`, Playwright complet ; consigner dans `docs/validation/verification-004.md` ; aucune nouvelle dépendance dans `package-lock.json` (R15).
 
 ---
 

@@ -132,8 +132,30 @@ test('004 — écrans des affectations à 320 px, sans violation axe', async ({ 
     await checkScreen(page, screen);
   };
 
-  // Enseignante : ses signalements et le formulaire.
+  // Enseignante : ses signalements et le formulaire. Une demande pour aujourd'hui, annulée ensuite par
+  // l'admin : les listes et le tableau des statistiques ne sont jamais vides (constat T086 : la zone
+  // de défilement du tableau n'était pas atteignable au clavier, invisible sur une base vide).
   await login(page, 'enseignante');
+  const origin = new URL(page.url()).origin;
+  const profile = (await (await page.request.get('/api/coverage/availability')).json()) as {
+    schoolDates: { today: string };
+  };
+  const classes = (await (await page.request.get('/api/coverage/classes')).json()) as Array<{
+    id: string;
+  }>;
+  const created = await page.request.post('/api/coverage/teacher-requests', {
+    headers: { Origin: origin },
+    data: {
+      clientId: crypto.randomUUID(),
+      type: 'ABSENCE',
+      classId: classes[0].id,
+      date: profile.schoolDates.today,
+      startTime: '00:00',
+      endTime: '23:59',
+    },
+  });
+  expect(created.status()).toBe(201);
+  const request = (await created.json()) as { id: string; version: number };
   await visit('/gardes', 'Gardes de classe', 'Mes signalements');
   await visit('/gardes/signaler', 'Signaler un retard ou une absence');
   await page.getByRole('button', { name: 'Se déconnecter' }).click();
@@ -147,11 +169,19 @@ test('004 — écrans des affectations à 320 px, sans violation axe', async ({ 
 
   // Admin : file, onglets, affectation directe, statistiques.
   await login(page, 'admin');
+  await visit('/gardes?onglet=en-attente', 'Gardes de classe', 'file avec une demande');
+  const cancelled = await page.request.post(`/api/coverage/${request.id}/actions`, {
+    headers: { Origin: origin },
+    data: { action: 'CANCEL', version: request.version, reason: 'Contrôle accessibilité' },
+  });
+  expect(cancelled.ok()).toBeTruthy();
   for (const tab of ['en-attente', 'en-cours', 'doublons', 'equipe', 'terminees']) {
     await visit(`/gardes?onglet=${tab}`, 'Gardes de classe', `onglet ${tab}`);
   }
   await visit('/gardes/nouvelle', 'Nouvelle affectation');
   await visit('/gardes/statistiques', 'Statistiques des affectations');
+  await expect(page.getByRole('region', { name: 'Par enseignant' })).toBeVisible();
+  await checkScreen(page, 'statistiques avec tableau');
   await page.getByRole('button', { name: 'Se déconnecter' }).click();
 
   // Super administrateur : étages.

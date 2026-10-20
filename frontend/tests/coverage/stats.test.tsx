@@ -14,7 +14,10 @@ import { CoverageStatsPage } from '../../src/features/coverage/CoverageStatsPage
  */
 
 function json(status: number, body?: unknown): Response {
-  return new Response(body === undefined ? null : JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+  return new Response(body === undefined ? null : JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
 }
 
 const PROFILE = {
@@ -45,12 +48,37 @@ const STATS = {
     undecidedDuplicates: 1,
   },
   rows: [
-    { key: 't1', label: 'Enseignante', events: 3, lateness: 2, absence: 1, emptyClass: 0, cancelled: 2, unfilled: 1, unfilledRate: 0.333, averageDurationMinutes: 25 },
-    { key: 'none', label: 'Enseignant non précisé', events: 1, lateness: 0, absence: 0, emptyClass: 1, cancelled: 0, unfilled: 0, unfilledRate: 0, averageDurationMinutes: null },
+    {
+      key: 't1',
+      label: 'Enseignante',
+      events: 3,
+      lateness: 2,
+      absence: 1,
+      emptyClass: 0,
+      cancelled: 2,
+      unfilled: 1,
+      unfilledRate: 0.333,
+      averageDurationMinutes: 25,
+    },
+    {
+      key: 'none',
+      label: 'Enseignant non précisé',
+      events: 1,
+      lateness: 0,
+      absence: 0,
+      emptyClass: 1,
+      cancelled: 0,
+      unfilled: 0,
+      unfilledRate: 0,
+      averageDurationMinutes: null,
+    },
   ],
 };
 
-function setup(path: string, handler: (url: string) => Response | undefined = () => undefined): string[] {
+function setup(
+  path: string,
+  handler: (url: string) => Response | undefined = () => undefined,
+): string[] {
   const urls: string[] = [];
   vi.stubGlobal(
     'fetch',
@@ -64,7 +92,9 @@ function setup(path: string, handler: (url: string) => Response | undefined = ()
     }),
   );
   render(
-    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+    <QueryClientProvider
+      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+    >
       <ToastProvider>
         <MemoryRouter initialEntries={[path]}>
           <Routes>
@@ -78,16 +108,25 @@ function setup(path: string, handler: (url: string) => Response | undefined = ()
   return urls;
 }
 
-const statsCalls = (urls: string[]) => urls.filter((u) => u.startsWith('/api/coverage/stats?')).map((u) => new URL(u, 'http://test').searchParams);
+const statsCalls = (urls: string[]) =>
+  urls
+    .filter((u) => u.startsWith('/api/coverage/stats?'))
+    .map((u) => new URL(u, 'http://test').searchParams);
 
 afterEach(() => vi.unstubAllGlobals());
 
 describe('Statistiques des affectations', () => {
   it('période par défaut (mois en cours de l’école), regroupement par enseignant ; tableau accessible', async () => {
     const urls = setup('/gardes/statistiques');
-    expect(await screen.findByRole('heading', { name: 'Statistiques des affectations' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'Statistiques des affectations' }),
+    ).toBeInTheDocument();
     const table = await screen.findByRole('table', { name: /Par enseignant/ });
-    expect(within(table).getAllByRole('columnheader').map((h) => h.textContent)).toEqual([
+    expect(
+      within(table)
+        .getAllByRole('columnheader')
+        .map((h) => h.textContent),
+    ).toEqual([
       'Enseignant',
       'Événements',
       'Retards',
@@ -97,11 +136,19 @@ describe('Statistiques des affectations', () => {
       'Annulées',
       'Durée moyenne',
     ]);
+    // Tableau plus large que l'écran à 320 px : zone de défilement atteignable au clavier (axe, constat T086).
+    const region = screen.getByRole('region', { name: 'Par enseignant' });
+    expect(region).toHaveAttribute('tabindex', '0');
+    expect(region).toContainElement(table);
     const rows = within(table).getAllByRole('row').slice(1);
     expect(within(rows[1]).getByRole('rowheader')).toHaveTextContent('Enseignant non précisé');
     expect(rows[1]).toHaveTextContent('—'); // durée inconnue
     const [first] = statsCalls(urls);
-    expect(Object.fromEntries(first)).toEqual({ from: '2026-10-01', to: '2026-10-20', groupBy: 'teacher' });
+    expect(Object.fromEntries(first)).toEqual({
+      from: '2026-10-01',
+      to: '2026-10-20',
+      groupBy: 'teacher',
+    });
   });
 
   it('totaux : taux de non pourvue, durée moyenne ; annulées et doublons non tranchés à part', async () => {
@@ -123,18 +170,30 @@ describe('Statistiques des affectations', () => {
     await u.click(await screen.findByRole('option', { name: 'Période' }));
     await u.click(await screen.findByRole('combobox', { name: 'Période' }));
     await u.click(await screen.findByRole('option', { name: 'Mois' }));
-    await waitFor(() => expect(Object.fromEntries(statsCalls(urls).at(-1)!)).toMatchObject({ groupBy: 'period', period: 'month' }));
+    await waitFor(() =>
+      expect(Object.fromEntries(statsCalls(urls).at(-1)!)).toMatchObject({
+        groupBy: 'period',
+        period: 'month',
+      }),
+    );
     const from = screen.getByLabelText('Du');
     await u.clear(from);
     await u.type(from, '2026-09-01');
     await waitFor(() => expect(statsCalls(urls).at(-1)!.get('from')).toBe('2026-09-01'));
-    expect(screen.queryByRole('button', { name: /export|télécharger|csv/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /export|télécharger|csv/i }),
+    ).not.toBeInTheDocument();
   });
 
   it('période incohérente : message clair', async () => {
     setup('/gardes/statistiques', (url) =>
       url.startsWith('/api/coverage/stats?')
-        ? json(400, { error: { code: 'INVALID_RANGE', message: 'Le créneau est invalide : la fin doit suivre le début.' } })
+        ? json(400, {
+            error: {
+              code: 'INVALID_RANGE',
+              message: 'Le créneau est invalide : la fin doit suivre le début.',
+            },
+          })
         : undefined,
     );
     expect(await screen.findByRole('alert')).toHaveTextContent('la fin doit suivre le début');
@@ -145,8 +204,24 @@ describe('Historique détaillé', () => {
   const at = '2026-10-20T08:00:00.000Z';
   const admin = { id: 'a1', displayName: 'Admin' };
   const history = [
-    { id: 'e1', type: 'CREATED', actor: admin, fromValue: null, toValue: { source: 'ADMIN_DIRECT', type: 'ABSENCE' }, comment: null, createdAt: at },
-    { id: 'e2', type: 'STATUS_CHANGED', actor: admin, fromValue: null, toValue: { status: 'ACCEPTED' }, comment: null, createdAt: at },
+    {
+      id: 'e1',
+      type: 'CREATED',
+      actor: admin,
+      fromValue: null,
+      toValue: { source: 'ADMIN_DIRECT', type: 'ABSENCE' },
+      comment: null,
+      createdAt: at,
+    },
+    {
+      id: 'e2',
+      type: 'STATUS_CHANGED',
+      actor: admin,
+      fromValue: null,
+      toValue: { status: 'ACCEPTED' },
+      comment: null,
+      createdAt: at,
+    },
     {
       id: 'e3',
       type: 'REASSIGNED',
@@ -156,8 +231,24 @@ describe('Historique détaillé', () => {
       comment: null,
       createdAt: at,
     },
-    { id: 'e4', type: 'SUPPORT_JOINED', actor: null, fromValue: null, toValue: { userId: 's3', userName: 'Surveillant 2e étage' }, comment: null, createdAt: at },
-    { id: 'e5', type: 'SUPPORT_RELEASED', actor: admin, fromValue: null, toValue: { userId: 's3', userName: 'Surveillant 2e étage' }, comment: null, createdAt: at },
+    {
+      id: 'e4',
+      type: 'SUPPORT_JOINED',
+      actor: null,
+      fromValue: null,
+      toValue: { userId: 's3', userName: 'Surveillant 2e étage' },
+      comment: null,
+      createdAt: at,
+    },
+    {
+      id: 'e5',
+      type: 'SUPPORT_RELEASED',
+      actor: admin,
+      fromValue: null,
+      toValue: { userId: 's3', userName: 'Surveillant 2e étage' },
+      comment: null,
+      createdAt: at,
+    },
     {
       id: 'e6',
       type: 'TEACHER_SET',
@@ -167,8 +258,24 @@ describe('Historique détaillé', () => {
       comment: null,
       createdAt: at,
     },
-    { id: 'e7', type: 'MERGE_DECIDED', actor: admin, fromValue: null, toValue: { decision: 'CONFIRM' }, comment: null, createdAt: at },
-    { id: 'e8', type: 'ANONYMIZED', actor: null, fromValue: null, toValue: {}, comment: null, createdAt: at },
+    {
+      id: 'e7',
+      type: 'MERGE_DECIDED',
+      actor: admin,
+      fromValue: null,
+      toValue: { decision: 'CONFIRM' },
+      comment: null,
+      createdAt: at,
+    },
+    {
+      id: 'e8',
+      type: 'ANONYMIZED',
+      actor: null,
+      fromValue: null,
+      toValue: {},
+      comment: null,
+      createdAt: at,
+    },
   ];
 
   it('sources, statuts, auteurs, réassignations, renforts, enseignant, doublons', async () => {
@@ -205,7 +312,15 @@ describe('Historique détaillé', () => {
             overdueStage: null,
             extensionCount: 0,
             durationMinutes: null,
-            timestamps: { createdAt: at, acceptedAt: at, departedAt: null, presenceAt: null, relievedAt: null, closedAt: null, cancelledAt: null },
+            timestamps: {
+              createdAt: at,
+              acceptedAt: at,
+              departedAt: null,
+              presenceAt: null,
+              relievedAt: null,
+              closedAt: null,
+              cancelledAt: null,
+            },
             view: 'ADMIN',
             reason: null,
             note: null,
@@ -223,7 +338,9 @@ describe('Historique détaillé', () => {
           : undefined,
     );
     const timeline = await screen.findByRole('list', { name: 'Historique de l’affectation' });
-    const items = within(timeline).getAllByRole('listitem').map((li) => li.textContent);
+    const items = within(timeline)
+      .getAllByRole('listitem')
+      .map((li) => li.textContent);
     expect(items[0]).toMatch(/Affectation créée — affectation directe.*Admin/);
     expect(items[1]).toMatch(/Statut : Assignée/);
     expect(items[2]).toMatch(/Réassignée de Surveillant à Remplaçante/);

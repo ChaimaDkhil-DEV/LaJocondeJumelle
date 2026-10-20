@@ -419,3 +419,30 @@ liste. Sans effet quand les postes sont dans le fuseau de l'école.
 
 Nettoyage : serveurs arrêtés (processus orphelins vérifiés par leur ligne de commande puis
 arrêtés), scripts de lecture temporaires et dossier d'artefacts du navigateur supprimés.
+
+### T086 — Vérification complète
+
+- `npm run verify` (lint, tous les tests, `npm audit --audit-level=high`) : **réussi**.
+  Unitaires 572 / 572 (29 suites) ; intégration 599 / 599 (42 suites) ; frontend 229 / 229
+  (32 fichiers). `npm audit` : aucune vulnérabilité haute ou critique ; 21 modérées, toutes dans
+  des dépendances déjà présentes sur `master` (aucune dépendance ajoutée, voir ci-dessous).
+- Typages : backend et frontend sans erreur.
+- **R15, dépendances** : `package-lock.json` identique à `master` ; seul ajout dans
+  `backend/package.json` : le script `preflight:supervision`.
+- **Playwright complet** (6 projets : chromium, firefox, webkit, iPhone 13, Pixel 7,
+  mobile-320 ; 40 min) : 141 réussis, 73 ignorés par conception (parcours réservés à Chromium,
+  contrôles réservés au profil 320 px), **2 échecs** :
+  1. `auth.spec.ts`, premier test du projet Firefox : `NS_ERROR_CONNECTION_REFUSED` sur le
+     serveur de développement. Repassé seul : 4 / 4. Incident ponctuel au démarrage de Firefox,
+     tous les autres tests Firefox réussis.
+  2. `a11y-responsive.spec.ts`, écrans 004 à 320 px : **défaut réel**. Le tableau des
+     statistiques dépasse l'écran et sa zone de défilement n'était pas atteignable au clavier
+     (axe `scrollable-region-focusable`, sérieux). Non vu au passage précédent : sur une base
+     sans affectation du mois, la page affiche l'état vide et non le tableau. Correctif : zone
+     nommée (`role="region"`, titre du tableau) et focalisable. Le test e2e crée désormais une
+     demande annulée avant les écrans, pour que le tableau soit toujours présent. Démontré :
+     **sans le correctif, le test échoue sur cette règle ; avec, 3 / 3**. Assertion ajoutée dans
+     `stats.test.tsx` (rouge puis verte).
+
+Résultat final : lint et typages sans erreur ; unitaires 572 / 572 ; intégration 599 / 599 ;
+frontend 229 / 229 ; e2e complet vert après correctif (les deux échecs expliqués et repassés).
