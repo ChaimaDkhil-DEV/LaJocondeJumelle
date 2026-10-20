@@ -368,3 +368,54 @@ Résultat : lint et typages sans erreur ; unitaires 571 / 571 ; intégration 441
   `mobile-320`).
 
 Résultat : lint et typages sans erreur ; frontend 226 / 226 (31 fichiers).
+
+### T085 — Scénarios manuels (quickstart)
+
+Déroulé le 20/10/2026 entre 21:05 et 22:10 (heure de l'école), dans un vrai navigateur
+(Chromium piloté pas à pas, captures d'écran relues), sur les serveurs e2e (base jetable,
+tâches planifiées actives toutes les 15 s). Vérifications complémentaires en lecture seule sur
+la base jetable (échéances, notifications, journal d'audit).
+
+| # | Résultat | Observations |
+|---|---|---|
+| 1 | Conforme | « en attente » ; admin notifiée ; rappel du matin prévu à 07:00 |
+| 2 | Conforme | candidats du 1er étage en tête, indisponible grisé et libellé ; surveillant et enseignante notifiés ; motif absent chez le surveillant |
+| 3 | Conforme | alerte URGENT à l'admin à +2 min, demande en tête avec bordure rouge ; escalade au super administrateur à +7 min |
+| 4 | Conforme après correctif | premier passage : fausse « double affectation » (voir défaut 1) ; revérifié sur le code corrigé : aucun avertissement, une seule notification URGENT `COVERAGE_EMPTY_CLASS` |
+| 5 | Conforme | renfort ; 3 rappels à l'admin puis escalade au super administrateur. Mise en veille du poste de 21:28 à 22:05 (journal Windows) : rappels en retard rattrapés à la reprise, en rafale (≈ 30 s) |
+| 6 | Conforme | surveillants occupés grisés avec leur motif ; par l'API : `409 NOT_AVAILABLE` ; avec un disponible : « assignée » |
+| 7 | Conforme | relève assignée ; l'ancien reste en classe ; à la présence du nouveau (QR + photo), l'origine est close et le renfort libéré automatiquement |
+| 8 | Conforme | « non pourvue » à la fin du créneau, bandeau URGENT en direct chez l'admin ; enseignante notifiée ; comptée à part dans les statistiques |
+| 9 | Conforme | `reprographie` : pas de menu « Gardes », page vide ; `surveillant` : `ASSIGN` et liste admin → `404`, refus journalisés (`NOT_VISIBLE`, `NOT_COVERAGE_ADMIN`) |
+| 10 | Conforme | « Admin » pour l'admin ; menu et page « Administrateur » ; catégories et circuit B inchangés |
+| 11 | Conforme | chiffres exacts au regard des données : 2 événements, 50 % de non pourvue, durée moyenne 7 min, « Enseignant non précisé » à part |
+
+**Défauts corrigés** (commit `24f0c1e`, tests de non-régression rouges sans le correctif) :
+
+1. Fin inconnue d'un créneau traitée comme « sans fin » : une classe vide déclarée chevauchait
+   toute affectation future (fausses doubles affectations URGENT, surveillant indisponible pour
+   les jours suivants, y compris dans l'onglet « Équipe »). Fin inconnue = fin de la journée de
+   l'école (FR-016a) ; « disponible maintenant » vérifié à l'instant présent.
+2. Début des affectations sans le jour (« À 07:00 » pour demain) et « Maintenant » pour tout
+   début passé.
+
+**Point à décider (non corrigé)** : les formulaires saisissent et affichent l'heure de l'école,
+les listes affichent l'heure du poste. Sur un poste réglé sur un autre fuseau (le navigateur de
+test était en `Etc/GMT-1`), une même demande se lit 08:00 dans le formulaire et 07:00 dans la
+liste. Sans effet quand les postes sont dans le fuseau de l'école.
+
+**Observations non corrigées** (comportements existants ou libellés) :
+- message `NOT_AVAILABLE` au vocabulaire ancien (« employé », « garde ») ; titre « Garde — … » ;
+  tuile « Retards et absences » qui compte aussi les classes vides ;
+- « Prolonger » proposé sur une demande en attente et sur une affectation sans fin (fixe alors
+  une fin) ; un renfort peut être choisi pour une réassignation de la même affectation ;
+- l'affectation directe ne signale pas une demande en attente pour la même classe et le même
+  créneau (le contrôle de doublon ne vise que les déclarations, comme le prévoit la spec) ;
+- après une interruption du serveur, les rappels en retard partent l'un après l'autre ;
+- hors 004 : chaque déconnexion ajoute deux entrées `UNAUTHENTICATED` au journal d'audit (relecture
+  par la page après la fin de session) ;
+- le son de l'alerte urgente n'a pas été écouté (navigateur sans sortie audio) ; couvert par
+  `urgent-alert.test.tsx`.
+
+Nettoyage : serveurs arrêtés (processus orphelins vérifiés par leur ligne de commande puis
+arrêtés), scripts de lecture temporaires et dossier d'artefacts du navigateur supprimés.
