@@ -40,6 +40,8 @@ services:
       TRUST_PROXY: uniquelocal
       # Une migration en attente n'est appliquée qu'avec une sauvegarde plus récente (deploy/deploy.sh).
       PRE_MIGRATION_BACKUP_MAX_AGE_MINUTES: ${PRE_MIGRATION_BACKUP_MAX_AGE_MINUTES:-60}
+      # Fuseau de l'école (jours et heures locales des affectations), identifiant IANA.
+      SCHOOL_TIMEZONE: ${SCHOOL_TIMEZONE:-${TZ:-Europe/Paris}}
     volumes:
       # Vocaux, photos et documents : jamais servis par Caddy, lus uniquement via l'API.
       - files:/data/files

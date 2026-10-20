@@ -71,6 +71,10 @@ une migration sans sauvegarde de moins de `PRE_MIGRATION_BACKUP_MAX_AGE_MINUTES`
 défaut) : un `docker compose … up` lancé sans le script s'arrête alors avec « Migration en attente
 sans sauvegarde récente : lancez deploy/deploy.sh. », sans toucher la base.
 
+Les jours et heures du module des affectations (« aujourd'hui », « demain », rappel de 7 h, fin
+de journée) suivent le fuseau de l'école `SCHOOL_TIMEZONE` (identifiant IANA, par défaut celui de
+`TZ`, sinon `Europe/Paris`) ; une valeur invalide empêche l'API de démarrer.
+
 Mot de passe du super administrateur perdu : la réinitialisation est tracée dans le journal
 d'audit, ferme toutes ses sessions et impose un nouveau mot de passe à la connexion suivante.
 

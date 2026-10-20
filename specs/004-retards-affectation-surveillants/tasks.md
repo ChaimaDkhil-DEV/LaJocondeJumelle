@@ -39,9 +39,9 @@ tests existants de gardes ne sont modifiés que pour la diffusion retirée et le
 
 **Purpose**: état de départ mesuré et configuration partagée
 
-- [ ] T001 Exécuter `npm run lint`, `npm run -w backend test`, `npm run -w backend test:integration`, `npm run -w frontend test`, `npm run -w backend typecheck`, `npm run -w frontend typecheck` sur la branche `004-retards-affectation-surveillants` ; consigner les résultats dans une section « État initial » de `docs/validation/verification-004.md` (créer le fichier sur le modèle de `docs/validation/verification-003.md`). Tout échec DOIT être signalé avant de continuer.
-- [ ] T002 [P] Ajouter `SCHOOL_TIMEZONE: ${SCHOOL_TIMEZONE:-${TZ:-Europe/Paris}}` à l'environnement du service API dans `deploy/docker-compose.yml`, la ligne `SCHOOL_TIMEZONE=Europe/Paris` commentée dans `deploy/.env.example`, et une ligne de documentation dans `README.md` (R4).
-- [ ] T003 [P] Créer `backend/test/utils/clock.ts` : horloge injectable `fixedNow(iso)` utilisable par les services et les jobs (`runOnce(now?: Date)`), sur le modèle des appels `runOnce()` existants des jobs.
+- [X] T001 Exécuter `npm run lint`, `npm run -w backend test`, `npm run -w backend test:integration`, `npm run -w frontend test`, `npm run -w backend typecheck`, `npm run -w frontend typecheck` sur la branche `004-retards-affectation-surveillants` ; consigner les résultats dans une section « État initial » de `docs/validation/verification-004.md` (créer le fichier sur le modèle de `docs/validation/verification-003.md`). Tout échec DOIT être signalé avant de continuer.
+- [X] T002 [P] Ajouter `SCHOOL_TIMEZONE: ${SCHOOL_TIMEZONE:-${TZ:-Europe/Paris}}` à l'environnement du service API dans `deploy/docker-compose.yml`, la ligne `SCHOOL_TIMEZONE=Europe/Paris` commentée dans `deploy/.env.example`, et une ligne de documentation dans `README.md` (R4).
+- [X] T003 [P] Créer `backend/test/utils/clock.ts` : horloge injectable `fixedNow(iso)` utilisable par les services et les jobs (`runOnce(now?: Date)`), sur le modèle des appels `runOnce()` existants des jobs.
 
 ---
 
