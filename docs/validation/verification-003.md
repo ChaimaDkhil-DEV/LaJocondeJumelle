@@ -202,6 +202,39 @@ Avertissement `DEP0190` de Node supprimé : `bootstrap-production.spec.ts` lance
 `node`, sans shell. CI GitHub verte sur `4575b84` (push et demande de fusion) ; à revérifier sur
 le commit de clôture.
 
+### Vérification finale et bout en bout (T061, T058) — 22 octobre 2026, `master` `855961c`
+
+Section A de `docs/validation/preproduction-003.md`, en local (Windows), après `npm ci` (les
+dépendances locales dataient du 16 octobre : `@vitejs/plugin-react` manquait, le lancement des
+tests frontend échouait ; sans lien avec le code, la CI installe par `npm ci`).
+
+`npm run verify` : code de sortie 0.
+
+| Étape | Résultat |
+|-------|----------|
+| Lint (ESLint, dont jsx-a11y) | aucun problème |
+| Types backend et frontend (`typecheck`) | aucune erreur |
+| Tests unitaires backend | 572 / 572 (29 suites) |
+| Tests d'intégration backend (PostgreSQL embarqué) | 599 / 599 (42 suites) |
+| Tests frontend (Vitest) | 229 / 229 (32 fichiers) |
+| `npm audit --audit-level=high` | aucune vulnérabilité élevée ou critique (21 modérées) |
+
+CI GitHub verte sur `855961c` (« Contrôles qualité », toutes les étapes).
+
+`npm run test:e2e` (T058), lancé de 00 h 04 à 00 h 42, heure de l'école : les parcours
+d'affectations, ignorés de 22 h à minuit, ont tourné. 6 profils : Chromium, Firefox, WebKit,
+iPhone 13, Pixel 7, 320 px. **143 réussis, 0 échec, 73 ignorés volontairement** (37,7 min) :
+
+- 45 : parcours d'affectations `coverage-class.spec.ts` (3 parcours × 3 largeurs), réservés à
+  Chromium ;
+- 15 : V18 et écrans des affectations à 320 px, réservés au profil 320 px ;
+- 5 : changement de mot de passe imposé (compte partagé `nouveau`), réservé à Chromium ;
+- 4 : V14 (délais réels), réservé à Chromium et iPhone 13 ;
+- 4 : mesure SC-001, réservée aux profils téléphone.
+
+Mesure SC-001 (demande vocale complète créée et envoyée, limite 60 s) : **iPhone 13 : 15,9 s ;
+Pixel 7 : 14,0 s** (annotations du rapport `e2e/playwright-report`).
+
 ### Relecture du quickstart (T062)
 
 | Scénario | Consigné | État |
@@ -211,7 +244,7 @@ le commit de clôture.
 | 3 — Réinitialisation tracée | tests `bootstrap-production.spec.ts` (Phase 4) | déroulé à deux navigateurs **à faire** (T024) |
 | 4 — Affectation figée | tests `auto-assignment-snapshot.spec.ts` (Phase 5) | déroulé manuel **à faire** (T032) |
 | 5 — Dépendances et nettoyage | contre-épreuves (Phase 6, T048) | **fait** |
-| 6 — Mise en production | entrypoint testé (Phase 7) | **à faire sur préproduction** (T055 à T058) |
+| 6 — Mise en production | entrypoint testé (Phase 7) ; bout en bout et vérification finale (22 octobre) | T058 et T061 **faits** ; **à faire sur préproduction** (T055 à T057) |
 | Clôture | `docs/ARCHITECTURE.md` §12 (T059) | fait ; A23 à A26 ouverts |
 
 Critères de réussite : SC-003 à SC-007 atteints ; SC-001, SC-002, SC-008 et SC-009 ouverts ou

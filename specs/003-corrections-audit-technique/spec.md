@@ -527,9 +527,10 @@ périmètre.
 ### État des critères (au 2026-10-16, tâche T062)
 
 - [ ] **SC-001** — ouvert : parcours chronométré sur un poste Windows à faire (T013).
-- [ ] **SC-002** — partiel : lint, tests unitaires (398), d'intégration (264, dont la performance
-  de recherche) et d'interface (127) à 100 %, aucune vulnérabilité élevée ou critique ; tests de
-  bout en bout non lancés (T058).
+- [x] **SC-002** — atteint le 2026-10-22 (T058, T061) : lint, tests unitaires (572),
+  d'intégration (599, dont la performance de recherche), d'interface (229) et de bout en bout
+  (143 réussis, 0 échec) à 100 %, aucune vulnérabilité élevée ou critique
+  (`docs/validation/verification-003.md`).
 - [x] **SC-003** — atteint : vérifié par `dev-port-consistency.spec.ts`.
 - [x] **SC-004** — atteint : vérifié par `bootstrap-production.spec.ts` (`resetSuperAdminPassword`).
 - [x] **SC-005** — atteint pour les cas automatisés (`auto-assignment-snapshot.spec.ts`) ; le
