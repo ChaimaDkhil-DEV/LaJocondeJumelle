@@ -709,13 +709,13 @@ exécutions : `docs/validation/verification-003.md`. État au 2026-10-16.
 | A17 Types écrits à la main, énumérations dupliquées | Corrigé (vérification automatique) | `0e9e213`, `6549908` |
 | A18 Dépendance d'icônes inutilisée | Corrigé | `6549908` |
 | A19 Scripts hors convention de formatage | Corrigé | `5ed613d`, `6549908` |
-| A20 Intégration, bout en bout et lint non lancés | [VÉRIFIÉ] lint et intégration verts ; bout en bout **ouvert** (T058) | — |
+| A20 Intégration, bout en bout et lint non lancés | [VÉRIFIÉ] lint, intégration et bout en bout verts (T058, 2026-10-22 : 143 réussis, 0 échec, `docs/validation/verification-003.md`) | — |
 | A21 Aucune CI | Corrigé (D3) ; fusion vérifiée à la main (D10) | `b9ed428`, `7c2af4f` |
 | A22 Migrations sans sauvegarde imposée | Corrigé | `7f0b81f`, `4575b84` |
 | A23 Migration défectueuse bloquante | Couvert par la procédure ; reste **[DÉDUIT]** jusqu'à l'exercice sur préproduction (T055) | `4575b84` |
 | A24 Restauration jamais vérifiée | **Ouvert** (T056, serveur vierge) | — |
 | A25 CSP, HSTS, limite de taille non vérifiées | **Ouvert** (T057, préproduction) | — |
-| A26 Performances non mesurées | Recherche [VÉRIFIÉ] (intégration et CI) ; chronométrage de création **ouvert** (T058) | — |
+| A26 Performances non mesurées | [VÉRIFIÉ] recherche (intégration et CI) ; création chronométrée (T058, SC-001 : 15,9 s iPhone 13, 14,0 s Pixel 7, limite 60 s) | — |
 | A27, A32 | Décisions de l'établissement (D4 durées de conservation, D5 spécification du lot 2) ; hors périmètre | — |
 | A28 à A31, A33 à A35 | Hors périmètre de la fonctionnalité 003 | — |
 | N1 Blocage de l'approbation après passage en mode manuel | [VÉRIFIÉ] confirmé par test, corrigé | `0f2e97d`, `3b291ee` |
