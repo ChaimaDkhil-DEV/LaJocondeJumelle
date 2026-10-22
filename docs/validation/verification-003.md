@@ -222,7 +222,9 @@ tests frontend échouait ; sans lien avec le code, la CI installe par `npm ci`).
 CI GitHub verte sur `855961c` (« Contrôles qualité », toutes les étapes).
 
 `npm run test:e2e` (T058), lancé de 00 h 04 à 00 h 42, heure de l'école : les parcours
-d'affectations, ignorés de 22 h à minuit, ont tourné. 6 profils : Chromium, Firefox, WebKit,
+d'affectations ont tourné. (Correction du 2026-10-22, spec 006 : la garde censée les ignorer de
+22 h à minuit ne s'appliquait jamais — l'heure « 22 h » lue par `Number` donnait NaN ; corrigée
+dans `e2e/coverage-class.spec.ts`, voir `verification-006.md`.) 6 profils : Chromium, Firefox, WebKit,
 iPhone 13, Pixel 7, 320 px. **143 réussis, 0 échec, 73 ignorés volontairement** (37,7 min) :
 
 - 45 : parcours d'affectations `coverage-class.spec.ts` (3 parcours × 3 largeurs), réservés à
