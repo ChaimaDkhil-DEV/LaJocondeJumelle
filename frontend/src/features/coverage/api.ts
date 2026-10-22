@@ -157,13 +157,26 @@ export function useTeam(enabled = true) {
   return useQuery({ queryKey: coverageKeys.team, queryFn: () => apiFetch<TeamMember[]>('/api/coverage/team'), enabled });
 }
 
+/**
+ * Retours d'une action, appelés même si le composant est démonté entre-temps (la carte d'une
+ * affectation terminée peut disparaître avant la réponse) : ceux passés à `mutate` seraient perdus.
+ */
+export interface CoverageActionHandlers {
+  onSuccess?: (detail: CoverageDetail, input: ActionInput) => void;
+  onError?: (error: Error, input: ActionInput) => void;
+}
+
 /** Action de la machine à états ; renvoie la couverture à jour. Toujours suivie d'un rafraîchissement du module. */
-export function useCoverageAction(id: string) {
+export function useCoverageAction(id: string, handlers: CoverageActionHandlers = {}) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: ActionInput) =>
       apiFetch<CoverageDetail>(`/api/coverage/${id}/actions`, { method: 'POST', body: input }),
-    onSuccess: (detail) => queryClient.setQueryData(coverageKeys.detail(id), detail),
+    onSuccess: (detail, input) => {
+      queryClient.setQueryData(coverageKeys.detail(id), detail);
+      handlers.onSuccess?.(detail, input);
+    },
+    onError: (error, input) => handlers.onError?.(error, input),
     onSettled: () => queryClient.invalidateQueries({ queryKey: coverageKeys.all }),
   });
 }
