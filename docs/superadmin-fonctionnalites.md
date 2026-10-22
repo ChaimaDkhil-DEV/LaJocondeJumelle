@@ -33,8 +33,8 @@ routes de l'API exigent une session valide (garde globale `SessionGuard`,
 | Entrée | Route | Rôles autorisés | Actions disponibles (super administrateur) | État |
 | --- | --- | --- | --- | --- |
 | Cloche de notifications | panneau (pas de route) | tous | liste, badge du nombre de non lues, clic qui ouvre la demande et la marque lue, « Tout marquer comme lu » | Complète |
-| Mes demandes | `/` (onglets `?onglet=`) | tous | onglets Reçues, Envoyées, À valider, Suivi ; recherche ; filtres ; détail | Complète |
-| Nouvelle demande | `/demandes/nouvelle` | tous (selon les catégories) | création dans toute catégorie de demande de travail active | Complète |
+| Mes demandes | `/` (onglets `?onglet=`) | tous | onglets Reçues, Envoyées, Brouillons (s'il y en a), À valider, Suivi ; recherche ; filtres ; détail | Complète |
+| Nouvelle demande | `/demandes/nouvelle`, `/demandes/:id/brouillon` | tous (selon les catégories) | création dans toute catégorie de demande de travail active ; enregistrement en brouillon, reprise, envoi et suppression d'un brouillon | Complète (brouillons : spec 007) |
 | Gardes | `/gardes`, `/gardes/nouvelle`, `/gardes/signaler`, `/gardes/classe-vide`, `/gardes/statistiques`, `/gardes/:id`, `/gardes/presence` | admins, super administrateur, membres des groupes Surveillants ou Enseignants | onglets En attente, En cours, Doublons, Équipe, Terminées ; nouvelle affectation ; statistiques ; actions sur une affectation | Complète (voir §3) |
 | Administrateur | `/admin/*` | super administrateur | 9 onglets (§2) | Complète |
 | Bloc profil (« Mon profil ») | `/profil` | tous | nom et rôle, lien vers « Mon profil » : informations du compte en lecture seule, « Changer mon mot de passe » | Complète (spec 005) |
@@ -63,7 +63,9 @@ Détail par entrée :
   (`backend/src/requests/domain/visibility.ts:19`).
   - « Reçues » (`scope=assigned`) : **seulement les demandes dont il est la personne affectée**,
     pas toutes les demandes.
-  - « Envoyées » (`scope=mine`) : ses propres demandes.
+  - « Envoyées » (`scope=mine`) : ses propres demandes, **sans** ses brouillons.
+  - « Brouillons » (`scope=drafts`, spec 007) : ses propres brouillons ; l'onglet n'apparaît que
+    s'il en existe au moins un. Un brouillon s'ouvre sur sa page de reprise.
   - « À valider » (admins et super administrateur, `RequestListPage.tsx:163`) : demandes en
     attente de validation administrative ou de validation finale, toutes catégories pour le super
     administrateur.
@@ -84,7 +86,15 @@ Détail par entrée :
   affectations se créent depuis Gardes). Champs : catégorie, destinataire (mode direct : service
   présélectionné s'il est seul ; entre enseignants : collègue à choisir ; via l'administration :
   aucun), priorité, titre, message vocal, description (l'un des deux suffit). Pas de pièce jointe
-  ni de brouillon à la création.
+  à la création.
+  - **Brouillons** (spec 007, si le réglage « Brouillons de demande autorisés » est actif) :
+    « Enregistrer en brouillon » (catégorie et titre suffisent, priorité « Normale » par défaut) ;
+    rien n'est envoyé ni notifié, le brouillon n'est visible que de son auteur. Reprise sur
+    `/demandes/:id/brouillon` (`DraftPage.tsx`) : formulaire pré-rempli, message vocal à
+    réécouter, remplacer ou supprimer ; « Enregistrer le brouillon » (`PATCH /api/requests/:id`),
+    « Envoyer la demande » (action `SUBMIT`, mêmes règles qu'une création directe),
+    « Supprimer le brouillon » après confirmation (`DELETE /api/requests/:id`). Réglage désactivé :
+    plus de nouveau brouillon, les brouillons existants restent utilisables.
 - **Gardes** — `frontend/src/features/coverage/CoveragePage.tsx` ; API `/api/coverage/*`
   (`backend/src/coverage/coverage.controller.ts`). Affichage du menu pour les admins, le super
   administrateur et les membres des groupes Surveillants ou Enseignants (`AppLayout.tsx:55`).
@@ -208,7 +218,7 @@ présence. Rien de tout cela n'intervient dans le routage ou la visibilité des 
 | Durée maximale d'un vocal, taille maximale | 180 s, 5 Mo | Complète |
 | Taille maximale d'une pièce jointe, nombre par message | 10 Mo, 5 | Complète |
 | Formats de photo et de document acceptés | JPEG, PNG, WebP ; PDF | Complète |
-| Brouillons de demande autorisés | oui | Partielle : aucun écran ne crée de brouillon |
+| Brouillons de demande autorisés | oui | Complète (spec 007) |
 | Seuil d'alerte avant échéance | 20 % | Complète |
 | Inactivité et durée maximale de session | 60 min, 12 h | Complète |
 | Affectations : seuil d'urgence avant le début du créneau, escalade au super administrateur | 60 min, 5 min | Complète |
@@ -277,7 +287,6 @@ Consultation seule, filtres par auteur, action et période (`admin-audit.control
 
 ### 4.3 Fonctionnalités partielles ou inutilisées
 
-- Brouillons : réglage et API présents, aucun écran pour en créer.
 - Absences des surveillants : seulement via la disponibilité « Absent », sans vue dédiée.
 - Statistiques des affectations (`/gardes/statistiques`) : sans export.
 
