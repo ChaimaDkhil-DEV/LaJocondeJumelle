@@ -118,3 +118,24 @@ compte `nouveau`), chacun exécuté dans son profil.
 Garde corrigée constatée : à 20 h 43, `-g "spec 006"` (Chromium) → **2 ignorés**.
 
 CI GitHub : à constater sur la demande de fusion.
+
+## Correctif : heure de fin pendant la présence, garde finissant après minuit (22 octobre 2026)
+
+Constat : la CI de la PR #26 (spec 007, sans rapport avec ce code) a échoué à 23 h 07, heure de
+l'école, sur `supervision-update.spec.ts` (« pendant la présence : seule l'heure de fin change,
+jamais dans le passé ») : heure de fin passée acceptée (200 au lieu de 400 `INVALID_RANGE`).
+
+Cause : pendant la présence, l'heure de fin saisie était placée à la **date de la fin prévue**
+(`coverage.service.ts`). Pour une garde finissant après minuit, « 22:37 » devenait le lendemain
+à 22 h 37 : acceptée, la garde était prolongée d'environ un jour. Le test, qui crée une garde
+finissant 60 min plus tard, ne le révélait qu'entre 23 h et 0 h 30 (heure de l'école) ; il passait
+à toute autre heure, d'où les vérifications vertes de la 006.
+
+Correction : `presenceEndAt` (`backend/src/coverage/domain/coverage-modification.ts`) place
+l'heure saisie à l'occurrence la plus proche de la fin prévue (à 12 h près) : « 23:59 » reste la
+veille, « 00:30 » est après minuit, une heure de la veille au soir n'est plus reportée au soir
+suivant. Avant la présence, rien ne change (la date est saisie).
+
+Tests : `test/unit/coverage-modification.spec.ts`, 4 cas à heure fixe (écrits d'abord, rouges :
+fonction absente). Reproduction en direct à 23 h 15 (heure de l'école) :
+`supervision-update.spec.ts` sans correctif → 1 échec sur 16 ; avec correctif → 16 / 16.
