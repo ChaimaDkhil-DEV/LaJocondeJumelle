@@ -19,7 +19,10 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
 
+      # Plafond : l'installation par apt a déjà bloqué plus de 20 min (2026-10-22, deux fois) ; échec
+      # rapide au lieu du délai de 6 h par défaut, puis relance manuelle (gh run rerun).
       - name: Installer ffmpeg (conversion des vocaux)
+        timeout-minutes: 5
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
 
       - name: Installer les dépendances
