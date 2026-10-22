@@ -81,4 +81,4 @@ export interface Page<T> {
   nextCursor: string | null;
 }
 
-export type RequestScope = 'mine' | 'assigned' | 'managed' | 'all';
+export type RequestScope = 'mine' | 'drafts' | 'assigned' | 'managed' | 'all';

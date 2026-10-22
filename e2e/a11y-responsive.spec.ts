@@ -282,3 +282,39 @@ test('V18 — création (V1), traitement (V5) et fil (V10) au clavier seul', asy
   await page.keyboard.press('Enter');
   await expect(page.getByRole('heading', { name: 'Mon profil' })).toBeVisible();
 });
+
+test('007 — brouillons à 320 px : enregistrement au clavier, page brouillon, onglet, suppression', async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile-320', ONLY_320);
+  test.slow();
+  const title = `Brouillon 320 px ${Date.now()}`;
+
+  // FR-010 : « Enregistrer en brouillon » atteint et actionné au clavier seul.
+  await login(page, 'enseignante');
+  await page.goto('/demandes/nouvelle');
+  await expect(page.getByRole('heading', { name: 'Nouvelle demande' })).toBeVisible();
+  await chooseWithKeyboard(page, page.getByRole('combobox', { name: 'Catégorie' }), 'Photocopies');
+  await tabTo(page, page.getByLabel('Titre'));
+  await page.keyboard.type(title);
+  await tabTo(page, page.getByRole('button', { name: 'Enregistrer en brouillon' }));
+  await page.keyboard.press('Enter');
+  await expect(page.getByText('Brouillon enregistré.')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Brouillon de demande' })).toBeVisible();
+  await expect(page.getByLabel('Titre')).toHaveValue(title);
+  await checkScreen(page, 'page brouillon');
+
+  await page.goto('/?onglet=brouillons');
+  await expect(page.getByRole('tab', { name: 'Brouillons' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('link', { name: new RegExp(title) })).toBeVisible();
+  await checkScreen(page, 'onglet brouillons');
+
+  // Confirmation de suppression, puis suppression (le brouillon ne reste pas dans la base e2e).
+  await page.getByRole('link', { name: new RegExp(title) }).click();
+  await page.getByRole('button', { name: 'Supprimer le brouillon' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Supprimer ce brouillon ?' });
+  await expect(dialog).toBeVisible();
+  await checkScreen(page, 'confirmation de suppression du brouillon');
+  await dialog.getByRole('button', { name: 'Supprimer' }).click();
+  await expect(page.getByText('Brouillon supprimé.')).toBeVisible();
+});

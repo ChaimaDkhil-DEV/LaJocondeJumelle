@@ -45,6 +45,14 @@ export function useRequestList(scope: RequestScope, statuses: readonly string[] 
   });
 }
 
+/** L'utilisateur a-t-il au moins un brouillon ? (onglet « Brouillons », spec 007) */
+export function useHasDrafts() {
+  return useQuery({
+    queryKey: [...requestKeys.all, 'drafts', 'any'],
+    queryFn: async () => (await apiFetch<Page<RequestSummary>>('/api/requests?scope=drafts&limit=1')).items.length > 0,
+  });
+}
+
 /** Employés affectables (approbation en circuit B, réaffectation) — réservé aux admins. */
 export function useAssignees(requestId: string, enabled: boolean) {
   return useQuery({
@@ -85,8 +93,8 @@ async function uploadVoice(voice: VoiceInput): Promise<string> {
   return (await uploadFile('VOICE', voice.blob, `message-vocal.${extensionFor(voice.mimeType)}`)).id;
 }
 
-/** Téléverse le vocal éventuel puis crée la demande. Réutilisé par la boîte d'envoi. */
-export async function submitRequest(input: NewRequestInput): Promise<RequestDetail> {
+/** Téléverse le vocal éventuel puis crée la demande (envoyée, ou brouillon avec `asDraft`). */
+async function createRequest(input: NewRequestInput, asDraft: boolean): Promise<RequestDetail> {
   const voiceFileId = input.voice ? await uploadVoice(input.voice) : undefined;
   const body: Record<string, unknown> = {
     clientId: input.clientId,
@@ -96,8 +104,46 @@ export async function submitRequest(input: NewRequestInput): Promise<RequestDeta
     ...(input.recipientId ? { recipientId: input.recipientId } : {}),
     priority: input.priority,
     ...(voiceFileId ? { voiceFileId } : {}),
+    ...(asDraft ? { asDraft: true } : {}),
   };
   return apiFetch<RequestDetail>('/api/requests', { method: 'POST', body });
+}
+
+/** Crée et envoie la demande. Réutilisé par la boîte d'envoi. */
+export function submitRequest(input: NewRequestInput): Promise<RequestDetail> {
+  return createRequest(input, false);
+}
+
+/** Brouillon (spec 007) : enregistré sans être envoyé, visible de son seul auteur. */
+export function saveDraft(input: NewRequestInput): Promise<RequestDetail> {
+  return createRequest(input, true);
+}
+
+/** Changements d'un brouillon ; `voice: null` retire le message vocal, un enregistrement le remplace. */
+export interface DraftChanges {
+  title?: string;
+  description?: string | null;
+  categoryId?: string;
+  recipientId?: string | null;
+  priority?: Priority;
+  voice?: VoiceInput | null;
+}
+
+export async function updateDraft(id: string, changes: DraftChanges): Promise<RequestDetail> {
+  const { voice, ...fields } = changes;
+  const body: Record<string, unknown> = { ...fields };
+  if (voice === null) body.voiceFileId = null;
+  else if (voice) body.voiceFileId = await uploadVoice(voice);
+  return apiFetch<RequestDetail>(`/api/requests/${id}`, { method: 'PATCH', body });
+}
+
+/** Envoi d'un brouillon : transition SUBMIT de la machine à états (mêmes règles qu'une création). */
+export function submitDraft(id: string, version: number): Promise<RequestDetail> {
+  return apiFetch<RequestDetail>(`/api/requests/${id}/actions`, { method: 'POST', body: { action: 'SUBMIT', version } });
+}
+
+export function deleteDraft(id: string): Promise<void> {
+  return apiFetch<void>(`/api/requests/${id}`, { method: 'DELETE' });
 }
 
 /** Erreur passagère (réseau, serveur) : l'envoi peut être conservé puis relancé. */

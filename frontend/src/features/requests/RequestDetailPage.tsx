@@ -3,7 +3,7 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { AlignLeft, Camera, Info, Lock, Mic } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { Navigate, useNavigate, useParams } from 'react-router';
 import { ApiError } from '../../api/client';
 import { Countdown } from '../../components/Countdown';
 import { ErrorState } from '../../components/ErrorState';
@@ -58,6 +58,8 @@ export function RequestDetailPage() {
   }
 
   const r = request.data;
+  // Un brouillon se reprend dans son formulaire (spec 007).
+  if (r.status === 'DRAFT') return <Navigate to={`/demandes/${id}/brouillon`} replace />;
   const readOnly = isReadOnlyStatus(r.status);
 
   return (

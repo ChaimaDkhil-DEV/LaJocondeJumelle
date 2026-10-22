@@ -93,7 +93,7 @@ export class UpdateDraftDto {
   recipientId?: string | null;
 }
 
-export const REQUEST_SCOPES = ['mine', 'assigned', 'managed', 'all'] as const;
+export const REQUEST_SCOPES = ['mine', 'drafts', 'assigned', 'managed', 'all'] as const;
 export type RequestScope = (typeof REQUEST_SCOPES)[number];
 
 export class ListRequestsQuery {
