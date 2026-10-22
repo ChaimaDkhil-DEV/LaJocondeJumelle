@@ -26,7 +26,7 @@ test('V16 — le super administrateur crée un compte, une catégorie circuit B 
 
   await login(page, 'superadmin');
   await openNavigation(page);
-  await page.getByRole('link', { name: 'Administrateur' }).click();
+  await page.getByRole('link', { name: 'Administrateur', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Comptes' })).toBeVisible();
 
   // Compte : mot de passe provisoire affiché une seule fois.
@@ -90,7 +90,7 @@ test('V16 — le super administrateur crée un compte, une catégorie circuit B 
   await logout(page);
   await login(page, 'admin');
   await openNavigation(page);
-  await expect(page.getByRole('link', { name: 'Administrateur' })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Administrateur', exact: true })).toHaveCount(0);
   await page.keyboard.press('Escape');
   await page.goto('/admin/comptes');
   await expect(page.getByText('Accès réservé au super administrateur.')).toBeVisible();

@@ -104,6 +104,7 @@ export class SessionService {
       id: user.id,
       username: user.username,
       displayName: user.displayName,
+      jobTitle: user.jobTitle,
       role: user.role,
       active: user.active,
       mustChangePassword: user.mustChangePassword,

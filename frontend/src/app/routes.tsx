@@ -2,6 +2,7 @@ import { createBrowserRouter, type RouteObject } from 'react-router';
 import { adminRoutes } from '../features/admin/adminRoutes';
 import { ChangePasswordPage } from '../features/auth/ChangePasswordPage';
 import { LoginPage } from '../features/auth/LoginPage';
+import { ProfilePage } from '../features/auth/ProfilePage';
 import { RequireAuth } from '../features/auth/RequireAuth';
 import { CoverageDetailPage } from '../features/coverage/CoverageDetailPage';
 import { CoveragePage } from '../features/coverage/CoveragePage';
@@ -29,6 +30,7 @@ export const routes: RouteObject[] = [
       { index: true, element: <RequestListPage /> },
       { path: 'demandes/nouvelle', element: <CreateRequestPage /> },
       { path: 'demandes/:id', element: <RequestDetailPage /> },
+      { path: 'profil', element: <ProfilePage /> },
       // Couverture de classe (garde / remplacement).
       { path: 'gardes', element: <CoveragePage /> },
       { path: 'gardes/signaler', element: <TeacherRequestPage /> },

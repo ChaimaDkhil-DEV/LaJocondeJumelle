@@ -22,7 +22,10 @@ export type RequestStatus =
 
 export interface Me {
   id: string;
+  /** Identifiant de connexion et fonction (« Mon profil », spec 005). */
+  username: string;
   displayName: string;
+  jobTitle: string | null;
   role: Role;
   permissions: string[];
   mustChangePassword: boolean;

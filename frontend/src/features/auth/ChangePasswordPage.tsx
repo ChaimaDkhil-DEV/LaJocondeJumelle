@@ -31,6 +31,9 @@ export function ChangePasswordPage() {
   if (me.isPending) return <LoadingState variant="form" />;
   if (me.error instanceof ApiError && me.error.status === 401) return <Navigate to="/connexion" replace />;
 
+  // Imposé (première connexion, mot de passe réinitialisé) ou volontaire depuis « Mon profil » (spec 005).
+  const forced = me.data?.mustChangePassword ?? false;
+
   function handleSubmit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
     const next: Errors = {
@@ -42,10 +45,15 @@ export function ChangePasswordPage() {
     setErrors(next);
     if (next.currentPassword || next.newPassword || next.confirmation) return;
 
+    // Mode figé à l'envoi : le compte rechargé après le succès n'a plus de changement imposé.
+    const wasForced = forced;
     changePassword.mutate(
       { currentPassword, newPassword },
       {
-        onSuccess: () => navigate('/', { replace: true }),
+        onSuccess: () =>
+          wasForced
+            ? navigate('/', { replace: true })
+            : navigate('/profil', { replace: true, state: { passwordChanged: true } }),
         onError: (error) => setErrors(fieldErrors(error)),
       },
     );
@@ -59,7 +67,7 @@ export function ChangePasswordPage() {
     <AuthLayout
       title="Changer votre mot de passe"
       description={
-        me.data?.mustChangePassword
+        forced
           ? `Pour sécuriser votre compte, choisissez un nouveau mot de passe d’au moins ${MIN_LENGTH} caractères.`
           : undefined
       }
@@ -103,6 +111,11 @@ export function ChangePasswordPage() {
           <Button type="submit" variant="contained" size="large" fullWidth loading={changePassword.isPending}>
             Enregistrer le mot de passe
           </Button>
+          {!forced && (
+            <Button variant="text" size="large" fullWidth onClick={() => navigate('/profil')}>
+              Annuler
+            </Button>
+          )}
         </Stack>
       </form>
     </AuthLayout>

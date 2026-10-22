@@ -67,3 +67,48 @@ test('le changement de mot de passe est imposé à la première connexion', asyn
 
   await expect(page.getByRole('heading', { name: 'Mes demandes' })).toBeVisible();
 });
+
+test('changement volontaire depuis « Mon profil » : autres sessions fermées (spec 005)', async ({ browser }, testInfo) => {
+  // Change le mot de passe d'un compte partagé : un seul projet, puis l'ancien est remis.
+  test.skip(testInfo.project.name !== 'chromium', 'Exécuté uniquement sur le projet chromium');
+  const NEW_PASSWORD = 'Profil-nouveau-mot-de-passe-2026';
+  const main = await browser.newContext();
+  const other = await browser.newContext();
+  const page = await main.newPage();
+  const otherPage = await other.newPage();
+  let changed = false;
+  try {
+    await login(page, 'autre');
+    await login(otherPage, 'autre');
+
+    await page.getByRole('link', { name: /^Mon profil : / }).click();
+    await expect(page.getByRole('heading', { name: 'Mon profil' })).toBeVisible();
+    await page.getByRole('link', { name: 'Changer mon mot de passe' }).click();
+    await page.getByLabel('Mot de passe actuel').fill(E2E_PASSWORD);
+    await page.getByLabel('Nouveau mot de passe', { exact: true }).fill(NEW_PASSWORD);
+    await page.getByLabel('Confirmer le nouveau mot de passe').fill(NEW_PASSWORD);
+    await page.getByRole('button', { name: 'Enregistrer le mot de passe' }).click();
+    await expect(page.getByRole('heading', { name: 'Mon profil' })).toBeVisible();
+    changed = true;
+    await expect(page.getByRole('status').filter({ hasText: 'Mot de passe modifié.' })).toHaveText(
+      'Mot de passe modifié. Vos autres sessions ont été fermées.',
+    );
+
+    // L'autre session est fermée côté serveur.
+    await otherPage.reload();
+    await expect(otherPage.getByRole('heading', { name: 'Connexion' })).toBeVisible();
+    await login(otherPage, 'autre', NEW_PASSWORD);
+    await expect(otherPage.getByRole('heading', { name: 'Mes demandes' })).toBeVisible();
+  } finally {
+    if (changed) {
+      // Base e2e rejouable : l'ancien mot de passe est remis par la session encore ouverte.
+      const res = await page.request.post('/api/auth/password', {
+        headers: { Origin: new URL(page.url()).origin },
+        data: { currentPassword: NEW_PASSWORD, newPassword: E2E_PASSWORD },
+      });
+      expect(res.status(), 'remise de l’ancien mot de passe').toBe(204);
+    }
+    await main.close();
+    await other.close();
+  }
+});
