@@ -5,6 +5,7 @@
 > commit. « Serveur » = contrôle effectué par l'API, indépendamment de l'interface. Aucun fichier de
 > l'application n'a été modifié pour cet inventaire. Bloc profil et « Mon profil » (§1.1, §4) mis à
 > jour pour la spec 005 (2026-10-22) ; les références `AppLayout.tsx` pointent vers ce code.
+> Modification d'une affectation par l'admin (§2.7, §3, §4.2) mise à jour pour la spec 006.
 >
 > Depuis la 004 : le rôle « Responsable » (`MANAGER`) est devenu « Admin » (`ADMIN`, migration
 > 0009) ; la diffusion des gardes est remplacée par l'assignation d'un surveillant par un admin
@@ -233,7 +234,7 @@ Consultation seule, filtres par auteur, action et période (`admin-audit.control
 | Réinitialisation et changement de mot de passe | ✅ | `users.service.ts`, `auth.service.ts` |
 | Permissions, réglages, catégories, délais | ✅ | `admin-settings.service.ts`, `admin-categories.service.ts` |
 | Groupes, étages, classes, révocation de QR, disponibilité | ✅ | `coverage-admin.service.ts`, `coverage.service.ts` |
-| Affectations : assignation, réassignation, libération, validation, annulation, enseignant corrigé, renfort libéré (« Affectation gérée par un admin ») | ✅ `COVERAGE_MANAGED` | `coverage-actions.service.ts:71-79` |
+| Affectations : assignation, réassignation, libération, validation, annulation, enseignant corrigé, renfort libéré, **modification de la classe ou du créneau** (spec 006, `details.action = 'UPDATE'`, avant et après, sans le motif) (« Affectation gérée par un admin ») | ✅ `COVERAGE_MANAGED` | `coverage-actions.service.ts:71-79`, `coverage.service.ts` (`updateCoverage`) |
 | Affectation directe (« Affectation créée ») | ✅ `COVERAGE_CREATED` | `coverage.service.ts:441` |
 | Décision sur un doublon possible | ✅ `COVERAGE_MERGE_DECIDED` | `coverage-declarations.service.ts` |
 | Anonymisation des affectations anciennes (tâche planifiée) | ✅ `COVERAGE_ANONYMIZED` | `coverage-anonymization.service.ts:87` |
@@ -249,7 +250,7 @@ Consultation seule, filtres par auteur, action et période (`admin-audit.control
 | Qui gère les affectations | Les admins et le super administrateur (`isCoverageAdmin`, `coverage-policy.ts:56`). Le compte `admin` du seed joue la surveillante générale. |
 | D'où vient une affectation | Trois sources : **signalement d'un enseignant** (retard ou absence, `POST /api/coverage/teacher-requests`, « En attente » jusqu'à l'assignation) ; **classe vide** déclarée par un surveillant pendant son tour (`POST /api/coverage/empty-class`, à son nom et en cours) ; **affectation directe** par un admin (`POST /api/coverage`, `coverage.service.ts:327`, créée assignée). |
 | Qui peut être assigné | Un membre actif du groupe Surveillants, quel que soit son rôle (`isEligibleAssignee`, `coverage-policy.ts:61`). Surveillants proposés : ceux de l'étage de la classe d'abord, disponibles d'abord (`supervisorCandidates`, `coverage-availability.ts:94`). |
-| Qui assigne, réassigne, retire | L'admin : `ASSIGN`, `REASSIGN`, `RELEASE_BY_MANAGER`, `RELEASE_SUPPORT` (renfort), `CANCEL`, `SET_TEACHER`. L'enseignant modifie ou retire son signalement tant qu'il est en attente (`PATCH /api/coverage/:id/teacher-request`, `WITHDRAW`). |
+| Qui assigne, réassigne, retire, modifie | L'admin : `ASSIGN`, `REASSIGN`, `RELEASE_BY_MANAGER`, `RELEASE_SUPPORT` (renfort), `CANCEL`, `SET_TEACHER`, et **modification** de la classe et du créneau (`PATCH /api/coverage/:id`, spec 006) : classe, date et heures avant la présence, heure de fin seulement pendant la présence (`modifiableFields`, `domain/coverage-modification.ts`), statut inchangé (« En route » compris), disponibilité revérifiée avec refus qui nomme l'affectation en conflit. L'enseignant modifie ou retire son signalement tant qu'il est en attente (`PATCH /api/coverage/:id/teacher-request`, `WITHDRAW`). |
 | Remplacement d'un surveillant absent | Disponibilité « Absent » (Gardes › Équipe), puis réassignation de ses affectations par l'admin. Pendant l'affectation : le surveillant demande une relève (`REQUEST_RELIEF`). |
 | Ce que voit le surveillant | Notification « Demande affectée », onglets « Mes affectations » et « Historique », « Je suis en route », confirmation de présence par QR code de la classe et photo (selon la catégorie de garde), « Terminer ». Le motif du signalement ne lui est jamais montré (`canSeeReason`, `coverage-policy.ts:101`). |
 | Doublons | Classe vide déjà prise en charge : le second déclarant devient **renfort** ; déclaration proche d'une affectation existante : **proposition de rattachement** à trancher par l'admin (onglet Doublons, `coverage-declarations.service.ts:309-321`). |
@@ -271,9 +272,8 @@ Consultation seule, filtres par auteur, action et période (`admin-audit.control
 
 - Réaffecter une demande de travail en mode direct ou entre enseignants : impossible par choix
   (lecture seule de l'administration) ; seul le mode via l'administration le permet.
-- Modification d'une affectation par l'admin (classe, horaire) : absente ; seules la prolongation
-  et la correction de l'enseignant existent (l'enseignant peut modifier son signalement en
-  attente). Suppression : absente (annulation motivée à la place).
+- Suppression d'une affectation : absente (annulation motivée à la place). La modification de la
+  classe et du créneau par l'admin existe depuis la spec 006 (§3).
 
 ### 4.3 Fonctionnalités partielles ou inutilisées
 

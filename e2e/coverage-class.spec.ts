@@ -53,6 +53,17 @@ async function choose(page: Page, label: string | RegExp, option: string | RegEx
   await page.getByRole('option', { name: option }).click();
 }
 
+/**
+ * Heure de l'école (0 à 23). `formatToParts` : le format français d'une heure seule donne « 20 h »,
+ * que `Number` ne sait pas lire (NaN : la garde de fin de soirée ne s'appliquait jamais).
+ */
+function schoolHour(): number {
+  const parts = new Intl.DateTimeFormat('fr-FR', { timeZone: TZ, hour: '2-digit', hourCycle: 'h23' }).formatToParts(
+    new Date(),
+  );
+  return Number(parts.find((p) => p.type === 'hour')?.value);
+}
+
 const dayOf = (at: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(at);
 
 /** Heure locale de l'école (HH:MM), décalée de `minutes`, plafonnée à 23:59. */
@@ -126,15 +137,8 @@ for (const viewport of VIEWPORTS) {
         testInfo.project.name !== 'chromium',
         'Largeurs pilotées par le scénario (Chromium)',
       );
-      const hour = Number(
-        new Intl.DateTimeFormat('fr-FR', {
-          timeZone: TZ,
-          hour: '2-digit',
-          hourCycle: 'h23',
-        }).format(new Date()),
-      );
       test.skip(
-        hour >= 22,
+        schoolHour() >= 22,
         'Créneaux du jour : parcours non rejouables en fin de soirée (heure de l’école)',
       );
       test.setTimeout(150_000);
@@ -374,3 +378,101 @@ for (const viewport of VIEWPORTS) {
     });
   });
 }
+
+/**
+ * Spec 006 — modification d'une affectation par l'admin (Chromium, 1280 px) : créneau modifié et vu
+ * du surveillant sans rechargement ; chevauchement refusé avec le conflit nommé.
+ */
+test.describe('modification d’une affectation (spec 006)', () => {
+  // eslint-disable-next-line no-empty-pattern
+  test.beforeEach(({}, testInfo) => {
+    test.skip(testInfo.project.name !== 'chromium', 'Parcours piloté par le scénario (Chromium)');
+    test.skip(schoolHour() >= 20, 'Créneaux du jour sur 3 h 30 : non rejouable en soirée (heure de l’école)');
+    test.setTimeout(150_000);
+  });
+
+  async function createDirect(admin: Page, className: string, start: number, end: number): Promise<string> {
+    await admin.goto('/gardes/nouvelle');
+    await choose(admin, /^Classe/, new RegExp(className));
+    await admin.getByLabel(/Heure de début/).fill(schoolTime(start));
+    await admin.getByLabel(/Heure de fin/).fill(schoolTime(end));
+    await admin.getByRole('radio', { name: /^Surveillant · 1er étage · Disponible/ }).check();
+    await admin.getByRole('button', { name: 'Créer l’affectation' }).click();
+    await expect(toast(admin, 'Affectation créée')).toBeVisible();
+    return new URL(admin.url()).pathname;
+  }
+
+  test('créneau modifié, vu du surveillant ; conflit nommé', async ({ browser }) => {
+    const viewport = { width: 1280, height: 800 };
+    const admin = await open(browser, 'admin', viewport);
+    const supervisor = await open(browser, 'surveillant', viewport);
+    try {
+      await cancelOpenCoverages(admin.page);
+      const first = await createDirect(admin.page, '1ère année Violet', 30, 90);
+
+      await supervisor.page.goto('/gardes');
+      const card = supervisor.page.getByRole('article').filter({ hasText: '1ère année Violet' });
+      await expect(card).toContainText('1 h');
+
+      // Fin repoussée de 30 min : 1 h 30, vue du surveillant sans rechargement.
+      await admin.page.goto(first);
+      await admin.page.getByRole('button', { name: 'Modifier' }).click();
+      const dialog = admin.page.getByRole('dialog', { name: 'Modifier l’affectation' });
+      await dialog.getByLabel(/^Heure de fin/).fill(schoolTime(120));
+      await dialog.getByRole('button', { name: 'Enregistrer' }).click();
+      await expect(toast(admin.page, 'Affectation modifiée.')).toBeVisible();
+      await expect(admin.page.getByRole('list', { name: 'Historique de l’affectation' })).toContainText(
+        'Affectation modifiée :',
+      );
+      await expect(card).toContainText('1 h 30');
+
+      // Seconde affectation du même surveillant, déplacée sur la première : refus nommé.
+      const second = await createDirect(admin.page, '2e année Bleu', 180, 210);
+      await admin.page.goto(second);
+      await admin.page.getByRole('button', { name: 'Modifier' }).click();
+      await dialog.getByLabel(/^Heure de début/).fill(schoolTime(40));
+      await dialog.getByLabel(/^Heure de fin/).fill(schoolTime(100));
+      await dialog.getByRole('button', { name: 'Enregistrer' }).click();
+      await expect(dialog.getByRole('alert')).toContainText('Surveillant déjà affecté : 1ère année Violet');
+      await dialog.getByRole('button', { name: 'Annuler' }).click();
+    } finally {
+      await cancelOpenCoverages(admin.page);
+      for (const s of [admin, supervisor]) await s.context.close();
+    }
+  });
+
+  test('classe changée « En route » : nouvelle classe vue, présence par son QR code', async ({ browser }) => {
+    const viewport = { width: 1280, height: 800 };
+    const admin = await open(browser, 'admin', viewport);
+    const supervisor = await open(browser, 'surveillant', viewport);
+    const superadmin = await open(browser, 'superadmin', viewport);
+    try {
+      await cancelOpenCoverages(admin.page);
+      const path = await createDirect(admin.page, '1ère année Violet', 0, 60);
+
+      await supervisor.page.goto('/gardes');
+      const guard = supervisor.page.getByRole('article');
+      await guard.filter({ hasText: '1ère année Violet' }).getByRole('button', { name: 'Je suis en route' }).click();
+      await expect(guard.getByText('En route', { exact: true })).toBeVisible();
+
+      await admin.page.goto(path);
+      await admin.page.getByRole('button', { name: 'Modifier' }).click();
+      const dialog = admin.page.getByRole('dialog', { name: 'Modifier l’affectation' });
+      await choose(admin.page, /^Classe/, /2e année Bleu/);
+      await dialog.getByRole('button', { name: 'Enregistrer' }).click();
+      await expect(toast(admin.page, 'Affectation modifiée.')).toBeVisible();
+
+      // Sans rechargement : nouvelle classe, toujours « En route » (clarification Q3).
+      await expect(guard.filter({ hasText: '2e année Bleu' })).toBeVisible();
+      await expect(guard.getByText('En route', { exact: true })).toBeVisible();
+
+      await supervisor.page.goto(await qrPath(superadmin.page, '2e année Bleu'));
+      await supervisor.page.getByLabel('Prendre la photo').setInputFiles(PHOTO);
+      await supervisor.page.getByRole('button', { name: 'Confirmer ma présence' }).click();
+      await expect(toast(supervisor.page, 'Présence confirmée en classe 2e année Bleu')).toBeVisible();
+    } finally {
+      await cancelOpenCoverages(admin.page);
+      for (const s of [admin, supervisor, superadmin]) await s.context.close();
+    }
+  });
+});

@@ -165,6 +165,10 @@ export function reminderChanges(
       return { resolve: resolveKinds(open, CLOSE_KINDS, 'OBSOLETE'), create: endOfSlotPlan(coverage, settings) };
 
     case 'UPDATE':
+      // Affectation assignée ou en cours modifiée par l'admin (spec 006) : clôture sur la nouvelle fin.
+      if (ASSIGNED_OR_IN_PROGRESS.includes(coverage.status)) {
+        return { resolve: resolveKinds(open, CLOSE_KINDS, 'OBSOLETE'), create: endOfSlotPlan(coverage, settings) };
+      }
       return { resolve: resolveKinds(open, TAKEOVER_KINDS, 'OBSOLETE'), create: takeoverPlans(coverage, now, settings) };
 
     case 'EXTEND':

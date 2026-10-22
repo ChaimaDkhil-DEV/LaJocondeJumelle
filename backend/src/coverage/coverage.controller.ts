@@ -20,6 +20,7 @@ import {
   SetAvailabilityDto,
   SlotCandidatesQuery,
   TeacherRequestDto,
+  UpdateCoverageDto,
   UpdateTeacherRequestDto,
 } from './coverage.dto';
 import { CoverageService } from './coverage.service';
@@ -210,5 +211,14 @@ export class CoverageController {
     const ctx = contextOf(req);
     await this.actions.perform(user, id, dto, ctx);
     return this.coverage.detail(user, id, ctx);
+  }
+
+  /**
+   * Admins : modification de la classe et du créneau (spec 006). Déclarée en dernier : `:id` ne doit
+   * pas capturer `PATCH /availability`.
+   */
+  @Patch(':id')
+  update(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() dto: UpdateCoverageDto, @Req() req: Request) {
+    return this.coverage.updateCoverage(user, id, dto, contextOf(req));
   }
 }

@@ -94,7 +94,7 @@ export const NOTIFICATION_LABELS: Record<NotificationType, string> = {
   COVERAGE_SUPPORT_REMINDER: 'Renfort à décider',
   COVERAGE_DOUBLE_ASSIGNMENT: 'Surveillant sur deux affectations',
   COVERAGE_LIFTED: 'Affectation levée',
-  COVERAGE_UPDATED: 'Demande modifiée',
+  COVERAGE_UPDATED: 'Affectation modifiée',
   UNASSIGNED: 'Demande sans employé affecté',
 };
 

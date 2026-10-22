@@ -183,6 +183,15 @@ export function formatTime(value: string | Date): string {
   return time.format(typeof value === 'string' ? new Date(value) : value);
 }
 
+/** Jour (JJ/MM) et heure (HH:MM) dans le fuseau de l'école, quel que soit celui du navigateur. */
+export function schoolClock(value: string, timeZone: string): { day: string; time: string } {
+  const date = new Date(value);
+  return {
+    day: new Intl.DateTimeFormat('fr-FR', { timeZone, day: '2-digit', month: '2-digit' }).format(date),
+    time: new Intl.DateTimeFormat('fr-FR', { timeZone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(date),
+  };
+}
+
 const day = new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
 
 /**

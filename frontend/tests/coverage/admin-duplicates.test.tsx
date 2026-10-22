@@ -79,6 +79,7 @@ function detail(extra: Record<string, unknown> = {}) {
     finalValidation: false,
     cancelReason: null,
     allowedActions: ['REASSIGN', 'SET_TEACHER', 'RELEASE_SUPPORT', 'CANCEL'],
+    modifiableFields: [],
     isManager: true,
     presences: [],
     history: [],

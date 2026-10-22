@@ -136,6 +136,9 @@ export interface CoverageHistoryEntry {
   createdAt: string;
 }
 
+/** Champ d'une affectation modifiable par l'admin (spec 006). */
+export type ModifiableField = 'classId' | 'date' | 'startTime' | 'endTime';
+
 export interface CoverageDetail extends CoverageSummary {
   view: CoverageView;
   /** Motif détaillé : admin et enseignant auteur seulement (null pour le surveillant). */
@@ -146,6 +149,8 @@ export interface CoverageDetail extends CoverageSummary {
   finalValidation: boolean;
   cancelReason: string | null;
   allowedActions: CoverageAction[];
+  /** Champs modifiables par l'admin selon le statut (spec 006) ; vide pour les autres vues. */
+  modifiableFields: ModifiableField[];
   isManager: boolean;
   presences: PresenceView[];
   history: CoverageHistoryEntry[] | null;

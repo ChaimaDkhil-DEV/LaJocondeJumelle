@@ -9,10 +9,10 @@ import type { AppConfig } from '../config/config';
 import { APP_CONFIG } from '../config/config.module';
 import type { RequestContext } from '../requests/requests.service';
 import { SettingsService } from '../settings/settings.service';
-import { CoverageAccessLoader, type CoverageRulesSnapshot } from './coverage-access.loader';
+import { CoverageAccessLoader, readCoverageRules, type CoverageRulesSnapshot } from './coverage-access.loader';
 import { CoverageActionsService, formatCoverageReference } from './coverage-actions.service';
 import { adminRecipients } from './coverage-groups';
-import { availabilityFor, supervisorCandidates, type SupervisorCandidate } from './coverage-availability';
+import { availabilityFor, lockEmployee, supervisorCandidates, type SupervisorCandidate } from './coverage-availability';
 import { groupFlagsOf, supervisorIds, teacherIds } from './coverage-groups';
 import type {
   CreateCoverageDto,
@@ -21,6 +21,7 @@ import type {
   SlotCandidatesQuery,
   SetAvailabilityDto,
   TeacherRequestDto,
+  UpdateCoverageDto,
   UpdateTeacherRequestDto,
 } from './coverage.dto';
 import {
@@ -34,6 +35,7 @@ import {
   type PresenceView,
 } from './coverage.mapper';
 import { nextCoverageDeadline } from './domain/coverage-deadlines';
+import { modifiableFields } from './domain/coverage-modification';
 import {
   canReadPresenceProof,
   coverageActionsFor,
@@ -44,7 +46,12 @@ import {
   moduleCapabilities,
   nowSlot,
 } from './domain/coverage-policy';
-import { applyCoverageAction, applyCoverageCreation, ACTIVE_GUARD_STATUSES } from './domain/coverage-state-machine';
+import {
+  applyCoverageAction,
+  applyCoverageCreation,
+  ACTIVE_GUARD_STATUSES,
+  type CoverageStatus,
+} from './domain/coverage-state-machine';
 import { FINAL_STATUSES, MAIN_STATUS_VALUES } from './domain/coverage-status';
 import { verifyQrToken } from './domain/qr-token';
 
@@ -271,6 +278,163 @@ export class CoverageService {
       await this.actions.pushUpdate(tx, row, 'PENDING', row.version + 1, effects, []);
     });
     return this.detail(user, row.id, ctx);
+  }
+
+  /**
+   * Modification par l'admin (spec 006) : classe et créneau selon le statut (coverage-modification.ts),
+   * statut et surveillant inchangés. Sans changement effectif : aucune écriture.
+   */
+  async updateCoverage(user: AuthenticatedUser, id: string, dto: UpdateCoverageDto, ctx: RequestContext): Promise<CoverageDetail> {
+    await this.assertCoverageAdmin(user, ctx);
+    const row = await this.actions.load(this.prisma, id);
+    const facts = row && (await this.access.facts(row));
+    if (!row || !facts) throw new AppException('NOT_FOUND');
+    if (dto.version !== row.version) throw new AppException('STATE_CHANGED');
+    const actors = coverageActors(await this.access.viewer(user), facts);
+    const result = applyCoverageAction(facts, 'UPDATE', { actors });
+    if (!result.ok) throw new AppException(result.code);
+
+    const status = row.status as CoverageStatus;
+    const coverage = row.coverage!;
+    const tz = this.config.schoolTimezone;
+    const allowed = modifiableFields(status);
+    const current = {
+      date: localDate(coverage.startAt, tz),
+      startTime: localTime(coverage.startAt, tz),
+      endTime: coverage.plannedEndAt ? localTime(coverage.plannedEndAt, tz) : undefined,
+    };
+    // Champ non permis dans ce statut (pendant la présence) : refusé seulement s'il change vraiment.
+    if (dto.classId !== undefined && dto.classId !== coverage.classId && !allowed.includes('classId')) {
+      throw fieldError('classId', 'Non modifiable pendant la présence en classe.');
+    }
+    for (const field of ['date', 'startTime', 'endTime'] as const) {
+      const value = dto[field];
+      if (value !== undefined && value !== current[field] && !allowed.includes(field)) {
+        throw fieldError(field, 'Non modifiable pendant la présence en classe.');
+      }
+    }
+
+    const now = new Date();
+    const date = dto.date ?? current.date;
+    const startChanged = (dto.date ?? current.date) !== current.date || (dto.startTime ?? current.startTime) !== current.startTime;
+    const startAt = startChanged ? atLocalTime(date, dto.startTime ?? current.startTime, tz) : coverage.startAt;
+    const endTime = dto.endTime ?? current.endTime;
+    const endChanged = startChanged || (dto.endTime !== undefined && dto.endTime !== current.endTime);
+    // Créneau d'un seul jour : la fin est sur la date du début (pendant la présence, celle de la fin prévue).
+    const endDate = allowed.includes('date') ? date : localDate(coverage.plannedEndAt ?? now, tz);
+    const plannedEndAt = endChanged && endTime !== undefined ? atLocalTime(endDate, endTime, tz) : coverage.plannedEndAt;
+
+    const slotChanged =
+      startAt.getTime() !== coverage.startAt.getTime() || plannedEndAt?.getTime() !== coverage.plannedEndAt?.getTime();
+    let schoolClass: { id: string; floorId: string | null; name: string; active: boolean } | null = null;
+    if (dto.classId !== undefined && dto.classId !== coverage.classId) {
+      schoolClass = await this.prisma.schoolClass.findUnique({
+        where: { id: dto.classId },
+        select: { id: true, floorId: true, name: true, active: true },
+      });
+      if (!schoolClass || !schoolClass.active) throw new AppException('CLASS_INACTIVE');
+    }
+    if (!slotChanged && !schoolClass) return this.detail(user, row.id, ctx);
+
+    if (startChanged && (startAt.getTime() < now.getTime() - MAX_PAST_MS || startAt.getTime() > now.getTime() + MAX_FUTURE_MS)) {
+      throw fieldError('startTime', 'L’heure de début doit être comprise entre 12 h avant et 7 jours après maintenant.');
+    }
+    if (slotChanged && (!plannedEndAt || plannedEndAt <= startAt || plannedEndAt <= now)) {
+      throw new AppException('INVALID_RANGE');
+    }
+
+    const classId = schoolClass?.id ?? coverage.classId;
+    const before = { classId: coverage.classId, startAt: coverage.startAt.toISOString(), plannedEndAt: coverage.plannedEndAt?.toISOString() ?? null };
+    const after = { classId, startAt: startAt.toISOString(), plannedEndAt: plannedEndAt?.toISOString() ?? null };
+    const rules = readCoverageRules(row);
+    const warnPercent = await this.settings.get('deadlineWarnPercent');
+
+    await this.actions.run(async (tx, effects) => {
+      if (row.assigneeId && slotChanged) {
+        // Disponibilité sur le nouveau créneau, sous verrou du surveillant (comme l'assignation) ; aucun forçage.
+        await lockEmployee(tx, row.assigneeId);
+        const availability = (await availabilityFor(tx, [row.assigneeId], { startAt, plannedEndAt }, row.id)).get(row.assigneeId);
+        if (!availability?.available) throw await this.notAvailable(tx, availability?.guardRequestId ?? null);
+      }
+      const { count } = await tx.request.updateMany({
+        where: { id: row.id, version: row.version },
+        data: {
+          version: { increment: 1 },
+          // Titre : préfixe existant (« Garde », « Retard », « Classe vide »…) suivi de la nouvelle classe.
+          ...(schoolClass ? { title: `${row.title.split(' — ')[0]} — ${schoolClass.name}`.slice(0, 120) } : {}),
+          // Délai d'arrivée recalculé sur le nouveau début, tant que la présence n'est pas confirmée.
+          ...(startChanged && row.currentStage === 'ARRIVAL' && (status === 'ACCEPTED' || status === 'EN_ROUTE')
+            ? nextCoverageDeadline(
+                { currentStage: null, currentDueAt: null, warnAt: null, overdueStage: null },
+                [{ from: 'PENDING', to: 'ACCEPTED', action: 'ASSIGN', actor: 'ADMIN' }],
+                rules,
+                startAt,
+                now,
+                warnPercent,
+              )
+            : {}),
+        },
+      });
+      if (count === 0) throw new AppException('STATE_CHANGED');
+      await tx.coverageDetail.update({
+        where: { requestId: row.id },
+        data: {
+          ...(schoolClass ? { classId: schoolClass.id, floorId: schoolClass.floorId } : {}),
+          startAt,
+          plannedEndAt,
+          ...(plannedEndAt ? { estimatedMinutes: Math.round((plannedEndAt.getTime() - startAt.getTime()) / MINUTE_MS) } : {}),
+        },
+      });
+      // Historique et audit sans le motif (R5) : seulement classe et créneau, avant et après.
+      await tx.requestEvent.create({
+        data: { requestId: row.id, actorId: user.id, type: 'UPDATED', fromValue: before, toValue: { ...after, byAdmin: true } },
+      });
+      await this.audit.log(
+        'COVERAGE_MANAGED',
+        { actorId: user.id, ip: ctx.ip, targetType: 'Request', targetId: row.id, details: { action: 'UPDATE', before, after } },
+        tx,
+      );
+      await this.actions.applyReminders(
+        tx,
+        row,
+        { type: 'TRANSITION', action: 'UPDATE' },
+        { status, source: coverage.source, startAt, plannedEndAt, assigneeId: row.assigneeId },
+        now,
+      );
+      const recipients = [...(row.assigneeId ? [row.assigneeId] : []), ...(await adminRecipients(tx))];
+      await this.actions.notify(tx, effects, [...new Set(recipients)], user.id, 'COVERAGE_UPDATED', row.id, row.priority);
+      await this.actions.pushUpdate(tx, row, status, row.version + 1, effects, row.assigneeId ? [row.assigneeId] : []);
+    });
+    return this.detail(user, row.id, ctx);
+  }
+
+  /**
+   * Refus d'une modification (spec 006, FR-006) : nomme l'affectation ou le renfort en conflit
+   * (classe et créneau, heure de l'école) ; sinon, la raison générale de l'indisponibilité.
+   */
+  private async notAvailable(tx: Prisma.TransactionClient, conflictId: string | null): Promise<AppException> {
+    const conflict = conflictId
+      ? await tx.coverageDetail.findUnique({
+          where: { requestId: conflictId },
+          select: { startAt: true, plannedEndAt: true, class: { select: { name: true } } },
+        })
+      : null;
+    if (!conflictId || !conflict) return new AppException('NOT_AVAILABLE');
+    const tz = this.config.schoolTimezone;
+    const day = localDate(conflict.startAt, tz).split('-').reverse().slice(0, 2).join('/');
+    const slot = `${localTime(conflict.startAt, tz)}–${conflict.plannedEndAt ? localTime(conflict.plannedEndAt, tz) : '…'}`;
+    return new AppException(
+      'NOT_AVAILABLE',
+      {
+        conflict: {
+          id: conflictId,
+          className: conflict.class.name,
+          startAt: conflict.startAt.toISOString(),
+          plannedEndAt: conflict.plannedEndAt?.toISOString() ?? null,
+        },
+      },
+      `Surveillant déjà affecté : ${conflict.class.name}, ${day} ${slot}. Réassignez d’abord, puis modifiez.`,
+    );
   }
 
   /**
@@ -605,9 +769,12 @@ export class CoverageService {
       by: p.user,
       fileId: p.fileId && canReadPresenceProof(viewer, facts, p.userId) ? p.fileId : null,
     }));
+    const allowedActions = coverageActionsFor(viewer, facts);
     return toCoverageDetail(row, {
       view,
-      allowedActions: coverageActionsFor(viewer, facts),
+      allowedActions,
+      modifiableFields:
+        view === 'ADMIN' && allowedActions.includes('UPDATE') ? modifiableFields(row.status as CoverageStatus) : [],
       presences: presenceViews,
       history: participant ? await this.historyOf(row.id) : null,
     });
@@ -719,14 +886,23 @@ export class CoverageService {
       ['teacherId', 'teacherName'],
     ] as const;
     const ids = new Set<string>();
+    const classIds = new Set<string>();
     for (const e of events) {
       for (const v of [e.fromValue, e.toValue]) {
         for (const [key] of NAMED) {
           const value = (v as Record<string, unknown> | null)?.[key];
           if (typeof value === 'string') ids.add(value);
         }
+        // Classe d'une modification (spec 006) : nom résolu à la lecture, comme les personnes.
+        const classId = (v as Record<string, unknown> | null)?.classId;
+        if (typeof classId === 'string') classIds.add(classId);
       }
     }
+    const classNames = new Map(
+      (await this.prisma.schoolClass.findMany({ where: { id: { in: [...classIds] } }, select: { id: true, name: true } })).map(
+        (c) => [c.id, c.name],
+      ),
+    );
     const names = new Map(
       (await this.prisma.user.findMany({ where: { id: { in: [...ids] } }, select: { id: true, displayName: true } })).map((u) => [
         u.id,
@@ -740,6 +916,7 @@ export class CoverageService {
         const id = value[key];
         if (typeof id === 'string') named[nameKey] = names.get(id) ?? null;
       }
+      if (typeof value.classId === 'string') named.className = classNames.get(value.classId) ?? null;
       return named;
     };
     return events.map((e) => ({

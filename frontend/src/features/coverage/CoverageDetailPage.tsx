@@ -13,8 +13,9 @@ import { formatDateTime } from '../../components/format';
 import { fontSize, icon, tokensOf } from '../../design/tokens';
 import { VoicePlayer } from '../voice/VoicePlayer';
 import { SupportsList, TeacherField } from './AdminCoverageTools';
-import { useCoverage } from './api';
+import { useCoverage, useCoverageProfile } from './api';
 import { CoverageActions } from './CoverageActions';
+import { EditCoverageButton } from './EditCoverageDialog';
 import { ClassHeading } from './EmployeeViews';
 import {
   COVERAGE_STATUS_LABELS,
@@ -25,6 +26,7 @@ import {
   TYPE_LABELS,
   formatDuration,
   formatTime,
+  schoolClock,
 } from './labels';
 import type { CoverageDetail, CoverageHistoryEntry, CoverageSource, CoverageStatus } from './types';
 
@@ -38,7 +40,7 @@ const EVENT_LABELS: Record<string, string> = {
   EXTENDED: 'Affectation prolongée',
   GROUP_ADDED: 'Demande élargie',
   OVERDUE: 'Délai dépassé',
-  UPDATED: 'Demande modifiée',
+  UPDATED: 'Affectation modifiée',
   TEACHER_SET: 'Enseignant corrigé',
   SUPPORT_JOINED: 'Renfort arrivé',
   SUPPORT_RELEASED: 'Renfort libéré',
@@ -49,7 +51,30 @@ const EVENT_LABELS: Record<string, string> = {
   ANONYMIZED: 'Données personnelles anonymisées',
 };
 
-function eventText(e: CoverageHistoryEntry): string {
+/**
+ * Modification d'une affectation (spec 006) : seuls les éléments changés, à l'heure de l'école ;
+ * les dates s'affichent quand le jour change.
+ */
+function updatedText(from: Record<string, unknown>, to: Record<string, unknown>, timeZone: string): string {
+  const changes: string[] = [];
+  if (typeof from.classId === 'string' && typeof to.classId === 'string' && from.classId !== to.classId) {
+    changes.push(`classe ${String(from.className ?? '?')} → ${String(to.className ?? '?')}`);
+  }
+  if (typeof from.startAt === 'string' && typeof to.startAt === 'string') {
+    const slot = (v: Record<string, unknown>) => {
+      const start = schoolClock(String(v.startAt), timeZone);
+      const end = typeof v.plannedEndAt === 'string' ? schoolClock(v.plannedEndAt, timeZone).time : '…';
+      return { day: start.day, text: `${start.time}–${end}` };
+    };
+    const before = slot(from);
+    const after = slot(to);
+    if (before.day !== after.day) changes.push(`${before.day} ${before.text} → ${after.day} ${after.text}`);
+    else if (before.text !== after.text) changes.push(`${before.text} → ${after.text}`);
+  }
+  return changes.length > 0 ? `${EVENT_LABELS.UPDATED} : ${changes.join(' ; ')}` : EVENT_LABELS.UPDATED;
+}
+
+function eventText(e: CoverageHistoryEntry, timeZone: string): string {
   const to = e.toValue ?? {};
   const from = e.fromValue ?? {};
   const teacherName = (v: Record<string, unknown>) =>
@@ -83,7 +108,7 @@ function eventText(e: CoverageHistoryEntry): string {
     case 'UPDATED':
       return to.declaration
         ? 'Classe déclarée vide par un surveillant : demande prise en charge'
-        : EVENT_LABELS.UPDATED;
+        : updatedText(from, to, timeZone);
     case 'RELEASED':
       return to.byManager ? 'Surveillant libéré par un admin' : 'Désistement (garde antérieure)';
     case 'PRESENCE_CONFIRMED':
@@ -102,6 +127,8 @@ function eventText(e: CoverageHistoryEntry): string {
 }
 
 function Timeline({ entries }: { entries: CoverageHistoryEntry[] }) {
+  // Fuseau de l'école pour les créneaux modifiés ; Europe/Paris en attendant le profil.
+  const timeZone = useCoverageProfile().data?.schoolDates.timezone ?? 'Europe/Paris';
   return (
     <Box
       component="ol"
@@ -114,7 +141,7 @@ function Timeline({ entries }: { entries: CoverageHistoryEntry[] }) {
           key={e.id}
           sx={{ display: 'grid', gap: 0.25, pl: 2, borderLeft: 2, borderColor: 'divider' }}
         >
-          <Typography variant="body2">{eventText(e)}</Typography>
+          <Typography variant="body2">{eventText(e, timeZone)}</Typography>
           <Typography variant="caption" color="text.secondary">
             {formatDateTime(e.createdAt)} · {e.actor ? e.actor.displayName : 'Système'}
             {e.comment && ` — « ${e.comment} »`}
@@ -280,6 +307,7 @@ export function CoverageDetailPage() {
               />
             )}
             <CoverageActions detail={d} />
+            <EditCoverageButton detail={d} />
           </SectionCard>
 
           {d.presences.length > 0 && (

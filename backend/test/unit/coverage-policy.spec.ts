@@ -157,8 +157,10 @@ describe('Permissions du module des affectations', () => {
 
   describe('actions', () => {
     it('admin : assigner, annuler ; surveillant affecté : avancement ; enseignant : modifier ou retirer en attente', () => {
+      // Spec 006 : « UPDATE » proposé à l'admin (attendu modifié, consigné).
       expect(coverageActionsFor(user('a', PROFILES.admin), facts('PENDING'))).toEqual([
         'ASSIGN',
+        'UPDATE',
         'EXTEND',
         'CANCEL',
         'SET_TEACHER',

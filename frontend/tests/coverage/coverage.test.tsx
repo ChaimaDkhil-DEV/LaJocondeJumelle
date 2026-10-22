@@ -73,6 +73,7 @@ function detail(overrides: Partial<CoverageDetail> = {}): CoverageDetail {
     finalValidation: false,
     cancelReason: null,
     allowedActions: [],
+    modifiableFields: [],
     isManager: false,
     presences: [],
     history: [],

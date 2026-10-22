@@ -329,6 +329,30 @@ describe('Échéances des affectations (R3)', () => {
       ]);
     });
 
+    it.each(['ACCEPTED', 'ON_DUTY'] as const)(
+      'UPDATE par l’admin (%s, spec 006) : rappels de clôture recalculés sur la nouvelle fin',
+      (status) => {
+        const reminders = [open('END_OF_SLOT', { targetUserId: 'sv-1' }), open('END_OF_SLOT_ADMIN')];
+        const modified = coverage({
+          status,
+          assigneeId: 'sv-1',
+          startAt: at('2026-10-20T12:30:00Z'),
+          plannedEndAt: at('2026-10-20T13:30:00Z'),
+        });
+        const { resolve, create } = reminderChanges(
+          { type: 'TRANSITION', action: 'UPDATE' },
+          modified,
+          reminders,
+          at('2026-10-20T12:00:00Z'),
+          settings,
+        );
+        expect(resolve).toEqual(reminders.map((r) => ({ id: r.id, resolution: 'OBSOLETE' })));
+        expect(create.map((r) => [r.kind, r.targetUserId, r.dueAt.toISOString()])).toEqual([
+          ['END_OF_SLOT', 'sv-1', '2026-10-20T13:40:00.000Z'],
+        ]);
+      },
+    );
+
     it('EXTEND : rappels de clôture recalculés sur la nouvelle fin', () => {
       const reminders = [open('END_OF_SLOT', { targetUserId: 'sv-1' }), open('END_OF_SLOT_ADMIN')];
       const extended = coverage({

@@ -1,5 +1,6 @@
 import type { Prisma, RequestStatus } from '@prisma/client';
 import { readCoverageRules } from './coverage-access.loader';
+import type { ModifiableField } from './domain/coverage-modification';
 import type { CoverageView } from './domain/coverage-policy';
 import { slotsOverlap } from './domain/coverage-policy';
 import { ACTIVE_GUARD_STATUSES, type CoverageAction } from './domain/coverage-state-machine';
@@ -146,6 +147,8 @@ export function toCoverageDetail(
   extras: {
     view: CoverageView;
     allowedActions: CoverageAction[];
+    /** Champs modifiables par l'admin (spec 006) ; vide pour les autres vues. */
+    modifiableFields: ModifiableField[];
     presences: PresenceView[];
     history: HistoryEntry[] | null;
   },
@@ -163,6 +166,7 @@ export function toCoverageDetail(
     finalValidation: rules.finalValidation,
     cancelReason: c.cancelReason,
     allowedActions: extras.allowedActions,
+    modifiableFields: extras.modifiableFields,
     isManager: extras.view === 'ADMIN',
     presences: extras.presences,
     history: extras.history,

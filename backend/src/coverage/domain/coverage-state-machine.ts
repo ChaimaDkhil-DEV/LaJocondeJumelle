@@ -201,6 +201,8 @@ const TRANSITIONS: readonly Transition[] = [
   // En attente : l'admin assigne ou annule ; l'enseignant auteur modifie ou retire (FR-008b, FR-008g).
   { from: ['PENDING'], action: 'ASSIGN', to: 'ACCEPTED', actors: ['ADMIN'], guards: ASSIGNMENT_GUARDS },
   { from: ['PENDING'], action: 'UPDATE', to: 'same', actors: ['REQUESTER_TEACHER'] },
+  // Modification par l'admin (spec 006) : statut inchangé ; champs permis selon le statut (coverage-modification.ts).
+  { from: [...ACTIVE_GUARD_STATUSES, 'PENDING'], action: 'UPDATE', to: 'same', actors: ['ADMIN'] },
   { from: ['PENDING'], action: 'WITHDRAW', to: 'CANCELLED', actors: ['REQUESTER_TEACHER'] },
   { from: ['PENDING'], action: 'ATTACH_DECLARATION', to: 'ON_DUTY', actors: ['SYSTEM'], guards: [requiresAssignee] },
   { from: ['PENDING'], action: 'EXPIRE_UNFILLED', to: 'UNFILLED', actors: ['SYSTEM'] },
@@ -244,8 +246,22 @@ const CREATIONS: readonly Creation[] = [
   { action: 'DECLARE_EMPTY_CLASS', to: 'ON_DUTY', actor: 'SUPERVISOR' },
 ];
 
-function findTransition(status: CoverageStatus, action: CoverageAction): Transition | undefined {
-  return TRANSITIONS.find((t) => t.action === action && t.from.includes(status));
+/**
+ * Règle de l'action dans ce statut, de préférence celle d'un des acteurs (UPDATE a deux règles sur
+ * « en attente » : enseignant auteur et admin). Si l'acteur ne dispose de l'action que dans d'autres
+ * statuts, aucune règle : INVALID_TRANSITION plutôt que FORBIDDEN, comme avant la spec 006.
+ */
+function findTransition(
+  status: CoverageStatus,
+  action: CoverageAction,
+  actors?: readonly CoverageActor[],
+): Transition | undefined {
+  const candidates = TRANSITIONS.filter((t) => t.action === action && t.from.includes(status));
+  if (!actors) return candidates[0];
+  const own = candidates.find((t) => actors.some((a) => t.actors.includes(a)));
+  if (own) return own;
+  const elsewhere = TRANSITIONS.some((t) => t.action === action && actors.some((a) => t.actors.includes(a)));
+  return elsewhere ? undefined : candidates[0];
 }
 
 /**
@@ -254,7 +270,7 @@ function findTransition(status: CoverageStatus, action: CoverageAction): Transit
  */
 export function applyCoverageAction(state: CoverageMachineState, action: CoverageAction, ctx: CoverageContext): CoverageResult {
   if (!isCoverageAction(action)) return { ok: false, code: 'UNKNOWN_ACTION' };
-  const transition = findTransition(state.status, action);
+  const transition = findTransition(state.status, action, ctx.actors);
   if (!transition) return { ok: false, code: 'INVALID_TRANSITION' };
 
   const actor = ctx.actors.find((a) => transition.actors.includes(a));
@@ -310,7 +326,7 @@ export function applyCoverageCreation(action: CoverageCreation, ctx: CoverageCon
 export function availableCoverageActions(state: CoverageMachineState, actors: readonly CoverageActor[]): CoverageAction[] {
   const human = actors.filter((a) => a !== 'SYSTEM');
   return USER_COVERAGE_ACTIONS.filter((action) => {
-    const transition = findTransition(state.status, action);
+    const transition = findTransition(state.status, action, human);
     return transition !== undefined && human.some((a) => transition.actors.includes(a));
   });
 }
