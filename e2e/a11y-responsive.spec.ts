@@ -105,6 +105,17 @@ test('V18 — chaque écran livré tient en 320 px, sans violation axe', async (
   await checkScreen(page, 'menu');
   await page.keyboard.press('Escape');
 
+  // Spec 005 : « Mon profil » et changement de mot de passe volontaire (formulaire non soumis).
+  await page.goto('/profil');
+  await expect(page.getByRole('heading', { name: 'Mon profil' })).toBeVisible();
+  await checkScreen(page, 'mon profil');
+  await page.goto('/mot-de-passe');
+  await expect(page.getByRole('button', { name: 'Annuler' })).toBeVisible();
+  await checkScreen(page, 'changer mon mot de passe (volontaire)');
+  // Page hors gabarit (sans menu) : retour au profil avant la déconnexion.
+  await page.getByRole('button', { name: 'Annuler' }).click();
+  await expect(page.getByRole('heading', { name: 'Mon profil' })).toBeVisible();
+
   await page.getByRole('button', { name: 'Se déconnecter' }).click();
   await login(page, 'superadmin');
   for (const [path, heading] of [
@@ -246,4 +257,18 @@ test('V18 — création (V1), traitement (V5) et fil (V10) au clavier seul', asy
   await page.keyboard.press('Enter');
   await expect(page.getByText('Je m’en occupe ce matin.')).toBeVisible();
   await checkScreen(page, 'détail après traitement');
+
+  // Spec 005 (FR-011) : « Mon profil » puis le changement de mot de passe, au clavier, depuis le tiroir.
+  await page.goto('/');
+  await tabTo(page, page.getByRole('button', { name: 'Ouvrir le menu' }));
+  await page.keyboard.press('Enter');
+  await tabTo(page, page.getByRole('link', { name: /^Mon profil : / }));
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { name: 'Mon profil' })).toBeVisible();
+  await tabTo(page, page.getByRole('link', { name: 'Changer mon mot de passe' }));
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { name: 'Changer votre mot de passe' })).toBeVisible();
+  await tabTo(page, page.getByRole('button', { name: 'Annuler' }));
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { name: 'Mon profil' })).toBeVisible();
 });

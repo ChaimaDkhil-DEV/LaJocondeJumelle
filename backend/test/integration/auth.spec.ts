@@ -18,12 +18,13 @@ describe('Authentification et sessions', () => {
 
   async function createUser(
     username: string,
-    extra: { role?: Role; mustChangePassword?: boolean; active?: boolean } = {},
+    extra: { role?: Role; mustChangePassword?: boolean; active?: boolean; jobTitle?: string } = {},
   ) {
     return prisma.user.create({
       data: {
         username,
         displayName: username,
+        jobTitle: extra.jobTitle ?? null,
         role: extra.role ?? 'EMPLOYEE',
         passwordHash: await hash(PASSWORD),
         mustChangePassword: extra.mustChangePassword ?? false,
@@ -316,9 +317,12 @@ describe('Authentification et sessions', () => {
       const cookie = await loginCookie('enseignante');
       const res = await request(app.getHttpServer()).get('/api/auth/me').set('Cookie', cookie);
       expect(res.status).toBe(200);
+      // Spec 005 : username et jobTitle ajoutés au contrat (exception consignée dans verification-005.md).
       expect(res.body).toEqual({
         id: user.id,
+        username: 'enseignante',
         displayName: 'enseignante',
+        jobTitle: null,
         role: 'EMPLOYEE',
         permissions: ['PRIORITY_CHANGE_OWN', 'REQUEST_CREATE'],
         mustChangePassword: false,
@@ -326,6 +330,25 @@ describe('Authentification et sessions', () => {
         isSupervisor: false,
       });
       expect(res.headers['x-server-time']).toBeDefined();
+    });
+
+    it('renvoie l’identifiant et la fonction du seul compte de la session (spec 005)', async () => {
+      await createUser('enseignante', { jobTitle: 'Professeure des écoles' });
+      await createUser('reprographie');
+      const teacher = await loginCookie('enseignante');
+      const copy = await loginCookie('reprographie');
+
+      const mine = await request(app.getHttpServer()).get('/api/auth/me').set('Cookie', teacher);
+      expect(mine.body).toMatchObject({ username: 'enseignante', jobTitle: 'Professeure des écoles' });
+      const other = await request(app.getHttpServer()).get('/api/auth/me').set('Cookie', copy);
+      expect(other.body).toMatchObject({ username: 'reprographie', jobTitle: null });
+    });
+
+    it('renvoie aussi l’identifiant et la fonction à la connexion (spec 005)', async () => {
+      await createUser('enseignante', { jobTitle: 'Professeure des écoles' });
+      const res = await login('enseignante');
+      expect(res.status).toBe(200);
+      expect(res.body.user).toMatchObject({ username: 'enseignante', jobTitle: 'Professeure des écoles' });
     });
 
     it('ferme la session, efface le cookie et audite LOGOUT', async () => {

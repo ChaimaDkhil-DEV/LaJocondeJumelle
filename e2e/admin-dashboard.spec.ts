@@ -48,7 +48,7 @@ test('le super administrateur supervise les demandes depuis le tableau de bord ;
   // Accès par le menu de l'administration.
   await login(page, 'superadmin');
   await openNavigation(page);
-  await page.getByRole('link', { name: 'Administrateur' }).click();
+  await page.getByRole('link', { name: 'Administrateur', exact: true }).click();
   await page.getByRole('navigation', { name: 'Sections de l’espace Administrateur' }).getByRole('link', { name: 'Tableau de bord' }).click();
   await expect(page).toHaveURL(/\/admin\/tableau-de-bord$/);
   await expect(page.getByRole('heading', { name: 'Tableau de bord' })).toBeVisible();

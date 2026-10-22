@@ -19,6 +19,7 @@ import { useState } from 'react';
 import { Link as RouterLink, Outlet, useLocation, useNavigate } from 'react-router';
 import type { Me } from '../api/types';
 import { IconAction } from '../components/IconAction';
+import { visuallyHidden } from '../components/a11y';
 import { Person } from '../components/UserAvatar';
 import { font, fontSize, icon, layout, motion, tokensOf } from '../design/tokens';
 import { ROLE_LABELS } from '../features/admin/labels';
@@ -173,6 +174,52 @@ function NavList({ items, onNavigate }: { items: NavItem[]; onNavigate?: () => v
   );
 }
 
+/**
+ * Bloc profil (nom et rôle) : lien vers « Mon profil » (spec 005). Le préfixe masqué complète le
+ * nom accessible sans remplacer le texte visible (WCAG 2.5.3).
+ */
+function ProfileLink({ me, onNavigate }: { me: Me; onNavigate?: () => void }) {
+  const { pathname } = useLocation();
+  const active = pathname === '/profil';
+  return (
+    <Box
+      component={RouterLink}
+      to="/profil"
+      onClick={onNavigate}
+      aria-current={active ? 'page' : undefined}
+      sx={(theme) => ({
+        display: 'block',
+        px: 0.5,
+        py: 0.5,
+        borderRadius: 1,
+        color: 'inherit',
+        textDecoration: 'none',
+        bgcolor: active ? tokensOf(theme).surfaceMuted : 'transparent',
+        transition: `background-color ${motion.fast}ms`,
+        '&:hover': { bgcolor: tokensOf(theme).surfaceMuted },
+      })}
+    >
+      <Box component="span" sx={visuallyHidden}>
+        Mon profil :{' '}
+      </Box>
+      <Person
+        name={me.displayName}
+        id={me.id}
+        size={32}
+        secondary={
+          <>
+            {/* Nom et rôle sont deux span en ligne : sans séparateur, ils seraient lus d'un seul mot. */}
+            <Box component="span" sx={visuallyHidden}>
+              ,
+            </Box>{' '}
+            {ROLE_LABELS[me.role]}
+          </>
+        }
+      />
+    </Box>
+  );
+}
+
 export function AppLayout() {
   const navigate = useNavigate();
   const theme = useTheme();
@@ -190,15 +237,6 @@ export function AppLayout() {
   function handleLogout(): void {
     logout.mutate(undefined, { onSettled: () => navigate('/connexion', { replace: true }) });
   }
-
-  const user = me.data && (
-    <Person
-      name={me.data.displayName}
-      id={me.data.id}
-      size={32}
-      secondary={ROLE_LABELS[me.data.role]}
-    />
-  );
 
   return (
     <SocketProvider>
@@ -246,7 +284,7 @@ export function AppLayout() {
                 borderColor: 'divider',
               }}
             >
-              <Box sx={{ px: 0.5 }}>{user}</Box>
+              {me.data && <ProfileLink me={me.data} />}
               <Button
                 onClick={handleLogout}
                 startIcon={<LogOut size={icon.md} aria-hidden="true" />}
@@ -300,8 +338,10 @@ export function AppLayout() {
               >
                 <Brand />
                 <NavList items={navItems} onNavigate={() => setDrawerOpen(false)} />
-                {user && (
-                  <Box sx={{ mt: 'auto', pt: 2, borderTop: 1, borderColor: 'divider' }}>{user}</Box>
+                {me.data && (
+                  <Box sx={{ mt: 'auto', pt: 2, borderTop: 1, borderColor: 'divider' }}>
+                    <ProfileLink me={me.data} onNavigate={() => setDrawerOpen(false)} />
+                  </Box>
                 )}
               </Box>
             </Drawer>
