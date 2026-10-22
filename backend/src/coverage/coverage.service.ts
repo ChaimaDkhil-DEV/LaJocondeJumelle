@@ -35,7 +35,7 @@ import {
   type PresenceView,
 } from './coverage.mapper';
 import { nextCoverageDeadline } from './domain/coverage-deadlines';
-import { modifiableFields } from './domain/coverage-modification';
+import { modifiableFields, presenceEndAt } from './domain/coverage-modification';
 import {
   canReadPresenceProof,
   coverageActionsFor,
@@ -320,9 +320,14 @@ export class CoverageService {
     const startAt = startChanged ? atLocalTime(date, dto.startTime ?? current.startTime, tz) : coverage.startAt;
     const endTime = dto.endTime ?? current.endTime;
     const endChanged = startChanged || (dto.endTime !== undefined && dto.endTime !== current.endTime);
-    // Créneau d'un seul jour : la fin est sur la date du début (pendant la présence, celle de la fin prévue).
-    const endDate = allowed.includes('date') ? date : localDate(coverage.plannedEndAt ?? now, tz);
-    const plannedEndAt = endChanged && endTime !== undefined ? atLocalTime(endDate, endTime, tz) : coverage.plannedEndAt;
+    // Avant la présence : la fin est sur la date du début. Pendant la présence (date non modifiable) :
+    // l'occurrence de l'heure saisie la plus proche de la fin prévue, y compris après minuit.
+    const plannedEndAt =
+      !endChanged || endTime === undefined
+        ? coverage.plannedEndAt
+        : allowed.includes('date')
+          ? atLocalTime(date, endTime, tz)
+          : presenceEndAt(endTime, coverage.plannedEndAt ?? now, tz);
 
     const slotChanged =
       startAt.getTime() !== coverage.startAt.getTime() || plannedEndAt?.getTime() !== coverage.plannedEndAt?.getTime();
