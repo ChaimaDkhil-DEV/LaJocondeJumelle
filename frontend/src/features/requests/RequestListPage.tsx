@@ -3,7 +3,7 @@ import Button from '@mui/material/Button';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import Typography from '@mui/material/Typography';
-import { Hourglass, Inbox, Mic, Plus, SearchX, Send } from 'lucide-react';
+import { FilePen, Hourglass, Inbox, Mic, Plus, SearchX, Send } from 'lucide-react';
 import { Link as RouterLink, useSearchParams } from 'react-router';
 import { visuallyHidden } from '../../components/a11y';
 import { Countdown } from '../../components/Countdown';
@@ -18,7 +18,7 @@ import { UserAvatar } from '../../components/UserAvatar';
 import { font, fontSize, icon, motion, tokensOf } from '../../design/tokens';
 import { OutboxPanel } from '../outbox/OutboxPanel';
 import { useCurrentUser } from '../auth/useCurrentUser';
-import { useRequestList } from './api';
+import { useHasDrafts, useRequestList } from './api';
 import { activeFilterCount, filtersToQuery, readFilters, writeFilters } from './filters';
 import { RequestFilters } from './RequestFilters';
 import type { RequestScope, RequestSummary } from './types';
@@ -36,6 +36,8 @@ interface TabDefinition {
 const TABS: TabDefinition[] = [
   { key: 'recues', label: 'Reçues', scope: 'assigned', empty: 'Vous n’avez reçu aucune demande.' },
   { key: 'envoyees', label: 'Envoyées', scope: 'mine', empty: 'Vous n’avez envoyé aucune demande.' },
+  // Spec 007 : affiché seulement s'il existe au moins un brouillon.
+  { key: 'brouillons', label: 'Brouillons', scope: 'drafts', empty: 'Vous n’avez aucun brouillon.' },
   {
     key: 'a-valider',
     label: 'À valider',
@@ -71,20 +73,23 @@ function CounterpartAvatar({ person }: { person: { id: string; displayName: stri
   );
 }
 
-/** Ligne de la liste : toute la ligne est un lien vers la demande. */
+/** Ligne de la liste : toute la ligne est un lien vers la demande (vers sa reprise pour un brouillon). */
 function RequestRow({ request, received }: { request: RequestSummary; received: boolean }) {
   const person = received ? request.requester : request.assignee;
+  const isDraft = request.status === 'DRAFT';
   const counterpart = received
     ? `De : ${request.requester.displayName}`
     : request.assignee
       ? `Pour : ${request.assignee.displayName}`
-      : 'En attente d’affectation';
+      : isDraft
+        ? 'Pas encore envoyée'
+        : 'En attente d’affectation';
   const unread = request.unreadCount;
 
   return (
     <Box
       component={RouterLink}
-      to={`/demandes/${request.id}`}
+      to={isDraft ? `/demandes/${request.id}/brouillon` : `/demandes/${request.id}`}
       sx={(theme) => ({
         display: 'grid',
         gridTemplateColumns: 'auto minmax(0, 1fr)',
@@ -161,7 +166,10 @@ export function RequestListPage() {
   const [params, setParams] = useSearchParams();
   const me = useCurrentUser();
   const isManager = me.data?.role === 'ADMIN' || me.data?.role === 'SUPER_ADMIN';
-  const tabs = TABS.filter((t) => !t.managersOnly || isManager);
+  const hasDrafts = useHasDrafts();
+  // L'onglet « Brouillons » reste affiché s'il est demandé dans l'adresse, même vide.
+  const showDrafts = hasDrafts.data === true || params.get('onglet') === 'brouillons';
+  const tabs = TABS.filter((t) => (!t.managersOnly || isManager) && (t.scope !== 'drafts' || showDrafts));
   const tab = tabs.find((t) => t.key === params.get('onglet')) ?? tabs[0];
   const filters = readFilters(params);
   // Les statuts choisis dans les filtres remplacent ceux de l'onglet « À valider ».
@@ -215,7 +223,7 @@ export function RequestListPage() {
         ) : requests.length === 0 ? (
           <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1.5, bgcolor: 'background.paper' }}>
             <EmptyState
-              icon={filtered ? SearchX : tab.scope === 'mine' ? Send : Inbox}
+              icon={filtered ? SearchX : tab.scope === 'mine' ? Send : tab.scope === 'drafts' ? FilePen : Inbox}
               title="Aucune demande"
               description={filtered ? 'Aucune demande ne correspond à ces filtres.' : tab.empty}
               action={

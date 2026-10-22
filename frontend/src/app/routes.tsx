@@ -13,6 +13,7 @@ import { TeacherRequestPage } from '../features/coverage/TeacherRequestPage';
 import { PresencePage } from '../features/coverage/PresencePage';
 import { CreateRequestPage } from '../features/requests/CreateRequestPage';
 import { RequestDetailPage } from '../features/requests/RequestDetailPage';
+import { DraftPage } from '../features/requests/DraftPage';
 import { RequestListPage } from '../features/requests/RequestListPage';
 import { AppLayout } from './AppLayout';
 
@@ -29,6 +30,7 @@ export const routes: RouteObject[] = [
     children: [
       { index: true, element: <RequestListPage /> },
       { path: 'demandes/nouvelle', element: <CreateRequestPage /> },
+      { path: 'demandes/:id/brouillon', element: <DraftPage /> },
       { path: 'demandes/:id', element: <RequestDetailPage /> },
       { path: 'profil', element: <ProfilePage /> },
       // Couverture de classe (garde / remplacement).

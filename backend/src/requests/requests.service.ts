@@ -191,8 +191,12 @@ export class RequestsService {
     const conditions: Prisma.RequestWhereInput[] = [visibleRequestsWhere(user)];
 
     switch (query.scope ?? 'all') {
+      // « Envoyées » : les demandes réellement parties ; les brouillons ont leur périmètre (spec 007).
       case 'mine':
-        conditions.push({ requesterId: user.id });
+        conditions.push({ requesterId: user.id, status: { not: 'DRAFT' } });
+        break;
+      case 'drafts':
+        conditions.push({ requesterId: user.id, status: 'DRAFT' });
         break;
       case 'assigned':
         conditions.push({ assigneeId: user.id, status: { not: 'DRAFT' } });
