@@ -1,6 +1,6 @@
 import type { Scenario } from '../lib/demo';
 
-/** S01 — Tour du menu latéral, bloc profil, déconnexion. */
+/** S01 — Tour du menu latéral, bloc profil et « Mon profil », déconnexion. */
 export const S01: Scenario = {
   id: 'S01',
   slug: 'menu-lateral',
@@ -39,9 +39,13 @@ export const S01: Scenario = {
     await page.keyboard.press('Escape');
     await demo.pause(800);
 
-    demo.say('Bloc profil : nom et rôle. Il n’existe pas de page de profil.');
-    await demo.hover(page.getByText('Super administrateur', { exact: true }).last());
-    await demo.pause();
+    demo.say('Bloc profil : nom et rôle, lien vers « Mon profil ».');
+    await demo.click(page.getByRole('link', { name: /^Mon profil : / }));
+    await page.getByRole('heading', { name: 'Mon profil' }).waitFor();
+    await demo.pause(1500);
+    demo.say('Mon profil : informations du compte, et changement de mot de passe.');
+    await demo.hover(page.getByRole('link', { name: 'Changer mon mot de passe' }));
+    await demo.pause(2500);
 
     demo.say('Déconnexion : la session est fermée côté serveur.');
     await demo.logout();

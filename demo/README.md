@@ -55,7 +55,7 @@ la démo avant 22 h, heure de l'école : plus tard, les créneaux d'une heure d�
 
 | Id | Fichier | Viewport | Remarque |
 | --- | --- | --- | --- |
-| S01 | `scenarios/S01-menu-lateral.ts` | desktop | Pas de page de profil (montré tel quel). |
+| S01 | `scenarios/S01-menu-lateral.ts` | desktop | Bloc profil : lien vers « Mon profil » (spec 005). |
 | S02 | `scenarios/S02-notifications.ts` | desktop | Retards simulés ; alertes posées par les tâches planifiées. |
 | S03 | `scenarios/S03-mes-demandes.ts` | desktop | « Reçues » ne montre que les demandes affectées au super administrateur. |
 | S04 | `scenarios/S04-nouvelle-demande.ts` | desktop | « Surveillance » préparée (via l'administration). |
@@ -70,4 +70,4 @@ la démo avant 22 h, heure de l'école : plus tard, les créneaux d'une heure d�
 | S13 | `scenarios/S13-vue-surveillant.ts` | mobile 390×844 | — |
 
 Fonctionnalités absentes de l'application (inventaire : `docs/superadmin-fonctionnalites.md`) :
-page de profil, modification et suppression d'une garde.
+modification et suppression d'une garde.

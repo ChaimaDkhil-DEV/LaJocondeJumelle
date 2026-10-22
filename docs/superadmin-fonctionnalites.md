@@ -3,7 +3,8 @@
 > Établi le 2026-10-16 à partir de `258df07`, mis à jour le 2026-10-21 à partir du code de `master`
 > (`186f7f2`, après la fonctionnalité 004, PR #18). Les références `fichier:ligne` pointent vers ce
 > commit. « Serveur » = contrôle effectué par l'API, indépendamment de l'interface. Aucun fichier de
-> l'application n'a été modifié pour cet inventaire.
+> l'application n'a été modifié pour cet inventaire. Bloc profil et « Mon profil » (§1.1, §4) mis à
+> jour pour la spec 005 (2026-10-22) ; les références `AppLayout.tsx` pointent vers ce code.
 >
 > Depuis la 004 : le rôle « Responsable » (`MANAGER`) est devenu « Admin » (`ADMIN`, migration
 > 0009) ; la diffusion des gardes est remplacée par l'assignation d'un surveillant par un admin
@@ -35,7 +36,7 @@ routes de l'API exigent une session valide (garde globale `SessionGuard`,
 | Nouvelle demande | `/demandes/nouvelle` | tous (selon les catégories) | création dans toute catégorie de demande de travail active | Complète |
 | Gardes | `/gardes`, `/gardes/nouvelle`, `/gardes/signaler`, `/gardes/classe-vide`, `/gardes/statistiques`, `/gardes/:id`, `/gardes/presence` | admins, super administrateur, membres des groupes Surveillants ou Enseignants | onglets En attente, En cours, Doublons, Équipe, Terminées ; nouvelle affectation ; statistiques ; actions sur une affectation | Complète (voir §3) |
 | Administrateur | `/admin/*` | super administrateur | 9 onglets (§2) | Complète |
-| Bloc profil | (pas de route) | tous | affichage du nom et du rôle uniquement | Partielle (voir §4) |
+| Bloc profil (« Mon profil ») | `/profil` | tous | nom et rôle, lien vers « Mon profil » : informations du compte en lecture seule, « Changer mon mot de passe » | Complète (spec 005) |
 | Se déconnecter | `POST /api/auth/logout` | tous | fin de session | Complète |
 
 Détail par entrée :
@@ -85,7 +86,7 @@ Détail par entrée :
   ni de brouillon à la création.
 - **Gardes** — `frontend/src/features/coverage/CoveragePage.tsx` ; API `/api/coverage/*`
   (`backend/src/coverage/coverage.controller.ts`). Affichage du menu pour les admins, le super
-  administrateur et les membres des groupes Surveillants ou Enseignants (`AppLayout.tsx:54`).
+  administrateur et les membres des groupes Surveillants ou Enseignants (`AppLayout.tsx:55`).
   Onglets selon le profil : admins et super administrateur (`isCoverageAdmin`,
   `backend/src/coverage/domain/coverage-policy.ts:56`) : En attente, En cours, Doublons, Équipe,
   Terminées ; enseignant : Mes signalements ; surveillant : Mes affectations, Historique. Différence
@@ -93,14 +94,17 @@ Détail par entrée :
   « Suivi des gardes » (Administrateur) sert à **superviser** (indicateurs, statistiques par
   surveillant, export CSV), sans action.
 - **Administrateur** — `frontend/src/features/admin/AdminLayout.tsx` ; l'entrée n'est ajoutée au
-  menu que pour le super administrateur (`AppLayout.tsx:187`) et la page affiche « Accès réservé »
+  menu que pour le super administrateur (`AppLayout.tsx:234`) et la page affiche « Accès réservé »
   pour les autres. Protection serveur : `SuperAdminGuard` (`backend/src/audit/super-admin.guard.ts`,
   règle `canManageAdministration`, `backend/src/common/authorization.ts:29`) sur chaque contrôleur
   `/api/admin/*`, avec refus journalisé (`ACCESS_DENIED`).
-- **Profil et déconnexion** — le bloc profil affiche le nom et le rôle, sans lien ni page de
-  profil. Changement de mot de passe : route `/mot-de-passe` et `POST /api/auth/password`, imposée
-  à la première connexion, sans lien dans le menu ; elle ferme les autres sessions
-  (`backend/src/auth/auth.service.ts:76`). Déconnexion : suppression de la session en base et
+- **Profil et déconnexion** — le bloc profil (nom et rôle) est un lien vers « Mon profil »
+  (`/profil`, `ProfilePage.tsx`, spec 005 ; `ProfileLink`, `AppLayout.tsx:181`) : nom,
+  identifiant, fonction, rôle et groupes d'affectation en lecture seule (champs `username` et
+  `jobTitle` de `GET /api/auth/me`), et « Changer mon mot de passe ». Changement de mot de passe :
+  route `/mot-de-passe` et `POST /api/auth/password`, imposé à la première connexion (sans
+  annulation, puis accueil) ou volontaire depuis le profil (« Annuler », retour au profil avec
+  confirmation) ; il ferme les autres sessions (`backend/src/auth/auth.service.ts:76`). Déconnexion : suppression de la session en base et
   fermeture des connexions temps réel (`auth.service.ts:52-54`), journalisée (`LOGOUT`).
 
 ### 1.2 Visibilité du menu par rôle
@@ -265,8 +269,6 @@ Consultation seule, filtres par auteur, action et période (`admin-audit.control
 
 ### 4.2 Actions absentes
 
-- Pas de page de profil ni de lien « Changer mon mot de passe » (le serveur y renvoie pourtant
-  dans son message de refus, `users.service.ts:217`).
 - Réaffecter une demande de travail en mode direct ou entre enseignants : impossible par choix
   (lecture seule de l'administration) ; seul le mode via l'administration le permet.
 - Modification d'une affectation par l'admin (classe, horaire) : absente ; seules la prolongation
@@ -283,7 +285,7 @@ Consultation seule, filtres par auteur, action et période (`admin-audit.control
 
 | Scénario | Jouable | Remarque |
 | --- | --- | --- |
-| S01 Menu latéral | Oui | Bloc profil sans page de profil (à montrer tel quel). |
+| S01 Menu latéral | Oui | Bloc profil : lien vers « Mon profil » (spec 005). |
 | S02 Notifications | Oui | Demande « sans employé affecté » et « en retard » : délais simulés dans la base jetable. |
 | S03 Mes demandes | Oui | « Reçues » ne montre que les demandes affectées au super administrateur ; annulation sur sa propre demande ; changement de priorité en mode via l'administration. |
 | S04 Nouvelle demande | Oui | « Surveillance » et « Photocopies » à créer dans les données fictives. |
