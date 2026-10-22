@@ -138,33 +138,32 @@ export function CoverageActions({
   exclude?: CoverageAction[];
 }) {
   const toast = useToast();
-  const mutation = useCoverageAction(detail.id);
   const [open, setOpen] = useState<CoverageAction | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Retours au niveau de la mutation : « Terminer » retire la carte (et ce composant) de la liste,
+  // parfois avant la réponse ; la confirmation doit s'afficher quand même.
+  const mutation = useCoverageAction(detail.id, {
+    onSuccess: (_detail, input) => {
+      setOpen(null);
+      toast.success(
+        REASON_DIALOGS[input.action]?.success ?? SUCCESS[input.action] ?? 'Action enregistrée.',
+      );
+    },
+    onError: (e) => {
+      const message =
+        e instanceof ApiError ? e.message : 'L’action n’a pas pu être enregistrée. Réessayez.';
+      // Dialogues avec zone d'erreur : message sur place ; sinon (motif, action directe) : toast d'erreur.
+      if (open && !REASON_DIALOGS[open]) setError(message);
+      else toast.error(message);
+    },
+  });
 
   const actions = ORDER.filter((a) => detail.allowedActions.includes(a) && !exclude.includes(a));
   if (actions.length === 0) return null;
 
   function run(input: Omit<ActionInput, 'version'>): void {
     setError(null);
-    mutation.mutate(
-      { ...input, version: detail.version },
-      {
-        onSuccess: () => {
-          setOpen(null);
-          toast.success(
-            REASON_DIALOGS[input.action]?.success ?? SUCCESS[input.action] ?? 'Action enregistrée.',
-          );
-        },
-        onError: (e) => {
-          const message =
-            e instanceof ApiError ? e.message : 'L’action n’a pas pu être enregistrée. Réessayez.';
-          // Dialogues avec zone d'erreur : message sur place ; sinon (motif, action directe) : toast d'erreur.
-          if (open && !REASON_DIALOGS[open]) setError(message);
-          else toast.error(message);
-        },
-      },
-    );
+    mutation.mutate({ ...input, version: detail.version });
   }
 
   function click(action: CoverageAction): void {
