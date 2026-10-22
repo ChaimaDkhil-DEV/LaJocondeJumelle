@@ -329,6 +329,7 @@ describe('Historique détaillé', () => {
             finalValidation: false,
             cancelReason: null,
             allowedActions: [],
+            modifiableFields: [],
             isManager: true,
             presences: [],
             history,

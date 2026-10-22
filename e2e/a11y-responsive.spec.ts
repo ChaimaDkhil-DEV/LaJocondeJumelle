@@ -181,6 +181,16 @@ test('004 — écrans des affectations à 320 px, sans violation axe', async ({ 
   // Admin : file, onglets, affectation directe, statistiques.
   await login(page, 'admin');
   await visit('/gardes?onglet=en-attente', 'Gardes de classe', 'file avec une demande');
+  // Spec 006 : dialogue « Modifier l’affectation », atteint et parcouru au clavier (FR-013, SC-005).
+  await page.goto(`/gardes/${request.id}`);
+  await tabTo(page, page.getByRole('button', { name: 'Modifier' }), 120);
+  await page.keyboard.press('Enter');
+  const edit = page.getByRole('dialog', { name: 'Modifier l’affectation' });
+  await expect(edit).toBeVisible();
+  await checkScreen(page, 'dialogue de modification');
+  await tabTo(page, edit.getByRole('combobox', { name: /^Classe/ }));
+  await page.keyboard.press('Escape');
+  await expect(edit).toBeHidden();
   const cancelled = await page.request.post(`/api/coverage/${request.id}/actions`, {
     headers: { Origin: origin },
     data: { action: 'CANCEL', version: request.version, reason: 'Contrôle accessibilité' },

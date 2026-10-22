@@ -86,6 +86,7 @@ function detail(overrides: Record<string, unknown> = {}) {
     finalValidation: false,
     cancelReason: null,
     allowedActions: ['UPDATE', 'WITHDRAW'],
+    modifiableFields: [],
     isManager: false,
     presences: [],
     history: null,

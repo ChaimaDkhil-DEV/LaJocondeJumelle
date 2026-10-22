@@ -203,6 +203,14 @@ describe('Matrice des permissions des affectations (T081)', () => {
       body: () => ({ action: 'EXTEND', minutes: 5 }),
       allowed: ADMINS,
     },
+    // Spec 006 : modification d'une affectation (version volontairement fausse : aucune écriture).
+    {
+      name: 'PATCH /coverage/:id (modification par l’admin)',
+      method: 'patch',
+      path: () => `/api/coverage/${coverageId}`,
+      body: () => ({ version: 999 }),
+      allowed: ADMINS,
+    },
     // Administration du module : super administrateur seulement.
     {
       name: 'GET /admin/coverage/dashboard',

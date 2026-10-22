@@ -178,9 +178,10 @@ describe('Machine à états des affectations', () => {
           });
         }
       }
-      expect(applyCoverageAction(state('PENDING'), 'UPDATE', ctx(['ADMIN']))).toEqual({
-        ok: false,
-        code: 'FORBIDDEN',
+      // Spec 006 : l'admin modifie aussi une affectation « en attente » (attendu modifié, consigné).
+      expect(applyCoverageAction(state('PENDING'), 'UPDATE', ctx(['ADMIN']))).toMatchObject({
+        ok: true,
+        to: 'PENDING',
       });
       expect(applyCoverageAction(state('PENDING'), 'WITHDRAW', ctx(['ADMIN']))).toEqual({
         ok: false,
@@ -237,6 +238,50 @@ describe('Machine à états des affectations', () => {
         ok: false,
         code: 'INVALID_TRANSITION',
       });
+    });
+  });
+
+  describe('modification par l’admin (spec 006, FR-002)', () => {
+    const MODIFIABLE: CoverageStatus[] = ['PENDING', 'ACCEPTED', 'EN_ROUTE', 'LATE', 'ON_DUTY', 'RELIEF_PENDING'];
+
+    it('UPDATE autorisé à l’admin depuis tout statut non définitif, sans changer de statut', () => {
+      for (const status of MODIFIABLE) {
+        expect(applyCoverageAction(state(status), 'UPDATE', ctx(['ADMIN']))).toMatchObject({
+          ok: true,
+          to: status,
+        });
+      }
+    });
+
+    it('UPDATE refusé sur un statut définitif', () => {
+      for (const status of FINAL_COVERAGE_STATUSES) {
+        expect(applyCoverageAction(state(status), 'UPDATE', ctx(['ADMIN']))).toEqual({
+          ok: false,
+          code: 'INVALID_TRANSITION',
+        });
+      }
+    });
+
+    it('la règle de l’enseignant auteur est inchangée (en attente seulement)', () => {
+      expect(applyCoverageAction(state('PENDING'), 'UPDATE', ctx(['REQUESTER_TEACHER']))).toMatchObject({
+        ok: true,
+        to: 'PENDING',
+      });
+      for (const status of MODIFIABLE.filter((s) => s !== 'PENDING')) {
+        expect(applyCoverageAction(state(status), 'UPDATE', ctx(['REQUESTER_TEACHER']))).toEqual({
+          ok: false,
+          code: 'INVALID_TRANSITION',
+        });
+      }
+    });
+
+    it('ni le surveillant affecté ni un surveillant ne peuvent modifier', () => {
+      for (const actor of ['ASSIGNEE', 'SUPERVISOR'] as const) {
+        expect(applyCoverageAction(state('ACCEPTED'), 'UPDATE', ctx([actor]))).toEqual({
+          ok: false,
+          code: 'FORBIDDEN',
+        });
+      }
     });
   });
 
@@ -572,14 +617,17 @@ describe('Machine à états des affectations', () => {
     });
 
     it('admin : en attente, puis en cours', () => {
+      // Spec 006 : « UPDATE » proposé à l'admin (attendu modifié, consigné).
       expect(availableCoverageActions(state('PENDING'), ['ADMIN'])).toEqual([
         'ASSIGN',
+        'UPDATE',
         'EXTEND',
         'CANCEL',
         'SET_TEACHER',
       ]);
       expect(availableCoverageActions(state('ON_DUTY'), ['ADMIN'])).toEqual([
         'REASSIGN',
+        'UPDATE',
         'RELEASE_BY_MANAGER',
         'EXTEND',
         'CANCEL',

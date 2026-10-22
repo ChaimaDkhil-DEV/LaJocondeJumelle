@@ -106,6 +106,31 @@ export class SlotCandidatesQuery {
 const DATE_FORMAT = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_FORMAT = /^([01]\d|2[0-3]):[0-5]\d$/;
 
+/**
+ * Modification d'une affectation par l'admin (spec 006, contracts/rest-api.md `PATCH /coverage/:id`) :
+ * champs facultatifs, permis selon le statut (coverage-modification.ts), dans le fuseau de l'école.
+ */
+export class UpdateCoverageDto {
+  @IsInt()
+  version!: number;
+
+  @IsOptional()
+  @IsUUID('all', { message: 'Choisissez la classe.' })
+  classId?: string;
+
+  @IsOptional()
+  @Matches(DATE_FORMAT, { message: 'Date attendue (AAAA-MM-JJ).' })
+  date?: string;
+
+  @IsOptional()
+  @Matches(TIME_FORMAT, { message: 'Heure de début attendue (HH:MM).' })
+  startTime?: string;
+
+  @IsOptional()
+  @Matches(TIME_FORMAT, { message: 'Heure de fin attendue (HH:MM).' })
+  endTime?: string;
+}
+
 /** Demande d'un enseignant (contracts/rest-api.md `POST /coverage/teacher-requests`, FR-012). */
 export class TeacherRequestDto {
   @IsUUID()

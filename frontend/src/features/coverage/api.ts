@@ -181,6 +181,38 @@ export function useCoverageAction(id: string, handlers: CoverageActionHandlers =
   });
 }
 
+/** Modification par l'admin (spec 006, `PATCH /coverage/:id`) : champs changés seulement. */
+export interface UpdateCoverageInput {
+  version: number;
+  classId?: string;
+  date?: string;
+  startTime?: string;
+  endTime?: string;
+}
+
+export interface UpdateCoverageHandlers {
+  onSuccess?: (detail: CoverageDetail) => void;
+  onError?: (error: Error) => void;
+}
+
+/**
+ * Modification de la classe et du créneau ; retours au niveau de la mutation, appelés même si le
+ * dialogue est démonté avant la réponse (comme useCoverageAction).
+ */
+export function useUpdateCoverage(id: string, handlers: UpdateCoverageHandlers = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: UpdateCoverageInput) =>
+      apiFetch<CoverageDetail>(`/api/coverage/${id}`, { method: 'PATCH', body: input }),
+    onSuccess: (detail) => {
+      queryClient.setQueryData(coverageKeys.detail(id), detail);
+      handlers.onSuccess?.(detail);
+    },
+    onError: (error) => handlers.onError?.(error),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: coverageKeys.all }),
+  });
+}
+
 /** Affectation directe (contracts/rest-api.md `POST /coverage`). */
 export interface NewCoverageInput {
   clientId: string;
