@@ -110,7 +110,7 @@ existant modifié est consigné dans `docs/validation/verification-007.md`.
 - [X] T018 [P] Dans `e2e/a11y-responsive.spec.ts`, test V18 (`mobile-320`) : écran « Nouvelle demande » avec le bouton de brouillon, onglet « Brouillons » et page brouillon (axe, sans défilement horizontal) ; atteindre « Enregistrer en brouillon » au clavier (FR-010, SC-005)
 - [X] T019 [P] Mettre à jour `docs/superadmin-fonctionnalites.md` (§1.1 « Mes demandes » : onglet « Brouillons » ; §4.3 retirer « Brouillons : réglage et API présents, aucun écran pour en créer » ; §2.6 réglage des brouillons : « Complète »)
 - [X] T020 Dérouler les scénarios 1 à 8 de `specs/007-brouillons-demandes/quickstart.md` (couverture automatique et reste à faire à la main) et consigner dans `docs/validation/verification-007.md`
-- [ ] T021 Vérification finale : `npm run verify`, typecheck backend et frontend, `npm run test:e2e` (tous les profils) avec sorties conservées ; consigner les compteurs ; CI verte ; demande de fusion selon `docs/procedure-fusion.md`
+- [X] T021 Vérification finale : `npm run verify`, typecheck backend et frontend, `npm run test:e2e` (tous les profils) avec sorties conservées ; consigner les compteurs ; CI verte ; demande de fusion selon `docs/procedure-fusion.md`
 
 ---
 
