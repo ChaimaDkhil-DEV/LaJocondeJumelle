@@ -6,6 +6,7 @@
 > l'application n'a été modifié pour cet inventaire. Bloc profil et « Mon profil » (§1.1, §4) mis à
 > jour pour la spec 005 (2026-10-22) ; les références `AppLayout.tsx` pointent vers ce code.
 > Modification d'une affectation par l'admin (§2.7, §3, §4.2) mise à jour pour la spec 006.
+> Export des statistiques des affectations (§2.2, §2.7, §4.3) mis à jour pour la spec 008.
 >
 > Depuis la 004 : le rôle « Responsable » (`MANAGER`) est devenu « Admin » (`ADMIN`, migration
 > 0009) ; la diffusion des gardes est remplacée par l'assignation d'un surveillant par un admin
@@ -174,7 +175,9 @@ les comptes actifs sans demande sur la période.
 
 Statistiques détaillées (par enseignant, classe ou période, semaine ou mois) : page
 `/gardes/statistiques` (`CoverageStatsPage.tsx`), `GET /api/coverage/stats`
-(`coverage.controller.ts:45`), admins et super administrateur, sans export.
+(`coverage.controller.ts`), admins et super administrateur. Export CSV de la vue affichée
+(spec 008) : « Exporter en CSV », `GET /api/coverage/stats/export.csv`, mêmes accès et mêmes
+valeurs que la page, chaque export journalisé.
 
 ### 2.3 Comptes (`/admin/comptes`)
 
@@ -248,6 +251,7 @@ Consultation seule, filtres par auteur, action et période (`admin-audit.control
 | Affectation directe (« Affectation créée ») | ✅ `COVERAGE_CREATED` | `coverage.service.ts:441` |
 | Décision sur un doublon possible | ✅ `COVERAGE_MERGE_DECIDED` | `coverage-declarations.service.ts` |
 | Anonymisation des affectations anciennes (tâche planifiée) | ✅ `COVERAGE_ANONYMIZED` | `coverage-anonymization.service.ts:87` |
+| Export des statistiques des affectations (période et regroupement, sans valeur ni nom ; spec 008) | ✅ `COVERAGE_STATS_EXPORTED` | `coverage-stats.service.ts` (`exportCsv`) |
 | Signalement d'un enseignant, classe vide déclarée, actions du surveillant (en route, présence, fin) | ❌ par choix (historique de l'affectation) | `RequestEvent` |
 | Demandes de travail : approbation, refus, réaffectation, annulation, validation finale, renvoi à corriger, changement de priorité (motif signalé, sans son texte) | ✅ `REQUEST_MANAGED` | `request-transitions.service.ts:53`, `requests.service.ts` |
 | Demandes de travail : accepter, commencer, terminer, décliner (actions courantes de l'employé) | ❌ par choix (historique de la demande) | `RequestEvent` |
@@ -288,7 +292,6 @@ Consultation seule, filtres par auteur, action et période (`admin-audit.control
 ### 4.3 Fonctionnalités partielles ou inutilisées
 
 - Absences des surveillants : seulement via la disponibilité « Absent », sans vue dédiée.
-- Statistiques des affectations (`/gardes/statistiques`) : sans export.
 
 ### 4.4 Scénarios de démonstration (`demo/`)
 
