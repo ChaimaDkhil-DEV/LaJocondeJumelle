@@ -42,7 +42,6 @@ import { Badge } from '../../components/Badge';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { formatDateTime, formatRelative } from '../../components/format';
-import { LoadingState } from '../../components/LoadingState';
 import { PRIORITY_LABELS, PriorityBadge } from '../../components/PriorityBadge';
 import { SectionCard } from '../../components/SectionCard';
 import { SectionHeader } from '../../components/SectionHeader';
@@ -53,6 +52,7 @@ import { useRequestList } from '../requests/api';
 import { describeEvent } from '../requests/HistoryTimeline';
 import { useAdminCategories, useAdminUsers } from './api';
 import { DailyChart, StatusChart } from './DashboardCharts';
+import { DashboardSkeleton } from './DashboardSkeleton';
 import { KpiCard } from './KpiCard';
 import {
   DEFAULT_FILTERS,
@@ -229,7 +229,7 @@ function Filters({ value, onChange }: { value: DashboardFilters; onChange: (patc
 
 function GeneralView({ qs }: { qs: string }) {
   const summary = useDashboardSummary(qs);
-  if (summary.isPending) return <LoadingState label="Chargement des indicateurs" />;
+  if (summary.isPending) return <DashboardSkeleton label="Chargement des indicateurs" shape="general" />;
   if (summary.error) return <ErrorState message={loadErrorMessage(summary.error, SUBJECT)} actionLabel="Réessayer" onAction={() => void summary.refetch()} />;
   const s = summary.data;
   const groups = Object.keys(GROUP_LABELS) as StatusGroup[];
@@ -407,7 +407,7 @@ function durationCell(d: DurationStats) {
 
 function PerformanceView({ qs }: { qs: string }) {
   const perf = useDashboardPerformance(qs);
-  if (perf.isPending) return <LoadingState label="Chargement des délais" />;
+  if (perf.isPending) return <DashboardSkeleton label="Chargement des délais" shape="performance" />;
   if (perf.error) return <ErrorState message={loadErrorMessage(perf.error, 'les délais')} actionLabel="Réessayer" onAction={() => void perf.refetch()} />;
   const o: PerformanceStats = perf.data.overall;
   return (
@@ -481,7 +481,7 @@ function PerformanceView({ qs }: { qs: string }) {
 
 function EmployeesView({ qs }: { qs: string }) {
   const employees = useDashboardEmployees(qs);
-  if (employees.isPending) return <LoadingState label="Chargement des employés" />;
+  if (employees.isPending) return <DashboardSkeleton label="Chargement des employés" shape="table" />;
   if (employees.error) return <ErrorState message={loadErrorMessage(employees.error, 'l’activité des employés')} actionLabel="Réessayer" onAction={() => void employees.refetch()} />;
   const items = employees.data.items;
   if (items.length === 0) {
@@ -554,7 +554,7 @@ function EmployeesView({ qs }: { qs: string }) {
 function RequestsView({ filters }: { filters: string }) {
   const list = useRequestList('all', [], filters);
   const items = list.data?.pages.flatMap((p) => p.items) ?? [];
-  if (list.isPending) return <LoadingState label="Chargement des demandes" />;
+  if (list.isPending) return <DashboardSkeleton label="Chargement des demandes" shape="table" />;
   if (list.error) return <ErrorState message={loadErrorMessage(list.error, 'les demandes')} actionLabel="Réessayer" onAction={() => void list.refetch()} />;
   if (items.length === 0) {
     return (
@@ -638,7 +638,7 @@ function describeActivity(item: ActivityItem): string {
 function ActivityView({ qs }: { qs: string }) {
   const activity = useDashboardActivity(qs);
   const items = activity.data?.pages.flatMap((p) => p.items) ?? [];
-  if (activity.isPending) return <LoadingState label="Chargement de l’activité" />;
+  if (activity.isPending) return <DashboardSkeleton label="Chargement de l’activité" shape="timeline" />;
   if (activity.error) return <ErrorState message={loadErrorMessage(activity.error, 'l’activité')} actionLabel="Réessayer" onAction={() => void activity.refetch()} />;
   if (items.length === 0) {
     return (
