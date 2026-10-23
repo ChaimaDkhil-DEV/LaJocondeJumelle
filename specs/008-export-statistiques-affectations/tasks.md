@@ -109,7 +109,7 @@ attendu existant modifié est consigné dans `docs/validation/verification-008.m
 - [X] T019 [P] Dans `e2e/a11y-responsive.spec.ts`, test V18 (`mobile-320`) de l'écran statistiques : lien « Exporter en CSV » visible, sans défilement horizontal, atteint au clavier, audit axe sans violation (FR-010, SC-005)
 - [X] T020 [P] Mettre à jour `docs/superadmin-fonctionnalites.md` : §2.2 (statistiques détaillées : « export CSV » au lieu de « sans export », route `GET /api/coverage/stats/export.csv`, journalisé) ; §4.3 retirer « Statistiques des affectations (`/gardes/statistiques`) : sans export » ; §2.7 (journal d'audit) : nouvelle action si les actions y sont listées
 - [X] T021 Dérouler les scénarios 1 à 7 de `specs/008-export-statistiques-affectations/quickstart.md` (couverture automatique et reste à faire à la main) et consigner dans `docs/validation/verification-008.md`
-- [ ] T022 Vérification finale : `npm run verify`, typecheck backend et frontend, `npm run test:e2e` (tous les profils) avec sorties conservées ; consigner les compteurs dans `docs/validation/verification-008.md` ; CI verte sur le dernier commit ; demande de fusion selon `docs/procedure-fusion.md`
+- [X] T022 Vérification finale : `npm run verify`, typecheck backend et frontend, `npm run test:e2e` (tous les profils) avec sorties conservées ; consigner les compteurs dans `docs/validation/verification-008.md` ; CI verte sur le dernier commit ; demande de fusion selon `docs/procedure-fusion.md`
 
 ---
 
