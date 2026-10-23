@@ -1,7 +1,8 @@
-import { Body, Controller, Get, Header, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
-import type { Request } from 'express';
+import { Body, Controller, Get, Param, Patch, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
+import type { Request, Response } from 'express';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/current-user.decorator';
+import { setCsvDownloadHeaders } from '../common/csv';
 import { clientIp } from '../common/request-info';
 import { SuperAdminGuard } from '../audit/super-admin.guard';
 import { CoverageAdminService } from './coverage-admin.service';
@@ -19,11 +20,10 @@ export class CoverageAdminController {
   }
 
   @Get('export.csv')
-  @Header('Content-Type', 'text/csv; charset=utf-8')
-  @Header('Content-Disposition', 'attachment; filename="suivi-affectations.csv"')
-  @Header('Cache-Control', 'private, no-store')
-  exportCsv(@Query() query: ListCoverageQuery) {
-    return this.admin.exportCsv(query);
+  async exportCsv(@Query() query: ListCoverageQuery, @Res({ passthrough: true }) res: Response) {
+    const body = await this.admin.exportCsv(query);
+    setCsvDownloadHeaders(res, 'suivi-affectations.csv');
+    return body;
   }
 
   @Get('groups')

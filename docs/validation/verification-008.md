@@ -77,3 +77,10 @@ Spec 004 had delivered the statistics "without export" (FR-022); two tests said 
 existing exports (`/api/admin/dashboard/export.csv`, `/api/admin/coverage/export.csv`) still use
 `@Header`: their error responses have the same defect (out of scope for 008, to be
 handled separately).
+
+**Fixed afterwards** (branch `fix-entetes-export-csv`): the three exports set their headers through
+`setCsvDownloadHeaders` (`backend/src/common/csv.ts`) after the file is produced. Tests added:
+`admin-dashboard.spec.ts` (inverted period and unknown timezone → JSON `400`, without
+`Content-Disposition`; JSON `403` refusal) and `coverage.spec.ts` (invalid filter → JSON `400`).
+Finding: access refusals (`SuperAdminGuard`) were already JSON, since the access check runs
+before the headers are set; only validation and service errors were affected.
