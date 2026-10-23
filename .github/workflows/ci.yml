@@ -22,23 +22,44 @@ jobs:
       # Paquets .deb de ffmpeg (environ 94 Mo) gardés en cache : le miroir apt d'Azure est souvent
       # lent (plus de 10 min le 2026-10-23, demandes #28 et #31). Avec le cache, apt ne télécharge
       # que les paquets absents ou mis à jour depuis ; changer le suffixe -v1 pour le vider.
-      - name: Cache des paquets ffmpeg
-        uses: actions/cache@v4
+      # Restauration et sauvegarde séparées : un run qui dépasse le plafond garde les paquets déjà
+      # téléchargés, le suivant reprend à partir d'eux. Clé par run (un cache GitHub ne se
+      # remplace pas), restaurée par préfixe ; sauvegarde seulement si des paquets ont changé.
+      - name: Restaurer les paquets ffmpeg
+        id: apt-cache
+        uses: actions/cache/restore@v4
         with:
           path: ~/apt-ffmpeg
-          key: apt-ffmpeg-${{ runner.os }}-${{ runner.arch }}-v1
+          key: apt-ffmpeg-${{ runner.os }}-${{ runner.arch }}-v1-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: apt-ffmpeg-${{ runner.os }}-${{ runner.arch }}-v1-
 
       # Plafond : l'installation par apt a déjà bloqué plus de 20 min (2026-10-22, deux fois) ; échec
       # rapide au lieu du délai de 6 h par défaut, puis relance manuelle (gh run rerun).
       - name: Installer ffmpeg (conversion des vocaux)
+        id: ffmpeg
         timeout-minutes: 10
         run: |
           mkdir -p ~/apt-ffmpeg/partial
+          before=$(ls ~/apt-ffmpeg/*.deb 2>/dev/null | sort | md5sum)
           sudo apt-get update
           sudo apt-get install -y -o Dir::Cache::Archives="$HOME/apt-ffmpeg" \
             -o APT::Keep-Downloaded-Packages=true ffmpeg
-          sudo chown -R "$USER" ~/apt-ffmpeg
+          after=$(ls ~/apt-ffmpeg/*.deb 2>/dev/null | sort | md5sum)
+          [ "$before" = "$after" ] || echo "changed=true" >> "$GITHUB_OUTPUT"
           ffmpeg -version | head -1 && ffprobe -version | head -1
+
+      - name: Préparer le cache des paquets ffmpeg
+        if: always() && (steps.ffmpeg.outcome != 'success' || steps.ffmpeg.outputs.changed == 'true')
+        run: |
+          sudo rm -rf ~/apt-ffmpeg/partial ~/apt-ffmpeg/lock
+          sudo chown -R "$USER" ~/apt-ffmpeg
+
+      - name: Sauvegarder les paquets ffmpeg
+        if: always() && (steps.ffmpeg.outcome != 'success' || steps.ffmpeg.outputs.changed == 'true')
+        uses: actions/cache/save@v4
+        with:
+          path: ~/apt-ffmpeg
+          key: apt-ffmpeg-${{ runner.os }}-${{ runner.arch }}-v1-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Installer les dépendances
         run: npm ci
