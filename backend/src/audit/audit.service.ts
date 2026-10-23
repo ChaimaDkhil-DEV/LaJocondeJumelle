@@ -46,6 +46,11 @@ const ALLOWED_DETAIL_KEYS = new Set([
   // Anonymisation (FR-023a) : décompte et paramètres seulement
   'retentionMonths',
   'cutoff',
+  // Statistiques des affectations (008) : période et regroupement exportés, jamais de valeur ni de nom
+  'from',
+  'to',
+  'groupBy',
+  'period',
 ]);
 
 function scrub(value: unknown): unknown {

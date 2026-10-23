@@ -42,10 +42,29 @@ export class CoverageController {
     private readonly statsService: CoverageStatsService,
   ) {}
 
-  /** Admins et super administrateur : statistiques (FR-022) ; aucun export. */
+  /** Admins et super administrateur : statistiques (FR-022). */
   @Get('stats')
   stats(@CurrentUser() user: AuthenticatedUser, @Query() query: CoverageStatsQuery, @Req() req: Request) {
     return this.statsService.stats(user, query, contextOf(req));
+  }
+
+  /**
+   * Export CSV des statistiques affichées (spec 008) ; nom du fichier selon la période et le
+   * regroupement. En-têtes posés après la production du fichier : un refus ou une période invalide
+   * garde la réponse d'erreur JSON habituelle (`@Header` les poserait avant l'appel).
+   */
+  @Get('stats/export.csv')
+  async exportStats(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: CoverageStatsQuery,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { filename, body } = await this.statsService.exportCsv(user, query, contextOf(req));
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Cache-Control', 'private, no-store');
+    return body;
   }
 
   /** Formulaire d'affectation directe (admins) : classes et enseignants. */

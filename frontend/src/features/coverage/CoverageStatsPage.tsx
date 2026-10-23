@@ -1,5 +1,6 @@
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 import MenuItem from '@mui/material/MenuItem';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
@@ -10,7 +11,7 @@ import TableRow from '@mui/material/TableRow';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { BarChart3 } from 'lucide-react';
+import { BarChart3, Download } from 'lucide-react';
 import { useId, useState } from 'react';
 import { ApiError, apiFetch } from '../../api/client';
 import { EmptyState } from '../../components/EmptyState';
@@ -18,7 +19,7 @@ import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
 import { PageHeader } from '../../components/PageHeader';
 import { SectionCard } from '../../components/SectionCard';
-import { fontSize } from '../../design/tokens';
+import { fontSize, icon } from '../../design/tokens';
 import { useCoverageProfile } from './api';
 import { formatDuration } from './labels';
 import type { CoverageStats, StatsCounters } from './types';
@@ -145,7 +146,7 @@ function StatsTable({ stats }: { stats: CoverageStats }) {
 
 /**
  * Statistiques des affectations (US5, FR-022) : admin et super administrateur. Les annulées et les
- * doublons « non tranchés » sont comptés à part ; aucun export dans ce lot.
+ * doublons « non tranchés » sont comptés à part ; export CSV de la vue affichée (spec 008).
  */
 export function CoverageStatsPage() {
   const profile = useCoverageProfile();
@@ -245,6 +246,19 @@ function StatsView({ defaultFrom, defaultTo }: { defaultFrom: string; defaultTo:
           <LoadingState label="Calcul des statistiques" />
         ) : (
           <>
+            {/* Seulement sur des statistiques à jour : ni date incomplète, ni recalcul (anciennes valeurs affichées). */}
+            {complete && !stats.isPlaceholderData && (
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <Button
+                  component="a"
+                  href={`/api/coverage/stats/export.csv?${params.toString()}`}
+                  download
+                  startIcon={<Download size={icon.sm} aria-hidden="true" />}
+                >
+                  Exporter en CSV
+                </Button>
+              </Box>
+            )}
             <SectionCard>
               <Figures
                 label="Totaux de la période"

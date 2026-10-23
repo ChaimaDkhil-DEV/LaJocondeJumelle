@@ -20,6 +20,12 @@ describe('sanitizeAuditDetails', () => {
     });
   });
 
+  it('garde la période et le regroupement d’un export des statistiques (008)', () => {
+    expect(
+      sanitizeAuditDetails({ from: '2026-10-01', to: '2026-10-23', groupBy: 'period', period: 'month', rows: [] }),
+    ).toEqual({ from: '2026-10-01', to: '2026-10-23', groupBy: 'period', period: 'month' });
+  });
+
   it('renvoie undefined quand il ne reste rien', () => {
     expect(sanitizeAuditDetails({ password: 'x' })).toBeUndefined();
     expect(sanitizeAuditDetails(undefined)).toBeUndefined();

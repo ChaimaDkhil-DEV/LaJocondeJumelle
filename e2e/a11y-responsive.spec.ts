@@ -202,7 +202,11 @@ test('004 — écrans des affectations à 320 px, sans violation axe', async ({ 
   await visit('/gardes/nouvelle', 'Nouvelle affectation');
   await visit('/gardes/statistiques', 'Statistiques des affectations');
   await expect(page.getByRole('region', { name: 'Par enseignant' })).toBeVisible();
-  await checkScreen(page, 'statistiques avec tableau');
+  // Spec 008 : « Exporter en CSV » visible et atteint au clavier (FR-010, SC-005).
+  const exportLink = page.getByRole('link', { name: 'Exporter en CSV' });
+  await expect(exportLink).toBeVisible();
+  await tabTo(page, exportLink);
+  await checkScreen(page, 'statistiques avec tableau et export');
   await page.getByRole('button', { name: 'Se déconnecter' }).click();
 
   // Super administrateur : étages.
