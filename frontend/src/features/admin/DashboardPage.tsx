@@ -37,7 +37,8 @@ import { useState } from 'react';
 import { Link as RouterLink, useSearchParams } from 'react-router';
 import { loadErrorMessage } from '../../api/client';
 import type { Priority } from '../../api/types';
-import { STAGE_LABELS } from '../../components/Countdown';
+import { STAGE_LABELS, type DeadlineStage } from '../../components/Countdown';
+import { Badge } from '../../components/Badge';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { formatDateTime, formatRelative } from '../../components/format';
@@ -114,6 +115,21 @@ const PRIORITIES: Priority[] = ['URGENT', 'HIGH', 'MEDIUM', 'NORMAL'];
 /** Tableau défilant (mobile) : atteignable au clavier et nommé pour les lecteurs d’écran. */
 function scrollRegion(label: string) {
   return { tabIndex: 0, role: 'region', 'aria-label': label } as const;
+}
+
+/**
+ * Longs tableaux : hauteur bornée à partir de md pour que l'en-tête collant reste visible ; sur
+ * mobile, la page défile normalement (pas de zone défilante imbriquée).
+ */
+const stickyArea = { maxHeight: { md: 560 } } as const;
+
+/** Retard : icône et texte, la couleur rouge n'est qu'un complément. */
+function OverdueBadge({ stage }: { stage: DeadlineStage }) {
+  return (
+    <Badge tone="error" icon={AlarmClock}>
+      En retard ({STAGE_LABELS[stage]})
+    </Badge>
+  );
 }
 
 const SUBJECT = 'le tableau de bord';
@@ -329,8 +345,8 @@ function GeneralView({ qs }: { qs: string }) {
 
 function AlertTable({ alerts }: { alerts: DashboardAlert[] }) {
   return (
-    <TableContainer component={Paper} variant="outlined" {...scrollRegion('Demandes à traiter en priorité')}>
-      <Table size="small" aria-label="Demandes à traiter en priorité">
+    <TableContainer component={Paper} variant="outlined" sx={stickyArea} {...scrollRegion('Demandes à traiter en priorité')}>
+      <Table size="small" stickyHeader aria-label="Demandes à traiter en priorité">
         <TableHead>
           <TableRow>
             <TableCell>Demande</TableCell>
@@ -359,9 +375,7 @@ function AlertTable({ alerts }: { alerts: DashboardAlert[] }) {
               </TableCell>
               <TableCell sx={{ whiteSpace: 'nowrap' }}>
                 {a.overdueStage ? (
-                  <Box component="span" sx={(theme) => ({ color: tokensOf(theme).error.text })}>
-                    En retard ({STAGE_LABELS[a.overdueStage]})
-                  </Box>
+                  <OverdueBadge stage={a.overdueStage} />
                 ) : a.currentDueAt ? (
                   formatDateTime(a.currentDueAt)
                 ) : (
@@ -479,8 +493,8 @@ function EmployeesView({ qs }: { qs: string }) {
   }
   return (
     <Box sx={{ display: 'grid', gap: 1.5 }}>
-      <TableContainer component={Paper} variant="elevated" {...scrollRegion('Activité des employés')}>
-        <Table size="small" aria-label="Activité des employés">
+      <TableContainer component={Paper} variant="elevated" sx={stickyArea} {...scrollRegion('Activité des employés')}>
+        <Table size="small" stickyHeader aria-label="Activité des employés">
           <TableHead>
             <TableRow>
               <TableCell>Employé</TableCell>
@@ -511,7 +525,15 @@ function EmployeesView({ qs }: { qs: string }) {
                 <TableCell align="right">{e.pendingTakeover}</TableCell>
                 <TableCell align="right">{e.inProgress}</TableCell>
                 <TableCell align="right">{e.done}</TableCell>
-                <TableCell align="right">{e.overdueNow > 0 ? <strong>{e.overdueNow}</strong> : 0}</TableCell>
+                <TableCell align="right">
+                  {e.overdueNow > 0 ? (
+                    <Badge tone="error" icon={AlarmClock}>
+                      {e.overdueNow}
+                    </Badge>
+                  ) : (
+                    0
+                  )}
+                </TableCell>
                 <TableCell align="right">{formatDurationMs(e.takeover.avgMs)}</TableCell>
                 <TableCell align="right">{formatDurationMs(e.resolution.avgMs)}</TableCell>
                 <TableCell sx={{ whiteSpace: 'nowrap' }}>{e.lastActionAt ? formatRelative(e.lastActionAt) : '—'}</TableCell>
@@ -543,8 +565,8 @@ function RequestsView({ filters }: { filters: string }) {
   }
   return (
     <Box sx={{ display: 'grid', gap: 2 }}>
-      <TableContainer component={Paper} variant="elevated" {...scrollRegion('Demandes de la période')}>
-        <Table size="small" aria-label="Demandes de la période">
+      <TableContainer component={Paper} variant="elevated" sx={stickyArea} {...scrollRegion('Demandes de la période')}>
+        <Table size="small" stickyHeader aria-label="Demandes de la période">
           <TableHead>
             <TableRow>
               <TableCell>Demande</TableCell>
@@ -577,7 +599,7 @@ function RequestsView({ filters }: { filters: string }) {
                 <TableCell>{r.assignee?.displayName ?? '—'}</TableCell>
                 <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDateTime(r.createdAt)}</TableCell>
                 <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                  {r.overdueStage ? `En retard (${STAGE_LABELS[r.overdueStage]})` : r.currentDueAt ? formatDateTime(r.currentDueAt) : '—'}
+                  {r.overdueStage ? <OverdueBadge stage={r.overdueStage} /> : r.currentDueAt ? formatDateTime(r.currentDueAt) : '—'}
                 </TableCell>
               </TableRow>
             ))}

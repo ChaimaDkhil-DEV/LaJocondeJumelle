@@ -425,6 +425,24 @@ export function createAppTheme(mode: ColorMode = 'light'): Theme {
         MuiListItemButton: {
           styleOverrides: { root: { minHeight: 40, borderRadius: radius.control, [COARSE]: { minHeight: 44 } } },
         },
+        // Tableaux : en-tête sur fond discret (aussi en mode collant), chiffres à chasse fixe, pas
+        // de filet sous la dernière ligne (le tableau est posé dans une carte bordée).
+        MuiTableCell: {
+          styleOverrides: {
+            root: { borderBottom: `1px solid ${c.border}`, fontSize: fontSize.sm, lineHeight: 1.45, fontVariantNumeric: 'tabular-nums' },
+            head: { backgroundColor: c.surfaceMuted, color: c.textSecondary, fontWeight: font.medium, whiteSpace: 'nowrap' },
+            stickyHeader: { backgroundColor: c.surfaceMuted },
+            sizeSmall: { padding: '10px 12px', '&:first-of-type': { paddingLeft: 16 }, '&:last-of-type': { paddingRight: 16 } },
+          },
+        },
+        MuiTableRow: {
+          styleOverrides: {
+            root: {
+              '.MuiTableBody-root > &:last-of-type > .MuiTableCell-root': { borderBottom: 0 },
+              '&.MuiTableRow-hover:hover': { backgroundColor: c.surfaceMuted },
+            },
+          },
+        },
         MuiDivider: { styleOverrides: { root: { borderColor: c.border } } },
         MuiSkeleton: {
           defaultProps: { animation: 'pulse' },
