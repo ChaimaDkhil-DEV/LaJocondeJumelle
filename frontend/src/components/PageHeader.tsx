@@ -43,7 +43,7 @@ export function PageHeader({ title, description, eyebrow, actions, back, childre
               {eyebrow}
             </Typography>
           )}
-          <Typography id={titleId} component="h1" variant="h4" sx={{ overflowWrap: 'anywhere' }}>
+          <Typography id={titleId} component="h1" variant="h1" sx={{ overflowWrap: 'anywhere' }}>
             {title}
           </Typography>
           {description && (

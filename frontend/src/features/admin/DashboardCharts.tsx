@@ -1,18 +1,14 @@
 import Box from '@mui/material/Box';
 import { useTheme } from '@mui/material/styles';
 import type { ReactNode } from 'react';
-import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { fontSize, tokensOf } from '../../design/tokens';
+import { Bar, BarChart, CartesianGrid, LabelList, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { font, fontSize, radius, tokensOf } from '../../design/tokens';
 
-/**
- * Graphiques du tableau de bord (Recharts). Couleurs validées (contraste, daltonisme) sur les
- * surfaces claire et sombre ; la série « terminées » est aussi tiretée (codage secondaire), et
- * chaque graphique a sa vue tableau.
+/*
+ * Graphiques du tableau de bord (Recharts). Couleurs des séries : tokens « chart » (contraste,
+ * daltonisme) ; la série « terminées » est aussi tiretée (codage secondaire), et chaque graphique
+ * a sa vue tableau.
  */
-const SERIES = {
-  light: { created: '#4f46e5', completed: '#0d9488' },
-  dark: { created: '#6366f1', completed: '#0d9488' },
-} as const;
 
 const shortDay = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short' });
 const longDay = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -22,11 +18,11 @@ function useChartTheme() {
   const theme = useTheme();
   const t = tokensOf(theme);
   return {
-    series: SERIES[theme.palette.mode],
+    series: t.chart,
     axis: { stroke: t.border, tick: { fill: t.textSecondary, fontSize: fontSize.xs } },
     grid: t.border,
     tooltip: {
-      contentStyle: { background: t.surface, border: `1px solid ${t.border}`, borderRadius: 8, fontSize: fontSize.sm, color: t.text },
+      contentStyle: { background: t.surface, border: `1px solid ${t.border}`, borderRadius: radius.control, fontSize: fontSize.sm, color: t.text },
       labelStyle: { color: t.text, fontWeight: 500 },
       cursor: { fill: t.surfaceMuted, stroke: t.borderStrong },
     },
@@ -36,7 +32,30 @@ function useChartTheme() {
 /** Données du graphique sous forme de tableau, repliées par défaut. */
 function DataTable({ caption, head, rows }: { caption: string; head: string[]; rows: Array<Array<ReactNode>> }) {
   return (
-    <Box component="details" sx={{ mt: 1, fontSize: fontSize.sm, '& summary': { cursor: 'pointer', color: 'text.secondary', minHeight: 32 } }}>
+    <Box
+      component="details"
+      sx={(theme) => ({
+        mt: 1.5,
+        pt: 1,
+        borderTop: 1,
+        borderColor: 'divider',
+        fontSize: fontSize.sm,
+        '& summary': {
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 0.5,
+          cursor: 'pointer',
+          minHeight: 32,
+          px: 1,
+          ml: -1,
+          borderRadius: `${radius.control}px`,
+          fontWeight: font.medium,
+          color: tokensOf(theme).textSecondary,
+          '&:hover': { color: tokensOf(theme).text, bgcolor: tokensOf(theme).surfaceMuted },
+          '@media (pointer: coarse)': { minHeight: 44 },
+        },
+      })}
+    >
       <summary>Voir les données</summary>
       <Box tabIndex={0} role="region" aria-label={caption} sx={{ maxHeight: 240, overflow: 'auto' }}>
         <Box
@@ -68,19 +87,30 @@ function DataTable({ caption, head, rows }: { caption: string; head: string[]; r
   );
 }
 
+/** Libellé d'état posé au-dessus de sa barre : toute la largeur reste aux barres, même à 320 px. */
+function BarCaption({ x, y, value, fill }: { x?: number | string; y?: number | string; value?: ReactNode; fill: string }) {
+  return (
+    <text x={Number(x)} y={Number(y) - 6} fill={fill} fontSize={fontSize.xs}>
+      {value}
+    </text>
+  );
+}
+
 /** Répartition des demandes de la période par état (une seule série : pas de légende). */
 export function StatusChart({ data }: { data: Array<{ label: string; count: number }> }) {
   const c = useChartTheme();
   return (
     <Box>
-      <Box role="img" aria-label="Répartition des demandes par état" sx={{ height: Math.max(180, data.length * 40) }}>
+      <Box role="img" aria-label="Répartition des demandes par état" sx={{ height: data.length * 44 + 32 }}>
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} layout="vertical" margin={{ top: 4, right: 24, bottom: 4, left: 8 }} barCategoryGap={8}>
-            <CartesianGrid horizontal={false} stroke={c.grid} strokeDasharray="0" />
+          <BarChart data={data} layout="vertical" margin={{ top: 12, right: 40, bottom: 4, left: 0 }}>
+            <CartesianGrid horizontal={false} stroke={c.grid} />
             <XAxis type="number" allowDecimals={false} {...c.axis} tickLine={false} axisLine={false} />
-            <YAxis type="category" dataKey="label" width={170} {...c.axis} tickLine={false} />
+            <YAxis type="category" dataKey="label" hide />
             <Tooltip {...c.tooltip} formatter={(value) => [value, 'Demandes']} />
-            <Bar dataKey="count" name="Demandes" fill={c.series.created} radius={[0, 4, 4, 0]} maxBarSize={24} label={{ position: 'right', fill: c.axis.tick.fill, fontSize: fontSize.xs }} />
+            <Bar dataKey="count" name="Demandes" fill={c.series.created} radius={[0, 4, 4, 0]} barSize={12} minPointSize={2} label={{ position: 'right', fill: c.axis.tick.fill, fontSize: fontSize.xs }}>
+              <LabelList dataKey="label" content={(props) => <BarCaption x={props.x} y={props.y} value={props.value} fill={c.axis.tick.fill} />} />
+            </Bar>
           </BarChart>
         </ResponsiveContainer>
       </Box>
@@ -92,6 +122,8 @@ export function StatusChart({ data }: { data: Array<{ label: string; count: numb
 /** Demandes créées et terminées par jour sur la période. */
 export function DailyChart({ data }: { data: Array<{ day: string; created: number; completed: number }> }) {
   const c = useChartTheme();
+  // Périodes courtes : un point par jour, pour lire chaque valeur ; au-delà, la courbe seule.
+  const dot = (fill: string) => (data.length <= 14 ? { r: 3, fill, strokeWidth: 0, strokeDasharray: '0' } : false);
   return (
     <Box>
       <Box role="img" aria-label="Demandes créées et terminées par jour" sx={{ height: 260 }}>
@@ -100,10 +132,19 @@ export function DailyChart({ data }: { data: Array<{ day: string; created: numbe
             <CartesianGrid vertical={false} stroke={c.grid} />
             <XAxis dataKey="day" tickFormatter={(d: string) => shortDay.format(dayOf(d))} minTickGap={24} {...c.axis} tickLine={false} />
             <YAxis allowDecimals={false} {...c.axis} tickLine={false} axisLine={false} />
-            <Tooltip {...c.tooltip} labelFormatter={(d) => longDay.format(dayOf(String(d)))} />
-            <Legend iconType="plainline" wrapperStyle={{ fontSize: fontSize.sm, color: c.axis.tick.fill }} />
-            <Line type="monotone" dataKey="created" name="Créées" stroke={c.series.created} strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
-            <Line type="monotone" dataKey="completed" name="Terminées" stroke={c.series.completed} strokeWidth={2} strokeDasharray="6 4" dot={false} activeDot={{ r: 4 }} />
+            <Tooltip {...c.tooltip} cursor={{ stroke: c.tooltip.cursor.stroke }} labelFormatter={(d) => longDay.format(dayOf(String(d)))} />
+            <Legend verticalAlign="top" align="right" height={28} iconType="plainline" wrapperStyle={{ fontSize: fontSize.sm, color: c.axis.tick.fill }} />
+            <Line type="monotone" dataKey="created" name="Créées" stroke={c.series.created} strokeWidth={2} dot={dot(c.series.created)} activeDot={{ r: 4 }} />
+            <Line
+              type="monotone"
+              dataKey="completed"
+              name="Terminées"
+              stroke={c.series.completed}
+              strokeWidth={2}
+              strokeDasharray="6 4"
+              dot={dot(c.series.completed)}
+              activeDot={{ r: 4, strokeDasharray: '0' }}
+            />
           </LineChart>
         </ResponsiveContainer>
       </Box>

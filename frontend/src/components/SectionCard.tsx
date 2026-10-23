@@ -17,6 +17,8 @@ interface SectionCardProps {
   component?: ElementType;
   /** Supprime le rembourrage intérieur (listes bord à bord). */
   flush?: boolean;
+  /** Carte posée (ombre légère en plus de la bordure) : tableau de bord. */
+  elevated?: boolean;
   titleId?: string;
   /** Espacement vertical entre les enfants (unités MUI) ; absent : enfants posés tels quels. */
   contentGap?: number;
@@ -33,6 +35,7 @@ export function SectionCard({
   children,
   component = 'section',
   flush = false,
+  elevated = false,
   titleId,
   contentGap,
   ...rest
@@ -41,7 +44,7 @@ export function SectionCard({
   const headingId = titleId ?? generatedId;
   return (
     <Paper
-      variant="outlined"
+      variant={elevated ? 'elevated' : 'outlined'}
       component={component}
       aria-labelledby={title ? headingId : undefined}
       sx={{ p: flush ? 0 : { xs: 2, sm: 3 }, minWidth: 0 }}

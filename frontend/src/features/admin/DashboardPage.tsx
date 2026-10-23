@@ -2,6 +2,7 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
+import type { Theme } from '@mui/material/styles';
 import Tab from '@mui/material/Tab';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
@@ -25,6 +26,7 @@ import {
   Mic,
   MessageSquare,
   Play,
+  RefreshCw,
   SearchX,
   Siren,
   Timer,
@@ -32,25 +34,27 @@ import {
   UserRoundX,
   type LucideIcon,
 } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import { Link as RouterLink, useSearchParams } from 'react-router';
 import { loadErrorMessage } from '../../api/client';
 import type { Priority } from '../../api/types';
-import { STAGE_LABELS } from '../../components/Countdown';
+import { STAGE_LABELS, type DeadlineStage } from '../../components/Countdown';
+import { Badge } from '../../components/Badge';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { formatDateTime, formatRelative } from '../../components/format';
-import { LoadingState } from '../../components/LoadingState';
 import { PRIORITY_LABELS, PriorityBadge } from '../../components/PriorityBadge';
 import { SectionCard } from '../../components/SectionCard';
 import { SectionHeader } from '../../components/SectionHeader';
 import { StatusBadge } from '../../components/StatusBadge';
 import { Person } from '../../components/UserAvatar';
-import { font, fontSize, icon, tokensOf, type Tone } from '../../design/tokens';
+import { cardShadow, font, icon, radius, tokensOf } from '../../design/tokens';
 import { useRequestList } from '../requests/api';
-import { describeEvent } from '../requests/HistoryTimeline';
+import { describeEvent, EVENT_ICONS } from '../requests/HistoryTimeline';
 import { useAdminCategories, useAdminUsers } from './api';
 import { DailyChart, StatusChart } from './DashboardCharts';
+import { DashboardSkeleton } from './DashboardSkeleton';
+import { KpiCard } from './KpiCard';
 import {
   DEFAULT_FILTERS,
   formatDurationMs,
@@ -114,54 +118,83 @@ function scrollRegion(label: string) {
   return { tabIndex: 0, role: 'region', 'aria-label': label } as const;
 }
 
-const SUBJECT = 'le tableau de bord';
+/**
+ * Longs tableaux : hauteur bornée à partir de md pour que l'en-tête collant reste visible ; sur
+ * mobile, la page défile normalement (pas de zone défilante imbriquée).
+ */
+const stickyArea = { maxHeight: { md: 560 } } as const;
 
-function Kpi({ label, value, hint, tone = 'neutral', icon: Icon }: { label: string; value: ReactNode; hint?: string; tone?: Tone; icon: LucideIcon }) {
+/** Retard : icône et texte, la couleur rouge n'est qu'un complément. */
+function OverdueBadge({ stage }: { stage: DeadlineStage }) {
   return (
-    <Paper variant="outlined" sx={{ p: 2, display: 'grid', gap: 0.5, alignContent: 'start' }}>
-      <Box
-        sx={(theme) => ({
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 0.75,
-          fontSize: fontSize.sm,
-          color: tokensOf(theme).textSecondary,
-          '& svg': { flex: 'none', color: tone === 'neutral' ? tokensOf(theme).textMuted : tokensOf(theme)[tone].main },
-        })}
-      >
-        <Icon size={icon.sm} aria-hidden="true" />
-        {label}
-      </Box>
-      <Typography component="p" sx={{ fontSize: fontSize.xl, fontWeight: font.medium, fontVariantNumeric: 'tabular-nums' }}>
-        {value}
-      </Typography>
-      {hint && (
-        <Typography variant="caption" color="text.secondary">
-          {hint}
-        </Typography>
-      )}
-    </Paper>
+    <Badge tone="error" icon={AlarmClock}>
+      En retard ({STAGE_LABELS[stage]})
+    </Badge>
   );
 }
 
-const kpiGrid = { display: 'grid', gap: 1.5, gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', md: 'repeat(4, minmax(0, 1fr))' } } as const;
+const SUBJECT = 'le tableau de bord';
+
+/**
+ * Onglets de vue en contrôle segmenté, pour ne pas les confondre avec la navigation soulignée des
+ * sections de l'administration. L'onglet actif est signalé par sa pastille blanche en relief et sa
+ * graisse, pas par la seule couleur.
+ */
+const segmentedTabs = (theme: Theme) => {
+  const t = tokensOf(theme);
+  return {
+    display: 'inline-flex',
+    maxWidth: '100%',
+    minHeight: 0,
+    p: 0.5,
+    border: `1px solid ${t.border}`,
+    borderBottom: `1px solid ${t.border}`,
+    borderRadius: `${radius.control + 2}px`,
+    bgcolor: t.surfaceMuted,
+    '& .MuiTabs-indicator': { display: 'none' },
+    '& .MuiTabs-list': { gap: 0.5 },
+    '& .MuiTabs-scrollButtons': { width: 32, borderRadius: `${radius.control}px` },
+    '& .MuiTab-root': {
+      minHeight: 36,
+      py: 0.75,
+      px: 1.5,
+      borderRadius: `${radius.control}px`,
+      '@media (pointer: coarse)': { minHeight: 44 },
+      '&.Mui-focusVisible': { outlineOffset: -2 },
+    },
+    '& .MuiTab-root.Mui-selected': { bgcolor: t.surface, color: t.text, fontWeight: font.semibold, boxShadow: cardShadow },
+  };
+};
+
+const kpiGrid ={ display: 'grid', gap: 1.5, gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', md: 'repeat(4, minmax(0, 1fr))' } } as const;
 
 function Filters({ value, onChange }: { value: DashboardFilters; onChange: (patch: Partial<DashboardFilters>) => void }) {
   const categories = useAdminCategories();
   const users = useAdminUsers();
   const workCategories = (categories.data ?? []).filter((c) => c.kind === 'WORK');
+  // À 320 px : période et catégorie (libellés longs) sur toute la largeur, priorité et employé côte à côte.
+  const wide = { gridColumn: { xs: '1 / -1', sm: 'auto' } } as const;
   return (
     <Paper
-      variant="outlined"
-      sx={{ p: 2, mb: 2, display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', md: 'repeat(4, minmax(0, 1fr))' } }}
+      variant="elevated"
+      role="group"
+      aria-label="Filtres du tableau de bord"
+      sx={{
+        p: { xs: 1.5, sm: 2 },
+        mb: 2,
+        display: 'grid',
+        gap: { xs: 1.5, sm: 2 },
+        alignItems: 'end',
+        gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', md: 'repeat(4, minmax(0, 1fr))' },
+      }}
     >
-      <TextField select id="tdb-periode" label="Période" size="small" value={value.preset} onChange={(e) => onChange({ preset: e.target.value as DashboardFilters['preset'] })}>
+      <TextField select id="tdb-periode" label="Période" size="small" sx={wide} value={value.preset} onChange={(e) => onChange({ preset: e.target.value as DashboardFilters['preset'] })}>
         <MenuItem value="7">7 derniers jours</MenuItem>
         <MenuItem value="30">30 derniers jours</MenuItem>
         <MenuItem value="90">90 derniers jours</MenuItem>
         <MenuItem value="custom">Personnalisée</MenuItem>
       </TextField>
-      <TextField select id="tdb-categorie" label="Catégorie (service)" size="small" value={value.categoryId} onChange={(e) => onChange({ categoryId: e.target.value })} slotProps={{ select: { displayEmpty: true } }}>
+      <TextField select id="tdb-categorie" label="Catégorie (service)" size="small" sx={wide} value={value.categoryId} onChange={(e) => onChange({ categoryId: e.target.value })} slotProps={{ select: { displayEmpty: true } }}>
         <MenuItem value="">Toutes</MenuItem>
         {workCategories.map((c) => (
           <MenuItem key={c.id} value={c.id}>
@@ -187,8 +220,8 @@ function Filters({ value, onChange }: { value: DashboardFilters; onChange: (patc
       </TextField>
       {value.preset === 'custom' && (
         <>
-          <TextField id="tdb-du" label="Du" type="date" size="small" value={value.from} onChange={(e) => onChange({ from: e.target.value })} />
-          <TextField id="tdb-au" label="Au" type="date" size="small" value={value.to} onChange={(e) => onChange({ to: e.target.value })} />
+          <TextField id="tdb-du" label="Du" type="date" size="small" sx={wide} value={value.from} onChange={(e) => onChange({ from: e.target.value })} />
+          <TextField id="tdb-au" label="Au" type="date" size="small" sx={wide} value={value.to} onChange={(e) => onChange({ to: e.target.value })} />
         </>
       )}
     </Paper>
@@ -197,18 +230,39 @@ function Filters({ value, onChange }: { value: DashboardFilters; onChange: (patc
 
 function GeneralView({ qs }: { qs: string }) {
   const summary = useDashboardSummary(qs);
-  if (summary.isPending) return <LoadingState label="Chargement des indicateurs" />;
+  if (summary.isPending) return <DashboardSkeleton label="Chargement des indicateurs" shape="general" />;
   if (summary.error) return <ErrorState message={loadErrorMessage(summary.error, SUBJECT)} actionLabel="Réessayer" onAction={() => void summary.refetch()} />;
   const s = summary.data;
   const groups = Object.keys(GROUP_LABELS) as StatusGroup[];
 
   return (
     <Box sx={{ display: 'grid', gap: 3 }}>
-      <SectionCard title="À traiter maintenant" icon={TriangleAlert} description="Situation actuelle, toutes périodes confondues (les autres filtres s’appliquent)." contentGap={2}>
+      <SectionCard elevated title="À traiter maintenant" icon={TriangleAlert} description="Situation actuelle, toutes périodes confondues (les autres filtres s’appliquent)." contentGap={2}>
         <Box sx={{ ...kpiGrid, gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, minmax(0, 1fr))' } }}>
-          <Kpi label="En retard" value={s.current.overdueNow} tone={s.current.overdueNow > 0 ? 'error' : 'neutral'} icon={AlarmClock} hint="Échéance de l’étape en cours dépassée" />
-          <Kpi label="Urgentes en cours" value={s.current.urgentActive} tone={s.current.urgentActive > 0 ? 'warning' : 'neutral'} icon={Siren} hint="Priorité urgente, non terminées" />
-          <Kpi label="Sans employé affecté" value={s.current.unassigned} icon={UserRoundX} hint="Envoyées ou en cours sans employé affecté" />
+          <KpiCard
+            label="En retard"
+            value={s.current.overdueNow}
+            tone="error"
+            alert={{ active: s.current.overdueNow > 0 }}
+            icon={AlarmClock}
+            hint="Échéance de l’étape en cours dépassée"
+          />
+          <KpiCard
+            label="Urgentes en cours"
+            value={s.current.urgentActive}
+            tone="warning"
+            alert={{ active: s.current.urgentActive > 0 }}
+            icon={Siren}
+            hint="Priorité urgente, non terminées"
+          />
+          <KpiCard
+            label="Sans employé affecté"
+            value={s.current.unassigned}
+            tone="info"
+            alert={{ active: s.current.unassigned > 0 }}
+            icon={UserRoundX}
+            hint="Envoyées ou en cours sans employé affecté"
+          />
         </Box>
         {s.alerts.length === 0 ? (
           <EmptyState compact icon={CircleCheck} title="Aucune alerte" description="Aucune demande en retard ni urgente en cours." />
@@ -222,24 +276,24 @@ function GeneralView({ qs }: { qs: string }) {
           Demandes créées sur la période
         </Typography>
         <Box sx={kpiGrid}>
-          <Kpi label="Total" value={s.counts.total} icon={Inbox} hint="Hors brouillons" />
+          <KpiCard label="Total" value={s.counts.total} icon={Inbox} hint="Hors brouillons" />
           {groups.map((g) => (
-            <Kpi key={g} label={GROUP_LABELS[g]} value={s.counts[g]} icon={GROUP_ICONS[g]} hint={GROUP_HINTS[g]} />
+            <KpiCard key={g} label={GROUP_LABELS[g]} value={s.counts[g]} icon={GROUP_ICONS[g]} hint={GROUP_HINTS[g]} />
           ))}
-          <Kpi label="Hors délai" value={s.counts.overdueInPeriod} tone={s.counts.overdueInPeriod > 0 ? 'error' : 'neutral'} icon={AlarmClock} hint="Au moins une étape en retard" />
+          <KpiCard label="Hors délai" value={s.counts.overdueInPeriod} tone={s.counts.overdueInPeriod > 0 ? 'error' : 'accent'} icon={AlarmClock} hint="Au moins une étape en retard" />
         </Box>
       </Box>
 
       {s.counts.total === 0 && s.daily.every((d) => d.completed === 0) ? (
-        <Paper variant="outlined">
+        <Paper variant="elevated">
           <EmptyState icon={SearchX} title="Aucune demande" description="Aucune demande ne correspond à cette période et à ces filtres." />
         </Paper>
       ) : (
         <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: '1fr', lg: 'repeat(2, minmax(0, 1fr))' } }}>
-          <SectionCard title="Répartition par état">
+          <SectionCard elevated title="Répartition par état">
             <StatusChart data={groups.map((g) => ({ label: GROUP_LABELS[g], count: s.counts[g] }))} />
           </SectionCard>
-          <SectionCard
+          <SectionCard elevated
             title="Évolution quotidienne"
             description="Créées : jour de création. Terminées : jour de la première fin de traitement, même pour une demande créée avant la période."
           >
@@ -249,7 +303,7 @@ function GeneralView({ qs }: { qs: string }) {
       )}
 
       <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 2fr) minmax(0, 1fr)' } }}>
-        <SectionCard title="Par catégorie (service)" flush>
+        <SectionCard elevated title="Par catégorie (service)" flush>
           {s.byCategory.length === 0 ? (
             <EmptyState compact title="Aucune donnée" description="Aucune demande sur la période." />
           ) : (
@@ -279,10 +333,10 @@ function GeneralView({ qs }: { qs: string }) {
             </TableContainer>
           )}
         </SectionCard>
-        <SectionCard title="Échanges" description="Messages sur les demandes de la période (nombre seulement, jamais le contenu)." contentGap={1.5}>
+        <SectionCard elevated title="Échanges" description="Messages sur les demandes de la période (nombre seulement, jamais le contenu)." contentGap={1.5}>
           <Box sx={{ display: 'grid', gap: 1.5, gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
-            <Kpi label="Écrits" value={s.messages.text} icon={MessageSquare} />
-            <Kpi label="Vocaux" value={s.messages.voice} icon={Mic} />
+            <KpiCard label="Écrits" value={s.messages.text} icon={MessageSquare} />
+            <KpiCard label="Vocaux" value={s.messages.voice} icon={Mic} />
           </Box>
         </SectionCard>
       </Box>
@@ -292,8 +346,8 @@ function GeneralView({ qs }: { qs: string }) {
 
 function AlertTable({ alerts }: { alerts: DashboardAlert[] }) {
   return (
-    <TableContainer component={Paper} variant="outlined" {...scrollRegion('Demandes à traiter en priorité')}>
-      <Table size="small" aria-label="Demandes à traiter en priorité">
+    <TableContainer component={Paper} variant="outlined" sx={stickyArea} {...scrollRegion('Demandes à traiter en priorité')}>
+      <Table size="small" stickyHeader aria-label="Demandes à traiter en priorité">
         <TableHead>
           <TableRow>
             <TableCell>Demande</TableCell>
@@ -322,9 +376,7 @@ function AlertTable({ alerts }: { alerts: DashboardAlert[] }) {
               </TableCell>
               <TableCell sx={{ whiteSpace: 'nowrap' }}>
                 {a.overdueStage ? (
-                  <Box component="span" sx={(theme) => ({ color: tokensOf(theme).error.text })}>
-                    En retard ({STAGE_LABELS[a.overdueStage]})
-                  </Box>
+                  <OverdueBadge stage={a.overdueStage} />
                 ) : a.currentDueAt ? (
                   formatDateTime(a.currentDueAt)
                 ) : (
@@ -356,30 +408,30 @@ function durationCell(d: DurationStats) {
 
 function PerformanceView({ qs }: { qs: string }) {
   const perf = useDashboardPerformance(qs);
-  if (perf.isPending) return <LoadingState label="Chargement des délais" />;
+  if (perf.isPending) return <DashboardSkeleton label="Chargement des délais" shape="performance" />;
   if (perf.error) return <ErrorState message={loadErrorMessage(perf.error, 'les délais')} actionLabel="Réessayer" onAction={() => void perf.refetch()} />;
   const o: PerformanceStats = perf.data.overall;
   return (
     <Box sx={{ display: 'grid', gap: 3 }}>
       <Box sx={kpiGrid}>
-        <Kpi
+        <KpiCard
           label="Première réponse moyenne"
           value={formatDurationMs(o.firstReply.avgMs)}
           icon={MessageSquare}
           hint={`Soumission → premier message d’une autre personne · ${o.firstReply.count} demande(s)`}
         />
-        <Kpi label="Prise en charge moyenne" value={formatDurationMs(o.takeover.avgMs)} icon={Timer} hint={`Envoi → acceptation · ${o.takeover.count} demande(s)`} />
-        <Kpi label="Traitement net moyen" value={formatDurationMs(o.resolution.avgMs)} icon={Play} hint={`Hors suspensions · ${o.resolution.count} demande(s)`} />
-        <Kpi label="Traitement brut moyen" value={formatDurationMs(o.grossResolution.avgMs)} icon={Hourglass} hint="Envoi → terminée, suspensions comprises" />
-        <Kpi
+        <KpiCard label="Prise en charge moyenne" value={formatDurationMs(o.takeover.avgMs)} icon={Timer} hint={`Envoi → acceptation · ${o.takeover.count} demande(s)`} />
+        <KpiCard label="Traitement net moyen" value={formatDurationMs(o.resolution.avgMs)} icon={Play} hint={`Hors suspensions · ${o.resolution.count} demande(s)`} />
+        <KpiCard label="Traitement brut moyen" value={formatDurationMs(o.grossResolution.avgMs)} icon={Hourglass} hint="Envoi → terminée, suspensions comprises" />
+        <KpiCard
           label="Respect des délais"
           value={formatRate(o.compliance.rate)}
-          tone={o.compliance.rate !== null && o.compliance.rate < 0.8 ? 'warning' : 'neutral'}
+          tone={o.compliance.rate !== null && o.compliance.rate < 0.8 ? 'warning' : 'accent'}
           icon={CircleCheck}
           hint={`${o.compliance.onTime} sur ${o.compliance.evaluated} demande(s) terminée(s) avec délai`}
         />
       </Box>
-      <SectionCard title="Par priorité" flush description="Les délais attendus sont ceux des règles de chaque catégorie (Administration › Catégories).">
+      <SectionCard elevated title="Par priorité" flush description="Les délais attendus sont ceux des règles de chaque catégorie (Administration › Catégories).">
         <TableContainer {...scrollRegion('Délais par priorité')}>
           <Table size="small" aria-label="Délais par priorité">
             <TableHead>
@@ -430,20 +482,20 @@ function PerformanceView({ qs }: { qs: string }) {
 
 function EmployeesView({ qs }: { qs: string }) {
   const employees = useDashboardEmployees(qs);
-  if (employees.isPending) return <LoadingState label="Chargement des employés" />;
+  if (employees.isPending) return <DashboardSkeleton label="Chargement des employés" shape="table" />;
   if (employees.error) return <ErrorState message={loadErrorMessage(employees.error, 'l’activité des employés')} actionLabel="Réessayer" onAction={() => void employees.refetch()} />;
   const items = employees.data.items;
   if (items.length === 0) {
     return (
-      <Paper variant="outlined">
+      <Paper variant="elevated">
         <EmptyState icon={SearchX} title="Aucune activité" description="Aucun compte actif et aucune demande sur cette période." />
       </Paper>
     );
   }
   return (
     <Box sx={{ display: 'grid', gap: 1.5 }}>
-      <TableContainer component={Paper} variant="outlined" {...scrollRegion('Activité des employés')}>
-        <Table size="small" aria-label="Activité des employés">
+      <TableContainer component={Paper} variant="elevated" sx={stickyArea} {...scrollRegion('Activité des employés')}>
+        <Table size="small" stickyHeader aria-label="Activité des employés">
           <TableHead>
             <TableRow>
               <TableCell>Employé</TableCell>
@@ -474,7 +526,15 @@ function EmployeesView({ qs }: { qs: string }) {
                 <TableCell align="right">{e.pendingTakeover}</TableCell>
                 <TableCell align="right">{e.inProgress}</TableCell>
                 <TableCell align="right">{e.done}</TableCell>
-                <TableCell align="right">{e.overdueNow > 0 ? <strong>{e.overdueNow}</strong> : 0}</TableCell>
+                <TableCell align="right">
+                  {e.overdueNow > 0 ? (
+                    <Badge tone="error" icon={AlarmClock}>
+                      {e.overdueNow}
+                    </Badge>
+                  ) : (
+                    0
+                  )}
+                </TableCell>
                 <TableCell align="right">{formatDurationMs(e.takeover.avgMs)}</TableCell>
                 <TableCell align="right">{formatDurationMs(e.resolution.avgMs)}</TableCell>
                 <TableCell sx={{ whiteSpace: 'nowrap' }}>{e.lastActionAt ? formatRelative(e.lastActionAt) : '—'}</TableCell>
@@ -495,19 +555,19 @@ function EmployeesView({ qs }: { qs: string }) {
 function RequestsView({ filters }: { filters: string }) {
   const list = useRequestList('all', [], filters);
   const items = list.data?.pages.flatMap((p) => p.items) ?? [];
-  if (list.isPending) return <LoadingState label="Chargement des demandes" />;
+  if (list.isPending) return <DashboardSkeleton label="Chargement des demandes" shape="table" />;
   if (list.error) return <ErrorState message={loadErrorMessage(list.error, 'les demandes')} actionLabel="Réessayer" onAction={() => void list.refetch()} />;
   if (items.length === 0) {
     return (
-      <Paper variant="outlined">
+      <Paper variant="elevated">
         <EmptyState icon={SearchX} title="Aucune demande" description="Aucune demande ne correspond à ces filtres." />
       </Paper>
     );
   }
   return (
     <Box sx={{ display: 'grid', gap: 2 }}>
-      <TableContainer component={Paper} variant="outlined" {...scrollRegion('Demandes de la période')}>
-        <Table size="small" aria-label="Demandes de la période">
+      <TableContainer component={Paper} variant="elevated" sx={stickyArea} {...scrollRegion('Demandes de la période')}>
+        <Table size="small" stickyHeader aria-label="Demandes de la période">
           <TableHead>
             <TableRow>
               <TableCell>Demande</TableCell>
@@ -540,7 +600,7 @@ function RequestsView({ filters }: { filters: string }) {
                 <TableCell>{r.assignee?.displayName ?? '—'}</TableCell>
                 <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDateTime(r.createdAt)}</TableCell>
                 <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                  {r.overdueStage ? `En retard (${STAGE_LABELS[r.overdueStage]})` : r.currentDueAt ? formatDateTime(r.currentDueAt) : '—'}
+                  {r.overdueStage ? <OverdueBadge stage={r.overdueStage} /> : r.currentDueAt ? formatDateTime(r.currentDueAt) : '—'}
                 </TableCell>
               </TableRow>
             ))}
@@ -579,33 +639,66 @@ function describeActivity(item: ActivityItem): string {
 function ActivityView({ qs }: { qs: string }) {
   const activity = useDashboardActivity(qs);
   const items = activity.data?.pages.flatMap((p) => p.items) ?? [];
-  if (activity.isPending) return <LoadingState label="Chargement de l’activité" />;
+  if (activity.isPending) return <DashboardSkeleton label="Chargement de l’activité" shape="timeline" />;
   if (activity.error) return <ErrorState message={loadErrorMessage(activity.error, 'l’activité')} actionLabel="Réessayer" onAction={() => void activity.refetch()} />;
   if (items.length === 0) {
     return (
-      <Paper variant="outlined">
+      <Paper variant="elevated">
         <EmptyState icon={SearchX} title="Aucune activité" description="Aucune action sur cette période." />
       </Paper>
     );
   }
   return (
     <Box sx={{ display: 'grid', gap: 2 }}>
-      <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
-        <Box component="ul" aria-label="Dernières actions" sx={{ listStyle: 'none', m: 0, p: 0, '& > li + li': { borderTop: 1, borderColor: 'divider' } }}>
-          {items.map((item) => (
-            <Box component="li" key={item.id} sx={{ px: { xs: 2, md: 2.5 }, py: 1.5, display: 'grid', gap: 0.25 }}>
-              <Typography variant="body2" sx={{ fontWeight: font.medium }}>
-                {describeActivity(item)}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                <Box component={RouterLink} to={`/demandes/${item.request.id}`} sx={{ color: 'inherit' }}>
-                  {item.request.reference} — {item.request.title}
+      <Paper variant="elevated" sx={{ px: { xs: 2, md: 2.5 }, py: { xs: 2, md: 2.5 } }}>
+        {/* Chronologie : pastille d'icône par type d'action, reliée à la suivante par un filet. */}
+        <Box component="ul" aria-label="Dernières actions" sx={{ listStyle: 'none', m: 0, p: 0 }}>
+          {items.map((item, index) => {
+            const Icon = EVENT_ICONS[item.type] ?? RefreshCw;
+            const late = item.type === 'OVERDUE';
+            const last = index === items.length - 1;
+            return (
+              <Box
+                component="li"
+                key={item.id}
+                sx={{ position: 'relative', display: 'grid', gridTemplateColumns: '32px minmax(0, 1fr)', columnGap: 1.5, pb: last ? 0 : 2.5 }}
+              >
+                {!last && <Box aria-hidden="true" sx={{ position: 'absolute', left: 15.5, top: 36, bottom: 4, width: '1px', bgcolor: 'divider' }} />}
+                <Box
+                  aria-hidden="true"
+                  sx={(theme) => {
+                    const t = tokensOf(theme);
+                    return {
+                      width: 32,
+                      height: 32,
+                      borderRadius: '50%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      border: `1px solid ${late ? t.error.border : t.accent.border}`,
+                      bgcolor: late ? t.error.soft : t.accent.soft,
+                      color: late ? t.error.main : t.accent.text,
+                    };
+                  }}
+                >
+                  <Icon size={icon.sm} strokeWidth={icon.stroke} />
                 </Box>
-                {' · '}
-                {item.actor ? item.actor.displayName : 'Système'} · <time dateTime={item.createdAt}>{formatDateTime(item.createdAt)}</time>
-              </Typography>
-            </Box>
-          ))}
+                <Box sx={{ minWidth: 0, pt: 0.5, display: 'grid', gap: 0.25 }}>
+                  <Typography variant="body2" sx={{ fontWeight: font.medium, overflowWrap: 'anywhere' }}>
+                    {describeActivity(item)}
+                  </Typography>
+                  <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
+                    <Box component={RouterLink} to={`/demandes/${item.request.id}`} sx={{ color: 'inherit' }}>
+                      {item.request.reference} — {item.request.title}
+                    </Box>
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {item.actor ? item.actor.displayName : 'Système'} · <time dateTime={item.createdAt}>{formatDateTime(item.createdAt)}</time>
+                  </Typography>
+                </Box>
+              </Box>
+            );
+          })}
         </Box>
       </Paper>
       {activity.hasNextPage && (
@@ -648,7 +741,7 @@ export function DashboardPage() {
       />
       <Filters value={filters} onChange={(patch) => setFilters((f) => ({ ...f, ...patch }))} />
 
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
+      <Box sx={{ mb: 3 }}>
         <Tabs
           value={view}
           onChange={(_, key: ViewKey) => {
@@ -659,6 +752,7 @@ export function DashboardPage() {
           variant="scrollable"
           allowScrollButtonsMobile
           aria-label="Vues du tableau de bord"
+          sx={segmentedTabs}
         >
           {VIEWS.map((v) => (
             <Tab key={v.key} value={v.key} label={v.label} id={`tdb-onglet-${v.key}`} aria-controls="tdb-contenu" />
@@ -668,7 +762,7 @@ export function DashboardPage() {
 
       <Box id="tdb-contenu" role="tabpanel" aria-labelledby={`tdb-onglet-${view}`}>
         {customIncomplete ? (
-          <Paper variant="outlined">
+          <Paper variant="elevated">
             <EmptyState icon={CalendarRange} title="Période incomplète" description="Choisissez une date de début et une date de fin." />
           </Paper>
         ) : view === 'general' ? (
