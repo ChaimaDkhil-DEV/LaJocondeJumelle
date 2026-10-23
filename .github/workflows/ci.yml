@@ -20,9 +20,10 @@ jobs:
           cache: npm
 
       # Plafond : l'installation par apt a déjà bloqué plus de 20 min (2026-10-22, deux fois) ; échec
-      # rapide au lieu du délai de 6 h par défaut, puis relance manuelle (gh run rerun).
+      # rapide au lieu du délai de 6 h par défaut, puis relance manuelle (gh run rerun). Passé de 5 à
+      # 10 min : un miroir lent a dépassé 5 min deux fois de suite (2026-10-23, demande #28).
       - name: Installer ffmpeg (conversion des vocaux)
-        timeout-minutes: 5
+        timeout-minutes: 10
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
 
       - name: Installer les dépendances
