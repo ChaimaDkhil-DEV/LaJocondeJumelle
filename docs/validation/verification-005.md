@@ -93,6 +93,9 @@ réussi (page du surveillant : « Aucune affectation en cours »). Le même pas 
 Relancé seul sur une base neuve : **3 réussites sur 3**. (Avec `--repeat-each=5` dans une même
 exécution, les répétitions se gênent : la liste « Mes signalements » garde les demandes
 précédentes et le test lit la première.) Course déjà rencontrée en 004 pour d'autres
-confirmations (« confirmations perdues », commit `a8e01ea`) : à traiter à part.
+confirmations (« confirmations perdues », commit `a8e01ea`) : à traiter à part. Traité par la
+demande #23 (commit `809b3d5`, fusionnée le 22/10/2026) : le toast se perdait quand la carte
+disparaissait de « Mes affectations » avant la réponse de l'action.
 
-CI GitHub : à constater sur la demande de fusion.
+CI GitHub : verte sur le dernier commit de la demande #22 (`972941e`), runs 39780144410 et
+39780153264 ; demande fusionnée le 22/10/2026 (`21048bd`). T022 close.

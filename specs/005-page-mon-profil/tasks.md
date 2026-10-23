@@ -105,7 +105,7 @@ Monorepo : `backend/src/`, `backend/test/{unit,integration}/`, `frontend/src/`,
 - [X] T019 [P] Mettre à jour `docs/superadmin-fonctionnalites.md` : §1.1 ligne « Bloc profil » (route `/profil`, état « Complète ») et paragraphe « Profil et déconnexion » ; §4.2 retirer « Pas de page de profil ni de lien « Changer mon mot de passe » » ; §4.4 remarque S01
 - [X] T020 [P] Mettre à jour la démo : sous-titre « Il n'existe pas de page de profil » de `demo/scenarios/S01-menu-lateral.ts` (montrer le lien vers « Mon profil ») et remarque S01 de `demo/README.md` ; rejouer `npx tsx demo/run.ts S01 --env=test` avant 22 h, heure de l'école
 - [ ] T021 Dérouler les scénarios manuels 1 à 7 de `specs/005-page-mon-profil/quickstart.md` et consigner le résultat dans `docs/validation/verification-005.md`
-- [ ] T022 Vérification finale : `npm run verify`, `npm run -w backend typecheck`, `npm run -w frontend typecheck`, `npm run test:e2e` (tous les profils) ; consigner les compteurs dans `docs/validation/verification-005.md` ; CI verte sur le dernier commit ; demande de fusion selon `docs/procedure-fusion.md`
+- [X] T022 Vérification finale : `npm run verify`, `npm run -w backend typecheck`, `npm run -w frontend typecheck`, `npm run test:e2e` (tous les profils) ; consigner les compteurs dans `docs/validation/verification-005.md` ; CI verte sur le dernier commit ; demande de fusion selon `docs/procedure-fusion.md`
 
 ---
 
