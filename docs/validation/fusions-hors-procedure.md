@@ -34,3 +34,21 @@ Aucun correctif ni `git revert` nécessaire.
 Attendre la fin de **tous** les runs « Contrôles qualité » du dernier commit (`gh pr checks <n°>`,
 ni « pending » ni « fail ») et cocher les quatre cases avant de fusionner. Un run en échec pour
 une cause d'infrastructure se relance (`gh run rerun <id> --failed`) ; il ne s'ignore pas.
+
+## 23/10/2026 — demande #33
+
+| Demande | Contenu | Fusionnée à (UTC) | Contrôle non satisfait au moment de la fusion |
+|---------|---------|-------------------|-----------------------------------------------|
+| #33 (`008-export-statistiques-affectations`) | fonctionnalité 008 : export CSV des statistiques des affectations, migration `0010` | 13:04:45 | **1. CI** : les deux runs sur `1835469` étaient encore en cours (39958166585 vert à 13:08:36, 39958174752 vert à 13:08:47) |
+
+Cases de la procédure non cochées dans la description de la demande.
+
+### Constat après coup
+
+- Les deux runs ont fini verts, toutes étapes exécutées (lint, types, tests unitaires,
+  d'intégration et frontend, audit). Bout en bout lancé à la main avant la demande et consigné :
+  150 réussis, 0 échec (`docs/validation/verification-008.md`).
+- `master` vert après la fusion : run 39958260371 sur `62694de`.
+
+Aucun correctif ni `git revert` nécessaire. Deuxième fusion anticipée de la journée : voir le
+rappel ci-dessus.

@@ -58,7 +58,7 @@ campagne lancée vers 15 h 20 heure de l'école. Nouveaux tests e2e réussis :
 d'audit) et le test « 004 » de `a11y-responsive.spec.ts` à 320 px avec « Exporter en CSV » (visible,
 atteint au clavier, axe sans violation).
 
-Restent : CI verte sur la branche, puis fusion selon `docs/procedure-fusion.md`.
+CI verte sur `1835469` (runs 39958166585 et 39958174752) ; demande #33 fusionnée le 23/10/2026 (`62694de`) **avant** la fin de la CI, consigné dans `docs/validation/fusions-hors-procedure.md` ; CI de `master` verte sur `62694de`. T022 close.
 
 ## Attendus existants modifiés (exceptions consignées)
 
