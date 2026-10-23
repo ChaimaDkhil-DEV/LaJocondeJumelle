@@ -1,7 +1,7 @@
 import { frFR } from '@mui/material/locale';
 import { alpha, createTheme, type Theme } from '@mui/material/styles';
 import { ChevronDown, CircleAlert, CircleCheck, Info, TriangleAlert, X } from 'lucide-react';
-import { colors, font, fontSize, icon, motion, radius, shadow, type ColorMode, type ColorTokens } from '../design/tokens';
+import { cardShadow, colors, font, fontSize, icon, motion, radius, shadow, type ColorMode, type ColorTokens } from '../design/tokens';
 
 declare module '@mui/material/styles' {
   interface Theme {
@@ -10,6 +10,13 @@ declare module '@mui/material/styles' {
   }
   interface ThemeOptions {
     tokens?: ColorTokens;
+  }
+}
+
+declare module '@mui/material/Paper' {
+  interface PaperPropsVariantOverrides {
+    /** Carte posée : bordure fine et ombre très légère (cartes et indicateurs du tableau de bord). */
+    elevated: true;
   }
 }
 
@@ -58,11 +65,12 @@ export function createAppTheme(mode: ColorMode = 'light'): Theme {
         fontWeightLight: font.regular,
         fontWeightRegular: font.regular,
         fontWeightMedium: font.medium,
-        fontWeightBold: font.medium,
-        h1: { fontSize: fontSize.xl, fontWeight: font.medium, lineHeight: 1.3, letterSpacing: '-0.01em' },
-        h2: { fontSize: fontSize.xl, fontWeight: font.medium, lineHeight: 1.3, letterSpacing: '-0.01em' },
-        h3: { fontSize: fontSize.xl, fontWeight: font.medium, lineHeight: 1.3, letterSpacing: '-0.01em' },
-        h4: { fontSize: fontSize.xl, fontWeight: font.medium, lineHeight: 1.3, letterSpacing: '-0.01em' },
+        fontWeightBold: font.semibold,
+        // Titre de page (h1), puis un cran par niveau ; la graisse 600 distingue h4 de h5 à taille égale.
+        h1: { fontSize: fontSize.xxl, fontWeight: font.semibold, lineHeight: 1.25, letterSpacing: '-0.02em' },
+        h2: { fontSize: fontSize.xl, fontWeight: font.semibold, lineHeight: 1.3, letterSpacing: '-0.015em' },
+        h3: { fontSize: fontSize.lg, fontWeight: font.semibold, lineHeight: 1.35, letterSpacing: '-0.01em' },
+        h4: { fontSize: fontSize.lg, fontWeight: font.semibold, lineHeight: 1.4, letterSpacing: '-0.01em' },
         h5: { fontSize: fontSize.lg, fontWeight: font.medium, lineHeight: 1.4 },
         h6: { fontSize: fontSize.md, fontWeight: font.medium, lineHeight: 1.5 },
         subtitle1: { fontSize: fontSize.md, fontWeight: font.medium, lineHeight: 1.5 },
@@ -197,6 +205,12 @@ export function createAppTheme(mode: ColorMode = 'light'): Theme {
             rounded: { borderRadius: radius.card },
             outlined: { borderColor: c.border },
           },
+          variants: [
+            {
+              props: { variant: 'elevated' },
+              style: { border: `1px solid ${c.border}`, boxShadow: cardShadow },
+            },
+          ],
         },
         MuiCard: { defaultProps: { variant: 'outlined' }, styleOverrides: { root: { borderRadius: radius.card } } },
         MuiDialog: {

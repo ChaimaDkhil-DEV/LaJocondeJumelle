@@ -47,6 +47,11 @@ export interface ColorTokens {
   focus: string;
   /** Fond de l'infobulle. */
   tooltip: string;
+  /**
+   * Séries des graphiques : contraste ≥ 3:1 sur la carte (WCAG 1.4.11), distinguables par les
+   * daltoniens (indigo / sarcelle) ; « terminées » est en plus tiretée.
+   */
+  chart: { created: string; completed: string };
 }
 
 export const colors: Record<ColorMode, ColorTokens> = {
@@ -74,6 +79,7 @@ export const colors: Record<ColorMode, ColorTokens> = {
     info: { main: '#0369a1', soft: '#f0f9ff', text: '#075985', border: '#bae6fd' },
     focus: '#4f46e5',
     tooltip: '#27272a',
+    chart: { created: '#4f46e5', completed: '#0d9488' },
   },
   // Prêt pour un mode sombre : il suffit de passer « dark » à createAppTheme (app/theme.ts).
   dark: {
@@ -100,6 +106,7 @@ export const colors: Record<ColorMode, ColorTokens> = {
     info: { main: '#38bdf8', soft: '#04212f', text: '#bae6fd', border: '#0c4a6e' },
     focus: '#a5b4fc',
     tooltip: '#3f3f46',
+    chart: { created: '#6366f1', completed: '#0d9488' },
   },
 };
 
@@ -111,16 +118,18 @@ export function tokensOf(theme: { tokens?: ColorTokens; palette: { mode: ColorMo
   return theme.tokens ?? colors[theme.palette.mode];
 }
 
-/** Une seule police, deux graisses. */
+/** Une seule police, trois graisses : 600 réservé aux titres de page et aux chiffres clés. */
 export const font = {
   family: '"Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
   regular: 400,
   medium: 500,
+  semibold: 600,
 } as const;
 
 /**
- * Cinq tailles seulement. 16 px pour le texte courant et les champs (évite le zoom automatique
- * d'iOS sur les champs de saisie), 14 px pour les métadonnées et les boutons.
+ * Six tailles seulement. 16 px pour le texte courant et les champs (évite le zoom automatique
+ * d'iOS sur les champs de saisie), 14 px pour les métadonnées et les boutons, 28 px pour les
+ * titres de page et les chiffres des alertes.
  */
 export const fontSize = {
   xs: 12,
@@ -128,6 +137,7 @@ export const fontSize = {
   md: 16,
   lg: 20,
   xl: 24,
+  xxl: 28,
 } as const;
 
 /** Échelle d'espacement en px (4/8/12/16/24/32). Dans `sx`, l'unité MUI vaut 8 px : 0.5, 1, 1.5, 2, 3, 4. */
@@ -142,8 +152,11 @@ export const radius = {
   round: 999,
 } as const;
 
-/** L'unique ombre, très légère, réservée aux éléments flottants (menus, fenêtres, toasts). */
+/** Ombre des éléments flottants (menus, fenêtres, toasts). */
 export const shadow = '0 4px 16px rgba(16, 24, 40, 0.08)';
+
+/** Ombre à peine perceptible des cartes « elevated » (tableau de bord), en plus de leur bordure. */
+export const cardShadow = '0 1px 2px rgba(16, 24, 40, 0.04), 0 2px 8px rgba(16, 24, 40, 0.04)';
 
 /** Micro-interactions : 150 à 200 ms, désactivées si l'utilisateur réduit les animations. */
 export const motion = { fast: 150, base: 200, easing: 'cubic-bezier(0.2, 0, 0, 1)' } as const;

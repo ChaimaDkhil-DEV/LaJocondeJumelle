@@ -2,17 +2,13 @@ import Box from '@mui/material/Box';
 import { useTheme } from '@mui/material/styles';
 import type { ReactNode } from 'react';
 import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { fontSize, tokensOf } from '../../design/tokens';
+import { fontSize, radius, tokensOf } from '../../design/tokens';
 
-/**
- * Graphiques du tableau de bord (Recharts). Couleurs validées (contraste, daltonisme) sur les
- * surfaces claire et sombre ; la série « terminées » est aussi tiretée (codage secondaire), et
- * chaque graphique a sa vue tableau.
+/*
+ * Graphiques du tableau de bord (Recharts). Couleurs des séries : tokens « chart » (contraste,
+ * daltonisme) ; la série « terminées » est aussi tiretée (codage secondaire), et chaque graphique
+ * a sa vue tableau.
  */
-const SERIES = {
-  light: { created: '#4f46e5', completed: '#0d9488' },
-  dark: { created: '#6366f1', completed: '#0d9488' },
-} as const;
 
 const shortDay = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short' });
 const longDay = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -22,11 +18,11 @@ function useChartTheme() {
   const theme = useTheme();
   const t = tokensOf(theme);
   return {
-    series: SERIES[theme.palette.mode],
+    series: t.chart,
     axis: { stroke: t.border, tick: { fill: t.textSecondary, fontSize: fontSize.xs } },
     grid: t.border,
     tooltip: {
-      contentStyle: { background: t.surface, border: `1px solid ${t.border}`, borderRadius: 8, fontSize: fontSize.sm, color: t.text },
+      contentStyle: { background: t.surface, border: `1px solid ${t.border}`, borderRadius: radius.control, fontSize: fontSize.sm, color: t.text },
       labelStyle: { color: t.text, fontWeight: 500 },
       cursor: { fill: t.surfaceMuted, stroke: t.borderStrong },
     },
