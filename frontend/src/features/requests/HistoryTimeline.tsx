@@ -72,7 +72,8 @@ export function describeEvent(e: HistoryEvent): string {
   }
 }
 
-const EVENT_ICONS: Record<string, LucideIcon> = {
+/** Icône de chaque type d'événement (historique d'une demande, activité du tableau de bord). */
+export const EVENT_ICONS: Record<string, LucideIcon> = {
   CREATED: FilePlus,
   STATUS_CHANGED: RefreshCw,
   PRIORITY_CHANGED: Flag,

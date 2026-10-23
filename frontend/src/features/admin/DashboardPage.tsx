@@ -26,6 +26,7 @@ import {
   Mic,
   MessageSquare,
   Play,
+  RefreshCw,
   SearchX,
   Siren,
   Timer,
@@ -49,7 +50,7 @@ import { StatusBadge } from '../../components/StatusBadge';
 import { Person } from '../../components/UserAvatar';
 import { cardShadow, font, icon, radius, tokensOf } from '../../design/tokens';
 import { useRequestList } from '../requests/api';
-import { describeEvent } from '../requests/HistoryTimeline';
+import { describeEvent, EVENT_ICONS } from '../requests/HistoryTimeline';
 import { useAdminCategories, useAdminUsers } from './api';
 import { DailyChart, StatusChart } from './DashboardCharts';
 import { DashboardSkeleton } from './DashboardSkeleton';
@@ -649,22 +650,55 @@ function ActivityView({ qs }: { qs: string }) {
   }
   return (
     <Box sx={{ display: 'grid', gap: 2 }}>
-      <Paper variant="elevated" sx={{ overflow: 'hidden' }}>
-        <Box component="ul" aria-label="Dernières actions" sx={{ listStyle: 'none', m: 0, p: 0, '& > li + li': { borderTop: 1, borderColor: 'divider' } }}>
-          {items.map((item) => (
-            <Box component="li" key={item.id} sx={{ px: { xs: 2, md: 2.5 }, py: 1.5, display: 'grid', gap: 0.25 }}>
-              <Typography variant="body2" sx={{ fontWeight: font.medium }}>
-                {describeActivity(item)}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                <Box component={RouterLink} to={`/demandes/${item.request.id}`} sx={{ color: 'inherit' }}>
-                  {item.request.reference} — {item.request.title}
+      <Paper variant="elevated" sx={{ px: { xs: 2, md: 2.5 }, py: { xs: 2, md: 2.5 } }}>
+        {/* Chronologie : pastille d'icône par type d'action, reliée à la suivante par un filet. */}
+        <Box component="ul" aria-label="Dernières actions" sx={{ listStyle: 'none', m: 0, p: 0 }}>
+          {items.map((item, index) => {
+            const Icon = EVENT_ICONS[item.type] ?? RefreshCw;
+            const late = item.type === 'OVERDUE';
+            const last = index === items.length - 1;
+            return (
+              <Box
+                component="li"
+                key={item.id}
+                sx={{ position: 'relative', display: 'grid', gridTemplateColumns: '32px minmax(0, 1fr)', columnGap: 1.5, pb: last ? 0 : 2.5 }}
+              >
+                {!last && <Box aria-hidden="true" sx={{ position: 'absolute', left: 15.5, top: 36, bottom: 4, width: '1px', bgcolor: 'divider' }} />}
+                <Box
+                  aria-hidden="true"
+                  sx={(theme) => {
+                    const t = tokensOf(theme);
+                    return {
+                      width: 32,
+                      height: 32,
+                      borderRadius: '50%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      border: `1px solid ${late ? t.error.border : t.accent.border}`,
+                      bgcolor: late ? t.error.soft : t.accent.soft,
+                      color: late ? t.error.main : t.accent.text,
+                    };
+                  }}
+                >
+                  <Icon size={icon.sm} strokeWidth={icon.stroke} />
                 </Box>
-                {' · '}
-                {item.actor ? item.actor.displayName : 'Système'} · <time dateTime={item.createdAt}>{formatDateTime(item.createdAt)}</time>
-              </Typography>
-            </Box>
-          ))}
+                <Box sx={{ minWidth: 0, pt: 0.5, display: 'grid', gap: 0.25 }}>
+                  <Typography variant="body2" sx={{ fontWeight: font.medium, overflowWrap: 'anywhere' }}>
+                    {describeActivity(item)}
+                  </Typography>
+                  <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
+                    <Box component={RouterLink} to={`/demandes/${item.request.id}`} sx={{ color: 'inherit' }}>
+                      {item.request.reference} — {item.request.title}
+                    </Box>
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {item.actor ? item.actor.displayName : 'Système'} · <time dateTime={item.createdAt}>{formatDateTime(item.createdAt)}</time>
+                  </Typography>
+                </Box>
+              </Box>
+            );
+          })}
         </Box>
       </Paper>
       {activity.hasNextPage && (
