@@ -9,7 +9,7 @@ import { CoverageStatsPage } from '../../src/features/coverage/CoverageStatsPage
 
 /**
  * T080 — Statistiques (US5, FR-022) : filtres de période et de regroupement, tableau accessible,
- * « Enseignant non précisé », annulées et doublons « non tranchés » à part, aucun export ;
+ * « Enseignant non précisé », annulées et doublons « non tranchés » à part ; export CSV (spec 008) ;
  * historique détaillé (sources, statuts, auteurs, réassignations, renforts, doublons).
  */
 
@@ -162,7 +162,7 @@ describe('Statistiques des affectations', () => {
     expect(within(apart).getByText(/Doublons non tranchés/).nextSibling).toHaveTextContent('1');
   });
 
-  it('changer le regroupement et la période relance le calcul ; aucun export proposé', async () => {
+  it('changer le regroupement et la période relance le calcul', async () => {
     const u = userEvent.setup();
     const urls = setup('/gardes/statistiques');
     await screen.findByRole('table');
@@ -180,9 +180,6 @@ describe('Statistiques des affectations', () => {
     await u.clear(from);
     await u.type(from, '2026-09-01');
     await waitFor(() => expect(statsCalls(urls).at(-1)!.get('from')).toBe('2026-09-01'));
-    expect(
-      screen.queryByRole('button', { name: /export|télécharger|csv/i }),
-    ).not.toBeInTheDocument();
   });
 
   it('période incohérente : message clair', async () => {
@@ -197,6 +194,95 @@ describe('Statistiques des affectations', () => {
         : undefined,
     );
     expect(await screen.findByRole('alert')).toHaveTextContent('la fin doit suivre le début');
+  });
+});
+
+describe('Export des statistiques (008)', () => {
+  const exportLink = () => screen.findByRole('link', { name: 'Exporter en CSV' });
+  const exportParams = (link: HTMLElement) => {
+    const url = new URL(link.getAttribute('href')!, 'http://test');
+    expect(url.pathname).toBe('/api/coverage/stats/export.csv');
+    return Object.fromEntries(url.searchParams);
+  };
+
+  it('après le calcul : lien de téléchargement avec les paramètres de la requête affichée', async () => {
+    const urls = setup('/gardes/statistiques');
+    const link = await exportLink();
+    expect(link).toHaveAttribute('download');
+    expect(exportParams(link)).toEqual(Object.fromEntries(statsCalls(urls).at(-1)!));
+    expect(exportParams(link)).toEqual({ from: '2026-10-01', to: '2026-10-20', groupBy: 'teacher' });
+  });
+
+  it('l’adresse suit le regroupement (« Période › Mois »)', async () => {
+    const u = userEvent.setup();
+    setup('/gardes/statistiques');
+    await exportLink();
+    await u.click(screen.getByRole('combobox', { name: 'Regrouper par' }));
+    await u.click(await screen.findByRole('option', { name: 'Période' }));
+    await u.click(await screen.findByRole('combobox', { name: 'Période' }));
+    await u.click(await screen.findByRole('option', { name: 'Mois' }));
+    await waitFor(async () =>
+      expect(exportParams(await exportLink())).toEqual({
+        from: '2026-10-01',
+        to: '2026-10-20',
+        groupBy: 'period',
+        period: 'month',
+      }),
+    );
+  });
+
+  it('date incomplète : lien absent ; date complète et calcul fini : lien de nouveau présent', async () => {
+    const u = userEvent.setup();
+    setup('/gardes/statistiques');
+    await exportLink();
+    const to = screen.getByLabelText('Au');
+    await u.clear(to);
+    expect(screen.queryByRole('link', { name: 'Exporter en CSV' })).not.toBeInTheDocument();
+    await u.type(to, '2026-10-15');
+    await waitFor(async () => expect(exportParams(await exportLink()).to).toBe('2026-10-15'));
+  });
+
+  it('recalcul en cours après un changement de filtre : lien absent, anciennes valeurs affichées', async () => {
+    const u = userEvent.setup();
+    let release!: () => void;
+    const pending = new Promise<void>((r) => (release = r));
+    setup('/gardes/statistiques');
+    await exportLink();
+    // Le calcul des nouveaux filtres reste en attente jusqu'à `release()`.
+    vi.mocked(fetch).mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.startsWith('/api/coverage/stats?')) {
+        await pending;
+        return json(200, { ...STATS, groupBy: 'class' });
+      }
+      return json(200, PROFILE);
+    });
+    await u.click(screen.getByRole('combobox', { name: 'Regrouper par' }));
+    await u.click(await screen.findByRole('option', { name: 'Classe' }));
+    expect(screen.getByRole('table')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Exporter en CSV' })).not.toBeInTheDocument();
+    release();
+    await waitFor(async () => expect(exportParams(await exportLink()).groupBy).toBe('class'));
+  });
+
+  it('erreur de calcul : lien absent', async () => {
+    setup('/gardes/statistiques', (url) =>
+      url.startsWith('/api/coverage/stats?')
+        ? json(400, { error: { code: 'INVALID_RANGE', message: 'Période invalide.' } })
+        : undefined,
+    );
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Exporter en CSV' })).not.toBeInTheDocument();
+  });
+
+  it('période vide : lien présent', async () => {
+    setup('/gardes/statistiques', (url) =>
+      url.startsWith('/api/coverage/stats?')
+        ? json(200, { ...STATS, rows: [] })
+        : undefined,
+    );
+    expect(await screen.findByText('Aucune affectation sur la période')).toBeInTheDocument();
+    expect(await exportLink()).toBeInTheDocument();
   });
 });
 

@@ -11,7 +11,7 @@ Automatique : `npm run -w backend test` (unitaires), `npm run -w backend test:in
 ## Scénario 1 — Export par enseignant (US1, FR-001 à FR-005, SC-001 à SC-003)
 
 1. Connecté en `admin`, ouvrir Gardes › Statistiques ; garder la période par défaut.
-2. Cliquer sur « Exporter (CSV) ».
+2. Cliquer sur « Exporter en CSV ».
 3. Attendu : fichier `statistiques-affectations-enseignant-<du>-au-<au>.csv` ; ouvert dans un
    tableur, colonnes séparées, accents corrects ; chaque ligne, la ligne « Total de la période »,
    le taux et les doublons égaux à la page.

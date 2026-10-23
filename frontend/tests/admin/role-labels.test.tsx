@@ -73,6 +73,9 @@ describe('Libellés du rôle Admin', () => {
     expect(CLOSURE_LABELS.MANAGER).toBe('Par un admin');
     expect(ASSIGNMENT_LABELS.MANUAL).toBe('Choisie par un admin');
     expect(AUDIT_ACTION_LABELS.COVERAGE_MANAGED).toBe('Affectation gérée par un admin');
+    expect(AUDIT_ACTION_LABELS.COVERAGE_STATS_EXPORTED).toBe(
+      'Export des statistiques des affectations',
+    );
     expect(NOTIFICATION_LABELS.UNASSIGNED).toBe('Demande sans employé affecté');
     const all = [
       CLOSURE_LABELS,

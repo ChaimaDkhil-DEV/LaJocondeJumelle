@@ -41,7 +41,7 @@ statistiques."
 ### User Story 1 - Exporter les statistiques affichées (Priority: P1)
 
 Un admin ouvre « Statistiques des affectations », choisit la période et le regroupement, puis
-clique sur « Exporter (CSV) ». Il obtient un fichier qui contient exactement ce que la page
+clique sur « Exporter en CSV ». Il obtient un fichier qui contient exactement ce que la page
 affiche : la période, les totaux, les éléments comptés à part et le tableau du regroupement choisi.
 
 **Why this priority**: c'est tout le besoin ; sans lui, les chiffres se recopient à la main.
@@ -52,7 +52,7 @@ affiche : la période, les totaux, les éléments comptés à part et le tableau
 **Acceptance Scenarios**:
 
 1. **Given** un admin sur la page, période du 1er au 23 octobre, regroupement « Enseignant »,
-   **When** il clique sur « Exporter (CSV) », **Then** un fichier est téléchargé et son nom
+   **When** il clique sur « Exporter en CSV », **Then** un fichier est téléchargé et son nom
    indique le regroupement et la période (par ex. `statistiques-affectations-enseignant-2026-10-01-au-2026-10-23.csv`).
 2. **Given** ce fichier ouvert dans un tableur, **When** on le lit, **Then** il contient la période
    et le fuseau de l'école, une ligne par enseignant avec les mêmes colonnes et les mêmes valeurs
@@ -91,7 +91,7 @@ période invalide.
    **When** l'export est demandé, **Then** il est refusé avec le même message que la page et aucun
    fichier n'est produit.
 3. **Given** une date incomplète ou en cours de saisie, ou un calcul en cours ou en erreur,
-   **When** la page s'affiche, **Then** « Exporter (CSV) » n'est pas proposé.
+   **When** la page s'affiche, **Then** « Exporter en CSV » n'est pas proposé.
 4. **Given** une période sans aucune affectation, **When** il exporte, **Then** le fichier contient
    l'en-tête, la période et des totaux à zéro, sans ligne de détail.
 5. **Given** un export réussi, **When** le super administrateur ouvre le journal d'audit, **Then**

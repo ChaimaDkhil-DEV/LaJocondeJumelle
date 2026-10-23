@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { AuditService } from '../audit/audit.service';
 import type { AuthenticatedUser } from '../auth/auth.types';
+import { toCsv } from '../common/csv';
 import { AppException } from '../common/errors';
 import { PrismaService } from '../common/prisma.service';
 import { addDays, atLocalTime, localDate } from '../common/school-time';
@@ -9,6 +10,7 @@ import { APP_CONFIG } from '../config/config.module';
 import type { RequestContext } from '../requests/requests.service';
 import type { CoverageStatsQuery } from './coverage.dto';
 import { computeCoverageStats } from './domain/coverage-stats';
+import { statsCsvFilename, statsToCsvRows } from './domain/coverage-stats-csv';
 import { isCoverageAdmin } from './domain/coverage-policy';
 
 /** Période maximale d'une requête de statistiques (calcul à la demande, sans table d'agrégats). */
@@ -16,7 +18,7 @@ const MAX_DAYS = 400;
 
 /**
  * Statistiques des affectations (US5, FR-022, data-model §7) : admin et super administrateur
- * seulement (données par enseignant, FR-023) ; aucun export.
+ * seulement (données par enseignant, FR-023) ; export CSV de la même vue (spec 008).
  */
 @Injectable()
 export class CoverageStatsService {
@@ -80,5 +82,25 @@ export class CoverageStatsService {
       { groupBy, period, timezone: tz },
     );
     return { from, to, groupBy, period, timezone: tz, ...result };
+  }
+
+  /**
+   * Export CSV (spec 008) : mêmes accès, contrôles de période et calcul que `stats` ; valeurs
+   * mises en forme comme la page. Chaque export réussi est journalisé (FR-009) avec la période et le
+   * regroupement effectifs, sans aucune valeur ni nom.
+   */
+  async exportCsv(user: AuthenticatedUser, query: CoverageStatsQuery, ctx: RequestContext) {
+    const stats = await this.stats(user, query, ctx);
+    const { header, rows } = statsToCsvRows(stats);
+    const file = { filename: statsCsvFilename(stats), body: toCsv(header, rows) };
+    const { from, to, groupBy, period } = stats;
+    await this.audit.log('COVERAGE_STATS_EXPORTED', {
+      actorId: user.id,
+      targetType: 'Request',
+      targetId: 'coverage-stats',
+      ip: ctx.ip,
+      details: { from, to, groupBy, ...(groupBy === 'period' ? { period } : {}) },
+    });
+    return file;
   }
 }

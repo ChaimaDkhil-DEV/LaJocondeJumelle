@@ -78,6 +78,7 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   FLOOR_CHANGED: 'Étage modifié',
   COVERAGE_ANONYMIZED: 'Affectations anonymisées',
   COVERAGE_MERGE_DECIDED: 'Doublon tranché',
+  COVERAGE_STATS_EXPORTED: 'Export des statistiques des affectations',
 };
 
 /** Durée en minutes, lisible (« 1 h 30 », « 2 j »). */

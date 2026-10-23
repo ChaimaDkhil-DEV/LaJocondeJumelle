@@ -62,9 +62,11 @@ Constats sur l'existant (23/10/2026) et décisions de conception.
 
 - **Décision** : `statistiques-affectations-<regroupement>-<du>-au-<au>.csv`, avec
   `<regroupement>` parmi `enseignant`, `classe`, `semaine`, `mois` (la granularité remplace
-  « période »). En-tête `Content-Disposition: attachment; filename="…"` posé par le contrôleur
-  (`@Res({ passthrough: true })`), car le nom dépend de la requête ; les autres en-têtes
-  (`Content-Type`, `Cache-Control: private, no-store`) sont ceux des exports existants.
+  « période »). Les trois en-têtes (`Content-Type`, `Content-Disposition: attachment;
+  filename="…"`, `Cache-Control: private, no-store`, mêmes valeurs que les exports existants) sont
+  posés par le contrôleur (`@Res({ passthrough: true })`) **après** la production du fichier.
+  Constaté à l'implémentation (T013) : `@Header` les pose avant l'appel, et un refus ou une période
+  invalide partait alors en JSON étiqueté `text/csv` (voir `docs/validation/verification-008.md`).
 - **Pourquoi** : uniquement des caractères ASCII sûrs (dates validées `AAAA-MM-JJ`, regroupement
   issu d'une liste fermée) : pas d'encodage `filename*` nécessaire.
 
@@ -90,7 +92,7 @@ Constats sur l'existant (23/10/2026) et décisions de conception.
 
 ## R6 — Interface (FR-001, FR-008, FR-010)
 
-- **Décision** : bouton-lien « Exporter (CSV) » (`Button component="a" href=… download`, icône
+- **Décision** : bouton-lien « Exporter en CSV » (`Button component="a" href=… download`, icône
   `Download`, comme `CoverageDashboardPage.tsx:146`) dans l'en-tête des résultats, affiché
   seulement quand `stats.data` correspond aux filtres affichés (`!stats.isPlaceholderData`, dates
   complètes, pas d'erreur). L'adresse reprend exactement les paramètres de la requête affichée.

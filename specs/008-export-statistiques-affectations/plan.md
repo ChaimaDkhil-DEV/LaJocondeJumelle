@@ -6,7 +6,7 @@
 
 ## Summary
 
-Bouton « Exporter (CSV) » sur `/gardes/statistiques`, affiché quand les statistiques des filtres
+Bouton « Exporter en CSV » sur `/gardes/statistiques`, affiché quand les statistiques des filtres
 affichés sont calculées. Nouvelle route `GET /api/coverage/stats/export.csv` : réutilise
 `CoverageStatsService.stats` (accès, période, calcul), met le résultat en forme avec les règles
 d'affichage de la page et `toCsv`, puis journalise l'export (`COVERAGE_STATS_EXPORTED`, nouvelle
@@ -63,7 +63,7 @@ specs/008-export-statistiques-affectations/
 ├── quickstart.md
 ├── contracts/
 │   ├── rest-api.md      # GET /api/coverage/stats/export.csv
-│   └── ui.md            # bouton « Exporter (CSV) », libellé du journal
+│   └── ui.md            # bouton « Exporter en CSV », libellé du journal
 ├── checklists/requirements.md
 └── tasks.md             # /speckit-tasks
 ```
@@ -82,7 +82,7 @@ backend/
 └── test/integration/supervision-stats-export.spec.ts     # nouveau
 
 frontend/
-├── src/features/coverage/CoverageStatsPage.tsx    # bouton « Exporter (CSV) »
+├── src/features/coverage/CoverageStatsPage.tsx    # bouton « Exporter en CSV »
 ├── src/features/admin/labels.ts                   # libellé COVERAGE_STATS_EXPORTED
 ├── tests/coverage/stats.test.tsx                  # bouton : présence, adresse, états
 └── tests/admin/role-labels.test.tsx               # libellé de l'action

@@ -2,7 +2,7 @@
 
 ## Page « Statistiques des affectations » (`/gardes/statistiques`)
 
-- Nouveau bouton-lien **« Exporter (CSV) »** (icône de téléchargement, `aria-hidden`), placé au-dessus
+- Nouveau bouton-lien **« Exporter en CSV »** (icône de téléchargement, `aria-hidden`), placé au-dessus
   des totaux, aligné à droite sur desktop, pleine largeur possible à 320 px sans défilement
   horizontal.
 - Adresse : `/api/coverage/stats/export.csv?` + exactement les paramètres de la requête affichée
@@ -12,7 +12,7 @@
   - absent pendant un recalcul (les anciennes valeurs restent affichées, mais pas exportables) ;
   - absent après une erreur (`INVALID_RANGE` ou autre) ;
   - présent pour une période vide (le fichier contient alors des totaux à zéro).
-- Accessibilité : nom accessible « Exporter (CSV) », atteignable et activable au clavier, focus
+- Accessibilité : nom accessible « Exporter en CSV », atteignable et activable au clavier, focus
   visible (composants existants) ; audit axe sans violation à 320 px et sur desktop.
 - Commentaire d'en-tête de `CoverageStatsPage` (« aucun export dans ce lot ») mis à jour.
 

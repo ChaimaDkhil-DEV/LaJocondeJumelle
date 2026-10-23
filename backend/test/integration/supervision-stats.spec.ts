@@ -14,7 +14,7 @@ import { resetDatabase } from '../utils/test-db';
 
 /**
  * T076 — US5 : historique détaillé et statistiques (scénarios 1 et 2, FR-020 à FR-023, FR-008i,
- * FR-015b, FR-015h) ; réservés à l'admin et au super administrateur ; aucun export.
+ * FR-015b, FR-015h) ; réservés à l'admin et au super administrateur.
  */
 describe('Historique et statistiques des affectations (US5)', () => {
   const prisma = new PrismaClient();
@@ -173,7 +173,7 @@ describe('Historique et statistiques des affectations (US5)', () => {
       expect(after.body.totals).toMatchObject({ events: 6, undecidedDuplicates: 0 });
     });
 
-    it('période par défaut ; paramètres invalides refusés ; aucun export', async () => {
+    it('période par défaut ; paramètres invalides refusés', async () => {
       expect((await stats('admin', '')).status).toBe(200);
       expect((await stats('admin', 'from=2026-09-30&to=2026-09-01')).body.error.code).toBe(
         'INVALID_RANGE',

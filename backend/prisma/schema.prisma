@@ -183,6 +183,8 @@ enum AuditAction {
   FLOOR_CHANGED
   COVERAGE_ANONYMIZED
   COVERAGE_MERGE_DECIDED
+  // Statistiques des affectations (008)
+  COVERAGE_STATS_EXPORTED
 }
 
 enum NotificationType {
