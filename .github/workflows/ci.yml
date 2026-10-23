@@ -19,12 +19,26 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
 
+      # Paquets .deb de ffmpeg (environ 94 Mo) gardés en cache : le miroir apt d'Azure est souvent
+      # lent (plus de 10 min le 2026-10-23, demandes #28 et #31). Avec le cache, apt ne télécharge
+      # que les paquets absents ou mis à jour depuis ; changer le suffixe -v1 pour le vider.
+      - name: Cache des paquets ffmpeg
+        uses: actions/cache@v4
+        with:
+          path: ~/apt-ffmpeg
+          key: apt-ffmpeg-${{ runner.os }}-${{ runner.arch }}-v1
+
       # Plafond : l'installation par apt a déjà bloqué plus de 20 min (2026-10-22, deux fois) ; échec
-      # rapide au lieu du délai de 6 h par défaut, puis relance manuelle (gh run rerun). Passé de 5 à
-      # 10 min : un miroir lent a dépassé 5 min deux fois de suite (2026-10-23, demande #28).
+      # rapide au lieu du délai de 6 h par défaut, puis relance manuelle (gh run rerun).
       - name: Installer ffmpeg (conversion des vocaux)
         timeout-minutes: 10
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+        run: |
+          mkdir -p ~/apt-ffmpeg/partial
+          sudo apt-get update
+          sudo apt-get install -y -o Dir::Cache::Archives="$HOME/apt-ffmpeg" \
+            -o APT::Keep-Downloaded-Packages=true ffmpeg
+          sudo chown -R "$USER" ~/apt-ffmpeg
+          ffmpeg -version | head -1 && ffprobe -version | head -1
 
       - name: Installer les dépendances
         run: npm ci
