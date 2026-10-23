@@ -2,6 +2,7 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
+import type { Theme } from '@mui/material/styles';
 import Tab from '@mui/material/Tab';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
@@ -46,7 +47,7 @@ import { SectionCard } from '../../components/SectionCard';
 import { SectionHeader } from '../../components/SectionHeader';
 import { StatusBadge } from '../../components/StatusBadge';
 import { Person } from '../../components/UserAvatar';
-import { font, icon, tokensOf } from '../../design/tokens';
+import { cardShadow, font, icon, radius, tokensOf } from '../../design/tokens';
 import { useRequestList } from '../requests/api';
 import { describeEvent } from '../requests/HistoryTimeline';
 import { useAdminCategories, useAdminUsers } from './api';
@@ -117,24 +118,66 @@ function scrollRegion(label: string) {
 
 const SUBJECT = 'le tableau de bord';
 
-const kpiGrid = { display: 'grid', gap: 1.5, gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', md: 'repeat(4, minmax(0, 1fr))' } } as const;
+/**
+ * Onglets de vue en contrôle segmenté, pour ne pas les confondre avec la navigation soulignée des
+ * sections de l'administration. L'onglet actif est signalé par sa pastille blanche en relief et sa
+ * graisse, pas par la seule couleur.
+ */
+const segmentedTabs = (theme: Theme) => {
+  const t = tokensOf(theme);
+  return {
+    display: 'inline-flex',
+    maxWidth: '100%',
+    minHeight: 0,
+    p: 0.5,
+    border: `1px solid ${t.border}`,
+    borderBottom: `1px solid ${t.border}`,
+    borderRadius: `${radius.control + 2}px`,
+    bgcolor: t.surfaceMuted,
+    '& .MuiTabs-indicator': { display: 'none' },
+    '& .MuiTabs-list': { gap: 0.5 },
+    '& .MuiTabs-scrollButtons': { width: 32, borderRadius: `${radius.control}px` },
+    '& .MuiTab-root': {
+      minHeight: 36,
+      py: 0.75,
+      px: 1.5,
+      borderRadius: `${radius.control}px`,
+      '@media (pointer: coarse)': { minHeight: 44 },
+      '&.Mui-focusVisible': { outlineOffset: -2 },
+    },
+    '& .MuiTab-root.Mui-selected': { bgcolor: t.surface, color: t.text, fontWeight: font.semibold, boxShadow: cardShadow },
+  };
+};
+
+const kpiGrid ={ display: 'grid', gap: 1.5, gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', md: 'repeat(4, minmax(0, 1fr))' } } as const;
 
 function Filters({ value, onChange }: { value: DashboardFilters; onChange: (patch: Partial<DashboardFilters>) => void }) {
   const categories = useAdminCategories();
   const users = useAdminUsers();
   const workCategories = (categories.data ?? []).filter((c) => c.kind === 'WORK');
+  // À 320 px : période et catégorie (libellés longs) sur toute la largeur, priorité et employé côte à côte.
+  const wide = { gridColumn: { xs: '1 / -1', sm: 'auto' } } as const;
   return (
     <Paper
-      variant="outlined"
-      sx={{ p: 2, mb: 2, display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', md: 'repeat(4, minmax(0, 1fr))' } }}
+      variant="elevated"
+      role="group"
+      aria-label="Filtres du tableau de bord"
+      sx={{
+        p: { xs: 1.5, sm: 2 },
+        mb: 2,
+        display: 'grid',
+        gap: { xs: 1.5, sm: 2 },
+        alignItems: 'end',
+        gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', md: 'repeat(4, minmax(0, 1fr))' },
+      }}
     >
-      <TextField select id="tdb-periode" label="Période" size="small" value={value.preset} onChange={(e) => onChange({ preset: e.target.value as DashboardFilters['preset'] })}>
+      <TextField select id="tdb-periode" label="Période" size="small" sx={wide} value={value.preset} onChange={(e) => onChange({ preset: e.target.value as DashboardFilters['preset'] })}>
         <MenuItem value="7">7 derniers jours</MenuItem>
         <MenuItem value="30">30 derniers jours</MenuItem>
         <MenuItem value="90">90 derniers jours</MenuItem>
         <MenuItem value="custom">Personnalisée</MenuItem>
       </TextField>
-      <TextField select id="tdb-categorie" label="Catégorie (service)" size="small" value={value.categoryId} onChange={(e) => onChange({ categoryId: e.target.value })} slotProps={{ select: { displayEmpty: true } }}>
+      <TextField select id="tdb-categorie" label="Catégorie (service)" size="small" sx={wide} value={value.categoryId} onChange={(e) => onChange({ categoryId: e.target.value })} slotProps={{ select: { displayEmpty: true } }}>
         <MenuItem value="">Toutes</MenuItem>
         {workCategories.map((c) => (
           <MenuItem key={c.id} value={c.id}>
@@ -160,8 +203,8 @@ function Filters({ value, onChange }: { value: DashboardFilters; onChange: (patc
       </TextField>
       {value.preset === 'custom' && (
         <>
-          <TextField id="tdb-du" label="Du" type="date" size="small" value={value.from} onChange={(e) => onChange({ from: e.target.value })} />
-          <TextField id="tdb-au" label="Au" type="date" size="small" value={value.to} onChange={(e) => onChange({ to: e.target.value })} />
+          <TextField id="tdb-du" label="Du" type="date" size="small" sx={wide} value={value.from} onChange={(e) => onChange({ from: e.target.value })} />
+          <TextField id="tdb-au" label="Au" type="date" size="small" sx={wide} value={value.to} onChange={(e) => onChange({ to: e.target.value })} />
         </>
       )}
     </Paper>
@@ -642,7 +685,7 @@ export function DashboardPage() {
       />
       <Filters value={filters} onChange={(patch) => setFilters((f) => ({ ...f, ...patch }))} />
 
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
+      <Box sx={{ mb: 3 }}>
         <Tabs
           value={view}
           onChange={(_, key: ViewKey) => {
@@ -653,6 +696,7 @@ export function DashboardPage() {
           variant="scrollable"
           allowScrollButtonsMobile
           aria-label="Vues du tableau de bord"
+          sx={segmentedTabs}
         >
           {VIEWS.map((v) => (
             <Tab key={v.key} value={v.key} label={v.label} id={`tdb-onglet-${v.key}`} aria-controls="tdb-contenu" />
