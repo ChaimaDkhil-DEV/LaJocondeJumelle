@@ -152,6 +152,10 @@ describe('Tableau de bord', () => {
     expect(kpi('Hors délai')).toBe('2');
     expect(kpi('En retard')).toBe('1');
     expect(kpi('Urgentes en cours')).toBe('2');
+    // Tuiles d'alerte : l'état est écrit, pas seulement porté par la couleur de fond.
+    const tile = (label: string) => screen.getByText(label, { selector: 'div' }).closest('.MuiPaper-root') as HTMLElement;
+    expect(within(tile('En retard')).getByText('À traiter')).toBeVisible();
+    expect(within(tile('Sans employé affecté')).getByText('Rien à signaler')).toBeVisible();
     expect(kpi('Vocaux')).toBe('3');
     const alerts = screen.getByRole('table', { name: 'Demandes à traiter en priorité' });
     expect(within(alerts).getByRole('link', { name: 'Photocopies du contrôle' })).toHaveAttribute('href', '/demandes/r1');
