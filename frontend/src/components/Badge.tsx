@@ -2,7 +2,7 @@ import Box from '@mui/material/Box';
 import type { Theme } from '@mui/material/styles';
 import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { font, fontSize, icon as iconSize, tokensOf, type Tone } from '../design/tokens';
+import { font, fontSize, icon as iconSize, radius, tokensOf, type Tone } from '../design/tokens';
 
 export function toneColors(theme: Theme, tone: Tone) {
   const t = tokensOf(theme);
@@ -33,8 +33,9 @@ export function Badge({ tone = 'neutral', icon: Icon, iconTestId, children }: Ba
           alignItems: 'center',
           gap: 0.5,
           height: 24,
-          px: 1,
-          borderRadius: '6px',
+          px: 1.25,
+          // Pastille arrondie et pastel (fond « soft », texte « text » : contraste ≥ 4.5:1).
+          borderRadius: `${radius.round}px`,
           border: `1px solid ${c.border}`,
           bgcolor: c.soft,
           color: c.text,

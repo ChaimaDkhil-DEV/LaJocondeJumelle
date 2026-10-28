@@ -2,7 +2,7 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
-import type { Theme } from '@mui/material/styles';
+import { useTheme, type Theme } from '@mui/material/styles';
 import Tab from '@mui/material/Tab';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
@@ -48,11 +48,11 @@ import { PRIORITY_LABELS, PriorityBadge } from '../../components/PriorityBadge';
 import { SectionCard } from '../../components/SectionCard';
 import { StatusBadge } from '../../components/StatusBadge';
 import { Person } from '../../components/UserAvatar';
-import { cardShadow, font, icon, radius, tokensOf } from '../../design/tokens';
+import { cardShadow, font, icon, radius, tokensOf, type AccentName } from '../../design/tokens';
 import { useRequestList } from '../requests/api';
 import { describeEvent, EVENT_ICONS } from '../requests/HistoryTimeline';
 import { useAdminCategories, useAdminUsers } from './api';
-import { DailyChart, StatusChart } from './DashboardCharts';
+import { DailyChart, Sparkline, StatusDonut } from './DashboardCharts';
 import { DashboardSkeleton } from './DashboardSkeleton';
 import { KpiCard } from './KpiCard';
 import {
@@ -228,15 +228,83 @@ function Filters({ value, onChange }: { value: DashboardFilters; onChange: (patc
   );
 }
 
+/** Accent décoratif de chaque état (les états clos restent neutres). */
+const GROUP_ACCENTS: Partial<Record<StatusGroup, AccentName>> = {
+  pendingValidation: 'cyan',
+  pendingTakeover: 'orange',
+  inProgress: 'indigo',
+  done: 'green',
+};
+
 function GeneralView({ qs }: { qs: string }) {
+  const theme = useTheme();
+  const t = tokensOf(theme);
   const summary = useDashboardSummary(qs);
   if (summary.isPending) return <DashboardSkeleton label="Chargement des indicateurs" shape="general" />;
   if (summary.error) return <ErrorState message={loadErrorMessage(summary.error, SUBJECT)} actionLabel="Réessayer" onAction={() => void summary.refetch()} />;
   const s = summary.data;
   const groups = Object.keys(GROUP_LABELS) as StatusGroup[];
+  const empty = s.counts.total === 0 && s.daily.every((d) => d.completed === 0);
 
   return (
     <Box sx={{ display: 'grid', gap: 3 }}>
+      {/* Rangée d'indicateurs : tuile colorée, valeur et mini-graphique de la période. */}
+      <Box component="section" aria-labelledby="tdb-periode-titre" sx={{ display: 'grid', gap: 1.5 }}>
+        <Typography id="tdb-periode-titre" component="h2" variant="h6">
+          Demandes créées sur la période
+        </Typography>
+        <Box sx={kpiGrid}>
+          <KpiCard
+            label="Total"
+            value={s.counts.total}
+            icon={Inbox}
+            accent="indigo"
+            hint="Hors brouillons"
+            trend={<Sparkline values={s.daily.map((d) => d.created)} color={t.accents.indigo.main} />}
+          />
+          {groups.map((g) => (
+            <KpiCard
+              key={g}
+              label={GROUP_LABELS[g]}
+              value={s.counts[g]}
+              icon={GROUP_ICONS[g]}
+              accent={GROUP_ACCENTS[g]}
+              tone="neutral"
+              hint={GROUP_HINTS[g]}
+              trend={g === 'done' ? <Sparkline kind="bars" values={s.daily.map((d) => d.completed)} color={t.accents.green.main} /> : undefined}
+            />
+          ))}
+          <KpiCard
+            label="Hors délai"
+            value={s.counts.overdueInPeriod}
+            tone={s.counts.overdueInPeriod > 0 ? 'error' : 'neutral'}
+            accent={s.counts.overdueInPeriod > 0 ? undefined : 'orange'}
+            icon={AlarmClock}
+            hint="Au moins une étape en retard"
+            trend={s.byCategory.length > 1 ? <Sparkline kind="bars" values={s.byCategory.map((c) => c.overdue)} color={t.accents.orange.main} /> : undefined}
+          />
+        </Box>
+      </Box>
+
+      {empty ? (
+        <Paper variant="elevated">
+          <EmptyState icon={SearchX} title="Aucune demande" description="Aucune demande ne correspond à cette période et à ces filtres." />
+        </Paper>
+      ) : (
+        <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 2fr) minmax(0, 1fr)' } }}>
+          <SectionCard
+            elevated
+            title="Évolution quotidienne"
+            description="Créées : jour de création. Terminées : jour de la première fin de traitement, même pour une demande créée avant la période."
+          >
+            <DailyChart data={s.daily} />
+          </SectionCard>
+          <SectionCard elevated title="Répartition par état">
+            <StatusDonut data={groups.map((g) => ({ label: GROUP_LABELS[g], count: s.counts[g] }))} />
+          </SectionCard>
+        </Box>
+      )}
+
       <SectionCard elevated title="À traiter maintenant" icon={TriangleAlert} description="Situation actuelle, toutes périodes confondues (les autres filtres s’appliquent)." contentGap={2}>
         <Box sx={{ ...kpiGrid, gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, minmax(0, 1fr))' } }}>
           <KpiCard
@@ -271,72 +339,39 @@ function GeneralView({ qs }: { qs: string }) {
         )}
       </SectionCard>
 
-      <Box component="section" aria-labelledby="tdb-periode-titre" sx={{ display: 'grid', gap: 1.5 }}>
-        <Typography id="tdb-periode-titre" component="h3" sx={{ fontWeight: font.medium }}>
-          Demandes créées sur la période
-        </Typography>
-        <Box sx={kpiGrid}>
-          <KpiCard label="Total" value={s.counts.total} icon={Inbox} hint="Hors brouillons" />
-          {groups.map((g) => (
-            <KpiCard key={g} label={GROUP_LABELS[g]} value={s.counts[g]} icon={GROUP_ICONS[g]} hint={GROUP_HINTS[g]} />
-          ))}
-          <KpiCard label="Hors délai" value={s.counts.overdueInPeriod} tone={s.counts.overdueInPeriod > 0 ? 'error' : 'accent'} icon={AlarmClock} hint="Au moins une étape en retard" />
-        </Box>
-      </Box>
-
-      {s.counts.total === 0 && s.daily.every((d) => d.completed === 0) ? (
-        <Paper variant="elevated">
-          <EmptyState icon={SearchX} title="Aucune demande" description="Aucune demande ne correspond à cette période et à ces filtres." />
-        </Paper>
-      ) : (
-        <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: '1fr', lg: 'repeat(2, minmax(0, 1fr))' } }}>
-          <SectionCard elevated title="Répartition par état">
-            <StatusChart data={groups.map((g) => ({ label: GROUP_LABELS[g], count: s.counts[g] }))} />
-          </SectionCard>
-          <SectionCard elevated
-            title="Évolution quotidienne"
-            description="Créées : jour de création. Terminées : jour de la première fin de traitement, même pour une demande créée avant la période."
-          >
-            <DailyChart data={s.daily} />
-          </SectionCard>
-        </Box>
-      )}
-
       <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 2fr) minmax(0, 1fr)' } }}>
         <SectionCard elevated title="Par catégorie (service)" flush>
           {s.byCategory.length === 0 ? (
             <EmptyState compact title="Aucune donnée" description="Aucune demande sur la période." />
           ) : (
-            <TableContainer {...scrollRegion('Demandes par catégorie')}>
-              <Table size="small" aria-label="Demandes par catégorie">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Catégorie</TableCell>
-                    <TableCell align="right">Total</TableCell>
-                    <TableCell align="right">À traiter</TableCell>
-                    <TableCell align="right">Terminées</TableCell>
-                    <TableCell align="right">Hors délai</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {s.byCategory.map((c) => (
-                    <TableRow key={c.category.id}>
-                      <TableCell>{c.category.name}</TableCell>
-                      <TableCell align="right">{c.total}</TableCell>
-                      <TableCell align="right">{c.active}</TableCell>
-                      <TableCell align="right">{c.done}</TableCell>
-                      <TableCell align="right">{c.overdue}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
+            <Box component="ul" aria-label="Demandes par catégorie" sx={{ listStyle: 'none', m: 0, p: 0, '& > li + li': { borderTop: 1, borderColor: 'divider' } }}>
+              {s.byCategory.map((c, index) => (
+                <Box
+                  component="li"
+                  key={c.category.id}
+                  sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1.5, px: { xs: 2, sm: 3 }, py: 1.5 }}
+                >
+                  <Box
+                    component="span"
+                    aria-hidden="true"
+                    sx={{ width: 10, height: 10, borderRadius: '50%', flex: 'none', bgcolor: t.chart.series[index % t.chart.series.length] }}
+                  />
+                  <Typography sx={{ flex: '1 1 160px', minWidth: 0, fontWeight: font.medium, overflowWrap: 'anywhere' }}>{c.category.name}</Typography>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+                    <Badge tone="accent">{c.total} au total</Badge>
+                    <Badge tone="info">{c.active} à traiter</Badge>
+                    <Badge tone="success">{c.done} terminées</Badge>
+                    {c.overdue > 0 && <Badge tone="error">{c.overdue} hors délai</Badge>}
+                  </Box>
+                </Box>
+              ))}
+            </Box>
           )}
         </SectionCard>
         <SectionCard elevated title="Échanges" description="Messages sur les demandes de la période (nombre seulement, jamais le contenu)." contentGap={1.5}>
-          <Box sx={{ display: 'grid', gap: 1.5, gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
-            <KpiCard label="Écrits" value={s.messages.text} icon={MessageSquare} />
-            <KpiCard label="Vocaux" value={s.messages.voice} icon={Mic} />
+          <Box sx={{ display: 'grid', gap: 1.5 }}>
+            <KpiCard label="Écrits" value={s.messages.text} icon={MessageSquare} accent="cyan" />
+            <KpiCard label="Vocaux" value={s.messages.voice} icon={Mic} accent="indigo" />
           </Box>
         </SectionCard>
       </Box>

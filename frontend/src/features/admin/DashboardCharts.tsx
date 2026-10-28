@@ -1,7 +1,7 @@
 import Box from '@mui/material/Box';
 import { useTheme } from '@mui/material/styles';
 import type { ReactNode } from 'react';
-import { Bar, BarChart, CartesianGrid, LabelList, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { font, fontSize, radius, tokensOf } from '../../design/tokens';
 
 /*
@@ -87,38 +87,6 @@ function DataTable({ caption, head, rows }: { caption: string; head: string[]; r
   );
 }
 
-/** Libellé d'état posé au-dessus de sa barre : toute la largeur reste aux barres, même à 320 px. */
-function BarCaption({ x, y, value, fill }: { x?: number | string; y?: number | string; value?: ReactNode; fill: string }) {
-  return (
-    <text x={Number(x)} y={Number(y) - 6} fill={fill} fontSize={fontSize.xs}>
-      {value}
-    </text>
-  );
-}
-
-/** Répartition des demandes de la période par état (une seule série : pas de légende). */
-export function StatusChart({ data }: { data: Array<{ label: string; count: number }> }) {
-  const c = useChartTheme();
-  return (
-    <Box>
-      <Box role="img" aria-label="Répartition des demandes par état" sx={{ height: data.length * 44 + 32 }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} layout="vertical" margin={{ top: 12, right: 40, bottom: 4, left: 0 }}>
-            <CartesianGrid horizontal={false} stroke={c.grid} />
-            <XAxis type="number" allowDecimals={false} {...c.axis} tickLine={false} axisLine={false} />
-            <YAxis type="category" dataKey="label" hide />
-            <Tooltip {...c.tooltip} formatter={(value) => [value, 'Demandes']} />
-            <Bar dataKey="count" name="Demandes" fill={c.series.created} radius={[0, 4, 4, 0]} barSize={12} minPointSize={2} label={{ position: 'right', fill: c.axis.tick.fill, fontSize: fontSize.xs }}>
-              <LabelList dataKey="label" content={(props) => <BarCaption x={props.x} y={props.y} value={props.value} fill={c.axis.tick.fill} />} />
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </Box>
-      <DataTable caption="Demandes par état" head={['État', 'Demandes']} rows={data.map((d) => [d.label, d.count])} />
-    </Box>
-  );
-}
-
 /** Demandes créées et terminées par jour sur la période. */
 export function DailyChart({ data }: { data: Array<{ day: string; created: number; completed: number }> }) {
   const c = useChartTheme();
@@ -153,6 +121,85 @@ export function DailyChart({ data }: { data: Array<{ day: string; created: numbe
         head={['Jour', 'Créées', 'Terminées']}
         rows={data.map((d) => [shortDay.format(dayOf(d.day)), d.created, d.completed])}
       />
+    </Box>
+  );
+}
+
+/**
+ * Mini-graphique d'une carte d'indicateur : décoratif (`aria-hidden`), la valeur est écrite dans la
+ * carte et le détail jour par jour est dans « Évolution quotidienne ».
+ */
+export function Sparkline({ values, color, kind = 'area' }: { values: number[]; color: string; kind?: 'area' | 'bars' }) {
+  const data = values.map((value, index) => ({ index, value }));
+  // Rien à montrer (aucun point, ou une période sans aucune valeur) : pas de trait plat.
+  if (data.length < 2 || values.every((v) => v === 0)) return null;
+  return (
+    // Masqué sous 600 px : la valeur de la carte garde toute la largeur.
+    <Box aria-hidden="true" sx={{ display: { xs: 'none', sm: 'block' }, width: 104, height: 44, flex: 'none' }}>
+      <ResponsiveContainer width="100%" height="100%">
+        {kind === 'bars' ? (
+          // Décoratif : pas de couche clavier Recharts (un élément aria-hidden ne doit pas être focusable).
+          <BarChart data={data} margin={{ top: 2, right: 0, bottom: 0, left: 0 }} accessibilityLayer={false}>
+            <Bar dataKey="value" fill={color} radius={[2, 2, 0, 0]} minPointSize={2} isAnimationActive={false} />
+          </BarChart>
+        ) : (
+          <AreaChart data={data} margin={{ top: 4, right: 2, bottom: 2, left: 2 }} accessibilityLayer={false}>
+            <Area type="monotone" dataKey="value" stroke={color} strokeWidth={2} fill={color} fillOpacity={0.12} dot={false} isAnimationActive={false} />
+          </AreaChart>
+        )}
+      </ResponsiveContainer>
+    </Box>
+  );
+}
+
+/** Répartition par état en anneau, avec légende chiffrée (la couleur n'est jamais seule) et vue tableau. */
+export function StatusDonut({ data }: { data: Array<{ label: string; count: number }> }) {
+  const c = useChartTheme();
+  const shown = data.filter((d) => d.count > 0);
+  const total = data.reduce((sum, d) => sum + d.count, 0);
+  const colorOf = (index: number) => c.series.series[index % c.series.series.length];
+  return (
+    <Box>
+      {/* Anneau puis légende : la carte est étroite (colonne de droite), les libellés restent entiers. */}
+      <Box sx={{ display: 'grid', gap: 2 }}>
+        <Box role="img" aria-label="Répartition des demandes par état" sx={{ height: 180, width: '100%', maxWidth: 220, mx: 'auto', position: 'relative' }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Tooltip {...c.tooltip} formatter={(value, name) => [value, name]} />
+              <Pie data={shown} dataKey="count" nameKey="label" innerRadius="62%" outerRadius="95%" paddingAngle={shown.length > 1 ? 2 : 0} stroke="none" isAnimationActive={false}>
+                {shown.map((d) => (
+                  <Cell key={d.label} fill={colorOf(data.indexOf(d))} />
+                ))}
+              </Pie>
+            </PieChart>
+          </ResponsiveContainer>
+          <Box
+            aria-hidden="true"
+            sx={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}
+          >
+            <Box component="span" sx={{ fontSize: fontSize.xl, fontWeight: font.semibold, lineHeight: 1.1 }}>
+              {total}
+            </Box>
+            <Box component="span" sx={(theme) => ({ fontSize: fontSize.xs, color: tokensOf(theme).textSecondary })}>
+              demandes
+            </Box>
+          </Box>
+        </Box>
+        <Box component="ul" aria-label="Légende : demandes par état" sx={{ listStyle: 'none', m: 0, p: 0, display: 'grid', gap: 1 }}>
+          {data.map((d, index) => (
+            <Box component="li" key={d.label} sx={{ display: 'flex', alignItems: 'center', gap: 1, fontSize: fontSize.sm, minWidth: 0 }}>
+              <Box component="span" sx={{ width: 10, height: 10, borderRadius: '50%', flex: 'none', bgcolor: colorOf(index) }} />
+              <Box component="span" sx={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere' }}>
+                {d.label}
+              </Box>
+              <Box component="span" sx={{ fontWeight: font.semibold, fontVariantNumeric: 'tabular-nums' }}>
+                {d.count}
+              </Box>
+            </Box>
+          ))}
+        </Box>
+      </Box>
+      <DataTable caption="Demandes par état" head={['État', 'Demandes']} rows={data.map((d) => [d.label, d.count])} />
     </Box>
   );
 }
