@@ -847,8 +847,8 @@ function ActivityView({ qs }: { qs: string }) {
 export function DashboardPage() {
   const [filters, setFilters] = useState<DashboardFilters>(DEFAULT_FILTERS);
   const [params, setParams] = useSearchParams();
-  // Onglet par défaut : « Demandes » (liste allégée) ; l'ordre des onglets ne change pas.
-  const view: ViewKey = VIEWS.find((v) => v.key === params.get('vue'))?.key ?? 'demandes';
+  // Onglet par défaut (accueil du super administrateur après connexion) : « Vue générale ».
+  const view: ViewKey = VIEWS.find((v) => v.key === params.get('vue'))?.key ?? 'general';
   const customIncomplete = filters.preset === 'custom' && (!filters.from || !filters.to);
   const qs = toDashboardQuery(filters);
   const listFilters = toRequestListFilters(filters);
