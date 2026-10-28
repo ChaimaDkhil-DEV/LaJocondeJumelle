@@ -11,6 +11,7 @@ import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Tabs from '@mui/material/Tabs';
+import Tooltip from '@mui/material/Tooltip';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import {
@@ -29,6 +30,7 @@ import {
   RefreshCw,
   SearchX,
   Siren,
+  SlidersHorizontal,
   Timer,
   TriangleAlert,
   UserRoundX,
@@ -39,6 +41,7 @@ import { Link as RouterLink, useSearchParams } from 'react-router';
 import { loadErrorMessage } from '../../api/client';
 import type { Priority } from '../../api/types';
 import { STAGE_LABELS, type DeadlineStage } from '../../components/Countdown';
+import { visuallyHidden } from '../../components/a11y';
 import { Badge } from '../../components/Badge';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
@@ -46,10 +49,11 @@ import { formatDateTime, formatRelative } from '../../components/format';
 import { PageHeader } from '../../components/PageHeader';
 import { PRIORITY_LABELS, PriorityBadge } from '../../components/PriorityBadge';
 import { SectionCard } from '../../components/SectionCard';
-import { StatusBadge } from '../../components/StatusBadge';
+import { STATUS_LABELS, StatusBadge } from '../../components/StatusBadge';
 import { Person } from '../../components/UserAvatar';
-import { cardShadow, font, icon, radius, tokensOf, type AccentName } from '../../design/tokens';
+import { cardShadow, font, fontSize, icon, radius, tokensOf, type AccentName } from '../../design/tokens';
 import { useRequestList } from '../requests/api';
+import type { RequestSummary } from '../requests/types';
 import { describeEvent, EVENT_ICONS } from '../requests/HistoryTimeline';
 import { useAdminCategories, useAdminUsers } from './api';
 import { DailyChart, Sparkline, StatusDonut } from './DashboardCharts';
@@ -168,15 +172,44 @@ const segmentedTabs = (theme: Theme) => {
 
 const kpiGrid ={ display: 'grid', gap: 1.5, gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', md: 'repeat(4, minmax(0, 1fr))' } } as const;
 
-function Filters({ value, onChange }: { value: DashboardFilters; onChange: (patch: Partial<DashboardFilters>) => void }) {
+/** Période : toujours visible dans l'en-tête (libellé masqué visuellement, nom accessible « Période »). */
+function PeriodSelect({ value, onChange }: { value: DashboardFilters; onChange: (patch: Partial<DashboardFilters>) => void }) {
+  return (
+    <TextField
+      select
+      id="tdb-periode"
+      label="Période"
+      size="small"
+      fullWidth={false}
+      value={value.preset}
+      onChange={(e) => onChange({ preset: e.target.value as DashboardFilters['preset'] })}
+      slotProps={{ inputLabel: { sx: visuallyHidden } }}
+      sx={{ minWidth: 176 }}
+    >
+      <MenuItem value="7">7 derniers jours</MenuItem>
+      <MenuItem value="30">30 derniers jours</MenuItem>
+      <MenuItem value="90">90 derniers jours</MenuItem>
+      <MenuItem value="custom">Personnalisée</MenuItem>
+    </TextField>
+  );
+}
+
+/** Filtres secondaires actifs (catégorie, priorité, employé), affichés sur le bouton « Filtres ». */
+function activeFilterCount(f: DashboardFilters): number {
+  return [f.categoryId, f.priority, f.employeeId].filter(Boolean).length;
+}
+
+/** Panneau des filtres secondaires, et des dates d'une période personnalisée. */
+function FiltersPanel({ value, onChange }: { value: DashboardFilters; onChange: (patch: Partial<DashboardFilters>) => void }) {
   const categories = useAdminCategories();
   const users = useAdminUsers();
   const workCategories = (categories.data ?? []).filter((c) => c.kind === 'WORK');
-  // À 320 px : période et catégorie (libellés longs) sur toute la largeur, priorité et employé côte à côte.
+  // À 320 px : catégorie (libellés longs) et dates sur toute la largeur, priorité et employé côte à côte.
   const wide = { gridColumn: { xs: '1 / -1', sm: 'auto' } } as const;
   return (
     <Paper
       variant="elevated"
+      id="tdb-filtres"
       role="group"
       aria-label="Filtres du tableau de bord"
       sx={{
@@ -185,15 +218,15 @@ function Filters({ value, onChange }: { value: DashboardFilters; onChange: (patc
         display: 'grid',
         gap: { xs: 1.5, sm: 2 },
         alignItems: 'end',
-        gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', md: 'repeat(4, minmax(0, 1fr))' },
+        gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', md: 'repeat(3, minmax(0, 1fr))' },
       }}
     >
-      <TextField select id="tdb-periode" label="Période" size="small" sx={wide} value={value.preset} onChange={(e) => onChange({ preset: e.target.value as DashboardFilters['preset'] })}>
-        <MenuItem value="7">7 derniers jours</MenuItem>
-        <MenuItem value="30">30 derniers jours</MenuItem>
-        <MenuItem value="90">90 derniers jours</MenuItem>
-        <MenuItem value="custom">Personnalisée</MenuItem>
-      </TextField>
+      {value.preset === 'custom' && (
+        <>
+          <TextField id="tdb-du" label="Du" type="date" size="small" sx={wide} value={value.from} onChange={(e) => onChange({ from: e.target.value })} />
+          <TextField id="tdb-au" label="Au" type="date" size="small" sx={{ ...wide, gridColumn: { xs: '1 / -1', sm: 'auto', md: 'span 2' } }} value={value.to} onChange={(e) => onChange({ to: e.target.value })} />
+        </>
+      )}
       <TextField select id="tdb-categorie" label="Catégorie (service)" size="small" sx={wide} value={value.categoryId} onChange={(e) => onChange({ categoryId: e.target.value })} slotProps={{ select: { displayEmpty: true } }}>
         <MenuItem value="">Toutes</MenuItem>
         {workCategories.map((c) => (
@@ -218,12 +251,6 @@ function Filters({ value, onChange }: { value: DashboardFilters; onChange: (patc
           </MenuItem>
         ))}
       </TextField>
-      {value.preset === 'custom' && (
-        <>
-          <TextField id="tdb-du" label="Du" type="date" size="small" sx={wide} value={value.from} onChange={(e) => onChange({ from: e.target.value })} />
-          <TextField id="tdb-au" label="Au" type="date" size="small" sx={wide} value={value.to} onChange={(e) => onChange({ to: e.target.value })} />
-        </>
-      )}
     </Paper>
   );
 }
@@ -587,6 +614,39 @@ function EmployeesView({ qs }: { qs: string }) {
   );
 }
 
+/** « D-2026-000004 » → « #004 » : numéro court de la liste (le numéro complet est au survol). */
+function shortNumber(reference: string): string {
+  const digits = /(\d+)$/.exec(reference)?.[1];
+  return digits ? `#${String(Number(digits)).padStart(3, '0')}` : reference;
+}
+
+/** Date et heure sans l'année (« 13 oct., 14:12 ») : la liste couvre une période récente. */
+const shortDateTime = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+
+/** Une seule couleur d'alerte : rouge pour l'urgence (et le retard), ambre pour « Haute », gris sinon. */
+function priorityColor(theme: Theme, priority: Priority): string {
+  const t = tokensOf(theme);
+  return priority === 'URGENT' ? t.error.text : priority === 'HIGH' ? t.warning.text : t.textSecondary;
+}
+
+/** Détails au survol (ou au focus) d'une ligne : numéro complet, statut entier, catégorie, échéance. */
+function RequestRowDetails({ r }: { r: RequestSummary }) {
+  const due = r.overdueStage
+    ? `dépassée (${STAGE_LABELS[r.overdueStage]})`
+    : r.currentDueAt
+      ? formatDateTime(r.currentDueAt)
+      : 'aucune';
+  return (
+    <Box sx={{ display: 'grid', gap: 0.25 }}>
+      <span>{r.reference}</span>
+      <span>Statut : {STATUS_LABELS[r.status]}</span>
+      <span>Catégorie : {r.category.name}</span>
+      <span>Échéance : {due}</span>
+      <span>Historique complet : ouvrir la demande</span>
+    </Box>
+  );
+}
+
 function RequestsView({ filters }: { filters: string }) {
   const list = useRequestList('all', [], filters);
   const items = list.data?.pages.flatMap((p) => p.items) ?? [];
@@ -600,50 +660,86 @@ function RequestsView({ filters }: { filters: string }) {
     );
   }
   return (
-    <Box sx={{ display: 'grid', gap: 2 }}>
+    <Box sx={{ display: 'grid', gap: 1.5 }}>
       <TableContainer component={Paper} variant="elevated" sx={stickyArea} {...scrollRegion('Demandes de la période')}>
-        <Table size="small" stickyHeader aria-label="Demandes de la période">
+        {/* Version allégée : 5 colonnes, lignes de hauteur fixe, texte simple (sans pilule). */}
+        <Table
+          size="small"
+          stickyHeader
+          aria-label="Demandes de la période"
+          sx={(theme) => ({
+            tableLayout: 'fixed',
+            minWidth: 760,
+            '& th': { bgcolor: tokensOf(theme).surface, color: tokensOf(theme).textSecondary, fontWeight: font.medium },
+            '& td, & th': { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+            '& tbody td': { height: 48, py: 0 },
+          })}
+        >
+          <colgroup>
+            <col />
+            <col style={{ width: 104 }} />
+            <col style={{ width: 144 }} />
+            <col style={{ width: 232 }} />
+            <col style={{ width: 132 }} />
+          </colgroup>
           <TableHead>
             <TableRow>
               <TableCell>Demande</TableCell>
               <TableCell>Priorité</TableCell>
               <TableCell>Statut</TableCell>
-              <TableCell>Demandeur</TableCell>
-              <TableCell>Employé affecté</TableCell>
-              <TableCell>Créée le</TableCell>
-              <TableCell>Échéance</TableCell>
+              <TableCell>
+                Demandeur{' '}
+                <span aria-hidden="true">→</span>
+                <Box component="span" sx={visuallyHidden}>
+                  et
+                </Box>{' '}
+                Affecté
+              </TableCell>
+              <TableCell>Créée</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {items.map((r) => (
-              <TableRow key={r.id}>
-                <TableCell sx={{ minWidth: 200 }}>
-                  <Box component={RouterLink} to={`/demandes/${r.id}`} sx={{ color: 'inherit', fontWeight: font.medium }}>
-                    {r.title}
-                  </Box>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                    {r.reference} · {r.category.name}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <PriorityBadge priority={r.priority} />
-                </TableCell>
-                <TableCell>
-                  <StatusBadge status={r.status} />
-                </TableCell>
-                <TableCell>{r.requester.displayName}</TableCell>
-                <TableCell>{r.assignee?.displayName ?? '—'}</TableCell>
-                <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDateTime(r.createdAt)}</TableCell>
-                <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                  {r.overdueStage ? <OverdueBadge stage={r.overdueStage} /> : r.currentDueAt ? formatDateTime(r.currentDueAt) : '—'}
-                </TableCell>
-              </TableRow>
+              <Tooltip key={r.id} title={<RequestRowDetails r={r} />} placement="bottom-start" describeChild enterDelay={400}>
+                <TableRow hover>
+                  <TableCell>
+                    <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, minWidth: 0 }}>
+                      <Box
+                        component={RouterLink}
+                        to={`/demandes/${r.id}`}
+                        sx={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', color: 'text.primary', fontWeight: font.medium, textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+                      >
+                        {r.title}
+                      </Box>
+                      <Box component="span" sx={{ flex: 'none', color: 'text.secondary', fontSize: fontSize.xs, fontVariantNumeric: 'tabular-nums' }}>
+                        {shortNumber(r.reference)}
+                      </Box>
+                    </Box>
+                  </TableCell>
+                  <TableCell sx={(theme) => ({ color: priorityColor(theme, r.priority), fontWeight: r.priority === 'URGENT' || r.priority === 'HIGH' ? font.medium : font.regular })}>
+                    {PRIORITY_LABELS[r.priority]}
+                  </TableCell>
+                  {/* « En retard » remplace le statut quand une étape a dépassé son échéance. */}
+                  <TableCell sx={(theme) => (r.overdueStage ? { color: tokensOf(theme).error.text, fontWeight: font.medium } : { color: tokensOf(theme).textSecondary })}>
+                    {r.overdueStage ? 'En retard' : STATUS_LABELS[r.status]}
+                  </TableCell>
+                  <TableCell>
+                    {r.requester.displayName}
+                    <span aria-hidden="true"> → </span>
+                    <Box component="span" sx={visuallyHidden}>
+                      , affectée à{' '}
+                    </Box>
+                    {r.assignee?.displayName ?? '—'}
+                  </TableCell>
+                  <TableCell sx={{ color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>{shortDateTime.format(new Date(r.createdAt))}</TableCell>
+                </TableRow>
+              </Tooltip>
             ))}
           </TableBody>
         </Table>
       </TableContainer>
       <Typography variant="body2" color="text.secondary">
-        Dates de prise en charge et de résolution : ouvrir la demande (historique complet). Le filtre « Employé » retient ici l’employé affecté.
+        Survol d’une ligne : numéro complet, catégorie et échéance. Historique complet : ouvrir la demande.
       </Typography>
       {list.hasNextPage && (
         <Box sx={{ textAlign: 'center' }}>
@@ -755,25 +851,44 @@ export function DashboardPage() {
   const customIncomplete = filters.preset === 'custom' && (!filters.from || !filters.to);
   const qs = toDashboardQuery(filters);
   const listFilters = toRequestListFilters(filters);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  // Période personnalisée : ses dates sont dans le panneau, qui s'ouvre alors de lui-même.
+  const showFilters = filtersOpen || filters.preset === 'custom';
+  const activeCount = activeFilterCount(filters);
+  const change = (patch: Partial<DashboardFilters>) => setFilters((f) => ({ ...f, ...patch }));
 
   return (
     <Box>
+      {/* En-tête allégé : période visible, autres filtres derrière « Filtres », export. */}
       <PageHeader
         title="Tableau de bord"
-        description="Supervision des demandes de travail. Les chiffres sont actualisés automatiquement chaque minute."
+        breadcrumb={false}
         actions={
-          <Button
-            component="a"
-            href={`/api/admin/dashboard/export.csv?${qs}`}
-            download
-            disabled={customIncomplete}
-            startIcon={<Download size={icon.sm} aria-hidden="true" />}
-          >
-            Exporter en CSV
-          </Button>
+          <>
+            <PeriodSelect value={filters} onChange={change} />
+            <Button
+              variant="outlined"
+              aria-expanded={showFilters}
+              aria-controls="tdb-filtres"
+              startIcon={<SlidersHorizontal size={icon.sm} aria-hidden="true" />}
+              onClick={() => setFiltersOpen((open) => !open)}
+            >
+              {activeCount > 0 ? `Filtres (${activeCount})` : 'Filtres'}
+            </Button>
+            <Button
+              variant="outlined"
+              component="a"
+              href={`/api/admin/dashboard/export.csv?${qs}`}
+              download
+              disabled={customIncomplete}
+              startIcon={<Download size={icon.sm} aria-hidden="true" />}
+            >
+              Exporter en CSV
+            </Button>
+          </>
         }
       />
-      <Filters value={filters} onChange={(patch) => setFilters((f) => ({ ...f, ...patch }))} />
+      {showFilters && <FiltersPanel value={filters} onChange={change} />}
 
       <Box sx={{ mb: 3 }}>
         <Tabs

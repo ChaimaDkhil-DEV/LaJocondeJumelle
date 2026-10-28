@@ -100,6 +100,44 @@ beforeAll(async () => {
   } as unknown as typeof ResizeObserver;
 });
 
+const person = (id: string, displayName: string) => ({ id, displayName });
+const REQUESTS = [
+  {
+    id: 'r4',
+    reference: 'D-2026-000004',
+    title: 'Réparation climatiseur de la salle des professeurs, au deuxième étage du bâtiment B',
+    category: { id: 'c2', name: 'Petits travaux' },
+    priority: 'HIGH',
+    status: 'SENT',
+    requester: person('sa', 'Super admin'),
+    assignee: person('t1', 'Technicien'),
+    createdAt: '2026-10-13T14:06:00.000Z',
+    currentStage: 'TAKEOVER',
+    currentDueAt: '2026-10-13T15:06:00.000Z',
+    warnAt: null,
+    overdueStage: 'TAKEOVER',
+    hasVoice: false,
+    unreadCount: 0,
+  },
+  {
+    id: 'r1',
+    reference: 'D-2026-000001',
+    title: 'Photocopies du contrôle de maths',
+    category: { id: 'c1', name: 'Photocopies' },
+    priority: 'NORMAL',
+    status: 'REJECTED',
+    requester: person('e1', 'Enseignante'),
+    assignee: null,
+    createdAt: '2026-10-13T11:31:00.000Z',
+    currentStage: null,
+    currentDueAt: null,
+    warnAt: null,
+    overdueStage: null,
+    hasVoice: false,
+    unreadCount: 0,
+  },
+];
+
 function setup(path = '/', handler: Handler = () => undefined, me: unknown = SUPER_ADMIN) {
   const urls: string[] = [];
   vi.stubGlobal(
@@ -115,6 +153,7 @@ function setup(path = '/', handler: Handler = () => undefined, me: unknown = SUP
       if (url.startsWith('/api/admin/dashboard/performance')) return json(200, PERFORMANCE);
       if (url.startsWith('/api/admin/dashboard/activity')) return json(200, ACTIVITY);
       if (url.startsWith('/api/admin/dashboard/employees')) return json(200, { items: [] });
+      if (url.startsWith('/api/requests')) return json(200, { items: REQUESTS, nextCursor: null });
       return json(404, { error: { code: 'NOT_FOUND', message: 'Élément introuvable.' } });
     }),
   );
@@ -169,6 +208,7 @@ describe('Tableau de bord', () => {
     const user = userEvent.setup();
     const { urls } = setup();
     await screen.findByText('Demandes créées sur la période');
+    await user.click(screen.getByRole('button', { name: /^Filtres/ }));
     await user.click(screen.getByRole('combobox', { name: 'Catégorie (service)' }));
     expect(screen.queryByRole('option', { name: 'Gardes' })).toBeNull();
     await user.click(screen.getByRole('option', { name: 'Photocopies' }));
@@ -189,6 +229,9 @@ describe('Tableau de bord', () => {
     await user.click(screen.getByRole('combobox', { name: 'Période' }));
     await user.click(screen.getByRole('option', { name: 'Personnalisée' }));
     expect(await screen.findByText('Période incomplète')).toBeVisible();
+    // Les dates de la période personnalisée s'affichent d'elles-mêmes.
+    expect(screen.getByLabelText('Du')).toBeVisible();
+    expect(screen.getByLabelText('Au')).toBeVisible();
     expect(screen.getByRole('link', { name: 'Exporter en CSV' })).toHaveAttribute('aria-disabled', 'true');
   });
 
@@ -196,8 +239,10 @@ describe('Tableau de bord', () => {
     const user = userEvent.setup();
     setup();
     await screen.findByText('Demandes créées sur la période');
+    await user.click(screen.getByRole('button', { name: /^Filtres/ }));
     await user.click(screen.getByRole('combobox', { name: 'Priorité' }));
     await user.click(screen.getByRole('option', { name: 'Urgente' }));
+    expect(screen.getByRole('button', { name: /^Filtres/ })).toHaveTextContent('Filtres (1)');
     const link = screen.getByRole('link', { name: 'Exporter en CSV' });
     const href = new URL(link.getAttribute('href')!, 'http://localhost');
     expect(href.pathname).toBe('/api/admin/dashboard/export.csv');
@@ -300,5 +345,62 @@ describe('Paramètres du tableau de bord', () => {
     expect(formatDurationMs(5 * 60_000)).toBe('5 min');
     expect(formatDurationMs(125 * 60_000)).toBe('2 h 05');
     expect(formatDurationMs(50 * 3_600_000)).toBe('2 j 2 h');
+  });
+
+  it('en-tête allégé : titre, période visible, autres filtres derrière « Filtres », sans fil d’Ariane ni phrase', async () => {
+    const user = userEvent.setup();
+    setup();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Tableau de bord' })).toBeVisible();
+    expect(screen.queryByRole('navigation', { name: 'Fil d’Ariane' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Supervision des demandes/)).not.toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Période' })).toHaveTextContent('30 derniers jours');
+
+    const toggle = screen.getByRole('button', { name: /^Filtres/ });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('combobox', { name: 'Catégorie (service)' })).not.toBeInTheDocument();
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    for (const name of ['Catégorie (service)', 'Priorité', 'Employé']) {
+      expect(screen.getByRole('combobox', { name })).toBeVisible();
+    }
+    // Les onglets ne changent pas.
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Vue générale', 'Délais', 'Employés', 'Demandes', 'Activité']);
+  });
+
+  it('vue Demandes : 5 colonnes, numéro court, retard et urgence en rouge, détails au survol', async () => {
+    const user = userEvent.setup();
+    setup('/?vue=demandes');
+    const table = await screen.findByRole('table', { name: 'Demandes de la période' });
+    // La flèche est masquée aux lecteurs d'écran, qui lisent « Demandeur et Affecté ».
+    const headers = within(table).getAllByRole('columnheader');
+    expect(headers).toHaveLength(5);
+    for (const name of ['Demande', 'Priorité', 'Statut', 'Demandeur et Affecté', 'Créée']) {
+      expect(within(table).getByRole('columnheader', { name })).toBeInTheDocument();
+    }
+    expect(headers[3]).toHaveTextContent('Demandeur →');
+    const [, late, rejected] = within(table).getAllByRole('row');
+
+    // Titre sur une ligne, numéro court ; « En retard » remplace le statut ; noms fusionnés.
+    expect(within(late!).getByRole('link', { name: /Réparation climatiseur/ })).toHaveAttribute('href', '/demandes/r4');
+    expect(within(late!).getByText('#004')).toBeVisible();
+    expect(within(late!).getByText('Haute')).toBeVisible();
+    expect(within(late!).getByText('En retard')).toBeVisible();
+    expect(within(late!).queryByText('Envoyée')).not.toBeInTheDocument();
+    expect(late).toHaveTextContent(/Super admin\s*→\s*, affectée à Technicien/);
+    expect(within(rejected!).getByText('Refusée')).toBeVisible();
+    expect(rejected).toHaveTextContent(/Enseignante\s*→\s*, affectée à —/);
+    // Dates sans l'année.
+    const created = within(late!).getAllByRole('cell').at(-1)!;
+    expect(created.textContent).toMatch(/^\d{1,2} oct\., \d{2}:\d{2}$/);
+
+    // Sans pilule : la priorité et le statut sont du texte simple.
+    expect(late!.querySelector('.MuiBadge-root, [data-testid]')).toBeNull();
+
+    // Survol (ou focus) : numéro complet, catégorie et échéance.
+    await user.hover(within(late!).getByRole('link', { name: /Réparation climatiseur/ }));
+    const tip = await screen.findByRole('tooltip');
+    expect(tip).toHaveTextContent('D-2026-000004');
+    expect(tip).toHaveTextContent('Petits travaux');
+    expect(tip).toHaveTextContent('Échéance');
   });
 });

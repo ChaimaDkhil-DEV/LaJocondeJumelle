@@ -59,7 +59,8 @@ test('le super administrateur supervise les demandes depuis le tableau de bord ;
   await expect(page.locator('p', { hasText: /^\d+$/ }).first()).toBeVisible();
   await expectNoA11yViolations(page);
 
-  // Filtre de priorité : la requête repart avec le critère, la page reste cohérente.
+  // Filtre de priorité (derrière « Filtres ») : la requête repart avec le critère, la page reste cohérente.
+  await page.getByRole('button', { name: /^Filtres/ }).click();
   await page.getByRole('combobox', { name: 'Priorité' }).click();
   const summary = page.waitForResponse((r) => r.url().includes('/api/admin/dashboard/summary') && r.url().includes('priority=URGENT'));
   await page.getByRole('option', { name: 'Urgente' }).click();
