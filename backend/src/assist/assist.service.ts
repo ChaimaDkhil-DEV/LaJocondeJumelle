@@ -91,7 +91,15 @@ export class AssistService {
       .map(({ id, title, excerpt }) => ({ id, title, excerpt }));
     if (!suggestion) return { suggestion: null, sources, noGuideline: found.length === 0, token: null };
 
-    const { sourceIds: _sourceIds, ...fields } = suggestion;
+    // Les consignes citées sont renvoyées dans `sources`, pas dans la proposition.
+    const { title, categoryId, priority, reason, missing } = suggestion;
+    const fields = {
+      ...(title !== undefined ? { title } : {}),
+      ...(categoryId !== undefined ? { categoryId } : {}),
+      ...(priority !== undefined ? { priority } : {}),
+      ...(reason !== undefined ? { reason } : {}),
+      missing,
+    };
     const token = signAssistToken(
       this.config.sessionSecret,
       user.id,
