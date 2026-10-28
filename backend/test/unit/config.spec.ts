@@ -100,6 +100,8 @@ describe('loadConfig — assistance IA (009, FR-019, FR-020)', () => {
       timeoutMs: 15_000,
       rateLimit: 10,
       demoTranscript: null,
+      claude: null,
+      whisper: null,
     });
   });
 
@@ -127,6 +129,50 @@ describe('loadConfig — assistance IA (009, FR-019, FR-020)', () => {
     for (const value of ['999', '20001', 'abc', '1.5']) {
       expect(() => loadConfig({ ...valid, ASSIST_TIMEOUT_MS: value })).toThrow(ConfigError);
     }
+  });
+
+  // 010 : connecteurs réels, désactivés par défaut ; configuration complète exigée au démarrage.
+  it('connecteur Claude : clé obligatoire, modèle par défaut, clé jamais citée dans l’erreur', () => {
+    const config = loadConfig({ ...valid, ASSIST_SUGGESTION_PROVIDER: 'claude', ANTHROPIC_API_KEY: ' sk-ant-test ' });
+    expect(config.assist.suggestionProvider).toBe('claude');
+    expect(config.assist.claude).toEqual({ apiKey: 'sk-ant-test', model: 'claude-opus-5-5' });
+    expect(loadConfig({ ...valid, ASSIST_SUGGESTION_PROVIDER: 'claude', ANTHROPIC_API_KEY: 'k', ASSIST_CLAUDE_MODEL: 'claude-sonnet-5-5' }).assist.claude?.model).toBe(
+      'claude-sonnet-5-5',
+    );
+    // Autorisé en production (contrairement à demo), avec sa clé.
+    expect(loadConfig({ ...valid, NODE_ENV: 'production', ASSIST_SUGGESTION_PROVIDER: 'claude', ANTHROPIC_API_KEY: 'k' }).assist.claude).not.toBeNull();
+    expect(() => loadConfig({ ...valid, ASSIST_SUGGESTION_PROVIDER: 'claude' })).toThrow(/ANTHROPIC_API_KEY/);
+    expect(() => loadConfig({ ...valid, ASSIST_SUGGESTION_PROVIDER: 'claude', ANTHROPIC_API_KEY: '  ' })).toThrow(ConfigError);
+    // Sans le connecteur choisi, la clé éventuelle n'est pas retenue.
+    expect(loadConfig({ ...valid, ANTHROPIC_API_KEY: 'k' }).assist.claude).toBeNull();
+  });
+
+  it('connecteur Whisper : adresse valide obligatoire, https en production, modèle par défaut', () => {
+    const config = loadConfig({ ...valid, ASSIST_TRANSCRIPTION_PROVIDER: 'whisper', ASSIST_WHISPER_URL: 'http://whisper.ecole.local:8000' });
+    expect(config.assist.transcriptionProvider).toBe('whisper');
+    expect(config.assist.whisper).toEqual({ url: 'http://whisper.ecole.local:8000', model: 'Systran/faster-whisper-small', apiKey: null });
+    expect(
+      loadConfig({
+        ...valid,
+        NODE_ENV: 'production',
+        ASSIST_TRANSCRIPTION_PROVIDER: 'whisper',
+        ASSIST_WHISPER_URL: 'https://whisper.ecole.fr',
+        ASSIST_WHISPER_MODEL: 'Systran/faster-whisper-medium',
+        ASSIST_WHISPER_API_KEY: 'secret',
+      }).assist.whisper,
+    ).toEqual({ url: 'https://whisper.ecole.fr', model: 'Systran/faster-whisper-medium', apiKey: 'secret' });
+    for (const url of [undefined, '', 'pas une url', 'ftp://whisper.ecole.fr']) {
+      expect(() => loadConfig({ ...valid, ASSIST_TRANSCRIPTION_PROVIDER: 'whisper', ASSIST_WHISPER_URL: url })).toThrow(ConfigError);
+    }
+    // Échanges chiffrés exigés en production (constitution, principe IV).
+    expect(() =>
+      loadConfig({ ...valid, NODE_ENV: 'production', ASSIST_TRANSCRIPTION_PROVIDER: 'whisper', ASSIST_WHISPER_URL: 'http://whisper.ecole.fr' }),
+    ).toThrow(/https/);
+  });
+
+  it('n’accepte chaque connecteur que pour son usage', () => {
+    expect(() => loadConfig({ ...valid, ASSIST_SUGGESTION_PROVIDER: 'whisper' })).toThrow(ConfigError);
+    expect(() => loadConfig({ ...valid, ASSIST_TRANSCRIPTION_PROVIDER: 'claude', ANTHROPIC_API_KEY: 'k' })).toThrow(ConfigError);
   });
 
   it('exige une limite d’appels entière et positive', () => {

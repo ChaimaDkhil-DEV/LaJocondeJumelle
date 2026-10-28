@@ -66,4 +66,12 @@ describe('sanitizeSuggestion', () => {
   it.each([null, undefined, 'texte', 42, [], [valid], {}])('réponse inutilisable (%p) : aucune proposition', (raw) => {
     expect(sanitizeSuggestion(raw, allowed).suggestion).toBeNull();
   });
+
+  // 010 (T014) : garde-fou indépendant de la contrainte de sortie d'un connecteur réel (Claude).
+  it('écarte les valeurs hors liste d’une sortie de connecteur, même structurée', () => {
+    const fromConnector = { title: 'Photocopieuse en panne', categoryId: 'cat-inconnue', priority: 'CRITICAL', missing: [], sourceIds: ['g-inconnue', 'g2'] };
+    const { suggestion, discarded } = sanitizeSuggestion(fromConnector, allowed);
+    expect(suggestion).toEqual({ title: 'Photocopieuse en panne', missing: [], sourceIds: ['g2'] });
+    expect(discarded).toBe(3);
+  });
 });

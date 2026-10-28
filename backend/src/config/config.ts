@@ -28,18 +28,27 @@ export interface AppConfig {
   assist: AssistConfig;
 }
 
-/** `disabled` : aucune assistance ; `demo` : fournisseur local déterministe, refusé en production. */
-export type AssistProviderName = 'disabled' | 'demo';
+/**
+ * `disabled` : aucune assistance ; `demo` : fournisseur local déterministe, refusé en production ;
+ * `claude` / `whisper` : connecteurs réels (spec 010), à n'activer qu'après la décision de
+ * l'établissement (accord de traitement, conservation).
+ */
+export type SuggestionProviderName = 'disabled' | 'demo' | 'claude';
+export type TranscriptionProviderName = 'disabled' | 'demo' | 'whisper';
 
 export interface AssistConfig {
-  suggestionProvider: AssistProviderName;
-  transcriptionProvider: AssistProviderName;
+  suggestionProvider: SuggestionProviderName;
+  transcriptionProvider: TranscriptionProviderName;
   /** Délai maximal d'un appel de fournisseur (1 000 à 20 000 ms). */
   timeoutMs: number;
   /** Appels (transcription et propositions réunies) par utilisateur et par 5 minutes. */
   rateLimit: number;
   /** Texte renvoyé par la transcription de démonstration ; null : phrase par défaut. */
   demoTranscript: string | null;
+  /** Connecteur Claude (`claude` seulement) : clé secrète et modèle. */
+  claude: { apiKey: string; model: string } | null;
+  /** Connecteur Whisper auto-hébergé (`whisper` seulement) : adresse, modèle, clé facultative. */
+  whisper: { url: string; model: string; apiKey: string | null } | null;
 }
 
 export class ConfigError extends Error {}
@@ -72,20 +81,56 @@ export function schoolTimezoneFromEnv(env: NodeJS.ProcessEnv = process.env): str
   return cachedTimezone.value;
 }
 
-const ASSIST_PROVIDERS: readonly AssistProviderName[] = ['disabled', 'demo'];
+const SUGGESTION_PROVIDERS: readonly SuggestionProviderName[] = ['disabled', 'demo', 'claude'];
+const TRANSCRIPTION_PROVIDERS: readonly TranscriptionProviderName[] = ['disabled', 'demo', 'whisper'];
 const DEFAULT_ASSIST_TIMEOUT_MS = 15_000;
 const DEFAULT_ASSIST_RATE_LIMIT = 10;
+const DEFAULT_CLAUDE_MODEL = 'claude-opus-5-5';
+const DEFAULT_WHISPER_MODEL = 'Systran/faster-whisper-small';
 
-function parseAssistProvider(key: string, raw: string | undefined, isProduction: boolean): AssistProviderName {
+function parseAssistProvider<T extends string>(key: string, raw: string | undefined, allowed: readonly T[], isProduction: boolean): T {
   const value = raw === undefined || raw.trim() === '' ? 'disabled' : raw;
-  if (!ASSIST_PROVIDERS.includes(value as AssistProviderName)) {
-    throw new ConfigError(`${key} invalide : utilisez ${ASSIST_PROVIDERS.join(' ou ')}`);
+  if (!allowed.includes(value as T)) {
+    throw new ConfigError(`${key} invalide : utilisez ${allowed.join(', ')}`);
   }
   // Une transcription ou des propositions factices ne doivent jamais atteindre les utilisateurs réels.
   if (value === 'demo' && isProduction) {
     throw new ConfigError(`${key}=demo est réservé au développement et aux tests`);
   }
-  return value as AssistProviderName;
+  return value as T;
+}
+
+/** Valeur non vide (rognée) ou null ; la valeur d'un secret n'est jamais citée dans une erreur. */
+function trimmed(raw: string | undefined): string | null {
+  return raw?.trim() || null;
+}
+
+function parseClaude(env: NodeJS.ProcessEnv): AssistConfig['claude'] {
+  const apiKey = trimmed(env.ANTHROPIC_API_KEY);
+  if (!apiKey) throw new ConfigError('ANTHROPIC_API_KEY est obligatoire avec ASSIST_SUGGESTION_PROVIDER=claude');
+  return { apiKey, model: trimmed(env.ASSIST_CLAUDE_MODEL) ?? DEFAULT_CLAUDE_MODEL };
+}
+
+function parseWhisper(env: NodeJS.ProcessEnv, isProduction: boolean): AssistConfig['whisper'] {
+  const raw = trimmed(env.ASSIST_WHISPER_URL);
+  let url: URL;
+  try {
+    url = new URL(raw ?? '');
+  } catch {
+    throw new ConfigError('ASSIST_WHISPER_URL doit être une adresse http(s) valide avec ASSIST_TRANSCRIPTION_PROVIDER=whisper');
+  }
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+    throw new ConfigError('ASSIST_WHISPER_URL doit être une adresse http(s) valide avec ASSIST_TRANSCRIPTION_PROVIDER=whisper');
+  }
+  // Échanges chiffrés exigés en production (constitution, principe IV).
+  if (isProduction && url.protocol !== 'https:') {
+    throw new ConfigError('ASSIST_WHISPER_URL doit utiliser https en production');
+  }
+  return {
+    url: raw!.replace(/\/+$/, ''),
+    model: trimmed(env.ASSIST_WHISPER_MODEL) ?? DEFAULT_WHISPER_MODEL,
+    apiKey: trimmed(env.ASSIST_WHISPER_API_KEY),
+  };
 }
 
 function parseBoundedInt(key: string, raw: string | undefined, fallback: number, min: number, max: number): number {
@@ -98,12 +143,22 @@ function parseBoundedInt(key: string, raw: string | undefined, fallback: number,
 }
 
 function parseAssist(env: NodeJS.ProcessEnv, isProduction: boolean): AssistConfig {
+  const suggestionProvider = parseAssistProvider('ASSIST_SUGGESTION_PROVIDER', env.ASSIST_SUGGESTION_PROVIDER, SUGGESTION_PROVIDERS, isProduction);
+  const transcriptionProvider = parseAssistProvider(
+    'ASSIST_TRANSCRIPTION_PROVIDER',
+    env.ASSIST_TRANSCRIPTION_PROVIDER,
+    TRANSCRIPTION_PROVIDERS,
+    isProduction,
+  );
   return {
-    suggestionProvider: parseAssistProvider('ASSIST_SUGGESTION_PROVIDER', env.ASSIST_SUGGESTION_PROVIDER, isProduction),
-    transcriptionProvider: parseAssistProvider('ASSIST_TRANSCRIPTION_PROVIDER', env.ASSIST_TRANSCRIPTION_PROVIDER, isProduction),
+    suggestionProvider,
+    transcriptionProvider,
     timeoutMs: parseBoundedInt('ASSIST_TIMEOUT_MS', env.ASSIST_TIMEOUT_MS, DEFAULT_ASSIST_TIMEOUT_MS, 1_000, 20_000),
     rateLimit: parseBoundedInt('ASSIST_RATE_LIMIT', env.ASSIST_RATE_LIMIT, DEFAULT_ASSIST_RATE_LIMIT, 1, 1_000),
     demoTranscript: env.ASSIST_DEMO_TRANSCRIPT?.trim() || null,
+    // Configuration retenue seulement pour le connecteur choisi, et complète dès le démarrage.
+    claude: suggestionProvider === 'claude' ? parseClaude(env) : null,
+    whisper: transcriptionProvider === 'whisper' ? parseWhisper(env, isProduction) : null,
   };
 }
 

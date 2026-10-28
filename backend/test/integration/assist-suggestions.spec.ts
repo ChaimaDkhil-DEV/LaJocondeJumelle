@@ -1,6 +1,7 @@
 import { Logger, type INestApplication } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { join } from 'node:path';
+import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { readAssistToken } from '../../src/common/assist-token';
 import { CATEGORIES, categoryId, loginAs, seedDemo, userId } from '../utils/auth-helpers';
@@ -213,6 +214,32 @@ describe('Propositions : droits et réponses non fiables', () => {
     expect(res.body.suggestion).toEqual({ priority: 'URGENT', missing: [] });
     expect(res.body.sources.map((s: { id: string }) => s.id)).toEqual([generalGuidelineId]);
     expect(JSON.stringify(res.body)).not.toContain(reservedId);
+  });
+
+  it('demandes similaires : visibles seulement, transmises réduites à titre, catégorie et priorité (010, T006)', async () => {
+    const photocopies = await categoryId(prisma, CATEGORIES.photocopies);
+    const reprographieId = await userId(prisma, 'reprographie');
+    const createAs = async (cookie: string, title: string) =>
+      (
+        await request(app.getHttpServer())
+          .post('/api/requests')
+          .set('Cookie', cookie)
+          .set('Origin', TEST_ORIGIN)
+          .send({ clientId: randomUUID(), title, description: 'Description confidentielle.', categoryId: photocopies, recipientId: reprographieId, priority: 'URGENT' })
+      ).body.id as string;
+    const mine = await createAs(enseignante, 'Massicot de la reprographie bloqué');
+    const others = await createAs(await loginAs(app, 'autre'), 'Massicot de la salle des professeurs bloqué');
+    const before = await prisma.request.count();
+
+    const res = await suggest('Le massicot est bloqué.');
+    expect(res.status).toBe(200);
+    expect(res.body.similar).toEqual([
+      { id: mine, reference: expect.any(String), title: 'Massicot de la reprographie bloqué', categoryName: 'Photocopies', priority: 'URGENT', status: expect.any(String) },
+    ]);
+    expect(JSON.stringify(res.body)).not.toContain(others);
+    expect(received!.similar).toEqual([{ title: 'Massicot de la reprographie bloqué', categoryName: 'Photocopies', priority: 'URGENT' }]);
+    expect(JSON.stringify(received)).not.toContain('Description confidentielle');
+    expect(await prisma.request.count()).toBe(before);
   });
 
   it('écarte chaque champ invalide de la réponse du fournisseur', async () => {

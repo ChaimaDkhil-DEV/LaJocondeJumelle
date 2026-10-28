@@ -350,6 +350,8 @@ répond pas, créer une demande à la main.
 - La priorité est choisie librement par le demandeur à la création aujourd'hui ; la proposition
   ne fait que pré-remplir ce choix. Les changements de priorité après création restent régis par
   les droits existants (hors périmètre).
+- Suite (spec 010, `specs/010-assistance-fournisseurs-similaires/`) : connecteurs réels Whisper
+  (auto-hébergé) et Claude, désactivés par défaut, et demandes similaires visibles par l'utilisateur.
 - Le titre proposé fait office de résumé : un titre court est obligatoire, alors qu'aucun champ
   « résumé » n'existe.
 - Finalité des données : aider le demandeur à remplir sa demande. Le texte et le vocal ne quittent

@@ -1,5 +1,5 @@
 import { apiFetch } from '../../api/client';
-import type { Priority } from '../../api/types';
+import type { Priority, RequestStatus } from '../../api/types';
 import { extensionFor } from '../voice/recorderFormat';
 import type { VoiceRecording } from '../voice/VoiceRecorder';
 
@@ -18,6 +18,17 @@ export interface SuggestionResult {
   noGuideline: boolean;
   /** À joindre à l'envoi de la demande (`assistToken`). */
   token: string | null;
+  /** Demandes proches que l'utilisateur peut déjà consulter (spec 010), 3 au plus. */
+  similar?: SimilarRequest[];
+}
+
+export interface SimilarRequest {
+  id: string;
+  reference: string;
+  title: string;
+  categoryName: string;
+  priority: Priority;
+  status: RequestStatus;
 }
 
 export function requestSuggestions(text: string): Promise<SuggestionResult> {
