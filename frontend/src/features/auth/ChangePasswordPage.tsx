@@ -10,7 +10,6 @@ import { fieldIcon } from '../../components/fieldIcon';
 import { LoadingState } from '../../components/LoadingState';
 import { AuthLayout } from './AuthLayout';
 import { useChangePassword, useCurrentUser } from './useCurrentUser';
-import { homePathFor } from './homePath';
 
 const MIN_LENGTH = 12;
 
@@ -53,7 +52,7 @@ export function ChangePasswordPage() {
       {
         onSuccess: () =>
           wasForced
-            ? navigate(homePathFor(me.data?.role ?? 'EMPLOYEE'), { replace: true })
+            ? navigate('/', { replace: true })
             : navigate('/profil', { replace: true, state: { passwordChanged: true } }),
         onError: (error) => setErrors(fieldErrors(error)),
       },

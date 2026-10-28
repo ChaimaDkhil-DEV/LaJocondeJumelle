@@ -1,6 +1,4 @@
-import { lazy, Suspense } from 'react';
-import { Navigate, type RouteObject } from 'react-router';
-import { LoadingState } from '../../components/LoadingState';
+import { Navigate, useLocation, type RouteObject } from 'react-router';
 import { ClassesAdminPage } from '../coverage/ClassesAdminPage';
 import { CoverageDashboardPage } from '../coverage/CoverageDashboardPage';
 import { FloorsAdminPage } from '../coverage/FloorsAdminPage';
@@ -12,11 +10,11 @@ import { GuidelinesAdminPage } from './GuidelinesAdminPage';
 import { SettingsAdminPage } from './SettingsAdminPage';
 import { UsersAdminPage } from './UsersAdminPage';
 
-// Chargée à la demande : les graphiques (Recharts) ne pèsent que sur cet écran ; le menu de
-// l'administration s'affiche pendant le chargement.
-const DashboardPage = lazy(() =>
-  import('./DashboardPage').then((m) => ({ default: m.DashboardPage })),
-);
+/** Ancienne adresse du tableau de bord, devenu la page d'accueil : la vue choisie (`?vue=`) est conservée. */
+function DashboardMoved() {
+  const { search } = useLocation();
+  return <Navigate to={{ pathname: '/', search }} replace />;
+}
 
 /** Routes /admin/* (super administrateur uniquement). */
 export const adminRoutes: RouteObject[] = [
@@ -25,14 +23,7 @@ export const adminRoutes: RouteObject[] = [
     element: <AdminLayout />,
     children: [
       { index: true, element: <Navigate to="comptes" replace /> },
-      {
-        path: 'tableau-de-bord',
-        element: (
-          <Suspense fallback={<LoadingState label="Chargement du tableau de bord" />}>
-            <DashboardPage />
-          </Suspense>
-        ),
-      },
+      { path: 'tableau-de-bord', element: <DashboardMoved /> },
       { path: 'comptes', element: <UsersAdminPage /> },
       { path: 'categories', element: <CategoriesAdminPage /> },
       { path: 'consignes', element: <GuidelinesAdminPage /> },

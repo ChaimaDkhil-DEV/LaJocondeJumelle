@@ -22,7 +22,7 @@ import { HistoryTimeline } from './HistoryTimeline';
 import { isReadOnlyStatus, readOnlyNotice } from './readOnly';
 import { RequestActions } from './RequestActions';
 
-const BACK = { to: '/', label: 'Retour aux demandes' };
+const BACK = { to: '/demandes', label: 'Retour aux demandes' };
 
 function InfoRow({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -51,7 +51,7 @@ export function RequestDetailPage() {
         <ErrorState
           message={notFound ? 'Cette demande est introuvable ou vous n’y avez pas accès.' : 'Impossible de charger la demande.'}
           actionLabel={notFound ? 'Retour aux demandes' : 'Réessayer'}
-          onAction={() => (notFound ? navigate('/') : void request.refetch())}
+          onAction={() => (notFound ? navigate('/demandes') : void request.refetch())}
         />
       </>
     );

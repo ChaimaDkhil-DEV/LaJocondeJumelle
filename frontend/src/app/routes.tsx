@@ -9,6 +9,7 @@ import { CoveragePage } from '../features/coverage/CoveragePage';
 import { CoverageStatsPage } from '../features/coverage/CoverageStatsPage';
 import { CreateCoveragePage } from '../features/coverage/CreateCoveragePage';
 import { EmptyClassPage } from '../features/coverage/EmptyClassPage';
+import { HomePage } from '../features/home/HomePage';
 import { TeacherRequestPage } from '../features/coverage/TeacherRequestPage';
 import { PresencePage } from '../features/coverage/PresencePage';
 import { CreateRequestPage } from '../features/requests/CreateRequestPage';
@@ -28,7 +29,9 @@ export const routes: RouteObject[] = [
       </RequireAuth>
     ),
     children: [
-      { index: true, element: <RequestListPage /> },
+      // Accueil : tableau de bord (super administrateur) ou « Mes demandes » (autres rôles).
+      { index: true, element: <HomePage /> },
+      { path: 'demandes', element: <RequestListPage /> },
       { path: 'demandes/nouvelle', element: <CreateRequestPage /> },
       { path: 'demandes/:id/brouillon', element: <DraftPage /> },
       { path: 'demandes/:id', element: <RequestDetailPage /> },

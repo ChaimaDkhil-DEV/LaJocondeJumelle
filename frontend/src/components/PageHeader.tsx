@@ -1,10 +1,16 @@
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, ChevronRight, House } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Link as RouterLink } from 'react-router';
-import { icon } from '../design/tokens';
+import { font, fontSize, icon, tokensOf } from '../design/tokens';
+
+export interface Crumb {
+  label: string;
+  /** Absent : page courante. */
+  to?: string;
+}
 
 interface PageHeaderProps {
   title: ReactNode;
@@ -16,13 +22,72 @@ interface PageHeaderProps {
   actions?: ReactNode;
   /** Lien de retour affiché au-dessus. */
   back?: { to: string; label: string };
+  /**
+   * Fil d'Ariane à droite du titre. Par défaut : « Accueil › titre » quand le titre est un texte ;
+   * `false` le masque.
+   */
+  breadcrumb?: Crumb[] | false;
   /** Contenu sous le titre (badges…). */
   children?: ReactNode;
   titleId?: string;
 }
 
-/** En-tête de page : titre (h1), description et action principale à droite. */
-export function PageHeader({ title, description, eyebrow, actions, back, children, titleId }: PageHeaderProps) {
+/** Fil d'Ariane (WAI-ARIA « breadcrumb ») : liens, puis la page courante (`aria-current`). */
+function Breadcrumb({ items }: { items: Crumb[] }) {
+  return (
+    <Box component="nav" aria-label="Fil d’Ariane" sx={{ display: { xs: 'none', sm: 'block' }, minWidth: 0 }}>
+      <Box
+        component="ol"
+        sx={(theme) => ({
+          listStyle: 'none',
+          m: 0,
+          p: 0,
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          gap: 0.75,
+          fontSize: fontSize.sm,
+          color: tokensOf(theme).textSecondary,
+        })}
+      >
+        {items.map((item, index) => (
+          <Box component="li" key={`${index}-${item.label}`} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+            {index > 0 && <ChevronRight size={icon.sm - 2} aria-hidden="true" />}
+            {item.to ? (
+              <Box
+                component={RouterLink}
+                to={item.to}
+                sx={(theme) => ({
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 0.5,
+                  color: tokensOf(theme).textSecondary,
+                  textDecoration: 'none',
+                  '&:hover': { color: tokensOf(theme).accent.main, textDecoration: 'underline' },
+                })}
+              >
+                {index === 0 && <House size={icon.sm - 2} aria-hidden="true" />}
+                {item.label}
+              </Box>
+            ) : (
+              <Box
+                component="span"
+                aria-current="page"
+                sx={(theme) => ({ color: tokensOf(theme).text, fontWeight: font.medium, maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' })}
+              >
+                {item.label}
+              </Box>
+            )}
+          </Box>
+        ))}
+      </Box>
+    </Box>
+  );
+}
+
+/** En-tête de page : grand titre (h1), sous-titre discret, fil d'Ariane et action principale à droite. */
+export function PageHeader({ title, description, eyebrow, actions, back, breadcrumb, children, titleId }: PageHeaderProps) {
+  const crumbs = breadcrumb ?? (typeof title === 'string' ? [{ label: 'Accueil', to: '/' }, { label: title }] : false);
   return (
     <Box component="header" sx={{ mb: 3 }}>
       {back && (
@@ -52,7 +117,12 @@ export function PageHeader({ title, description, eyebrow, actions, back, childre
             </Typography>
           )}
         </Box>
-        {actions && <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>{actions}</Box>}
+        {(crumbs || actions) && (
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: { xs: 'flex-start', sm: 'flex-end' }, gap: 1.5, minWidth: 0 }}>
+            {crumbs && <Breadcrumb items={crumbs} />}
+            {actions && <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>{actions}</Box>}
+          </Box>
+        )}
       </Box>
       {children && <Box sx={{ mt: 1.5 }}>{children}</Box>}
     </Box>

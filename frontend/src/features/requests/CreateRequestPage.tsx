@@ -30,7 +30,7 @@ const header = (
   <PageHeader
     title="Nouvelle demande"
     description="Décrivez votre besoin : un message vocal suffit, la description écrite est facultative."
-    back={{ to: '/', label: 'Retour aux demandes' }}
+    back={{ to: '/demandes', label: 'Retour aux demandes' }}
   />
 );
 

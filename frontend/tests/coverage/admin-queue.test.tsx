@@ -98,7 +98,10 @@ describe('File de l’admin', () => {
     const tabs = await screen.findAllByRole('tab');
     expect(tabs.map((t) => t.textContent)).toEqual(['En attente', 'En cours', 'Doublons', 'Équipe', 'Terminées']);
     expect(tabs[0]).toHaveAttribute('aria-selected', 'true');
-    const rows = within(await screen.findByRole('list')).getAllByRole('listitem');
+    // La liste des gardes (et non celle du fil d'Ariane, dans sa navigation).
+    await screen.findByText('CE1 Vert');
+    const list = screen.getAllByRole('list').find((l) => !l.closest('nav'))!;
+    const rows = within(list).getAllByRole('listitem');
     expect(rows[0]).toHaveTextContent('CE1 Vert');
     expect(within(rows[0]).getByText('Délai d’assignation dépassé')).toBeInTheDocument();
     expect(within(rows[1]).queryByText('Délai d’assignation dépassé')).not.toBeInTheDocument();

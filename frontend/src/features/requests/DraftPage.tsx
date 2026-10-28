@@ -28,7 +28,7 @@ import {
 import { RequestFields, useRequestForm } from './RequestForm';
 import type { CategoryOption, RequestDetail } from './types';
 
-const BACK = { to: '/?onglet=brouillons', label: 'Retour aux demandes' };
+const BACK = { to: '/demandes?onglet=brouillons', label: 'Retour aux demandes' };
 const TITLE = 'Brouillon de demande';
 
 /** Reprise d'un brouillon (spec 007) : formulaire de « Nouvelle demande » pré-rempli. */
@@ -47,7 +47,7 @@ export function DraftPage() {
         <ErrorState
           message={notFound ? 'Ce brouillon est introuvable ou a déjà été envoyé ou supprimé.' : 'Impossible de charger le brouillon.'}
           actionLabel={notFound ? 'Retour aux demandes' : 'Réessayer'}
-          onAction={() => (notFound ? navigate('/') : void request.refetch())}
+          onAction={() => (notFound ? navigate('/demandes') : void request.refetch())}
         />
       </>
     );
@@ -124,7 +124,7 @@ function DraftForm({ draft, categories }: { draft: RequestDetail; categories: Ca
     // Envoyé ou supprimé ailleurs entre-temps : le brouillon n'existe plus ici.
     if (error instanceof ApiError && (error.status === 404 || error.status === 409)) {
       toast.error(error.message);
-      navigate('/');
+      navigate('/demandes');
       void queryClient.invalidateQueries({ queryKey: requestKeys.all });
       return;
     }
@@ -177,7 +177,7 @@ function DraftForm({ draft, categories }: { draft: RequestDetail; categories: Ca
     try {
       await deleteDraft(draft.id);
       toast.success('Brouillon supprimé.');
-      navigate('/');
+      navigate('/demandes');
       queryClient.removeQueries({ queryKey: requestKeys.detail(draft.id) });
       void queryClient.invalidateQueries({ queryKey: requestKeys.all });
     } catch (error) {

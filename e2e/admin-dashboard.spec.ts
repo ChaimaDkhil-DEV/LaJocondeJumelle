@@ -45,12 +45,12 @@ test('le super administrateur supervise les demandes depuis le tableau de bord ;
   const id = await createUrgentRequest(page, title);
   await logout(page);
 
-  // Accès par le menu de l'administration.
+  // Page d'accueil du super administrateur, première entrée de la navigation.
   await login(page, 'superadmin');
+  await expect(page).toHaveURL(/\/$/);
   await openNavigation(page);
-  await page.getByRole('link', { name: 'Administrateur', exact: true }).click();
-  await page.getByRole('navigation', { name: 'Sections de l’espace Administrateur' }).getByRole('link', { name: 'Tableau de bord' }).click();
-  await expect(page).toHaveURL(/\/admin\/tableau-de-bord$/);
+  await expect(page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('link').first()).toHaveText('Tableau de bord');
+  await page.getByRole('link', { name: 'Tableau de bord', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Tableau de bord' })).toBeVisible();
 
   // Vue générale : indicateurs et graphiques avec leur vue tableau.
@@ -76,7 +76,7 @@ test('le super administrateur supervise les demandes depuis le tableau de bord ;
   await expect(page.getByRole('heading', { name: title })).toBeVisible();
 
   // Onglet Activité : la création de la demande figure dans le fil, sans son contenu.
-  await page.goto('/admin/tableau-de-bord?vue=activite');
+  await page.goto('/?vue=activite');
   const activity = page.getByRole('list', { name: 'Dernières actions' });
   await expect(activity.getByRole('listitem').filter({ hasText: title }).first()).toBeVisible();
   await expect(activity).not.toContainText('Demande du tableau de bord');
@@ -85,6 +85,10 @@ test('le super administrateur supervise les demandes depuis le tableau de bord ;
   // L'admin n'y a pas accès, ni par l'interface ni par l'API.
   await logout(page);
   await login(page, 'admin');
+  await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1, name: 'Mes demandes' })).toBeVisible();
+  await openNavigation(page);
+  await expect(page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('link', { name: 'Tableau de bord' })).toHaveCount(0);
   await page.goto('/admin/tableau-de-bord');
   await expect(page.getByText('Accès réservé au super administrateur.')).toBeVisible();
   expect((await page.request.get('/api/admin/dashboard/summary')).status()).toBe(403);

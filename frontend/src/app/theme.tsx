@@ -15,7 +15,7 @@ declare module '@mui/material/styles' {
 
 declare module '@mui/material/Paper' {
   interface PaperPropsVariantOverrides {
-    /** Carte posée : bordure fine et ombre très légère (cartes et indicateurs du tableau de bord). */
+    /** Carte posée : même rendu que « outlined » (bordure discrète, ombre douce) ; nom conservé pour le tableau de bord. */
     elevated: true;
   }
 }
@@ -139,8 +139,14 @@ export function createAppTheme(mode: ColorMode = 'light'): Theme {
               '& .MuiButton-endIcon': { marginLeft: 6, marginRight: -2 },
               variants: [
                 {
+                  // Action principale : indigo plein, halo coloré très léger.
                   props: { variant: 'contained', color: 'primary' },
-                  style: { backgroundColor: c.accent.main, '&:hover': { backgroundColor: c.accent.hover } },
+                  style: {
+                    backgroundColor: c.accent.main,
+                    '&&': { boxShadow: `0 4px 12px ${alpha(c.accent.main, 0.22)}` },
+                    '&&:hover': { backgroundColor: c.accent.hover, boxShadow: `0 6px 16px ${alpha(c.accent.main, 0.28)}` },
+                    '&&.Mui-disabled': { boxShadow: 'none' },
+                  },
                 },
                 {
                   props: { variant: 'outlined', color: 'primary' },
@@ -200,10 +206,11 @@ export function createAppTheme(mode: ColorMode = 'light'): Theme {
           },
         },
         MuiPaper: {
+          // Toutes les cartes : blanches sur le fond lavande, coins de 16 px, bordure discrète et ombre douce.
           styleOverrides: {
             root: { backgroundImage: 'none' },
             rounded: { borderRadius: radius.card },
-            outlined: { borderColor: c.border },
+            outlined: { borderColor: c.border, boxShadow: cardShadow },
           },
           variants: [
             {
@@ -347,7 +354,7 @@ export function createAppTheme(mode: ColorMode = 'light'): Theme {
         MuiChip: {
           defaultProps: { deleteIcon: <X size={icon.sm} strokeWidth={icon.stroke} aria-hidden="true" /> },
           styleOverrides: {
-            root: { borderRadius: 6, height: 26, fontSize: fontSize.xs, fontWeight: font.medium, backgroundColor: c.surfaceMuted, color: c.text },
+            root: { borderRadius: radius.round, height: 26, fontSize: fontSize.xs, fontWeight: font.medium, backgroundColor: c.surfaceMuted, color: c.text },
             deleteIcon: { color: c.textSecondary, '&:hover': { color: c.text } },
           },
         },
@@ -430,7 +437,7 @@ export function createAppTheme(mode: ColorMode = 'light'): Theme {
         MuiTableCell: {
           styleOverrides: {
             root: { borderBottom: `1px solid ${c.border}`, fontSize: fontSize.sm, lineHeight: 1.45, fontVariantNumeric: 'tabular-nums' },
-            head: { backgroundColor: c.surfaceMuted, color: c.textSecondary, fontWeight: font.medium, whiteSpace: 'nowrap' },
+            head: { backgroundColor: c.surfaceMuted, color: c.textSecondary, fontWeight: font.semibold, fontSize: fontSize.xs, whiteSpace: 'nowrap' },
             stickyHeader: { backgroundColor: c.surfaceMuted },
             sizeSmall: { padding: '10px 12px', '&:first-of-type': { paddingLeft: 16 }, '&:last-of-type': { paddingRight: 16 } },
           },
@@ -463,7 +470,7 @@ export function createAppTheme(mode: ColorMode = 'light'): Theme {
         MuiLinearProgress: {
           styleOverrides: { root: { height: 4, borderRadius: 2, backgroundColor: c.accent.soft }, bar: { borderRadius: 2 } },
         },
-        MuiDrawer: { styleOverrides: { paper: { borderRight: `1px solid ${c.border}` } } },
+        MuiDrawer: { styleOverrides: { paper: { border: 0, boxShadow: cardShadow } } },
         MuiSnackbar: { defaultProps: { anchorOrigin: { vertical: 'bottom', horizontal: 'center' } } },
       },
     },

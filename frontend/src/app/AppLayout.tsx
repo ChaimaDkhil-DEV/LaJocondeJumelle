@@ -3,11 +3,12 @@ import Button from '@mui/material/Button';
 import Drawer from '@mui/material/Drawer';
 import Link from '@mui/material/Link';
 import Typography from '@mui/material/Typography';
-import { useTheme } from '@mui/material/styles';
+import { alpha, useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import {
   ClipboardList,
   Inbox,
+  LayoutDashboard,
   LogOut,
   Menu,
   School,
@@ -21,7 +22,7 @@ import type { Me } from '../api/types';
 import { IconAction } from '../components/IconAction';
 import { visuallyHidden } from '../components/a11y';
 import { Person } from '../components/UserAvatar';
-import { font, fontSize, icon, layout, motion, tokensOf } from '../design/tokens';
+import { font, fontSize, icon, layout, motion, radius, tokensOf } from '../design/tokens';
 import { ROLE_LABELS } from '../features/admin/labels';
 import { useCurrentUser, useLogout } from '../features/auth/useCurrentUser';
 import { NotificationCenter } from '../features/notifications/NotificationCenter';
@@ -33,16 +34,35 @@ export interface NavItem {
   icon: LucideIcon;
   /** Chemins pour lesquels l'entrée est mise en évidence. */
   matches: (pathname: string) => boolean;
+  /** Chemins où l'entrée désigne la page courante (`aria-current`) ; par défaut, son seul `to`. */
+  current?: (pathname: string) => boolean;
 }
 
-/** Entrées de navigation communes. */
-export const NAV_ITEMS: NavItem[] = [
-  {
-    to: '/',
+/** Tableau de bord : page d'accueil du super administrateur (seul rôle autorisé par l'API). */
+const DASHBOARD_ITEM: NavItem = {
+  to: '/',
+  label: 'Tableau de bord',
+  icon: LayoutDashboard,
+  matches: (p) => p === '/',
+};
+
+/**
+ * « Mes demandes » (`/demandes`) ; pour les rôles sans tableau de bord, c'est aussi la page
+ * d'accueil `/`.
+ */
+function requestsItem(isHome: boolean): NavItem {
+  const current = (p: string) => p === '/demandes' || (isHome && p === '/');
+  return {
+    to: '/demandes',
     label: 'Mes demandes',
     icon: Inbox,
-    matches: (p) => p === '/' || (p.startsWith('/demandes/') && p !== '/demandes/nouvelle'),
-  },
+    current,
+    matches: (p) => current(p) || (p.startsWith('/demandes/') && p !== '/demandes/nouvelle'),
+  };
+}
+
+/** Entrées de navigation communes, après « Mes demandes ». */
+export const NAV_ITEMS: NavItem[] = [
   {
     to: '/demandes/nouvelle',
     label: 'Nouvelle demande',
@@ -107,20 +127,21 @@ function Brand() {
       <Box
         aria-hidden="true"
         sx={(theme) => ({
-          width: 28,
-          height: 28,
+          width: 34,
+          height: 34,
           flex: 'none',
-          borderRadius: 1,
+          borderRadius: `${radius.control}px`,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           bgcolor: tokensOf(theme).accent.main,
           color: tokensOf(theme).accent.contrastText,
+          boxShadow: `0 4px 12px ${alpha(tokensOf(theme).accent.main, 0.3)}`,
         })}
       >
-        <ClipboardList size={icon.sm} />
+        <ClipboardList size={icon.md} />
       </Box>
-      <Typography component="p" variant="subtitle2" noWrap>
+      <Typography component="p" sx={{ fontSize: fontSize.sm, fontWeight: font.semibold, lineHeight: 1.25 }}>
         La Joconde Jumelle
       </Typography>
     </Box>
@@ -141,25 +162,29 @@ function NavList({ items, onNavigate }: { items: NavItem[]; onNavigate?: () => v
                 component={RouterLink}
                 to={item.to}
                 onClick={onNavigate}
-                aria-current={active && pathname === item.to ? 'page' : undefined}
+                aria-current={active && (item.current ?? ((p: string) => p === item.to))(pathname) ? 'page' : undefined}
                 sx={(theme) => ({
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 1.25,
-                  minHeight: 40,
-                  px: 1.25,
-                  borderRadius: 1,
+                  gap: 1.5,
+                  minHeight: 42,
+                  px: 1.75,
+                  // Élément actif : pilule indigo pâle, texte et icône indigo.
+                  borderRadius: `${radius.round}px`,
                   textDecoration: 'none',
                   fontSize: fontSize.sm,
-                  fontWeight: font.medium,
-                  color: active ? tokensOf(theme).text : tokensOf(theme).textSecondary,
-                  bgcolor: active ? tokensOf(theme).surfaceMuted : 'transparent',
+                  fontWeight: active ? font.semibold : font.medium,
+                  color: active ? tokensOf(theme).accent.text : tokensOf(theme).textSecondary,
+                  bgcolor: active ? tokensOf(theme).accent.soft : 'transparent',
                   transition: `background-color ${motion.fast}ms, color ${motion.fast}ms`,
                   '& svg': {
                     color: active ? tokensOf(theme).accent.main : tokensOf(theme).textMuted,
                     flex: 'none',
                   },
-                  '&:hover': { bgcolor: tokensOf(theme).surfaceMuted, color: tokensOf(theme).text },
+                  '&:hover': {
+                    bgcolor: active ? tokensOf(theme).accent.soft : tokensOf(theme).surfaceMuted,
+                    color: active ? tokensOf(theme).accent.text : tokensOf(theme).text,
+                  },
                   '@media (pointer: coarse)': { minHeight: 44 },
                 })}
               >
@@ -189,9 +214,9 @@ function ProfileLink({ me, onNavigate }: { me: Me; onNavigate?: () => void }) {
       aria-current={active ? 'page' : undefined}
       sx={(theme) => ({
         display: 'block',
-        px: 0.5,
-        py: 0.5,
-        borderRadius: 1,
+        px: 1,
+        py: 0.75,
+        borderRadius: `${radius.control}px`,
         color: 'inherit',
         textDecoration: 'none',
         bgcolor: active ? tokensOf(theme).surfaceMuted : 'transparent',
@@ -228,10 +253,13 @@ export function AppLayout() {
   const logout = useLogout();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const showCoverage = canSeeCoverage(me.data);
+  const superAdmin = me.data?.role === 'SUPER_ADMIN';
   const navItems = [
+    ...(superAdmin ? [DASHBOARD_ITEM] : []),
+    requestsItem(!superAdmin),
     ...NAV_ITEMS,
     ...(showCoverage ? [COVERAGE_ITEM] : []),
-    ...(me.data?.role === 'SUPER_ADMIN' ? [ADMIN_ITEM] : []),
+    ...(superAdmin ? [ADMIN_ITEM] : []),
   ];
 
   function handleLogout(): void {
@@ -252,11 +280,10 @@ export function AppLayout() {
               display: 'flex',
               flexDirection: 'column',
               gap: 3,
-              px: 1.5,
-              py: 2,
+              px: 2,
+              py: 2.5,
               bgcolor: 'background.paper',
-              borderRight: 1,
-              borderColor: 'divider',
+              boxShadow: (t) => `1px 0 0 ${tokensOf(t).border}, 4px 0 24px rgba(35, 42, 89, 0.04)`,
               zIndex: (t) => t.zIndex.appBar,
             }}
           >
@@ -308,8 +335,7 @@ export function AppLayout() {
                 minHeight: 56,
                 px: 1,
                 bgcolor: 'background.paper',
-                borderBottom: 1,
-                borderColor: 'divider',
+                boxShadow: (t) => `0 1px 0 ${tokensOf(t).border}, 0 4px 16px rgba(35, 42, 89, 0.04)`,
               }}
             >
               <IconAction
