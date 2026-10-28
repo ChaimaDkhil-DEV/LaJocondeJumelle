@@ -60,6 +60,25 @@ export interface AdminCategory {
   deadlineRules: DeadlineRule[];
 }
 
+/** Consigne (spec 009) : utilisée pour les propositions automatiques ; `categoryId` null = générale. */
+export interface AdminGuideline {
+  id: string;
+  title: string;
+  body: string;
+  categoryId: string | null;
+  categoryName: string | null;
+  active: boolean;
+  updatedAt: string;
+  updatedBy: Member;
+}
+
+export interface GuidelineInput {
+  title: string;
+  body: string;
+  categoryId: string | null;
+  active: boolean;
+}
+
 export interface AdminSettings {
   voiceMaxSeconds: number;
   voiceMaxBytes: number;
@@ -107,6 +126,7 @@ export const adminKeys = {
   all: ['admin'] as const,
   users: ['admin', 'users'] as const,
   categories: ['admin', 'categories'] as const,
+  guidelines: ['admin', 'guidelines'] as const,
   settings: ['admin', 'settings'] as const,
   rolePermissions: ['admin', 'role-permissions'] as const,
   audit: (filters: AuditFilters) => ['admin', 'audit', filters] as const,
@@ -124,6 +144,23 @@ export function useAdminCategories() {
     queryKey: adminKeys.categories,
     queryFn: () => apiFetch<AdminCategory[]>('/api/admin/categories'),
   });
+}
+
+export function useAdminGuidelines() {
+  return useQuery({
+    queryKey: adminKeys.guidelines,
+    queryFn: () => apiFetch<AdminGuideline[]>('/api/admin/guidelines'),
+  });
+}
+
+export function saveGuideline(id: string | null, input: Partial<GuidelineInput>): Promise<AdminGuideline> {
+  return id
+    ? apiFetch<AdminGuideline>(`/api/admin/guidelines/${id}`, { method: 'PATCH', body: input })
+    : apiFetch<AdminGuideline>('/api/admin/guidelines', { method: 'POST', body: input });
+}
+
+export function deleteGuideline(id: string): Promise<void> {
+  return apiFetch<void>(`/api/admin/guidelines/${id}`, { method: 'DELETE' });
 }
 
 export function useAdminSettings() {

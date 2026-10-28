@@ -59,6 +59,12 @@ export class CreateRequestDto {
   @IsOptional()
   @IsBoolean()
   asDraft?: boolean;
+
+  /** Jeton des propositions automatiques (spec 009) ; ignoré s'il est invalide. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(4000)
+  assistToken?: string;
 }
 
 /** Modification d'un brouillon. `voiceFileId: null` retire le vocal. */

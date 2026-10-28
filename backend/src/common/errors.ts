@@ -71,6 +71,17 @@ export const ERROR_CATALOG = {
     status: 429,
     message: 'Trop de tentatives. Patientez une minute avant de réessayer.',
   },
+  // Assistance IA (009).
+  ASSIST_DISABLED: { status: 404, message: 'Les propositions automatiques ne sont pas disponibles.' },
+  ASSIST_UNAVAILABLE: {
+    status: 503,
+    message: 'Les propositions ne sont pas disponibles pour le moment. Vous pouvez remplir la demande vous-même.',
+  },
+  ASSIST_RATE_LIMITED: {
+    status: 429,
+    message: 'Vous avez demandé beaucoup de propositions. Patientez quelques minutes avant de réessayer.',
+  },
+  TRANSCRIPTION_EMPTY: { status: 422, message: 'Aucune parole n’a été reconnue dans le message vocal.' },
   INTERNAL_ERROR: {
     status: 500,
     message: 'Une erreur inattendue est survenue. Réessayez plus tard.',

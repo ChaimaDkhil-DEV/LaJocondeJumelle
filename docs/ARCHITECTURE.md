@@ -788,3 +788,52 @@ Enseignants ou Surveillants (`canSeeCoverage`, d'après `GET /auth/me`). Écrans
 (« En attente » en tête, « En cours », « Doublons », « Équipe », « Terminées »),
 `TeacherRequestPage`, `EmptyClassPage`, `CreateCoveragePage`, `CoverageStatsPage`, détail avec
 historique lisible ; alerte urgente avec signal sonore facultatif (`useUrgentSound`).
+
+## 14. Assistance à la création des demandes (fonctionnalité 009)
+
+Spécification, plan et tâches : `specs/009-assistance-ia-demandes/`.
+
+### Principe
+
+L'assistance **propose**, le demandeur **décide** : titre, catégorie et priorité proposés d'après
+des consignes rédigées par le super administrateur ; aucun champ n'est rempli sans clic. Toutes
+les règles existantes (droits de création, circuits, machine à états, notifications) s'appliquent
+à l'envoi comme avant. Aucun appel externe dans ce lot : fournisseurs `disabled` (par défaut) et
+`demo` (local, déterministe, refusé en production).
+
+### Module `backend/src/assist/` (couche placée après `requests`, avant `coverage`)
+
+| Élément | Rôle |
+|---|---|
+| `providers/assist-providers.ts` | Interfaces `SuggestionProvider` et `TranscriptionProvider`, jetons d'injection, fabrique selon `config.assist` (`disabled` → `null`) ; un fournisseur réel s'ajoutera ici |
+| `domain/demo-suggest.ts` | Propositions de démonstration (fonction pure) |
+| `domain/sanitize-suggestion.ts` | Contrôle champ par champ de la réponse du fournisseur : catégories et consignes autorisées seulement, priorités du projet, longueurs bornées |
+| `guidelines.service.ts` | Consignes (CRUD audité `GUIDELINE_CHANGED`, sans le texte) et recherche plein texte PostgreSQL en français (`to_tsvector('french', …)`), filtrée par catégories autorisées, 5 résultats |
+| `assist.service.ts` | `suggest` et `transcribe` : contrôle d'accès en tête (`ACCESS_DENIED` journalisé), limite d'appels, délai `ASSIST_TIMEOUT_MS` imposé même si le fournisseur l'ignore, jeton signé ; journal applicatif sans le texte |
+| `assist-rate-limiter.ts` | Fenêtre glissante en mémoire par utilisateur (5 min), partagée par les deux routes |
+| `assist.controller.ts`, `admin-guidelines.controller.ts` | `POST /api/assist/suggestions`, `POST /api/assist/transcriptions`, `/api/admin/guidelines` (`SuperAdminGuard`) |
+
+`common/assist-token.ts` : jeton HMAC-SHA256 (clé dérivée de `SESSION_SECRET`) portant les
+valeurs proposées ; lu par `RequestsService.create`, qui écrit `ASSIST_SUGGESTED` (proposé et
+retenu, sources) dans la transaction de création. Aucune proposition n'est conservée avant l'envoi.
+La transcription réutilise `FilesService.prepareVoice` (mêmes contrôles qu'un vocal) et
+n'enregistre ni fichier ni ligne `File`.
+
+### Variables d'environnement
+
+`ASSIST_SUGGESTION_PROVIDER`, `ASSIST_TRANSCRIPTION_PROVIDER` (`disabled` | `demo`),
+`ASSIST_TIMEOUT_MS` (1 000 à 20 000, défaut 15 000), `ASSIST_RATE_LIMIT` (défaut 10 par
+5 minutes), `ASSIST_DEMO_TRANSCRIPT` (texte de démonstration). Voir `backend/.env.example`.
+`GET /api/settings/client` expose `assistSuggestions` et `assistTranscription`.
+
+### Frontend
+
+`features/assist/AssistPanel.tsx` sous les champs de « Nouvelle demande » (transcription « à
+vérifier », modifiable, distincte de la description) ; onglet « Consignes »
+(`features/admin/GuidelinesAdminPage.tsx`) ; entrée « Propositions automatiques » de l'historique
+(`HistoryTimeline.tsx`). Le jeton suit la demande dans la boîte d'envoi hors ligne.
+
+### Migration
+
+`0011_request_assist` (table `Guideline`, valeurs `ASSIST_SUGGESTED` et `GUIDELINE_CHANGED`),
+avec `down.sql`.

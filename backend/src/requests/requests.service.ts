@@ -1,10 +1,13 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { Prisma, type Request } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import type { AuthenticatedUser } from '../auth/auth.types';
+import { readAssistToken, type AssistTokenPayload } from '../common/assist-token';
 import { AppException } from '../common/errors';
 import { buildPage, decodeCursor, parseLimit, type Page } from '../common/pagination';
 import { PrismaService } from '../common/prisma.service';
+import type { AppConfig } from '../config/config';
+import { APP_CONFIG } from '../config/config.module';
 import { FileStorageService } from '../files/file-storage.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { SuperAdminAlertsService } from '../notifications/super-admin-alerts.service';
@@ -59,6 +62,7 @@ export class RequestsService {
     private readonly transitions: RequestTransitionsService,
     private readonly realtime: RealtimeService,
     private readonly superAdminAlerts: SuperAdminAlertsService,
+    @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -114,6 +118,9 @@ export class RequestsService {
     const deadline = transition?.ok
       ? nextDeadlineState(NO_DEADLINE, transition.steps, rules, now, await this.settings.get('deadlineWarnPercent'))
       : NO_DEADLINE;
+    // Propositions automatiques retenues (spec 009, research R6) : seulement à l'envoi, jeton valide.
+    const assisted = transition && dto.assistToken ? readAssistToken(this.config.sessionSecret, dto.assistToken, user.id, now) : null;
+    const assistEvent = assisted ? await this.assistEventValues(assisted, dto, category) : null;
 
     try {
       const { request, pending } = await this.prisma.$transaction(async (tx) => {
@@ -143,6 +150,9 @@ export class RequestsService {
         const pending = transition?.ok
           ? await this.transitions.recordTransition(tx, { assigneeId: null }, request, category, transition, user.id)
           : [];
+        if (assistEvent) {
+          await tx.requestEvent.create({ data: { requestId: request.id, actorId: user.id, type: 'ASSIST_SUGGESTED', ...assistEvent } });
+        }
         return { request, pending };
       });
       await this.notifications.flushAfterCommit(pending);
@@ -524,6 +534,32 @@ export class RequestsService {
       _count: { _all: true },
     });
     return new Map(groups.map((g) => [g.requestId, g._count._all]));
+  }
+
+  /**
+   * Valeurs de l'événement ASSIST_SUGGESTED : proposées (jeton signé, nom courant de la catégorie)
+   * et réellement enregistrées. Jamais le texte transmis ni la justification (FR-024).
+   */
+  private async assistEventValues(
+    proposed: AssistTokenPayload,
+    dto: CreateRequestDto,
+    category: CategoryWithMembers,
+  ): Promise<{ fromValue: Prisma.InputJsonValue; toValue: Prisma.InputJsonValue }> {
+    const proposedCategory = proposed.categoryId
+      ? proposed.categoryId === category.id
+        ? category
+        : await this.policies.category(proposed.categoryId)
+      : null;
+    return {
+      fromValue: {
+        ...(proposed.title !== undefined ? { title: proposed.title } : {}),
+        ...(proposed.categoryId !== undefined ? { categoryId: proposed.categoryId } : {}),
+        ...(proposedCategory ? { categoryName: proposedCategory.name } : {}),
+        ...(proposed.priority !== undefined ? { priority: proposed.priority } : {}),
+        sources: proposed.sources,
+      },
+      toValue: { title: dto.title, categoryId: category.id, categoryName: category.name, priority: dto.priority },
+    };
   }
 
   private async logDenied(user: AuthenticatedUser, id: string, ctx: RequestContext): Promise<void> {

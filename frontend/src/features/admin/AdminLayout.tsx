@@ -1,6 +1,7 @@
 import Box from '@mui/material/Box';
 import {
   Activity,
+  BookOpen,
   Building2,
   LayoutDashboard,
   School,
@@ -23,6 +24,7 @@ const SECTIONS: Array<{ to: string; label: string; icon: LucideIcon }> = [
   { to: '/admin/suivi', label: 'Suivi des gardes', icon: Activity },
   { to: '/admin/comptes', label: 'Comptes', icon: Users },
   { to: '/admin/categories', label: 'Catégories', icon: Tags },
+  { to: '/admin/consignes', label: 'Consignes', icon: BookOpen },
   { to: '/admin/groupes', label: 'Groupes', icon: UsersRound },
   { to: '/admin/etages', label: 'Étages', icon: Building2 },
   { to: '/admin/classes', label: 'Classes', icon: School },
@@ -42,7 +44,7 @@ export function AdminLayout() {
     <Box>
       <PageHeader
         title="Administrateur"
-        description="Tableau de bord, suivi des gardes, comptes, catégories, groupes, classes, réglages et journal d’audit de l’établissement."
+        description="Tableau de bord, suivi des gardes, comptes, catégories, consignes, groupes, classes, réglages et journal d’audit de l’établissement."
       />
       <Box
         component="nav"

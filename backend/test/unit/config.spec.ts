@@ -91,3 +91,48 @@ describe('loadConfig — TRUST_PROXY (FR-004)', () => {
     expect(() => trustProxy(value)).toThrow(/^TRUST_PROXY invalide/);
   });
 });
+
+describe('loadConfig — assistance IA (009, FR-019, FR-020)', () => {
+  it('est désactivée par défaut, délai de 15 s et 10 appels par fenêtre', () => {
+    expect(loadConfig(valid).assist).toEqual({
+      suggestionProvider: 'disabled',
+      transcriptionProvider: 'disabled',
+      timeoutMs: 15_000,
+      rateLimit: 10,
+      demoTranscript: null,
+    });
+  });
+
+  it('accepte le fournisseur de démonstration hors production', () => {
+    const config = loadConfig({
+      ...valid,
+      ASSIST_SUGGESTION_PROVIDER: 'demo',
+      ASSIST_TRANSCRIPTION_PROVIDER: 'demo',
+      ASSIST_DEMO_TRANSCRIPT: '  Texte fixe  ',
+    });
+    expect(config.assist).toMatchObject({ suggestionProvider: 'demo', transcriptionProvider: 'demo', demoTranscript: 'Texte fixe' });
+  });
+
+  it.each(['ASSIST_SUGGESTION_PROVIDER', 'ASSIST_TRANSCRIPTION_PROVIDER'])('refuse demo en production (%s)', (key) => {
+    expect(() => loadConfig({ ...valid, NODE_ENV: 'production', [key]: 'demo' })).toThrow(ConfigError);
+  });
+
+  it.each(['openai', 'DEMO ', 'on'])('refuse un fournisseur inconnu (%s)', (value) => {
+    expect(() => loadConfig({ ...valid, ASSIST_SUGGESTION_PROVIDER: value })).toThrow(ConfigError);
+  });
+
+  it('borne le délai entre 1 000 et 20 000 ms', () => {
+    expect(loadConfig({ ...valid, ASSIST_TIMEOUT_MS: '1000' }).assist.timeoutMs).toBe(1000);
+    expect(loadConfig({ ...valid, ASSIST_TIMEOUT_MS: '20000' }).assist.timeoutMs).toBe(20_000);
+    for (const value of ['999', '20001', 'abc', '1.5']) {
+      expect(() => loadConfig({ ...valid, ASSIST_TIMEOUT_MS: value })).toThrow(ConfigError);
+    }
+  });
+
+  it('exige une limite d’appels entière et positive', () => {
+    expect(loadConfig({ ...valid, ASSIST_RATE_LIMIT: '3' }).assist.rateLimit).toBe(3);
+    for (const value of ['0', '-1', '2.5', 'x']) {
+      expect(() => loadConfig({ ...valid, ASSIST_RATE_LIMIT: value })).toThrow(ConfigError);
+    }
+  });
+});

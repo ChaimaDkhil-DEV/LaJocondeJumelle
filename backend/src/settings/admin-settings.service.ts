@@ -1,8 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import type { Permission } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { AppException } from '../common/errors';
 import { PrismaService } from '../common/prisma.service';
+import type { AppConfig } from '../config/config';
+import { APP_CONFIG } from '../config/config.module';
 import type { AdminContext } from '../users/users.service';
 import { isSettingKey, settingError, SettingsService, type SettingKey, type Settings } from './settings.service';
 
@@ -30,6 +32,7 @@ export class AdminSettingsService {
     private readonly prisma: PrismaService,
     private readonly settings: SettingsService,
     private readonly audit: AuditService,
+    @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
   getSettings(): Promise<Settings> {
@@ -77,13 +80,21 @@ export class AdminSettingsService {
   }
 
   /** Réglages utiles à l'interface de tout utilisateur connecté (aucune donnée sensible). */
-  async clientSettings(): Promise<Pick<Settings, 'voiceMaxSeconds' | 'attachmentMaxBytes' | 'attachmentMaxPerMessage' | 'draftsEnabled'>> {
+  async clientSettings(): Promise<
+    Pick<Settings, 'voiceMaxSeconds' | 'attachmentMaxBytes' | 'attachmentMaxPerMessage' | 'draftsEnabled'> & {
+      assistSuggestions: boolean;
+      assistTranscription: boolean;
+    }
+  > {
     const s = await this.settings.getAll();
     return {
       voiceMaxSeconds: s.voiceMaxSeconds,
       attachmentMaxBytes: s.attachmentMaxBytes,
       attachmentMaxPerMessage: s.attachmentMaxPerMessage,
       draftsEnabled: s.draftsEnabled,
+      // Assistance (spec 009) : fixée par la configuration du serveur, pas par un réglage.
+      assistSuggestions: this.config.assist.suggestionProvider !== 'disabled',
+      assistTranscription: this.config.assist.transcriptionProvider !== 'disabled',
     };
   }
 

@@ -5,7 +5,7 @@ import { dirname, join, relative, resolve, sep } from 'node:path';
  * T033 — FR-012, FR-013 : ordre des couches de backend/src (research R7). Un dossier ne dépend que
  * des dossiers placés avant lui ; les dossiers hors de la liste ne sont pas contrôlés.
  */
-const LAYERS = ['config', 'common', 'audit', 'auth', 'files', 'requests', 'coverage', 'dashboard', 'scheduler'];
+const LAYERS = ['config', 'common', 'audit', 'auth', 'files', 'requests', 'assist', 'coverage', 'dashboard', 'scheduler'];
 
 const SRC = resolve(__dirname, '../../src');
 /** Imports et réexports relatifs, y compris `import type` et les imports sans liaison. */

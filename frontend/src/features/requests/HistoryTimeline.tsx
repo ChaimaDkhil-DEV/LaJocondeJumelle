@@ -9,6 +9,7 @@ import {
   MessageSquare,
   Paperclip,
   RefreshCw,
+  Sparkles,
   UserRound,
   type LucideIcon,
 } from 'lucide-react';
@@ -44,6 +45,34 @@ const ASSIGNEE_SOURCE_LABELS: Record<string, string> = {
   MANAGER_CHOICE: 'choix d’un admin',
 };
 
+/**
+ * Propositions automatiques (spec 009) : chaque valeur proposée, et si elle a été retenue à l'envoi.
+ * `from` : valeurs proposées ; `to` : valeurs enregistrées.
+ */
+function describeAssist(from: Record<string, unknown>, to: Record<string, unknown>): string {
+  const parts: string[] = [];
+  if (from.categoryId !== undefined) {
+    const kept = from.categoryId === to.categoryId;
+    parts.push(
+      `catégorie « ${String(from.categoryName ?? 'inconnue')} » (${kept ? 'retenue' : `retenue : « ${String(to.categoryName)} »`})`,
+    );
+  }
+  if (from.priority !== undefined) {
+    const kept = from.priority === to.priority;
+    parts.push(`priorité ${PRIORITY_LABELS[from.priority as Priority]} (${kept ? 'retenue' : `retenue : ${PRIORITY_LABELS[to.priority as Priority]}`})`);
+  }
+  if (from.title !== undefined) parts.push(`titre proposé (${from.title === to.title ? 'retenu' : 'modifié'})`);
+  return parts.length > 0 ? `Propositions automatiques : ${parts.join(', ')}` : 'Propositions automatiques';
+}
+
+/** Précision affichée sous l'événement (consignes utilisées par les propositions automatiques). */
+export function eventDetail(e: HistoryEvent): string | null {
+  if (e.type !== 'ASSIST_SUGGESTED') return null;
+  const sources = Array.isArray(e.fromValue?.sources) ? (e.fromValue.sources as Array<{ title?: unknown }>) : [];
+  const titles = sources.map((s) => s.title).filter((t): t is string => typeof t === 'string');
+  return titles.length > 0 ? `Consignes : ${titles.join(', ')}` : null;
+}
+
 /** Description d'un événement d'historique en langage courant. */
 export function describeEvent(e: HistoryEvent): string {
   const from = e.fromValue ?? {};
@@ -67,6 +96,8 @@ export function describeEvent(e: HistoryEvent): string {
       return FILE_LABELS[String(to.kind)] ?? 'Fichier joint';
     case 'OVERDUE':
       return `En retard (${STAGE_LABELS[to.stage as DeadlineStage]})`;
+    case 'ASSIST_SUGGESTED':
+      return describeAssist(from, to);
     default:
       return e.type;
   }
@@ -82,6 +113,7 @@ export const EVENT_ICONS: Record<string, LucideIcon> = {
   MESSAGE_ADDED: MessageSquare,
   FILE_ADDED: Paperclip,
   OVERDUE: AlarmClock,
+  ASSIST_SUGGESTED: Sparkles,
 };
 
 /** Historique complet d'une demande (FR-029), du plus ancien au plus récent. */
@@ -103,6 +135,7 @@ export function HistoryTimeline({ requestId }: { requestId: string }) {
             const Icon = EVENT_ICONS[event.type] ?? RefreshCw;
             const late = event.type === 'OVERDUE';
             const last = index === history.data.length - 1;
+            const detail = eventDetail(event);
             return (
               <Box
                 component="li"
@@ -133,6 +166,11 @@ export function HistoryTimeline({ requestId }: { requestId: string }) {
                   <Typography variant="body2" sx={{ fontWeight: font.medium, overflowWrap: 'anywhere' }}>
                     {describeEvent(event)}
                   </Typography>
+                  {detail && (
+                    <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere', mt: 0.25 }}>
+                      {detail}
+                    </Typography>
+                  )}
                   {event.comment && (
                     <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere', mt: 0.25 }}>
                       « {event.comment} »

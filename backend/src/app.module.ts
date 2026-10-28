@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AssistModule } from './assist/assist.module';
 import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
 import { CategoriesModule } from './categories/categories.module';
@@ -29,6 +30,7 @@ import { UsersModule } from './users/users.module';
     FilesModule,
     CategoriesModule,
     RequestsModule,
+    AssistModule,
     CoverageModule,
     DashboardModule,
     MessagesModule,

@@ -51,6 +51,9 @@ const ALLOWED_DETAIL_KEYS = new Set([
   'to',
   'groupBy',
   'period',
+  // Assistance IA (009) : consignes, titre seulement, jamais le texte
+  'guidelineId',
+  'title',
 ]);
 
 function scrub(value: unknown): unknown {

@@ -79,7 +79,23 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   COVERAGE_ANONYMIZED: 'Affectations anonymisées',
   COVERAGE_MERGE_DECIDED: 'Doublon tranché',
   COVERAGE_STATS_EXPORTED: 'Export des statistiques des affectations',
+  GUIDELINE_CHANGED: 'Consigne créée / modifiée / supprimée',
 };
+
+const GUIDELINE_ACTION_LABELS: Record<string, string> = {
+  CREATED: 'Consigne créée',
+  UPDATED: 'Consigne modifiée',
+  DELETED: 'Consigne supprimée',
+};
+
+/** Libellé d'une entrée du journal ; une consigne est précisée par son action et son titre (spec 009). */
+export function auditEntryLabel(action: string, details: Record<string, unknown> | null): string {
+  if (action === 'GUIDELINE_CHANGED') {
+    const label = GUIDELINE_ACTION_LABELS[String(details?.action)] ?? AUDIT_ACTION_LABELS[action]!;
+    return typeof details?.title === 'string' ? `${label} : ${details.title}` : label;
+  }
+  return AUDIT_ACTION_LABELS[action] ?? action;
+}
 
 /** Durée en minutes, lisible (« 1 h 30 », « 2 j »). */
 export function formatMinutes(minutes: number): string {

@@ -178,7 +178,14 @@ describe('Administration des catégories et réglages', () => {
 
       // Les écrans lisent les réglages utiles sans droit d'administration.
       const client = await api().get('/api/settings/client').set('Cookie', enseignante);
-      expect(client.body).toEqual({ voiceMaxSeconds: 120, attachmentMaxBytes: 10 * 1024 * 1024, attachmentMaxPerMessage: 5, draftsEnabled: false });
+      expect(client.body).toEqual({
+        voiceMaxSeconds: 120,
+        attachmentMaxBytes: 10 * 1024 * 1024,
+        attachmentMaxPerMessage: 5,
+        draftsEnabled: false,
+        assistSuggestions: false,
+        assistTranscription: false,
+      });
       await send('put', '/api/admin/settings', { voiceMaxSeconds: 180, draftsEnabled: true }).expect(200);
     });
 

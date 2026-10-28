@@ -11,6 +11,7 @@ import { LoadingState } from '../../components/LoadingState';
 import { PageHeader } from '../../components/PageHeader';
 import { useToast } from '../../components/Toast';
 import { layout } from '../../design/tokens';
+import { AssistPanel } from '../assist/AssistPanel';
 import { saveToOutbox } from '../outbox/outbox';
 import { useClientSettings } from '../../api/settings';
 import { OUTBOX_KEY } from '../outbox/useOutbox';
@@ -58,6 +59,7 @@ function CreateRequestForm({ categories }: { categories: CategoryOption[] }) {
   const form = useRequestForm(categories);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState<'send' | 'draft' | null>(null);
+  const [assistToken, setAssistToken] = useState<string | null>(null);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -73,6 +75,7 @@ function CreateRequestForm({ categories }: { categories: CategoryOption[] }) {
       ...(form.isCircuitA ? { recipientId: form.recipientId } : {}),
       priority,
       ...(voice ? { voice: { blob: voice.blob, mimeType: voice.mimeType, durationSeconds: voice.durationSeconds } } : {}),
+      ...(assistToken ? { assistToken } : {}),
     };
 
     setSubmitting('send');
@@ -150,6 +153,7 @@ function CreateRequestForm({ categories }: { categories: CategoryOption[] }) {
           voiceMaxSeconds={voiceMaxSeconds}
           alert={submitError && <Alert severity="error">{submitError}</Alert>}
         />
+        <AssistPanel form={form} onToken={setAssistToken} />
 
         <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'flex-end', gap: 1.5, mt: 2 }}>
           {draftsEnabled && (

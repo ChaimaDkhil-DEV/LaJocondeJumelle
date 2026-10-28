@@ -24,6 +24,22 @@ export interface AppConfig {
   trustProxy: boolean | number | string;
   /** Fuseau de l'école (identifiant IANA) : jours et heures locales des affectations (R4). */
   schoolTimezone: string;
+  /** Assistance IA à la création des demandes (spec 009) : désactivée par défaut. */
+  assist: AssistConfig;
+}
+
+/** `disabled` : aucune assistance ; `demo` : fournisseur local déterministe, refusé en production. */
+export type AssistProviderName = 'disabled' | 'demo';
+
+export interface AssistConfig {
+  suggestionProvider: AssistProviderName;
+  transcriptionProvider: AssistProviderName;
+  /** Délai maximal d'un appel de fournisseur (1 000 à 20 000 ms). */
+  timeoutMs: number;
+  /** Appels (transcription et propositions réunies) par utilisateur et par 5 minutes. */
+  rateLimit: number;
+  /** Texte renvoyé par la transcription de démonstration ; null : phrase par défaut. */
+  demoTranscript: string | null;
 }
 
 export class ConfigError extends Error {}
@@ -54,6 +70,41 @@ export function schoolTimezoneFromEnv(env: NodeJS.ProcessEnv = process.env): str
     cachedTimezone = { raw: env.SCHOOL_TIMEZONE, value: parseSchoolTimezone(env.SCHOOL_TIMEZONE) };
   }
   return cachedTimezone.value;
+}
+
+const ASSIST_PROVIDERS: readonly AssistProviderName[] = ['disabled', 'demo'];
+const DEFAULT_ASSIST_TIMEOUT_MS = 15_000;
+const DEFAULT_ASSIST_RATE_LIMIT = 10;
+
+function parseAssistProvider(key: string, raw: string | undefined, isProduction: boolean): AssistProviderName {
+  const value = raw === undefined || raw.trim() === '' ? 'disabled' : raw;
+  if (!ASSIST_PROVIDERS.includes(value as AssistProviderName)) {
+    throw new ConfigError(`${key} invalide : utilisez ${ASSIST_PROVIDERS.join(' ou ')}`);
+  }
+  // Une transcription ou des propositions factices ne doivent jamais atteindre les utilisateurs réels.
+  if (value === 'demo' && isProduction) {
+    throw new ConfigError(`${key}=demo est réservé au développement et aux tests`);
+  }
+  return value as AssistProviderName;
+}
+
+function parseBoundedInt(key: string, raw: string | undefined, fallback: number, min: number, max: number): number {
+  if (raw === undefined || raw.trim() === '') return fallback;
+  const value = Number(raw);
+  if (!/^\d+$/.test(raw.trim()) || value < min || value > max) {
+    throw new ConfigError(`${key} doit être un entier entre ${min} et ${max}`);
+  }
+  return value;
+}
+
+function parseAssist(env: NodeJS.ProcessEnv, isProduction: boolean): AssistConfig {
+  return {
+    suggestionProvider: parseAssistProvider('ASSIST_SUGGESTION_PROVIDER', env.ASSIST_SUGGESTION_PROVIDER, isProduction),
+    transcriptionProvider: parseAssistProvider('ASSIST_TRANSCRIPTION_PROVIDER', env.ASSIST_TRANSCRIPTION_PROVIDER, isProduction),
+    timeoutMs: parseBoundedInt('ASSIST_TIMEOUT_MS', env.ASSIST_TIMEOUT_MS, DEFAULT_ASSIST_TIMEOUT_MS, 1_000, 20_000),
+    rateLimit: parseBoundedInt('ASSIST_RATE_LIMIT', env.ASSIST_RATE_LIMIT, DEFAULT_ASSIST_RATE_LIMIT, 1, 1_000),
+    demoTranscript: env.ASSIST_DEMO_TRANSCRIPT?.trim() || null,
+  };
 }
 
 const MIN_SECRET_LENGTH = 32;
@@ -125,5 +176,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     isProduction: env.NODE_ENV === 'production',
     trustProxy: parseTrustProxy(env.TRUST_PROXY),
     schoolTimezone: parseSchoolTimezone(env.SCHOOL_TIMEZONE),
+    assist: parseAssist(env, env.NODE_ENV === 'production'),
   };
 }

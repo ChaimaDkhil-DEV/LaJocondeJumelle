@@ -15,7 +15,7 @@ import { SectionHeader } from '../../components/SectionHeader';
 import { UserAvatar } from '../../components/UserAvatar';
 import { font, fontSize, tokensOf } from '../../design/tokens';
 import { useAdminUsers, useAuditLog, type AuditEntry, type AuditFilters } from './api';
-import { AUDIT_ACTION_LABELS } from './labels';
+import { AUDIT_ACTION_LABELS, auditEntryLabel } from './labels';
 
 const EMPTY: AuditFilters = { actorId: '', action: '', from: '', to: '' };
 
@@ -140,7 +140,7 @@ export function AuditLogPage() {
                   )}
                   <Box sx={{ minWidth: 0, flex: 1 }}>
                     <Typography variant="body2" sx={{ fontWeight: font.medium }}>
-                      {AUDIT_ACTION_LABELS[entry.action] ?? entry.action}
+                      {auditEntryLabel(entry.action, entry.details)}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
                       {entry.actor ? entry.actor.displayName : 'Anonyme'} · <time dateTime={entry.createdAt}>{formatDateTime(entry.createdAt)}</time>
