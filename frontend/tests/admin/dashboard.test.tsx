@@ -138,7 +138,7 @@ const REQUESTS = [
   },
 ];
 
-function setup(path = '/', handler: Handler = () => undefined, me: unknown = SUPER_ADMIN) {
+function setup(path = '/?vue=general', handler: Handler = () => undefined, me: unknown = SUPER_ADMIN) {
   const urls: string[] = [];
   vi.stubGlobal(
     'fetch',
@@ -254,7 +254,7 @@ describe('Tableau de bord', () => {
   it('affiche un état d’erreur avec la référence et permet de réessayer', async () => {
     const user = userEvent.setup();
     let fail = true;
-    setup('/', (url) =>
+    setup('/?vue=general', (url) =>
       url.startsWith('/api/admin/dashboard/summary') && fail
         ? json(500, { error: { code: 'INTERNAL_ERROR', message: 'Erreur', details: { reference: 'ERR-42' } } })
         : undefined,
@@ -266,7 +266,7 @@ describe('Tableau de bord', () => {
   });
 
   it('affiche un état vide sans demande', async () => {
-    setup('/', (url) =>
+    setup('/?vue=general', (url) =>
       url.startsWith('/api/admin/dashboard/summary')
         ? json(200, {
             ...SUMMARY,
@@ -282,7 +282,7 @@ describe('Tableau de bord', () => {
   });
 
   it('montre l’évolution quand des demandes créées avant la période y sont terminées', async () => {
-    setup('/', (url) =>
+    setup('/?vue=general', (url) =>
       url.startsWith('/api/admin/dashboard/summary')
         ? json(200, {
             ...SUMMARY,
@@ -402,5 +402,13 @@ describe('Paramètres du tableau de bord', () => {
     expect(tip).toHaveTextContent('D-2026-000004');
     expect(tip).toHaveTextContent('Petits travaux');
     expect(tip).toHaveTextContent('Échéance');
+  });
+
+  it('s’ouvre sur l’onglet « Demandes », sans changer l’ordre des onglets', async () => {
+    setup('/');
+    expect(await screen.findByRole('table', { name: 'Demandes de la période' })).toBeVisible();
+    const tabs = screen.getAllByRole('tab');
+    expect(tabs.map((t) => t.textContent)).toEqual(['Vue générale', 'Délais', 'Employés', 'Demandes', 'Activité']);
+    expect(screen.getByRole('tab', { name: 'Demandes' })).toHaveAttribute('aria-selected', 'true');
   });
 });

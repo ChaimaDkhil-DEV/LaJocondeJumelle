@@ -78,7 +78,9 @@ describe('Page d’accueil', () => {
     const { urls } = renderAt('/', SUPER_ADMIN);
     // Premier rendu : le module du tableau de bord (Recharts) est chargé à la demande.
     expect(await screen.findByRole('heading', { level: 1, name: 'Tableau de bord' }, { timeout: 10_000 })).toBeVisible();
-    expect(urls.some((u) => u.startsWith('/api/admin/dashboard/'))).toBe(true);
+    // Onglet par défaut : « Demandes ».
+    expect(screen.getByRole('tab', { name: 'Demandes' })).toHaveAttribute('aria-selected', 'true');
+    expect(urls.some((u) => u.startsWith('/api/requests'))).toBe(true);
 
     const links = within(mainNav()).getAllByRole('link');
     expect(links.map((l) => l.textContent)).toEqual(['Tableau de bord', 'Mes demandes', 'Nouvelle demande', 'Gardes', 'Administrateur']);

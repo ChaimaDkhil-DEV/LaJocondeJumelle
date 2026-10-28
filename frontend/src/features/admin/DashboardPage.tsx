@@ -847,7 +847,8 @@ function ActivityView({ qs }: { qs: string }) {
 export function DashboardPage() {
   const [filters, setFilters] = useState<DashboardFilters>(DEFAULT_FILTERS);
   const [params, setParams] = useSearchParams();
-  const view: ViewKey = VIEWS.find((v) => v.key === params.get('vue'))?.key ?? 'general';
+  // Onglet par défaut : « Demandes » (liste allégée) ; l'ordre des onglets ne change pas.
+  const view: ViewKey = VIEWS.find((v) => v.key === params.get('vue'))?.key ?? 'demandes';
   const customIncomplete = filters.preset === 'custom' && (!filters.from || !filters.to);
   const qs = toDashboardQuery(filters);
   const listFilters = toRequestListFilters(filters);
