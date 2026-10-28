@@ -18,8 +18,9 @@ function json(status: number, body?: unknown): Response {
 }
 
 const me = { id: 'u1', displayName: 'Enseignante', role: 'EMPLOYEE', permissions: [], mustChangePassword: false };
+const superadmin = { ...me, id: 'sa', displayName: 'Super administrateur', role: 'SUPER_ADMIN' };
 
-function renderAt(path: string, handler: Handler): void {
+function renderAt(path: string | { pathname: string; state: unknown }, handler: Handler): void {
   vi.stubGlobal('fetch', vi.fn(async (url: string, init: RequestInit) => handler(url, init)));
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
@@ -34,6 +35,8 @@ function renderAt(path: string, handler: Handler): void {
           </RequireAuth>
         ),
       },
+      { path: '/admin/tableau-de-bord', element: <p>Tableau de bord de l’administration</p> },
+      { path: '/demandes/:id', element: <p>Détail d’une demande</p> },
     ],
     { initialEntries: [path] },
   );
@@ -80,6 +83,34 @@ describe('LoginPage', () => {
     await userEvent.type(screen.getByLabelText('Mot de passe'), 'Mot-de-passe-2026');
     await userEvent.click(screen.getByRole('button', { name: 'Se connecter' }));
     expect(await screen.findByText('Page protégée')).toBeVisible();
+  });
+
+  it('ouvre le tableau de bord de l’administration pour le super administrateur', async () => {
+    renderAt('/connexion', (url) => (url.endsWith('/login') ? json(200, { user: superadmin }) : json(200, superadmin)));
+    await userEvent.type(screen.getByLabelText('Identifiant'), 'superadmin');
+    await userEvent.type(screen.getByLabelText('Mot de passe'), 'Mot-de-passe-2026');
+    await userEvent.click(screen.getByRole('button', { name: 'Se connecter' }));
+    expect(await screen.findByText('Tableau de bord de l’administration')).toBeVisible();
+  });
+
+  it('super administrateur renvoyé depuis la racine : tableau de bord aussi', async () => {
+    renderAt({ pathname: '/connexion', state: { from: '/' } }, (url) =>
+      url.endsWith('/login') ? json(200, { user: superadmin }) : json(200, superadmin),
+    );
+    await userEvent.type(screen.getByLabelText('Identifiant'), 'superadmin');
+    await userEvent.type(screen.getByLabelText('Mot de passe'), 'Mot-de-passe-2026');
+    await userEvent.click(screen.getByRole('button', { name: 'Se connecter' }));
+    expect(await screen.findByText('Tableau de bord de l’administration')).toBeVisible();
+  });
+
+  it('garde la page précise demandée avant la connexion, même pour le super administrateur', async () => {
+    renderAt({ pathname: '/connexion', state: { from: '/demandes/r1' } }, (url) =>
+      url.endsWith('/login') ? json(200, { user: superadmin }) : json(200, superadmin),
+    );
+    await userEvent.type(screen.getByLabelText('Identifiant'), 'superadmin');
+    await userEvent.type(screen.getByLabelText('Mot de passe'), 'Mot-de-passe-2026');
+    await userEvent.click(screen.getByRole('button', { name: 'Se connecter' }));
+    expect(await screen.findByText('Détail d’une demande')).toBeVisible();
   });
 
   it('redirige vers le changement de mot de passe si celui-ci est imposé', async () => {
@@ -148,5 +179,20 @@ describe('ChangePasswordPage', () => {
       expect(calls[0]?.body).toEqual({ currentPassword: 'provisoire', newPassword: 'Nouveau-mot-de-passe-2026' }),
     );
     expect(await screen.findByText('Page protégée')).toBeVisible();
+  });
+
+  it('ouvre le tableau de bord de l’administration après un changement imposé du super administrateur', async () => {
+    renderAt('/mot-de-passe', (url, init) => {
+      if (url.endsWith('/auth/password')) {
+        calls.push({ url, body: JSON.parse(String(init.body)) });
+        return new Response(null, { status: 204 });
+      }
+      return json(200, { ...superadmin, mustChangePassword: calls.length === 0 });
+    });
+    await userEvent.type(await screen.findByLabelText('Mot de passe actuel'), 'provisoire');
+    await userEvent.type(screen.getByLabelText('Nouveau mot de passe'), 'Nouveau-mot-de-passe-2026');
+    await userEvent.type(screen.getByLabelText('Confirmer le nouveau mot de passe'), 'Nouveau-mot-de-passe-2026');
+    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer le mot de passe' }));
+    expect(await screen.findByText('Tableau de bord de l’administration')).toBeVisible();
   });
 });
