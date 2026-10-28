@@ -53,12 +53,8 @@ test('le super administrateur supervise les demandes depuis le tableau de bord ;
   await page.getByRole('link', { name: 'Tableau de bord', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Tableau de bord' })).toBeVisible();
 
-  // Onglet par défaut : « Demandes » ; la vue générale reste à un clic.
-  await expect(page.getByRole('tab', { name: 'Demandes' })).toHaveAttribute('aria-selected', 'true');
-  await expect(page.getByRole('table', { name: 'Demandes de la période' })).toBeVisible();
-  await page.getByRole('tab', { name: 'Vue générale' }).click();
-
-  // Vue générale : indicateurs et graphiques avec leur vue tableau.
+  // Vue générale, onglet par défaut : indicateurs et graphiques avec leur vue tableau.
+  await expect(page.getByRole('tab', { name: 'Vue générale' })).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByText('Demandes créées sur la période')).toBeVisible();
   await expect(page.getByRole('img', { name: 'Demandes créées et terminées par jour' })).toBeVisible();
   await expect(page.locator('p', { hasText: /^\d+$/ }).first()).toBeVisible();
