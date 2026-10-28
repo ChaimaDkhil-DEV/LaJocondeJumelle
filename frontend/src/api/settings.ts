@@ -6,6 +6,9 @@ export interface ClientSettings {
   attachmentMaxBytes: number;
   attachmentMaxPerMessage: number;
   draftsEnabled: boolean;
+  /** Assistance (spec 009) : propositions et transcription disponibles sur ce serveur. */
+  assistSuggestions: boolean;
+  assistTranscription: boolean;
 }
 
 /** Valeurs par défaut provisoires, utilisées tant que les réglages ne sont pas chargés. */
@@ -14,6 +17,8 @@ export const DEFAULT_CLIENT_SETTINGS: ClientSettings = {
   attachmentMaxBytes: 10 * 1024 * 1024,
   attachmentMaxPerMessage: 5,
   draftsEnabled: true,
+  assistSuggestions: false,
+  assistTranscription: false,
 };
 
 /** Réglages modifiables par le super administrateur et utiles à l'interface (GET /settings/client). */

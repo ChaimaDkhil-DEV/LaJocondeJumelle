@@ -322,3 +322,33 @@ test('007 — brouillons à 320 px : enregistrement au clavier, page brouillon, 
   await dialog.getByRole('button', { name: 'Supprimer' }).click();
   await expect(page.getByText('Brouillon supprimé.')).toBeVisible();
 });
+
+test('009 — propositions automatiques et consignes à 320 px, au clavier, sans violation axe', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile-320', ONLY_320);
+  await login(page, 'enseignante');
+  await page.goto('/demandes/nouvelle');
+  await expect(page.getByRole('heading', { name: 'Nouvelle demande' })).toBeVisible();
+  await page.getByLabel('Description (facultative)').fill('La photocopieuse du premier étage est en panne.');
+
+  const propose = page.getByRole('button', { name: 'Proposer une catégorie et une priorité' });
+  await tabTo(page, propose);
+  await page.keyboard.press('Enter');
+  const panel = page.getByRole('region', { name: 'Propositions automatiques' });
+  const applyAll = panel.getByRole('button', { name: 'Tout appliquer' });
+  await expect(applyAll).toBeVisible();
+  await tabTo(page, applyAll);
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('radio', { name: 'Haute' })).toBeChecked();
+  await checkScreen(page, 'création avec propositions');
+
+  await page.getByRole('button', { name: 'Se déconnecter' }).click();
+  await login(page, 'superadmin');
+  await page.goto('/admin/consignes');
+  await expect(page.getByRole('heading', { name: 'Consignes' })).toBeVisible();
+  await expect(page.getByRole('list', { name: 'Consignes' })).toBeVisible();
+  await checkScreen(page, '/admin/consignes');
+  await tabTo(page, page.getByRole('button', { name: 'Nouvelle consigne' }));
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('dialog', { name: 'Nouvelle consigne' })).toBeVisible();
+  await checkScreen(page, 'formulaire de consigne');
+});

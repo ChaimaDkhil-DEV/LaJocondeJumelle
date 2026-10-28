@@ -154,6 +154,8 @@ enum RequestEventType {
   REMINDER_SENT
   ESCALATED
   ANONYMIZED
+  // Assistance IA (009) : propositions automatiques retenues à l'envoi
+  ASSIST_SUGGESTED
 }
 
 enum AuditAction {
@@ -185,6 +187,8 @@ enum AuditAction {
   COVERAGE_MERGE_DECIDED
   // Statistiques des affectations (008)
   COVERAGE_STATS_EXPORTED
+  // Assistance IA (009) : consignes
+  GUIDELINE_CHANGED
 }
 
 enum NotificationType {
@@ -287,20 +291,21 @@ model User {
   mergeDecisions           CoverageMergeProposal[]
   coverageReminders        CoverageReminder[]
 
-  sessions         Session[]
-  recipientOf      CategoryRecipient[]
-  managerOf        CategoryManager[]
-  autoAssigneeOf   Category[]            @relation("CategoryAutoAssignee")
-  requestsCreated  Request[]             @relation("RequestRequester")
-  requestsAssigned Request[]             @relation("RequestAssignee")
-  messages         Message[]
-  filesUploaded    File[]
-  requestEvents    RequestEvent[]
-  auditEntries     AuditLog[]
-  notifications    Notification[]
-  settingsUpdated  Setting[]
-  groupMemberships EmployeeGroupMember[]
-  presences        CoveragePresence[]
+  sessions          Session[]
+  recipientOf       CategoryRecipient[]
+  managerOf         CategoryManager[]
+  autoAssigneeOf    Category[]            @relation("CategoryAutoAssignee")
+  requestsCreated   Request[]             @relation("RequestRequester")
+  requestsAssigned  Request[]             @relation("RequestAssignee")
+  messages          Message[]
+  filesUploaded     File[]
+  requestEvents     RequestEvent[]
+  auditEntries      AuditLog[]
+  notifications     Notification[]
+  settingsUpdated   Setting[]
+  groupMemberships  EmployeeGroupMember[]
+  presences         CoveragePresence[]
+  guidelinesUpdated Guideline[]
 }
 
 /// Session serveur : `id` est le haché HMAC du jeton aléatoire (256 bits) placé dans le cookie.
@@ -355,6 +360,7 @@ model Category {
   managers      CategoryManager[]
   deadlineRules DeadlineRule[]
   requests      Request[]
+  guidelines    Guideline[]
 }
 
 /// Destinataires possibles (circuit A) et employés affectables (circuit B).
@@ -792,4 +798,28 @@ model CoverageReminder {
 
   @@index([resolvedAt, dueAt])
   @@index([requestId])
+}
+
+// ---------------------------------------------------------------------------
+// Assistance IA (009)
+// ---------------------------------------------------------------------------
+
+/// Consigne rédigée par le super administrateur : règles de classement, critères de priorité,
+/// procédures. Seules les consignes actives, générales ou d'une catégorie que l'utilisateur peut
+/// créer, servent aux propositions automatiques.
+model Guideline {
+  id          String   @id @default(uuid()) @db.Uuid
+  title       String   @db.VarChar(120)
+  body        String   @db.VarChar(4000)
+  /// null : consigne générale.
+  categoryId  String?  @db.Uuid
+  active      Boolean  @default(true)
+  updatedById String   @db.Uuid
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+
+  category  Category? @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  updatedBy User      @relation(fields: [updatedById], references: [id])
+
+  @@index([active, categoryId])
 }

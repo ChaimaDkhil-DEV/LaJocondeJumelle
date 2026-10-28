@@ -8,6 +8,7 @@ import { GroupsAdminPage } from '../coverage/GroupsAdminPage';
 import { AdminLayout } from './AdminLayout';
 import { AuditLogPage } from './AuditLogPage';
 import { CategoriesAdminPage } from './CategoriesAdminPage';
+import { GuidelinesAdminPage } from './GuidelinesAdminPage';
 import { SettingsAdminPage } from './SettingsAdminPage';
 import { UsersAdminPage } from './UsersAdminPage';
 
@@ -34,6 +35,7 @@ export const adminRoutes: RouteObject[] = [
       },
       { path: 'comptes', element: <UsersAdminPage /> },
       { path: 'categories', element: <CategoriesAdminPage /> },
+      { path: 'consignes', element: <GuidelinesAdminPage /> },
       { path: 'reglages', element: <SettingsAdminPage /> },
       { path: 'journal', element: <AuditLogPage /> },
       // Affectations : suivi et données de référence (groupes, étages, classes).

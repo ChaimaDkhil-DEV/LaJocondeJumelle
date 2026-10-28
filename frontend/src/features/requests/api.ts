@@ -87,6 +87,8 @@ export interface NewRequestInput {
   recipientId?: string;
   priority: Priority;
   voice?: VoiceInput;
+  /** Jeton des propositions automatiques (spec 009) : historique « Propositions automatiques ». */
+  assistToken?: string;
 }
 
 async function uploadVoice(voice: VoiceInput): Promise<string> {
@@ -105,6 +107,7 @@ async function createRequest(input: NewRequestInput, asDraft: boolean): Promise<
     priority: input.priority,
     ...(voiceFileId ? { voiceFileId } : {}),
     ...(asDraft ? { asDraft: true } : {}),
+    ...(input.assistToken ? { assistToken: input.assistToken } : {}),
   };
   return apiFetch<RequestDetail>('/api/requests', { method: 'POST', body });
 }

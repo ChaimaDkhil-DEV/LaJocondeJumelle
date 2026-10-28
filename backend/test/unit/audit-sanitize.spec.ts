@@ -26,6 +26,12 @@ describe('sanitizeAuditDetails', () => {
     ).toEqual({ from: '2026-10-01', to: '2026-10-23', groupBy: 'period', period: 'month' });
   });
 
+  it('garde l’identifiant et le titre d’une consigne, jamais son texte (009)', () => {
+    expect(
+      sanitizeAuditDetails({ action: 'UPDATED', guidelineId: 'g1', title: 'Pannes', body: 'texte intégral', fields: ['body'] }),
+    ).toEqual({ action: 'UPDATED', guidelineId: 'g1', title: 'Pannes', fields: ['body'] });
+  });
+
   it('renvoie undefined quand il ne reste rien', () => {
     expect(sanitizeAuditDetails({ password: 'x' })).toBeUndefined();
     expect(sanitizeAuditDetails(undefined)).toBeUndefined();

@@ -14,7 +14,7 @@ import { FileStorageService } from './file-storage.service';
 import type { FileResponse, UploadFileDto } from './files.dto';
 import { documentName, validateDocument } from './document-validation';
 import { processPhoto } from './photo-processing';
-import { processVoice } from './voice-processing';
+import { processVoice, type ProcessedVoice } from './voice-processing';
 
 export interface UploadedTempFile {
   path: string;
@@ -81,15 +81,7 @@ export class FilesService {
       if (dto.kind === 'PHOTO') return await this.uploadPhoto(user, temp, dto);
       if (dto.kind === 'DOCUMENT') return await this.uploadDocument(user, temp, dto);
 
-      if (temp.size > (await this.settings.get('voiceMaxBytes'))) throw new AppException('FILE_TOO_LARGE');
-      const detected = detectFileType(await readHead(temp.path));
-      if (!detected || !VOICE_CONTAINERS.includes(detected)) throw new AppException('FILE_TYPE_NOT_ALLOWED');
-
-      const voice = await processVoice(temp.path, {
-        ffmpegPath: this.config.ffmpegPath,
-        ffprobePath: this.config.ffprobePath,
-        maxSeconds: await this.settings.get('voiceMaxSeconds'),
-      });
+      const voice = await this.prepareVoice(temp);
       const storagePath = await this.storage.store(voice.path);
 
       const file = await this.prisma.file.create({
@@ -108,6 +100,22 @@ export class FilesService {
     } finally {
       await rm(temp.path, { force: true });
     }
+  }
+
+  /**
+   * Contrôles d'un vocal (taille, signature, durée) puis conversion AAC/MP4. Le fichier téléversé
+   * est supprimé ; le fichier converti (`path`) revient à l'appelant, qui le stocke ou l'efface.
+   * Réutilisé par la transcription (spec 009), qui ne conserve rien.
+   */
+  async prepareVoice(temp: UploadedTempFile): Promise<ProcessedVoice> {
+    if (temp.size > (await this.settings.get('voiceMaxBytes'))) throw new AppException('FILE_TOO_LARGE');
+    const detected = detectFileType(await readHead(temp.path));
+    if (!detected || !VOICE_CONTAINERS.includes(detected)) throw new AppException('FILE_TYPE_NOT_ALLOWED');
+    return processVoice(temp.path, {
+      ffmpegPath: this.config.ffmpegPath,
+      ffprobePath: this.config.ffprobePath,
+      maxSeconds: await this.settings.get('voiceMaxSeconds'),
+    });
   }
 
   /** Photo (appareil ou galerie) : taille ≤ attachmentMaxBytes, puis normalisation (photo-processing). */

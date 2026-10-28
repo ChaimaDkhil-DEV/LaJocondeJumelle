@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import request from 'supertest';
+import { signAssistToken, type AssistTokenPayload } from '../../src/common/assist-token';
 import { CATEGORIES, categoryId, loginAs, seedDemo, userId } from '../utils/auth-helpers';
 import { createTestApp, TEST_ORIGIN } from '../utils/test-app';
 import { resetDatabase } from '../utils/test-db';
@@ -291,6 +292,106 @@ describe('Création de demandes', () => {
         await prisma.setting.update({ where: { key: 'draftsEnabled' }, data: { value: true } });
         await freshApp.close();
       }
+    });
+  });
+
+  describe('Propositions automatiques retenues (009, T021)', () => {
+    const secret = () => process.env.SESSION_SECRET!;
+    let enseignanteId: string;
+    const SOURCES = [{ id: '11111111-1111-4111-8111-111111111111', title: 'Pannes de reprographie' }];
+    const proposed = (): AssistTokenPayload => ({ title: 'Photocopieuse en panne', categoryId: photocopies, priority: 'HIGH', sources: SOURCES });
+    const assistEvents = (requestId: string) =>
+      prisma.requestEvent.findMany({ where: { requestId, type: 'ASSIST_SUGGESTED' } });
+
+    beforeAll(async () => {
+      enseignanteId = await userId(prisma, 'enseignante');
+    });
+
+    it('trace les valeurs proposées et enregistrées, après CREATED, sans changer statut ni notifications', async () => {
+      const token = signAssistToken(secret(), enseignanteId, proposed(), new Date());
+      const body = { title: 'Photocopieuse du 1er en panne', description: 'Elle ne démarre plus.', categoryId: photocopies, recipientId: reprographieId, priority: 'NORMAL' };
+      const plain = await create(enseignante, body);
+      const res = await create(enseignante, { ...body, assistToken: token });
+      expect(res.status).toBe(201);
+      expect(res.body.status).toBe(plain.body.status);
+
+      const events = await prisma.requestEvent.findMany({ where: { requestId: res.body.id }, orderBy: { seq: 'asc' } });
+      const types = events.map((e) => e.type);
+      expect(types).toContain('ASSIST_SUGGESTED');
+      expect(types.indexOf('ASSIST_SUGGESTED')).toBeGreaterThan(types.indexOf('CREATED'));
+      const event = events.find((e) => e.type === 'ASSIST_SUGGESTED')!;
+      expect(event.actorId).toBe(enseignanteId);
+      expect(event.fromValue).toEqual({
+        title: 'Photocopieuse en panne',
+        categoryId: photocopies,
+        categoryName: 'Photocopies',
+        priority: 'HIGH',
+        sources: SOURCES,
+      });
+      expect(event.toValue).toEqual({ title: 'Photocopieuse du 1er en panne', categoryId: photocopies, categoryName: 'Photocopies', priority: 'NORMAL' });
+      expect(event.comment).toBeNull();
+      expect(JSON.stringify([event.fromValue, event.toValue])).not.toContain('ne démarre plus');
+
+      const notified = async (id: string) =>
+        (await prisma.notification.findMany({ where: { requestId: id } })).map((n) => [n.userId, n.type]).sort();
+      expect(await notified(res.body.id)).toEqual(await notified(plain.body.id));
+    });
+
+    it.each([
+      ['invalide', () => 'pas.un-jeton'],
+      ['expiré', () => signAssistToken(secret(), enseignanteId, proposed(), new Date(Date.now() - 25 * 3600_000))],
+      ['d’un autre utilisateur', () => signAssistToken(secret(), reprographieId, proposed(), new Date())],
+    ])('ignore un jeton %s : demande créée sans événement', async (_label, token) => {
+      const res = await create(enseignante, { title: 'Sans trace', description: 'x', categoryId: photocopies, recipientId: reprographieId, assistToken: token() });
+      expect(res.status).toBe(201);
+      expect(await assistEvents(res.body.id)).toHaveLength(0);
+    });
+
+    it('circuit B appliqué depuis une proposition : statut initial et notifications inchangés (T031)', async () => {
+      const token = signAssistToken(secret(), enseignanteId, { ...proposed(), categoryId: circuitB }, new Date());
+      const body = { title: 'Prise électrique arrachée', description: 'Salle 12.', categoryId: circuitB };
+      const plain = await create(enseignante, body);
+      const res = await create(enseignante, { ...body, assistToken: token });
+      expect(res.status).toBe(201);
+      expect(res.body.status).toBe(plain.body.status);
+      expect(res.body.assignee).toEqual(plain.body.assignee);
+      const notified = async (id: string) =>
+        (await prisma.notification.findMany({ where: { requestId: id } })).map((n) => [n.userId, n.type]).sort();
+      expect(await notified(res.body.id)).toEqual(await notified(plain.body.id));
+      expect(await assistEvents(res.body.id)).toHaveLength(1);
+    });
+
+    it('catégorie désactivée entre la proposition et l’envoi : refus habituel, aucune demande ni événement (T031)', async () => {
+      const petitsTravaux = await categoryId(prisma, CATEGORIES.petitsTravaux);
+      const token = signAssistToken(secret(), enseignanteId, { ...proposed(), categoryId: petitsTravaux }, new Date());
+      const before = await prisma.requestEvent.count({ where: { type: 'ASSIST_SUGGESTED' } });
+      await prisma.category.update({ where: { id: petitsTravaux }, data: { active: false } });
+      try {
+        const body = { title: 'Étagère à fixer', description: 'x', categoryId: petitsTravaux };
+        const withToken = await create(enseignante, { ...body, assistToken: token });
+        const without = await create(enseignante, body);
+        expect(withToken.status).toBeGreaterThanOrEqual(400);
+        expect(withToken.status).toBe(without.status);
+        expect(withToken.body.error.code).toBe(without.body.error.code);
+        expect(await prisma.requestEvent.count({ where: { type: 'ASSIST_SUGGESTED' } })).toBe(before);
+      } finally {
+        await prisma.category.update({ where: { id: petitsTravaux }, data: { active: true } });
+      }
+    });
+
+    it('n’écrit rien pour un brouillon, ni deux fois pour un renvoi du même clientId', async () => {
+      const token = signAssistToken(secret(), enseignanteId, proposed(), new Date());
+      const draft = await create(enseignante, { title: 'Brouillon assisté', categoryId: photocopies, asDraft: true, assistToken: token });
+      expect(draft.status).toBe(201);
+      expect(await assistEvents(draft.body.id)).toHaveLength(0);
+
+      const clientId = randomUUID();
+      const body = { clientId, title: 'Renvoyée', description: 'x', categoryId: photocopies, recipientId: reprographieId, assistToken: token };
+      const first = await create(enseignante, body);
+      const again = await create(enseignante, body);
+      expect(first.status).toBe(201);
+      expect(again.status).toBe(200);
+      expect(await assistEvents(first.body.id)).toHaveLength(1);
     });
   });
 

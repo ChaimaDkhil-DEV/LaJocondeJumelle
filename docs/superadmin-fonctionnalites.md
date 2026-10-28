@@ -199,6 +199,20 @@ valeurs que la page, chaque export journalisé.
 | Activation et désactivation | case « active » du formulaire | idem | Complète |
 | Rafraîchissement du formulaire « Nouvelle demande » | liste rechargée à chaque ouverture (`requests/api.ts`) | — | Complète |
 
+### 2.4 bis Consignes (`/admin/consignes`, fonctionnalité 009)
+
+| Fonctionnalité | Fichier / endpoint | Autorisation | État |
+| --- | --- | --- | --- |
+| Liste (titre, portée « Générale » ou catégorie, état, date et auteur de la modification) | `GuidelinesAdminPage.tsx`, `GET /api/admin/guidelines` | `SuperAdminGuard` (`admin-guidelines.controller.ts`) | Complète |
+| Création et modification : titre (120), texte (4 000), portée (générale ou catégorie de demande de travail), active | `GuidelineFormDialog.tsx`, `POST`/`PATCH /api/admin/guidelines` | idem | Complète |
+| Activation, désactivation, suppression confirmée | `PATCH`/`DELETE /api/admin/guidelines/:id` | idem | Complète |
+| Journal d'audit : « Consigne créée / modifiée / supprimée » + titre, jamais le texte | `GUIDELINE_CHANGED` | — | Complète |
+
+Les consignes actives servent aux **propositions automatiques** du formulaire « Nouvelle
+demande » (catégorie, priorité, titre), visibles seulement des demandeurs autorisés pour la
+catégorie. L'assistance est désactivée par défaut (`ASSIST_*_PROVIDER=disabled`) ; le fournisseur
+`demo` sert aux démonstrations, sans appel externe.
+
 ### 2.5 Groupes, Étages et Classes (`/admin/groupes`, `/admin/etages`, `/admin/classes`)
 
 | Fonctionnalité | Fichier / endpoint | Autorisation | État |

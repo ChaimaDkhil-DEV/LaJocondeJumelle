@@ -25,7 +25,7 @@ import { FilesService } from './files.service';
 
 /** Plafond technique de Multer ; les limites métier (réglages) sont vérifiées ensuite. */
 export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
-const UPLOAD_TMP_DIR = join(tmpdir(), 'ljj-uploads');
+export const UPLOAD_TMP_DIR = join(tmpdir(), 'ljj-uploads');
 
 function contentDisposition(mimeType: string, name: string): string {
   const disposition = mimeType.startsWith('audio/') || mimeType.startsWith('image/') ? 'inline' : 'attachment';

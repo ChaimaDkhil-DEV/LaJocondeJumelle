@@ -14,12 +14,20 @@ export class ProtectedProbeController {
   }
 }
 
+/** Fournisseur remplacé pour un test (par exemple un fournisseur d'assistance simulé). */
+export interface ProviderOverride {
+  provide: unknown;
+  useValue: unknown;
+}
+
 /** Démarre l'application Nest complète sur la base de test, avec la même configuration que main.ts. */
-export async function createTestApp(extraControllers: Type[] = []): Promise<INestApplication> {
-  const moduleRef = await Test.createTestingModule({
+export async function createTestApp(extraControllers: Type[] = [], overrides: ProviderOverride[] = []): Promise<INestApplication> {
+  const builder = Test.createTestingModule({
     imports: [AppModule],
     controllers: extraControllers,
-  }).compile();
+  });
+  for (const { provide, useValue } of overrides) builder.overrideProvider(provide).useValue(useValue);
+  const moduleRef = await builder.compile();
   const app = moduleRef.createNestApplication();
   configureApp(app);
   await app.init();
