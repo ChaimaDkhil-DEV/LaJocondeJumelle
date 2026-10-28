@@ -2,15 +2,19 @@ import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
+import Link from '@mui/material/Link';
 import Paper from '@mui/material/Paper';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { Check, FileText, Sparkles } from 'lucide-react';
 import { useId, useRef, useState, useSyncExternalStore } from 'react';
+import { Link as RouterLink } from 'react-router';
 import { ApiError } from '../../api/client';
 import { useClientSettings } from '../../api/settings';
+import { visuallyHidden } from '../../components/a11y';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { PRIORITY_LABELS } from '../../components/PriorityBadge';
+import { STATUS_LABELS } from '../../components/StatusBadge';
 import { font, icon } from '../../design/tokens';
 import type { RequestFormState } from '../requests/RequestForm';
 import type { VoiceRecording } from '../voice/VoiceRecorder';
@@ -267,6 +271,40 @@ export function AssistPanel({ form, onToken }: AssistPanelProps) {
                 </Box>
               </>
             )}
+          </Box>
+        )}
+        {/* Demandes similaires (spec 010) : ouvertes dans un nouvel onglet, le formulaire reste intact. */}
+        {result && (result.similar ?? []).length > 0 && (
+          <Box sx={{ mt: 1.5 }}>
+            <Typography variant="body2" sx={{ fontWeight: font.medium }}>
+              Demandes similaires
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Vérifiez qu’il ne s’agit pas d’un doublon.
+            </Typography>
+            <Box component="ul" aria-label="Demandes similaires" sx={{ m: 0, mt: 0.5, pl: 2.5 }}>
+              {(result.similar ?? []).map((r) => (
+                <Box component="li" key={r.id} sx={{ mt: 0.5 }}>
+                  <Link
+                    component={RouterLink}
+                    to={`/demandes/${r.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    variant="body2"
+                    sx={{ overflowWrap: 'anywhere' }}
+                  >
+                    {r.reference} · {r.title}
+                    <Box component="span" sx={visuallyHidden}>
+                      {' '}
+                      (nouvel onglet)
+                    </Box>
+                  </Link>
+                  <Typography variant="body2" color="text.secondary">
+                    {r.categoryName} · {PRIORITY_LABELS[r.priority]} · {STATUS_LABELS[r.status]}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
           </Box>
         )}
       </Box>

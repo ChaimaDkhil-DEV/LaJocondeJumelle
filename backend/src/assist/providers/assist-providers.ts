@@ -1,5 +1,8 @@
+import type { Priority } from '@prisma/client';
 import type { AssistConfig } from '../../config/config';
 import { demoSuggest } from '../domain/demo-suggest';
+import { claudeSuggestionProvider } from './claude-suggestion';
+import { whisperTranscriptionProvider } from './whisper-transcription';
 
 /**
  * Fournisseurs de l'assistance (spec 009, research R1). Ce lot n'en livre que deux sortes :
@@ -26,6 +29,11 @@ export interface SuggestionInput {
   categories: Array<{ id: string; name: string }>;
   /** Consignes autorisées retrouvées, de la plus pertinente à la moins pertinente. */
   guidelines: Array<{ id: string; title: string; body: string; categoryId: string | null }>;
+  /**
+   * Demandes similaires visibles par l'utilisateur (spec 010, R7) : titre, catégorie et priorité
+   * seulement — jamais description, messages, personnes ni identifiants.
+   */
+  similar: Array<{ title: string; categoryName: string; priority: Priority }>;
 }
 
 export interface SuggestionProvider {
@@ -45,12 +53,16 @@ function abortable<T>(signal: AbortSignal, value: () => T): Promise<T> {
 }
 
 export function transcriptionProviderFor(config: AssistConfig): TranscriptionProvider | null {
+  // Connecteur réel (spec 010) : configuration complète garantie par loadConfig.
+  if (config.transcriptionProvider === 'whisper' && config.whisper) return whisperTranscriptionProvider(config.whisper);
   if (config.transcriptionProvider !== 'demo') return null;
   const text = config.demoTranscript ?? DEFAULT_DEMO_TRANSCRIPT;
   return { name: 'demo', transcribe: (_input, signal) => abortable(signal, () => text) };
 }
 
 export function suggestionProviderFor(config: AssistConfig): SuggestionProvider | null {
+  // Connecteur réel (spec 010) : configuration complète garantie par loadConfig.
+  if (config.suggestionProvider === 'claude' && config.claude) return claudeSuggestionProvider(config.claude);
   if (config.suggestionProvider !== 'demo') return null;
   return { name: 'demo', suggest: (input, signal) => abortable(signal, () => demoSuggest(input)) };
 }

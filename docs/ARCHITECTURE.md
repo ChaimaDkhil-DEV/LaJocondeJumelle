@@ -837,3 +837,26 @@ vérifier », modifiable, distincte de la description) ; onglet « Consignes »
 
 `0011_request_assist` (table `Guideline`, valeurs `ASSIST_SUGGESTED` et `GUIDELINE_CHANGED`),
 avec `down.sql`.
+
+### Compléments de la fonctionnalité 010 (connecteurs réels, demandes similaires)
+
+Spécification : `specs/010-assistance-fournisseurs-similaires/`.
+
+- **Demandes similaires** : `assist/similar-requests.service.ts`. Recherche plein texte en français
+  sur titre et description (`kind = WORK`, hors brouillons, 20 candidats), puis filtre
+  `visibleRequestsWhere(user)` — la règle de la liste des demandes —, 3 résultats. Réponse de
+  `POST /api/assist/suggestions` : champ `similar` (référence, titre, catégorie, priorité, statut) ;
+  transmis au fournisseur réduit à titre, catégorie et priorité. Aucune migration ni index.
+- **Connecteur Whisper** (`ASSIST_TRANSCRIPTION_PROVIDER=whisper`) :
+  `assist/providers/whisper-transcription.ts`, `fetch` natif vers
+  `{ASSIST_WHISPER_URL}/v1/audio/transcriptions` (serveur de l'établissement, interface compatible
+  OpenAI), `language=fr`, clé facultative ; `https` exigé en production.
+- **Connecteur Claude** (`ASSIST_SUGGESTION_PROVIDER=claude`) :
+  `assist/providers/claude-suggestion.ts`, SDK officiel `@anthropic-ai/sdk`, modèle
+  `ASSIST_CLAUDE_MODEL` (défaut `claude-opus-5-5`), sortie structurée par schéma JSON (catégories et
+  priorités en `enum`), texte délimité par `<demande>`, repli serveur `fallbacks: "default"` en cas
+  de refus, aucune nouvelle tentative client ; la réponse passe toujours par `sanitizeSuggestion`.
+- **Désactivés par défaut** : un connecteur réel incomplet empêche l'API de démarrer
+  (`ConfigError`). Leur activation envoie des données hors de l'application et exige la décision de
+  l'établissement (accord de traitement, conservation). Les tests n'appellent aucun service
+  extérieur (`fetch` et SDK simulés).

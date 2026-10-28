@@ -9,6 +9,7 @@ import { AssistRateLimiter } from './assist-rate-limiter';
 import { AssistController } from './assist.controller';
 import { AssistService } from './assist.service';
 import { GuidelinesService } from './guidelines.service';
+import { SimilarRequestsService } from './similar-requests.service';
 import {
   SUGGESTION_PROVIDER,
   TRANSCRIPTION_PROVIDER,
@@ -23,6 +24,7 @@ import {
   providers: [
     AssistService,
     GuidelinesService,
+    SimilarRequestsService,
     SuperAdminGuard,
     { provide: TRANSCRIPTION_PROVIDER, inject: [APP_CONFIG], useFactory: (c: AppConfig) => transcriptionProviderFor(c.assist) },
     { provide: SUGGESTION_PROVIDER, inject: [APP_CONFIG], useFactory: (c: AppConfig) => suggestionProviderFor(c.assist) },

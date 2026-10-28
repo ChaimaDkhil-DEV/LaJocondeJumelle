@@ -142,6 +142,36 @@ describe('Propositions automatiques', () => {
     expect(screen.getByRole('radio', { name: 'Haute' })).toBeChecked();
   });
 
+  it('liste les demandes similaires, ouvertes dans un nouvel onglet, sans toucher au formulaire (010, T007)', async () => {
+    setup(() =>
+      json(200, {
+        ...RESULT,
+        similar: [
+          { id: 'r42', reference: 'D-2026-000042', title: 'Photocopieuse du 1er en panne', categoryName: 'Photocopies', priority: 'HIGH', status: 'IN_PROGRESS' },
+        ],
+      }),
+    );
+    await describeNeed();
+    await userEvent.click(proposeButton());
+    const list = await screen.findByRole('list', { name: 'Demandes similaires' });
+    const link = within(list).getByRole('link', { name: /D-2026-000042 · Photocopieuse du 1er en panne/ });
+    expect(link).toHaveAttribute('href', '/demandes/r42');
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'));
+    expect(link).toHaveAccessibleName(/nouvel onglet/);
+    expect(within(list).getByText(/Photocopies · Haute · En cours/)).toBeVisible();
+    expect(screen.getByText('Vérifiez qu’il ne s’agit pas d’un doublon.')).toBeVisible();
+    expect(screen.getByLabelText('Titre')).toHaveValue('');
+  });
+
+  it('sans demande similaire, la section n’apparaît pas', async () => {
+    setup(() => json(200, { ...RESULT, similar: [] }));
+    await describeNeed();
+    await userEvent.click(proposeButton());
+    await screen.findByRole('button', { name: 'Tout appliquer' });
+    expect(screen.queryByRole('list', { name: 'Demandes similaires' })).not.toBeInTheDocument();
+  });
+
   it('signale l’absence de consigne correspondante', async () => {
     setup(() => json(200, { ...RESULT, sources: [], noGuideline: true }));
     await describeNeed();
@@ -263,6 +293,30 @@ describe('Propositions automatiques : disponibilité, erreurs et transcription (
     expect(calls.filter((c) => c.url === '/api/assist/suggestions')[1]!.body).toEqual({ text: 'Texte corrigé.' });
     // Une seule transcription : la version corrigée est réutilisée.
     expect(calls.filter((c) => c.url === '/api/assist/transcriptions')).toHaveLength(1);
+  });
+
+  it('un nouvel enregistrement remplace la transcription précédente (010, T016)', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    let n = 0;
+    const calls = setup(undefined, {
+      settings: { assistTranscription: true },
+      onTranscribe: () => json(200, { text: `Transcription ${++n}.` }),
+    });
+    await screen.findByRole('heading', { name: 'Nouvelle demande' });
+    await recordVoice(user);
+    await user.click(screen.getByRole('button', { name: 'Proposer une catégorie et une priorité' }));
+    expect(await screen.findByLabelText('Transcription (à vérifier)')).toHaveValue('Transcription 1.');
+
+    // Refaire le vocal : l'ancienne transcription n'est plus affichée ni utilisée.
+    await user.click(screen.getByRole('button', { name: 'Refaire l’enregistrement' }));
+    expect(screen.queryByLabelText('Transcription (à vérifier)')).not.toBeInTheDocument();
+    await recordVoice(user);
+    expect(screen.queryByLabelText('Transcription (à vérifier)')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Proposer une catégorie et une priorité' }));
+    expect(await screen.findByLabelText('Transcription (à vérifier)')).toHaveValue('Transcription 2.');
+    expect(calls.filter((c) => c.url === '/api/assist/transcriptions')).toHaveLength(2);
+    expect(calls.filter((c) => c.url === '/api/assist/suggestions').at(-1)!.body).toEqual({ text: 'Transcription 2.' });
   });
 
   it('« Utiliser comme description » : direct si vide, sinon après confirmation', async () => {

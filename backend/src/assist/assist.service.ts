@@ -14,6 +14,7 @@ import type { RequestContext } from '../requests/requests.service';
 import { AssistRateLimiter } from './assist-rate-limiter';
 import { sanitizeSuggestion } from './domain/sanitize-suggestion';
 import { GuidelinesService } from './guidelines.service';
+import { SimilarRequestsService, type SimilarRequest } from './similar-requests.service';
 import {
   SUGGESTION_PROVIDER,
   TRANSCRIPTION_PROVIDER,
@@ -38,6 +39,8 @@ export interface SuggestionResult {
   noGuideline: boolean;
   /** Jeton signé à joindre à l'envoi de la demande (research R6) ; null sans proposition. */
   token: string | null;
+  /** Demandes similaires visibles par l'utilisateur (spec 010), 3 au plus. */
+  similar: SimilarRequest[];
 }
 
 /**
@@ -56,6 +59,7 @@ export class AssistService {
     private readonly files: FilesService,
     private readonly policies: RequestPolicyLoader,
     private readonly guidelines: GuidelinesService,
+    private readonly similarRequests: SimilarRequestsService,
     private readonly limiter: AssistRateLimiter,
     private readonly audit: AuditService,
   ) {}
@@ -66,14 +70,22 @@ export class AssistService {
     const categories = await this.creatableCategories(user, ctx);
     await this.consume(user, ctx);
 
-    const found = await this.guidelines.search(
-      text,
-      categories.map((c) => c.id),
-    );
+    const [found, similar] = await Promise.all([
+      this.guidelines.search(
+        text,
+        categories.map((c) => c.id),
+      ),
+      this.similarRequests.find(user, text),
+    ]);
     const started = Date.now();
     const raw = await this.callProvider('Propositions', provider.name, (signal) =>
       provider.suggest(
-        { text, categories, guidelines: found.map(({ id, title, body, categoryId }) => ({ id, title, body, categoryId })) },
+        {
+          text,
+          categories,
+          guidelines: found.map(({ id, title, body, categoryId }) => ({ id, title, body, categoryId })),
+          similar: similar.map(({ title, categoryName, priority }) => ({ title, categoryName, priority })),
+        },
         signal,
       ),
     );
@@ -89,7 +101,7 @@ export class AssistService {
     const sources = found
       .filter((g) => suggestion?.sourceIds.includes(g.id))
       .map(({ id, title, excerpt }) => ({ id, title, excerpt }));
-    if (!suggestion) return { suggestion: null, sources, noGuideline: found.length === 0, token: null };
+    if (!suggestion) return { suggestion: null, sources, noGuideline: found.length === 0, token: null, similar };
 
     // Les consignes citées sont renvoyées dans `sources`, pas dans la proposition.
     const { title, categoryId, priority, reason, missing } = suggestion;
@@ -111,7 +123,7 @@ export class AssistService {
       },
       new Date(),
     );
-    return { suggestion: fields, sources, noGuideline: found.length === 0, token };
+    return { suggestion: fields, sources, noGuideline: found.length === 0, token, similar };
   }
 
   /**

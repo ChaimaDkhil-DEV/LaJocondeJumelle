@@ -83,3 +83,36 @@ test('un vocal est transcrit (démonstration), affiché à vérifier, puis sert 
   await expect(page.getByLabel('Description (facultative)')).toHaveValue(/photocopieuse du premier étage est en panne/);
   await expectNoA11yViolations(page);
 });
+
+test('les demandes similaires visibles s’affichent, ouvertes dans un nouvel onglet (010)', async ({ page }, testInfo) => {
+  await login(page, 'enseignante');
+  const origin = new URL(page.url()).origin;
+  // Mot unique : la demande créée est la plus proche, même si la base contient d'autres demandes.
+  const marker = `rétroprojecteur${testInfo.project.name.replace(/\W/g, '')}${Date.now()}`;
+  const categories = (await (await page.request.get('/api/categories')).json()) as Array<{ id: string; name: string }>;
+  const photocopies = categories.find((c) => c.name === 'Photocopies')!;
+  const recipients = (await (await page.request.get(`/api/categories/${photocopies.id}/recipients`)).json()) as Array<{ id: string }>;
+  const created = await page.request.post('/api/requests', {
+    headers: { Origin: origin },
+    data: {
+      clientId: crypto.randomUUID(),
+      title: `Le ${marker} ne s’allume plus`,
+      description: 'Salle 12.',
+      categoryId: photocopies.id,
+      recipientId: recipients[0].id,
+      priority: 'HIGH',
+    },
+  });
+  expect(created.status()).toBe(201);
+
+  await page.goto('/demandes/nouvelle');
+  await page.getByLabel('Description (facultative)').fill(`Le ${marker} de la salle 12 est en panne.`);
+  await page.getByRole('button', { name: 'Proposer une catégorie et une priorité' }).click();
+
+  const list = page.getByRole('list', { name: 'Demandes similaires' });
+  const link = list.getByRole('link', { name: new RegExp(marker) });
+  await expect(link).toBeVisible();
+  await expect(link).toHaveAttribute('target', '_blank');
+  await expect(link).toHaveAttribute('href', `/demandes/${((await created.json()) as { id: string }).id}`);
+  await expectNoA11yViolations(page);
+});
