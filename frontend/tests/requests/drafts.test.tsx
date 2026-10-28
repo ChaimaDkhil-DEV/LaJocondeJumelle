@@ -241,7 +241,7 @@ describe('onglet « Brouillons » (US2)', () => {
 });
 
 const DRAFT_ROUTES: RouteObject[] = [
-  { path: '/', element: <p>Liste des demandes</p> },
+  { path: '/demandes', element: <p>Liste des demandes</p> },
   { path: '/demandes/:id/brouillon', element: <DraftPage /> },
   { path: '/demandes/:id', element: <p>Détail de la demande</p> },
 ];

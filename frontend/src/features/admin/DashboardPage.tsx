@@ -43,9 +43,9 @@ import { Badge } from '../../components/Badge';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { formatDateTime, formatRelative } from '../../components/format';
+import { PageHeader } from '../../components/PageHeader';
 import { PRIORITY_LABELS, PriorityBadge } from '../../components/PriorityBadge';
 import { SectionCard } from '../../components/SectionCard';
-import { SectionHeader } from '../../components/SectionHeader';
 import { StatusBadge } from '../../components/StatusBadge';
 import { Person } from '../../components/UserAvatar';
 import { cardShadow, font, icon, radius, tokensOf } from '../../design/tokens';
@@ -722,12 +722,11 @@ export function DashboardPage() {
   const listFilters = toRequestListFilters(filters);
 
   return (
-    <Box component="section" aria-labelledby="titre-tableau-de-bord">
-      <SectionHeader
-        id="titre-tableau-de-bord"
+    <Box>
+      <PageHeader
         title="Tableau de bord"
         description="Supervision des demandes de travail. Les chiffres sont actualisés automatiquement chaque minute."
-        action={
+        actions={
           <Button
             component="a"
             href={`/api/admin/dashboard/export.csv?${qs}`}

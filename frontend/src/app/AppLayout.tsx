@@ -8,6 +8,7 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import {
   ClipboardList,
   Inbox,
+  LayoutDashboard,
   LogOut,
   Menu,
   School,
@@ -33,16 +34,35 @@ export interface NavItem {
   icon: LucideIcon;
   /** Chemins pour lesquels l'entrée est mise en évidence. */
   matches: (pathname: string) => boolean;
+  /** Chemins où l'entrée désigne la page courante (`aria-current`) ; par défaut, son seul `to`. */
+  current?: (pathname: string) => boolean;
 }
 
-/** Entrées de navigation communes. */
-export const NAV_ITEMS: NavItem[] = [
-  {
-    to: '/',
+/** Tableau de bord : page d'accueil du super administrateur (seul rôle autorisé par l'API). */
+const DASHBOARD_ITEM: NavItem = {
+  to: '/',
+  label: 'Tableau de bord',
+  icon: LayoutDashboard,
+  matches: (p) => p === '/',
+};
+
+/**
+ * « Mes demandes » (`/demandes`) ; pour les rôles sans tableau de bord, c'est aussi la page
+ * d'accueil `/`.
+ */
+function requestsItem(isHome: boolean): NavItem {
+  const current = (p: string) => p === '/demandes' || (isHome && p === '/');
+  return {
+    to: '/demandes',
     label: 'Mes demandes',
     icon: Inbox,
-    matches: (p) => p === '/' || (p.startsWith('/demandes/') && p !== '/demandes/nouvelle'),
-  },
+    current,
+    matches: (p) => current(p) || (p.startsWith('/demandes/') && p !== '/demandes/nouvelle'),
+  };
+}
+
+/** Entrées de navigation communes, après « Mes demandes ». */
+export const NAV_ITEMS: NavItem[] = [
   {
     to: '/demandes/nouvelle',
     label: 'Nouvelle demande',
@@ -141,7 +161,7 @@ function NavList({ items, onNavigate }: { items: NavItem[]; onNavigate?: () => v
                 component={RouterLink}
                 to={item.to}
                 onClick={onNavigate}
-                aria-current={active && pathname === item.to ? 'page' : undefined}
+                aria-current={active && (item.current ?? ((p: string) => p === item.to))(pathname) ? 'page' : undefined}
                 sx={(theme) => ({
                   display: 'flex',
                   alignItems: 'center',
@@ -228,10 +248,13 @@ export function AppLayout() {
   const logout = useLogout();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const showCoverage = canSeeCoverage(me.data);
+  const superAdmin = me.data?.role === 'SUPER_ADMIN';
   const navItems = [
+    ...(superAdmin ? [DASHBOARD_ITEM] : []),
+    requestsItem(!superAdmin),
     ...NAV_ITEMS,
     ...(showCoverage ? [COVERAGE_ITEM] : []),
-    ...(me.data?.role === 'SUPER_ADMIN' ? [ADMIN_ITEM] : []),
+    ...(superAdmin ? [ADMIN_ITEM] : []),
   ];
 
   function handleLogout(): void {

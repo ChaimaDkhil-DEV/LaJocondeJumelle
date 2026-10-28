@@ -3,7 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { adminRoutes } from '../../src/features/admin/adminRoutes';
+import { HomePage } from '../../src/features/home/HomePage';
 import { formatDurationMs, periodOf, toDashboardQuery, toRequestListFilters, DEFAULT_FILTERS } from '../../src/features/admin/dashboardApi';
 
 /** Tableau de bord du super administrateur : données de l'API, filtres, états, onglets. */
@@ -100,7 +100,7 @@ beforeAll(async () => {
   } as unknown as typeof ResizeObserver;
 });
 
-function setup(path = '/admin/tableau-de-bord', handler: Handler = () => undefined, me: unknown = SUPER_ADMIN) {
+function setup(path = '/', handler: Handler = () => undefined, me: unknown = SUPER_ADMIN) {
   const urls: string[] = [];
   vi.stubGlobal(
     'fetch',
@@ -118,7 +118,7 @@ function setup(path = '/admin/tableau-de-bord', handler: Handler = () => undefin
       return json(404, { error: { code: 'NOT_FOUND', message: 'Élément introuvable.' } });
     }),
   );
-  const router = createMemoryRouter(adminRoutes, { initialEntries: [path] });
+  const router = createMemoryRouter([{ path: '/', element: <HomePage /> }], { initialEntries: [path] });
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <RouterProvider router={router} />
@@ -136,9 +136,10 @@ function kpi(label: string): string {
 describe('Tableau de bord', () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it('est réservé au super administrateur, sans appel aux routes /admin', async () => {
-    const { urls } = setup('/admin/tableau-de-bord', undefined, { ...SUPER_ADMIN, role: 'ADMIN' });
-    expect(await screen.findByText('Accès réservé au super administrateur.')).toBeVisible();
+  it('est réservé au super administrateur : un admin voit « Mes demandes », sans appel aux routes /admin', async () => {
+    const { urls } = setup('/', undefined, { ...SUPER_ADMIN, role: 'ADMIN' });
+    expect(await screen.findByRole('heading', { level: 1, name: 'Mes demandes' })).toBeVisible();
+    expect(screen.queryByRole('heading', { name: 'Tableau de bord' })).not.toBeInTheDocument();
     expect(urls.some((u) => u.startsWith('/api/admin'))).toBe(false);
   });
 
@@ -208,7 +209,7 @@ describe('Tableau de bord', () => {
   it('affiche un état d’erreur avec la référence et permet de réessayer', async () => {
     const user = userEvent.setup();
     let fail = true;
-    setup('/admin/tableau-de-bord', (url) =>
+    setup('/', (url) =>
       url.startsWith('/api/admin/dashboard/summary') && fail
         ? json(500, { error: { code: 'INTERNAL_ERROR', message: 'Erreur', details: { reference: 'ERR-42' } } })
         : undefined,
@@ -220,7 +221,7 @@ describe('Tableau de bord', () => {
   });
 
   it('affiche un état vide sans demande', async () => {
-    setup('/admin/tableau-de-bord', (url) =>
+    setup('/', (url) =>
       url.startsWith('/api/admin/dashboard/summary')
         ? json(200, {
             ...SUMMARY,
@@ -236,7 +237,7 @@ describe('Tableau de bord', () => {
   });
 
   it('montre l’évolution quand des demandes créées avant la période y sont terminées', async () => {
-    setup('/admin/tableau-de-bord', (url) =>
+    setup('/', (url) =>
       url.startsWith('/api/admin/dashboard/summary')
         ? json(200, {
             ...SUMMARY,
@@ -251,7 +252,7 @@ describe('Tableau de bord', () => {
   });
 
   it('présente les délais et le taux de respect', async () => {
-    setup('/admin/tableau-de-bord?vue=delais');
+    setup('/?vue=delais');
     expect(await screen.findByRole('table', { name: 'Délais par priorité' })).toBeVisible();
     expect(kpi('Respect des délais')).toBe('75 %');
     expect(kpi('Première réponse moyenne')).toBe('2 min');
@@ -262,14 +263,14 @@ describe('Tableau de bord', () => {
   });
 
   it('décrit l’activité récente sans contenu de message', async () => {
-    setup('/admin/tableau-de-bord?vue=activite');
+    setup('/?vue=activite');
     expect(await screen.findByText('Statut : Envoyée → Acceptée')).toBeVisible();
     expect(screen.getByText('En retard (prise en charge)')).toBeVisible();
     expect(screen.getByText('Système', { exact: false })).toBeVisible();
   });
 
   it('affiche un état vide pour les employés sans activité', async () => {
-    setup('/admin/tableau-de-bord?vue=employes');
+    setup('/?vue=employes');
     expect(await screen.findByText('Aucun compte actif et aucune demande sur cette période.')).toBeVisible();
   });
 });

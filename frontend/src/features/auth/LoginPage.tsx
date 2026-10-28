@@ -9,7 +9,6 @@ import { ApiError } from '../../api/client';
 import { fieldIcon } from '../../components/fieldIcon';
 import { AuthLayout } from './AuthLayout';
 import { useLogin } from './useCurrentUser';
-import { homePathFor } from './homePath';
 
 interface FieldErrors {
   username?: string;
@@ -24,7 +23,7 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<FieldErrors>({});
 
-  const from = (location.state as { from?: string } | null)?.from;
+  const from = (location.state as { from?: string } | null)?.from ?? '/';
 
   function handleSubmit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
@@ -39,7 +38,7 @@ export function LoginPage() {
       { username: username.trim(), password },
       {
         onSuccess: ({ user }) =>
-          navigate(user.mustChangePassword ? '/mot-de-passe' : homePathFor(user.role, from), { replace: true }),
+          navigate(user.mustChangePassword ? '/mot-de-passe' : from, { replace: true }),
       },
     );
   }

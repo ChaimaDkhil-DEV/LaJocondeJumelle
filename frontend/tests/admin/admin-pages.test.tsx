@@ -113,6 +113,11 @@ describe('Accès à l’administration', () => {
       expect(within(nav).getByRole('link', { name: label })).toBeVisible();
     }
     expect(await screen.findByRole('heading', { name: 'Comptes' })).toBeVisible();
+    // Le tableau de bord est la page d'accueil du super administrateur, plus un onglet.
+    expect(within(nav).queryByRole('link', { name: 'Tableau de bord' })).not.toBeInTheDocument();
+    for (const label of ['Suivi des gardes', 'Comptes', 'Catégories', 'Consignes', 'Groupes', 'Étages', 'Classes', 'Réglages']) {
+      expect(within(nav).getByRole('link', { name: label })).toBeVisible();
+    }
   });
 });
 
