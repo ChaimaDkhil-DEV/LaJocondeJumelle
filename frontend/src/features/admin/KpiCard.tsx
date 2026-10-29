@@ -18,6 +18,19 @@ interface KpiCardProps {
   accent?: AccentName;
   /** Mini-graphique décoratif, à droite de la valeur. */
   trend?: ReactNode;
+  /** À droite du libellé : aide (« i ») de l'indicateur. */
+  labelExtra?: ReactNode;
+  /** Sous la valeur : badges (taille d'échantillon…). */
+  meta?: ReactNode;
+  /**
+   * Évolution par rapport à la période précédente (↑/↓), sous la valeur. Emplacement prévu :
+   * l'API ne fournit pas encore de période de comparaison.
+   */
+  delta?: ReactNode;
+  /** Sous-texte limité à une ligne (texte complet au survol). */
+  singleLineHint?: boolean;
+  /** Valeur absente (« Aucune donnée ») : plus petite et grise, distincte d'un zéro. */
+  muted?: boolean;
 }
 
 /**
@@ -25,11 +38,18 @@ interface KpiCardProps {
  * Structure stable pour les tests : le libellé est dans une div, la valeur est le seul paragraphe
  * de la carte (.MuiPaper-root).
  */
-export function KpiCard({ label, value, hint, icon: Icon, tone = 'accent', accent, trend }: KpiCardProps) {
+export function KpiCard({ label, value, hint, icon: Icon, tone = 'accent', accent, trend, labelExtra, meta, delta, singleLineHint = false, muted = false }: KpiCardProps) {
   const tile = (theme: Theme) => (accent ? tokensOf(theme).accents[accent] : toneColors(theme, tone));
   return (
     <Paper variant="elevated" sx={{ p: { xs: 2, sm: 2.5 }, minWidth: 0, display: 'grid', gap: 1.5, alignContent: 'start' }}>
-      <Box sx={{ fontSize: fontSize.sm, fontWeight: font.semibold, lineHeight: 1.35, color: 'text.primary', minWidth: 0 }}>{label}</Box>
+      {labelExtra ? (
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1, minWidth: 0 }}>
+          <Box sx={{ fontSize: fontSize.sm, fontWeight: font.semibold, lineHeight: 1.35, color: 'text.primary', minWidth: 0 }}>{label}</Box>
+          {labelExtra}
+        </Box>
+      ) : (
+        <Box sx={{ fontSize: fontSize.sm, fontWeight: font.semibold, lineHeight: 1.35, color: 'text.primary', minWidth: 0 }}>{label}</Box>
+      )}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0 }}>
         <Box
           component="span"
@@ -53,8 +73,9 @@ export function KpiCard({ label, value, hint, icon: Icon, tone = 'accent', accen
           sx={{
             flex: 1,
             minWidth: 0,
-            fontSize: fontSize.xl,
-            fontWeight: font.semibold,
+            fontSize: muted ? fontSize.md : fontSize.xl,
+            fontWeight: muted ? font.regular : font.semibold,
+            color: muted ? 'text.secondary' : 'text.primary',
             lineHeight: 1.15,
             letterSpacing: '-0.02em',
             fontVariantNumeric: 'tabular-nums',
@@ -65,8 +86,15 @@ export function KpiCard({ label, value, hint, icon: Icon, tone = 'accent', accen
         </Typography>
         {trend}
       </Box>
+      {delta}
+      {meta && <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.75 }}>{meta}</Box>}
       {hint && (
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          title={singleLineHint ? hint : undefined}
+          sx={{ display: 'block', ...(singleLineHint && { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }) }}
+        >
           {hint}
         </Typography>
       )}

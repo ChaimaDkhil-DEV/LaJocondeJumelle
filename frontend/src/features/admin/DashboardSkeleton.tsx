@@ -30,6 +30,38 @@ function Tiles({ count, columns }: { count: number; columns: { xs: number; sm?: 
   );
 }
 
+/** Onglet « Délais » : carte « Respect des délais » (anneau) en tête, puis 4 cartes de durée. */
+function DelayTiles() {
+  return (
+    <Box
+      sx={{
+        display: 'grid',
+        gap: 1.5,
+        gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: 'repeat(2, minmax(0, 1fr))', md: 'minmax(0, 1.15fr) repeat(2, minmax(0, 1fr))' },
+      }}
+    >
+      <Paper variant="elevated" sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 2, gridColumn: { sm: '1 / -1', md: 'auto' }, gridRow: { md: 'span 2' } }}>
+        <Skeleton variant="circular" width={88} height={88} sx={{ flex: 'none' }} />
+        <Box sx={{ flex: 1 }}>
+          <Skeleton variant="text" width="60%" height={20} />
+          <Skeleton variant="text" width={72} height={40} />
+          <Skeleton variant="text" width="80%" height={16} />
+        </Box>
+      </Paper>
+      {Array.from({ length: 4 }, (_, i) => (
+        <Paper key={i} variant="elevated" sx={{ p: 2, display: 'grid', gap: 1 }}>
+          <Skeleton variant="text" width="70%" height={20} />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Skeleton variant="rounded" width={44} height={44} />
+            <Skeleton variant="text" width={64} height={34} />
+          </Box>
+          <Skeleton variant="rounded" width={52} height={22} />
+        </Paper>
+      ))}
+    </Box>
+  );
+}
+
 function TableBlock({ rows = 5 }: { rows?: number }) {
   return (
     <Paper variant="elevated" sx={{ overflow: 'hidden' }}>
@@ -89,8 +121,9 @@ export function DashboardSkeleton({ label, shape }: { label: string; shape: Dash
         )}
         {shape === 'performance' && (
           <>
-            <Tiles count={5} columns={{ xs: 2, md: 4 }} />
+            <DelayTiles />
             <TableBlock rows={4} />
+            <Skeleton variant="rounded" height={44} />
           </>
         )}
         {shape === 'table' && <TableBlock rows={6} />}

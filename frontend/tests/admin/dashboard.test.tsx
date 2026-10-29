@@ -172,6 +172,9 @@ function figure(label: string): HTMLElement {
   return term.parentElement!.querySelector('dd') as HTMLElement;
 }
 
+/** Carte « Respect des délais » de l'onglet Délais. */
+const heroCard = () => screen.getByText('Respect des délais', { selector: 'div' }).closest('.MuiPaper-root') as HTMLElement;
+
 /** Valeur affichée dans la carte d'indicateur portant ce libellé. */
 function kpi(label: string): string {
   const card = screen.getByText(label, { selector: 'div' }).closest('.MuiPaper-root') as HTMLElement;
@@ -328,6 +331,72 @@ describe('Tableau de bord', () => {
     expect(kpi('Traitement net moyen')).toBe('1 h 30');
     expect(screen.getByRole('columnheader', { name: 'Première réponse' })).toBeVisible();
     expect(screen.getByRole('table', { name: 'Délais par priorité' })).toBeVisible();
+  });
+
+  it('Délais : respect des délais en tête, niveau écrit, n par carte, aide repliée', async () => {
+    const user = userEvent.setup();
+    setup('/?vue=delais');
+    await screen.findByRole('table', { name: 'Délais par priorité' });
+    // 75 % pour un objectif de 80 % : « proche », écrit et dans le nom de l'anneau.
+    expect(within(heroCard()).getByText('Proche de l’objectif')).toBeVisible();
+    expect(screen.getByRole('img', { name: /^Respect des délais : 75 %, objectif 80 %/ })).toBeInTheDocument();
+    expect(screen.getByText('3 sur 4 demandes terminées sans retard')).toBeVisible();
+    // n = 2 et n = 3 : échantillons faibles signalés sur les cartes.
+    expect(screen.getAllByText(/échantillon faible/).length).toBeGreaterThan(0);
+    // En-têtes chiffrés alignés à droite comme leurs valeurs.
+    expect(screen.getByRole('columnheader', { name: 'Respect des délais' })).toHaveClass('MuiTableCell-alignRight');
+    // Aide : repliée, puis définitions en liste.
+    const help = screen.getByRole('button', { name: 'Comment sont calculés ces indicateurs ?' });
+    expect(help).toHaveAttribute('aria-expanded', 'false');
+    await user.click(help);
+    expect(help).toHaveAttribute('aria-expanded', 'true');
+    expect(await screen.findByText(/Une demande encore en cours n’entre pas dans le taux/)).toBeVisible();
+  });
+
+  it('Délais : valeurs nulles et n = 0 → « Aucune donnée », distinct de zéro ; 100 % et 0 %', async () => {
+    const none = { avgMs: null, count: 0 };
+    const empty = { validation: none, firstReply: none, takeover: none, resolution: none, grossResolution: none, compliance: { evaluated: 0, onTime: 0, rate: null } };
+    setup('/?vue=delais', (url) =>
+      url.startsWith('/api/admin/dashboard/performance')
+        ? json(200, {
+            period: SUMMARY.period,
+            overall: { ...empty, takeover: { avgMs: 60_000, count: 1 }, compliance: { evaluated: 1, onTime: 1, rate: 1 } },
+            byPriority: [
+              { priority: 'URGENT', total: 1, ...empty, takeover: { avgMs: 60_000, count: 1 }, compliance: { evaluated: 1, onTime: 1, rate: 1 } },
+              { priority: 'HIGH', total: 2, ...empty, compliance: { evaluated: 2, onTime: 0, rate: 0 } },
+              { priority: 'MEDIUM', total: 0, ...empty },
+              { priority: 'NORMAL', total: 0, ...empty },
+            ],
+          })
+        : undefined,
+    );
+    const table = await screen.findByRole('table', { name: 'Délais par priorité' });
+    expect(kpi('Respect des délais')).toBe('100 %');
+    expect(within(heroCard()).getByText('Objectif atteint')).toBeVisible();
+    expect(kpi('Première réponse moyenne')).toBe('Aucune donnée');
+    expect(kpi('Prise en charge moyenne')).toBe('1 min');
+    const rows = within(table).getAllByRole('row');
+    // Urgente : 100 % (1/1) ; Haute : 0 % (0/2), sous l'objectif ; Moyenne : aucune demande, 0 et « Aucune donnée ».
+    expect(rows[1]).toHaveTextContent('100 %(1/1)');
+    expect(within(rows[1]).getByRole('img', { name: '100 % des demandes dans les délais' })).toBeInTheDocument();
+    expect(rows[2]).toHaveTextContent('Sous l’objectif0 %(0/2)');
+    expect(within(rows[3]).getAllByText('Aucune donnée')).toHaveLength(5);
+    expect(within(rows[3]).getAllByRole('cell')[1]).toHaveTextContent(/^0$/);
+    expect(within(table).queryByText('—')).not.toBeInTheDocument();
+  });
+
+  it('Délais : rien de mesurable → état vide utile ; la période choisie est écrite dans l’en-tête', async () => {
+    const none = { avgMs: null, count: 0 };
+    const empty = { validation: none, firstReply: none, takeover: none, resolution: none, grossResolution: none, compliance: { evaluated: 0, onTime: 0, rate: null } };
+    setup('/?vue=delais', (url) =>
+      url.startsWith('/api/admin/dashboard/performance')
+        ? json(200, { period: SUMMARY.period, overall: empty, byPriority: ['URGENT', 'HIGH', 'MEDIUM', 'NORMAL'].map((priority) => ({ priority, total: 0, ...empty })) })
+        : undefined,
+    );
+    expect(await screen.findByText('Aucun délai à mesurer')).toBeVisible();
+    expect(screen.queryByRole('table', { name: 'Délais par priorité' })).not.toBeInTheDocument();
+    // « 30 derniers jours » : « 30 sept. – 30 oct. 2026 » par exemple, selon la date du jour.
+    expect(screen.getByText(/^\d{1,2} [a-zéû.]+ – \d{1,2} [a-zéû.]+ \d{4}$/)).toBeVisible();
   });
 
   it('décrit l’activité récente sans contenu de message', async () => {

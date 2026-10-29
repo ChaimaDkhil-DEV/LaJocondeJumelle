@@ -24,12 +24,10 @@ import {
   Download,
   Hourglass,
   Inbox,
-  MessageSquare,
   Play,
   RefreshCw,
   SearchX,
   SlidersHorizontal,
-  Timer,
   type LucideIcon,
 } from 'lucide-react';
 import { useState } from 'react';
@@ -43,7 +41,7 @@ import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { formatDateTime, formatLateness, formatRelative } from '../../components/format';
 import { PageHeader } from '../../components/PageHeader';
-import { PRIORITY_LABELS, PriorityBadge, PriorityLabel } from '../../components/PriorityBadge';
+import { PRIORITY_LABELS, PriorityLabel } from '../../components/PriorityBadge';
 import { SectionCard } from '../../components/SectionCard';
 import { STATUS_LABELS } from '../../components/StatusBadge';
 import { Person } from '../../components/UserAvatar';
@@ -54,23 +52,21 @@ import { describeEvent, EVENT_ICONS } from '../requests/HistoryTimeline';
 import { useAdminCategories, useAdminUsers } from './api';
 import { DailyChart, Sparkline, StatusDonut } from './DashboardCharts';
 import { DashboardSkeleton } from './DashboardSkeleton';
+import { DelaysView } from './DelaysView';
 import { KpiCard } from './KpiCard';
 import {
   DEFAULT_FILTERS,
   formatDurationMs,
-  formatRate,
+  periodOf,
   toDashboardQuery,
   toRequestListFilters,
   useDashboardActivity,
   useDashboardEmployees,
-  useDashboardPerformance,
   useDashboardSummary,
   type ActivityItem,
   type DashboardAlert,
   type DashboardFilters,
   type DashboardSummary,
-  type DurationStats,
-  type PerformanceStats,
   type StatusGroup,
 } from './dashboardApi';
 import { ROLE_LABELS } from './labels';
@@ -180,6 +176,20 @@ function PeriodSelect({ value, onChange }: { value: DashboardFilters; onChange: 
       <MenuItem value="custom">Personnalisée</MenuItem>
     </TextField>
   );
+}
+
+const dayMonth = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short' });
+const dayMonthYear = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+
+/** « 29 sept. – 29 oct. 2026 » (année répétée si elle change) ; null tant qu'une date manque. */
+function periodLabel(f: DashboardFilters): string | null {
+  const { from, to } = periodOf(f);
+  if (!from || !to) return null;
+  // Jours calendaires locaux (AAAA-MM-JJ) : midi évite tout décalage de fuseau.
+  const start = new Date(`${from}T12:00:00`);
+  const end = new Date(`${to}T12:00:00`);
+  const sameYear = start.getFullYear() === end.getFullYear();
+  return `${(sameYear ? dayMonth : dayMonthYear).format(start)} – ${dayMonthYear.format(end)}`;
 }
 
 /** Filtres secondaires actifs (catégorie, priorité, employé), affichés sur le bouton « Filtres ». */
@@ -626,94 +636,6 @@ function CategoryRow({ row: c }: { row: CategoryStats }) {
   );
 }
 
-function durationCell(d: DurationStats) {
-  return (
-    <>
-      {formatDurationMs(d.avgMs)}
-      {d.count > 0 && (
-        <Typography component="span" variant="caption" color="text.secondary">
-          {' '}
-          (n = {d.count})
-        </Typography>
-      )}
-    </>
-  );
-}
-
-function PerformanceView({ qs }: { qs: string }) {
-  const perf = useDashboardPerformance(qs);
-  if (perf.isPending) return <DashboardSkeleton label="Chargement des délais" shape="performance" />;
-  if (perf.error) return <ErrorState message={loadErrorMessage(perf.error, 'les délais')} actionLabel="Réessayer" onAction={() => void perf.refetch()} />;
-  const o: PerformanceStats = perf.data.overall;
-  return (
-    <Box sx={{ display: 'grid', gap: 3 }}>
-      <Box sx={kpiGrid}>
-        <KpiCard
-          label="Première réponse moyenne"
-          value={formatDurationMs(o.firstReply.avgMs)}
-          icon={MessageSquare}
-          hint={`Soumission → premier message d’une autre personne · ${o.firstReply.count} demande(s)`}
-        />
-        <KpiCard label="Prise en charge moyenne" value={formatDurationMs(o.takeover.avgMs)} icon={Timer} hint={`Envoi → acceptation · ${o.takeover.count} demande(s)`} />
-        <KpiCard label="Traitement net moyen" value={formatDurationMs(o.resolution.avgMs)} icon={Play} hint={`Hors suspensions · ${o.resolution.count} demande(s)`} />
-        <KpiCard label="Traitement brut moyen" value={formatDurationMs(o.grossResolution.avgMs)} icon={Hourglass} hint="Envoi → terminée, suspensions comprises" />
-        <KpiCard
-          label="Respect des délais"
-          value={formatRate(o.compliance.rate)}
-          tone={o.compliance.rate !== null && o.compliance.rate < 0.8 ? 'warning' : 'accent'}
-          icon={CircleCheck}
-          hint={`${o.compliance.onTime} sur ${o.compliance.evaluated} demande(s) terminée(s) avec délai`}
-        />
-      </Box>
-      <SectionCard elevated title="Par priorité" flush description="Les délais attendus sont ceux des règles de chaque catégorie (Administration › Catégories).">
-        <TableContainer {...scrollRegion('Délais par priorité')}>
-          <Table size="small" aria-label="Délais par priorité">
-            <TableHead>
-              <TableRow>
-                <TableCell>Priorité</TableCell>
-                <TableCell align="right">Demandes</TableCell>
-                <TableCell align="right">Validation</TableCell>
-                <TableCell align="right">Première réponse</TableCell>
-                <TableCell align="right">Prise en charge</TableCell>
-                <TableCell align="right">Traitement net</TableCell>
-                <TableCell align="right">Respect des délais</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {perf.data.byPriority.map((p) => (
-                <TableRow key={p.priority}>
-                  <TableCell>
-                    <PriorityBadge priority={p.priority} />
-                  </TableCell>
-                  <TableCell align="right">{p.total}</TableCell>
-                  <TableCell align="right">{durationCell(p.validation)}</TableCell>
-                  <TableCell align="right">{durationCell(p.firstReply)}</TableCell>
-                  <TableCell align="right">{durationCell(p.takeover)}</TableCell>
-                  <TableCell align="right">{durationCell(p.resolution)}</TableCell>
-                  <TableCell align="right">
-                    {formatRate(p.compliance.rate)}
-                    {p.compliance.evaluated > 0 && (
-                      <Typography component="span" variant="caption" color="text.secondary">
-                        {' '}
-                        ({p.compliance.onTime}/{p.compliance.evaluated})
-                      </Typography>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </SectionCard>
-      <Typography variant="body2" color="text.secondary">
-        Les moyennes ne portent que sur les demandes mesurables (n). La première réponse va de la soumission au premier message, texte ou vocal, d’une autre
-        personne que le demandeur ; elle est distincte de la prise en charge (acceptation). Le traitement net compte le temps passé « Envoyée », « Acceptée » et « En cours » ; les
-        périodes « À corriger » et d’attente de validation sont exclues. Une demande encore en cours n’entre pas dans le taux de respect des délais.
-      </Typography>
-    </Box>
-  );
-}
-
 function EmployeesView({ qs }: { qs: string }) {
   const employees = useDashboardEmployees(qs);
   if (employees.isPending) return <DashboardSkeleton label="Chargement des employés" shape="table" />;
@@ -1035,6 +957,7 @@ export function DashboardPage() {
       {/* En-tête allégé : période visible, autres filtres derrière « Filtres », export. */}
       <PageHeader
         title="Tableau de bord"
+        description={periodLabel(filters) ?? undefined}
         breadcrumb={false}
         actions={
           <>
@@ -1090,7 +1013,7 @@ export function DashboardPage() {
         ) : view === 'general' ? (
           <GeneralView qs={qs} />
         ) : view === 'delais' ? (
-          <PerformanceView qs={qs} />
+          <DelaysView qs={qs} />
         ) : view === 'employes' ? (
           <EmployeesView qs={qs} />
         ) : view === 'demandes' ? (

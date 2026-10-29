@@ -68,6 +68,17 @@ test('le super administrateur supervise les demandes depuis le tableau de bord ;
   expect((await summary).status()).toBe(200);
   await expect(page.getByRole('heading', { name: 'À traiter maintenant' })).toBeVisible();
 
+  // Onglet Délais : indicateurs (ou état vide si rien n'est encore mesurable), aide repliable, sans violation axe.
+  await page.getByRole('tab', { name: 'Délais' }).click();
+  const delays = page.getByRole('table', { name: 'Délais par priorité' }).or(page.getByText('Aucun délai à mesurer'));
+  await expect(delays).toBeVisible({ timeout: 30_000 });
+  if (await page.getByRole('table', { name: 'Délais par priorité' }).isVisible()) {
+    const help = page.getByRole('button', { name: 'Comment sont calculés ces indicateurs ?' });
+    await help.click();
+    await expect(help).toHaveAttribute('aria-expanded', 'true');
+  }
+  await expectNoA11yViolations(page);
+
   // Onglet Demandes : la demande du test, la plus récente, mène à son détail.
   await page.getByRole('tab', { name: 'Demandes' }).click();
   const link = page.getByRole('table', { name: 'Demandes de la période' }).getByRole('link', { name: title });
