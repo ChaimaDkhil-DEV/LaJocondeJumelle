@@ -120,7 +120,7 @@ export class RequestsService {
       : NO_DEADLINE;
     // Propositions automatiques retenues (spec 009, research R6) : seulement à l'envoi, jeton valide.
     const assisted = transition && dto.assistToken ? readAssistToken(this.config.sessionSecret, dto.assistToken, user.id, now) : null;
-    const assistEvent = assisted ? await this.assistEventValues(assisted, dto, category) : null;
+    const assistEvent = assisted ? await this.assistEventValues(assisted, dto, category, recipientId) : null;
 
     try {
       const { request, pending } = await this.prisma.$transaction(async (tx) => {
@@ -538,12 +538,13 @@ export class RequestsService {
 
   /**
    * Valeurs de l'événement ASSIST_SUGGESTED : proposées (jeton signé, nom courant de la catégorie)
-   * et réellement enregistrées. Jamais le texte transmis ni la justification (FR-024).
+   * et réellement enregistrées, destinataire routé compris s'il avait été proposé. Jamais le texte transmis ni la justification (FR-024).
    */
   private async assistEventValues(
     proposed: AssistTokenPayload,
     dto: CreateRequestDto,
     category: CategoryWithMembers,
+    recipientId: string | null,
   ): Promise<{ fromValue: Prisma.InputJsonValue; toValue: Prisma.InputJsonValue }> {
     const proposedCategory = proposed.categoryId
       ? proposed.categoryId === category.id
@@ -556,9 +557,16 @@ export class RequestsService {
         ...(proposed.categoryId !== undefined ? { categoryId: proposed.categoryId } : {}),
         ...(proposedCategory ? { categoryName: proposedCategory.name } : {}),
         ...(proposed.priority !== undefined ? { priority: proposed.priority } : {}),
+        ...(proposed.recipientId !== undefined ? { recipientId: proposed.recipientId } : {}),
         sources: proposed.sources,
       },
-      toValue: { title: dto.title, categoryId: category.id, categoryName: category.name, priority: dto.priority },
+      toValue: {
+        title: dto.title,
+        categoryId: category.id,
+        categoryName: category.name,
+        priority: dto.priority,
+        ...(proposed.recipientId !== undefined ? { recipientId } : {}),
+      },
     };
   }
 

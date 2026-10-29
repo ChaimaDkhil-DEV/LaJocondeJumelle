@@ -3,12 +3,19 @@ import type { Priority, RequestStatus } from '../../api/types';
 import { extensionFor } from '../voice/recorderFormat';
 import type { VoiceRecording } from '../voice/VoiceRecorder';
 
-/** Propositions automatiques (spec 009) : chaque champ est facultatif, rien n'est appliqué sans clic. */
+/**
+ * Propositions automatiques (spec 009) : chaque champ est facultatif. Le formulaire ne les reprend
+ * que dans les champs vides ou déjà proposés, jamais à la place d'un choix de l'utilisateur.
+ */
 export interface Suggestion {
   title?: string;
   categoryId?: string;
   priority?: Priority;
   reason?: string;
+  /** Destinataire autorisé pour `categoryId`, d'après les règles d'affectation ; absent : à confirmer. */
+  recipientId?: string;
+  recipientName?: string;
+  recipientReason?: string;
   missing: string[];
 }
 
@@ -31,8 +38,9 @@ export interface SimilarRequest {
   status: RequestStatus;
 }
 
-export function requestSuggestions(text: string): Promise<SuggestionResult> {
-  return apiFetch<SuggestionResult>('/api/assist/suggestions', { method: 'POST', body: { text } });
+/** `categoryId` : catégorie choisie par l'utilisateur, conservée ; destinataire et priorité en dépendent. */
+export function requestSuggestions(text: string, categoryId?: string): Promise<SuggestionResult> {
+  return apiFetch<SuggestionResult>('/api/assist/suggestions', { method: 'POST', body: categoryId ? { text, categoryId } : { text } });
 }
 
 /** Transcription du vocal du formulaire (spec 009, US4) : rien n'est conservé côté serveur. */

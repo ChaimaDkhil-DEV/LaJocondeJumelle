@@ -98,6 +98,8 @@ describe('POST /api/assist/suggestions', () => {
       title: res.body.suggestion.title,
       categoryId: photocopiesId,
       priority: 'HIGH',
+      // Seul destinataire de « Photocopies » : proposé d'après les règles d'affectation.
+      recipientId: await userId(prisma, 'reprographie'),
       sources: [{ id: guidelineId, title: 'Pannes de reprographie' }],
     });
     // FR-010 : aucune écriture métier.

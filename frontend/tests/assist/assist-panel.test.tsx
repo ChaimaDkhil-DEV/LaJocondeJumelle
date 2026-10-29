@@ -1,12 +1,18 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CreateRequestPage } from '../../src/features/requests/CreateRequestPage';
+import { SUGGESTED_HINT } from '../../src/features/requests/RequestForm';
 import { installFakeMedia } from '../mocks/media-recorder';
 
-/** T022 (spec 009, US1) — panneau « Propositions automatiques » du formulaire « Nouvelle demande ». */
+/**
+ * T022 (spec 009, US1) — propositions automatiques du formulaire « Nouvelle demande ».
+ * Création vocale assistée : analyse dès la fin de l'enregistrement, champs vides ou déjà proposés
+ * préremplis (badge « Suggéré »), une seule phrase sous le vocal, choix de l'utilisateur conservés,
+ * seul le destinataire « À confirmer » mis en évidence, vocal jamais perdu.
+ */
 
 vi.mock('idb-keyval', () => ({
   createStore: () => 'store',
@@ -17,10 +23,15 @@ vi.mock('idb-keyval', () => ({
 }));
 
 const CATEGORIES = [
-  { id: 'cat-a', name: 'Photocopies', circuit: 'A_DIRECT', photoRequired: false },
-  { id: 'cat-b', name: 'Intervention technique', circuit: 'B_ADMIN_VALIDATION', photoRequired: false },
+  { id: 'cat-a', name: 'Photocopies', circuit: 'A_DIRECT', routingMode: 'DIRECT', photoRequired: false },
+  { id: 'cat-b', name: 'Intervention technique', circuit: 'B_ADMIN_VALIDATION', routingMode: 'VIA_ADMIN', photoRequired: false },
+  { id: 'cat-p', name: 'Entre collègues', circuit: 'A_DIRECT', routingMode: 'PEER', photoRequired: false },
 ];
-const RECIPIENTS = [{ id: 'repro', displayName: 'Reprographie', jobTitle: 'Reprographie' }];
+const RECIPIENTS = [{ id: 'repro', displayName: 'Reprographie', jobTitle: 'Reprographie', availability: 'AVAILABLE' }];
+const PEERS = [
+  { id: 'martin', displayName: 'Paul Martin', jobTitle: null, availability: 'AVAILABLE' },
+  { id: 'durand', displayName: 'Léa Durand', jobTitle: null, availability: 'AVAILABLE' },
+];
 const SETTINGS = { voiceMaxSeconds: 180, attachmentMaxBytes: 1, attachmentMaxPerMessage: 5, draftsEnabled: true, assistSuggestions: true, assistTranscription: false };
 
 const RESULT = {
@@ -35,13 +46,28 @@ const RESULT = {
   noGuideline: false,
   token: 'jeton-1',
 };
+const PEER_RESULT = {
+  suggestion: {
+    title: 'Copies du contrôle pour Paul Martin',
+    categoryId: 'cat-p',
+    priority: 'MEDIUM',
+    recipientId: 'martin',
+    recipientName: 'Paul Martin',
+    recipientReason: '« Paul Martin » est cité et fait partie des destinataires autorisés.',
+    missing: [],
+  },
+  sources: [],
+  noGuideline: true,
+  token: 'jeton-p',
+};
 
 function json(status: number, body?: unknown): Response {
   return new Response(body === undefined ? null : JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 }
 
 type Calls = Array<{ url: string; method: string; body: unknown }>;
-type Suggest = (body: { text: string }) => Response | Promise<Response>;
+type SuggestBody = { text: string; categoryId?: string };
+type Suggest = (body: SuggestBody) => Response | Promise<Response>;
 interface Options {
   settings?: Partial<typeof SETTINGS>;
   onTranscribe?: () => Response | Promise<Response>;
@@ -61,7 +87,9 @@ function setup(onSuggest: Suggest = () => json(200, RESULT), options: Options = 
       if (url === '/api/categories') return json(200, CATEGORIES);
       if (url === '/api/categories/cat-a/recipients') return json(200, RECIPIENTS);
       if (url === '/api/categories/cat-b/recipients') return json(200, []);
-      if (url === '/api/assist/suggestions' && method === 'POST') return onSuggest(body as { text: string });
+      if (url === '/api/categories/cat-p/recipients') return json(200, PEERS);
+      if (url === '/api/assist/suggestions' && method === 'POST') return onSuggest(body as SuggestBody);
+      if (url === '/api/files' && method === 'POST') return json(201, { id: 'f-voice', kind: 'VOICE', mimeType: 'audio/mp4', sizeBytes: 10 });
       if (url === '/api/requests' && method === 'POST') return json(201, { id: 'r1' });
       return json(404, { error: { code: 'NOT_FOUND', message: 'Introuvable' } });
     }),
@@ -82,67 +110,162 @@ function setup(onSuggest: Suggest = () => json(200, RESULT), options: Options = 
 }
 
 const proposeButton = () => screen.getByRole('button', { name: 'Proposer une catégorie et une priorité' });
+/** Analyse terminée : le bouton de relance remplace celui de la première analyse. */
+const analysisDone = () => screen.findByRole('button', { name: 'Relancer l’analyse' });
+/** Texte affiché d'une liste déroulante MUI (vide : espace sans chasse). */
+const shown = (element: HTMLElement) => (element.textContent ?? '').replace(/\u200b/g, '').trim();
+const suggestionCalls = (calls: Calls) => calls.filter((c) => c.url === '/api/assist/suggestions');
+/** Destinataire à confirmer : texte court dans le champ lui-même. */
+const RECIPIENT_TO_CONFIRM = 'À confirmer';
+
+/** Description repliée par défaut : « + Ajouter une description (facultatif) » la déplie. */
+async function openDescription(user: { click: (element: Element) => Promise<void> } = userEvent): Promise<HTMLElement> {
+  const toggle = await screen.findByRole('button', { name: 'Ajouter une description (facultatif)' });
+  if (toggle.getAttribute('aria-expanded') !== 'true') await user.click(toggle);
+  return screen.getByLabelText('Description (facultative)');
+}
 
 async function describeNeed(text = 'La photocopieuse du premier étage est en panne.'): Promise<void> {
   await screen.findByRole('heading', { name: 'Nouvelle demande' });
-  await userEvent.type(screen.getByLabelText('Description (facultative)'), text);
+  await userEvent.type(await openDescription(), text);
+}
+
+async function chooseCategory(name: string, user: { click: (element: Element) => Promise<void> } = userEvent): Promise<void> {
+  await user.click(screen.getByRole('combobox', { name: 'Catégorie' }));
+  await user.click(await screen.findByRole('option', { name }));
 }
 
 describe('Propositions automatiques', () => {
   beforeEach(() => installFakeMedia());
   afterEach(() => vi.unstubAllGlobals());
 
-  it('désactive le bouton tant qu’il n’y a ni description ni vocal', async () => {
+  it('aucune analyse proposée tant qu’il n’y a ni description ni vocal', async () => {
     setup();
     await screen.findByRole('heading', { name: 'Nouvelle demande' });
-    expect(await screen.findByRole('button', { name: 'Proposer une catégorie et une priorité' })).toBeDisabled();
-    expect(screen.getByText('Écrivez une description ou enregistrez un vocal.')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Proposer une catégorie et une priorité' })).not.toBeInTheDocument();
+    await describeNeed();
+    expect(proposeButton()).toBeEnabled();
   });
 
-  it('annonce le chargement puis affiche les propositions sans modifier le formulaire', async () => {
+  it('annonce le chargement, puis préremplit les champs vides, badge « Suggéré » et une seule phrase', async () => {
     let resolve!: (r: Response) => void;
     const calls = setup(() => new Promise<Response>((r) => (resolve = r)));
     await describeNeed();
     await userEvent.click(proposeButton());
     expect(await screen.findByText('Recherche de propositions…')).toBeInTheDocument();
-    expect(calls.find((c) => c.url === '/api/assist/suggestions')?.body).toEqual({ text: 'La photocopieuse du premier étage est en panne.' });
+    expect(suggestionCalls(calls)[0]?.body).toEqual({ text: 'La photocopieuse du premier étage est en panne.' });
     resolve(json(200, RESULT));
 
-    const panel = await screen.findByRole('region', { name: 'Propositions automatiques' });
-    expect(await within(panel).findByText('Photocopieuse du 1er en panne')).toBeVisible();
-    expect(within(panel).getByText('Intervention technique')).toBeVisible();
-    expect(within(panel).getByText('Haute')).toBeVisible();
-    expect(within(panel).getByText('D’après la consigne « Pannes de reprographie ».')).toBeVisible();
-    expect(within(panel).getByText('Numéro de la salle')).toBeVisible();
-    expect(within(panel).getByText('Pannes de reprographie')).toBeVisible();
-    expect(within(panel).getByText('Une photocopieuse en panne bloque les cours.')).toBeVisible();
-
-    // Aucun champ n'est rempli sans clic.
-    expect(screen.getByLabelText('Titre')).toHaveValue('');
-    expect(screen.getByRole('radio', { name: 'Haute' })).not.toBeChecked();
-  });
-
-  it('« Appliquer » ne remplit que le champ visé ; « Tout appliquer » remplit les trois', async () => {
-    setup();
-    await describeNeed();
-    await userEvent.click(proposeButton());
-    await userEvent.click(await screen.findByRole('button', { name: 'Appliquer le titre proposé' }));
-    expect(screen.getByLabelText('Titre')).toHaveValue('Photocopieuse du 1er en panne');
-    expect(screen.getByRole('combobox', { name: 'Catégorie' })).not.toHaveTextContent('Intervention technique');
-    expect(screen.getByRole('radio', { name: 'Haute' })).not.toBeChecked();
-
-    await userEvent.click(screen.getByRole('button', { name: 'Appliquer la priorité proposée' }));
-    expect(screen.getByRole('radio', { name: 'Haute' })).toBeChecked();
-    expect(screen.getByRole('combobox', { name: 'Catégorie' })).not.toHaveTextContent('Intervention technique');
-
-    await userEvent.clear(screen.getByLabelText('Titre'));
-    await userEvent.click(screen.getByRole('button', { name: 'Tout appliquer' }));
+    await analysisDone();
     expect(screen.getByLabelText('Titre')).toHaveValue('Photocopieuse du 1er en panne');
     expect(screen.getByRole('combobox', { name: 'Catégorie' })).toHaveTextContent('Intervention technique');
     expect(screen.getByRole('radio', { name: 'Haute' })).toBeChecked();
+    expect(screen.getAllByText('Suggéré')).toHaveLength(3);
+    expect(screen.getAllByText(SUGGESTED_HINT)).toHaveLength(1);
+    // Aucun texte explicatif affiché : la justification reste repliée derrière « Voir pourquoi ».
+    expect(screen.getByText('D’après la consigne « Pannes de reprographie ».')).not.toBeVisible();
+    expect(screen.queryByText(/Aucune consigne ne correspond/)).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Voir pourquoi' }));
+    expect(screen.getByRole('button', { name: 'Voir pourquoi' })).toHaveAttribute('aria-expanded', 'true');
+    await waitFor(() => expect(screen.getByText('D’après la consigne « Pannes de reprographie ».')).toBeVisible());
+    expect(screen.queryByRole('region', { name: 'Propositions automatiques' })).not.toBeInTheDocument();
+    // Circuit B : la personne est choisie par l'administration, rien à confirmer.
+    expect(screen.getByText(/d’abord validée par un admin/)).toBeVisible();
+    expect(screen.queryByText(RECIPIENT_TO_CONFIRM)).not.toBeInTheDocument();
   });
 
-  it('liste les demandes similaires, ouvertes dans un nouvel onglet, sans toucher au formulaire (010, T007)', async () => {
+  it('conserve les choix de l’utilisateur : seuls les champs vides sont préremplis', async () => {
+    setup();
+    await describeNeed();
+    await userEvent.type(screen.getByLabelText('Titre'), 'Mon titre');
+    await userEvent.click(screen.getByRole('radio', { name: 'Normale' }));
+    await userEvent.click(proposeButton());
+    await analysisDone();
+
+    expect(screen.getByLabelText('Titre')).toHaveValue('Mon titre');
+    expect(screen.getByRole('radio', { name: 'Normale' })).toBeChecked();
+    expect(screen.getByRole('combobox', { name: 'Catégorie' })).toHaveTextContent('Intervention technique');
+    // Badge seulement sur la catégorie, remplie par la proposition.
+    expect(screen.getAllByText('Suggéré')).toHaveLength(1);
+  });
+
+  it('une nouvelle analyse ne remplace jamais une valeur modifiée à la main ; le badge disparaît du champ modifié', async () => {
+    const calls = setup();
+    await describeNeed();
+    await userEvent.click(proposeButton());
+    await analysisDone();
+    await userEvent.clear(screen.getByLabelText('Titre'));
+    await userEvent.type(screen.getByLabelText('Titre'), 'Titre corrigé');
+    await userEvent.click(screen.getByRole('radio', { name: 'Urgente' }));
+    expect(screen.getAllByText('Suggéré')).toHaveLength(1);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Relancer l’analyse' }));
+    await waitFor(() => expect(suggestionCalls(calls)).toHaveLength(2));
+    await analysisDone();
+    expect(screen.getByLabelText('Titre')).toHaveValue('Titre corrigé');
+    expect(screen.getByRole('radio', { name: 'Urgente' })).toBeChecked();
+    expect(screen.getAllByText('Suggéré')).toHaveLength(1);
+  });
+
+  it('propose un destinataire autorisé, modifiable, et l’envoie avec la demande', async () => {
+    const calls = setup(() => json(200, PEER_RESULT));
+    await describeNeed('Copies du contrôle pour Paul Martin, merci.');
+    await userEvent.click(proposeButton());
+    await analysisDone();
+    expect(screen.getByRole('combobox', { name: 'Catégorie' })).toHaveTextContent('Entre collègues');
+    expect(await screen.findByRole('combobox', { name: 'Enseignant destinataire' })).toHaveTextContent('Paul Martin');
+    expect(screen.getAllByText('Suggéré')).toHaveLength(4);
+    expect(screen.queryByText(RECIPIENT_TO_CONFIRM)).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('combobox', { name: 'Enseignant destinataire' }));
+    await userEvent.click(await screen.findByRole('option', { name: 'Léa Durand' }));
+    expect(screen.getByRole('combobox', { name: 'Enseignant destinataire' })).toHaveTextContent('Léa Durand');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Envoyer la demande' }));
+    expect(await screen.findByText('Détail de la demande')).toBeVisible();
+    expect(calls.find((c) => c.url === '/api/requests' && c.method === 'POST')?.body).toMatchObject({
+      categoryId: 'cat-p',
+      recipientId: 'durand',
+      priority: 'MEDIUM',
+      assistToken: 'jeton-p',
+    });
+  });
+
+  it('un destinataire hors de la liste autorisée n’est ni affiché ni envoyé : « À confirmer » mis en évidence', async () => {
+    const calls = setup(() => json(200, { ...PEER_RESULT, suggestion: { ...PEER_RESULT.suggestion, recipientId: 'intrus', recipientName: 'Intrus' } }));
+    await describeNeed('Copies du contrôle pour Intrus, merci.');
+    await userEvent.click(proposeButton());
+    await analysisDone();
+    const recipient = await screen.findByRole('combobox', { name: 'Enseignant destinataire' });
+    await waitFor(() => expect(shown(recipient)).toBe(RECIPIENT_TO_CONFIRM));
+
+    await userEvent.click(screen.getByRole('button', { name: 'Envoyer la demande' }));
+    expect(await screen.findByText('Choisissez un destinataire.')).toBeVisible();
+    expect(calls.some((c) => c.url === '/api/requests')).toBe(false);
+
+    // Une fois choisi, plus rien à confirmer.
+    await userEvent.click(recipient);
+    await userEvent.click(await screen.findByRole('option', { name: 'Paul Martin' }));
+    expect(shown(recipient)).toBe('Paul Martin');
+  });
+
+  it('catégorie changée à la main : nouvelle analyse pour cette catégorie, sans toucher au titre modifié', async () => {
+    const calls = setup((body) => json(200, body.categoryId === 'cat-p' ? PEER_RESULT : RESULT));
+    await describeNeed('Copies du contrôle pour Paul Martin, merci.');
+    await userEvent.click(proposeButton());
+    await analysisDone();
+    await userEvent.clear(screen.getByLabelText('Titre'));
+    await userEvent.type(screen.getByLabelText('Titre'), 'Mes copies');
+
+    await chooseCategory('Entre collègues');
+    await waitFor(() => expect(suggestionCalls(calls)).toHaveLength(2));
+    expect(suggestionCalls(calls)[1]!.body).toEqual({ text: 'Copies du contrôle pour Paul Martin, merci.', categoryId: 'cat-p' });
+    expect(await screen.findByRole('combobox', { name: 'Enseignant destinataire' })).toHaveTextContent('Paul Martin');
+    expect(screen.getByRole('combobox', { name: 'Catégorie' })).toHaveTextContent('Entre collègues');
+    expect(screen.getByLabelText('Titre')).toHaveValue('Mes copies');
+  });
+
+  it('demandes similaires repliées derrière une pastille, ouvertes dans un nouvel onglet (010, T007)', async () => {
     setup(() =>
       json(200, {
         ...RESULT,
@@ -153,40 +276,46 @@ describe('Propositions automatiques', () => {
     );
     await describeNeed();
     await userEvent.click(proposeButton());
-    const list = await screen.findByRole('list', { name: 'Demandes similaires' });
-    const link = within(list).getByRole('link', { name: /D-2026-000042 · Photocopieuse du 1er en panne/ });
+    const toggle = await screen.findByRole('button', { name: '1 demande similaire' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await userEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    const list = screen.getByRole('list', { name: 'Demandes similaires' });
+    const link = screen.getByRole('link', { name: /D-2026-000042 · Photocopieuse du 1er en panne/ });
+    expect(list).toContainElement(link);
     expect(link).toHaveAttribute('href', '/demandes/r42');
     expect(link).toHaveAttribute('target', '_blank');
     expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'));
     expect(link).toHaveAccessibleName(/nouvel onglet/);
-    expect(within(list).getByText(/Photocopies · Haute · En cours/)).toBeVisible();
-    expect(screen.getByText('Vérifiez qu’il ne s’agit pas d’un doublon.')).toBeVisible();
-    expect(screen.getByLabelText('Titre')).toHaveValue('');
+    expect(list).toHaveTextContent('En cours');
+    expect(screen.getByLabelText('Description (facultative)')).toHaveValue('La photocopieuse du premier étage est en panne.');
   });
 
-  it('sans demande similaire, la section n’apparaît pas', async () => {
+  it('sans demande similaire, aucune pastille', async () => {
     setup(() => json(200, { ...RESULT, similar: [] }));
     await describeNeed();
     await userEvent.click(proposeButton());
-    await screen.findByRole('button', { name: 'Tout appliquer' });
-    expect(screen.queryByRole('list', { name: 'Demandes similaires' })).not.toBeInTheDocument();
+    await analysisDone();
+    expect(screen.queryByRole('button', { name: /similaire/ })).not.toBeInTheDocument();
   });
 
-  it('signale l’absence de consigne correspondante', async () => {
-    setup(() => json(200, { ...RESULT, sources: [], noGuideline: true }));
-    await describeNeed();
-    await userEvent.click(proposeButton());
-    expect(await screen.findByText('Aucune consigne ne correspond à cette demande.')).toBeVisible();
-  });
-
-  it('signale l’absence de proposition fiable', async () => {
+  it('aucune proposition fiable : une phrase, aucun champ prérempli', async () => {
     setup(() => json(200, { suggestion: null, sources: [], noGuideline: true, token: null }));
     await describeNeed();
     await userEvent.click(proposeButton());
-    expect(
-      await screen.findByText('Aucune proposition fiable n’a pu être faite. Vous pouvez remplir la demande vous-même.'),
-    ).toBeVisible();
-    expect(screen.queryByRole('button', { name: 'Tout appliquer' })).not.toBeInTheDocument();
+    expect(await screen.findByText('Aucune suggestion fiable : remplissez les champs vous-même.')).toBeVisible();
+    expect(screen.queryByText('Suggéré')).not.toBeInTheDocument();
+  });
+
+  it('catégorie ou priorité non proposées : champs laissés vides, sans mise en évidence', async () => {
+    setup(() => json(200, { ...RESULT, suggestion: { title: 'Besoin flou', missing: ['Plusieurs catégories sont possibles : choisissez-la.'] } }));
+    await describeNeed('Il faudrait voir ça.');
+    await userEvent.click(proposeButton());
+    await analysisDone();
+    expect(shown(screen.getByRole('combobox', { name: 'Catégorie' }))).toBe('');
+    expect(screen.getByRole('radio', { name: 'Normale' })).not.toBeChecked();
+    expect(screen.getByLabelText('Titre')).toHaveValue('Besoin flou');
+    expect(screen.queryByText(/À confirmer/)).not.toBeInTheDocument();
   });
 
   it('ignore la réponse tardive d’une demande de propositions remplacée', async () => {
@@ -199,18 +328,17 @@ describe('Propositions automatiques', () => {
     await waitFor(() => expect(pending).toHaveLength(2));
 
     pending[1]!(json(200, { ...RESULT, suggestion: { ...RESULT.suggestion, title: 'Deuxième proposition' }, token: 'jeton-2' }));
-    expect(await screen.findByText('Deuxième proposition')).toBeVisible();
+    await waitFor(() => expect(screen.getByLabelText('Titre')).toHaveValue('Deuxième proposition'));
     pending[0]!(json(200, RESULT));
     await new Promise((r) => setTimeout(r, 50));
-    expect(screen.queryByText('Photocopieuse du 1er en panne')).not.toBeInTheDocument();
-    expect(screen.getByText('Deuxième proposition')).toBeVisible();
+    expect(screen.getByLabelText('Titre')).toHaveValue('Deuxième proposition');
   });
 
   it('transmet le jeton du dernier résultat à l’envoi de la demande', async () => {
     const calls = setup();
     await describeNeed();
     await userEvent.click(proposeButton());
-    await userEvent.click(await screen.findByRole('button', { name: 'Tout appliquer' }));
+    await analysisDone();
     await userEvent.click(screen.getByRole('button', { name: 'Envoyer la demande' }));
     expect(await screen.findByText('Détail de la demande')).toBeVisible();
     expect(calls.find((c) => c.url === '/api/requests' && c.method === 'POST')?.body).toMatchObject({
@@ -222,7 +350,7 @@ describe('Propositions automatiques', () => {
   });
 });
 
-describe('Propositions automatiques : disponibilité, erreurs et transcription (T035)', () => {
+describe('Propositions automatiques : vocal, disponibilité et erreurs (T035)', () => {
   beforeEach(() => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     installFakeMedia();
@@ -241,18 +369,19 @@ describe('Propositions automatiques : disponibilité, erreurs et transcription (
     expect(await screen.findByRole('button', { name: 'Supprimer le message vocal' })).toBeVisible();
   }
 
-  it('assistance désactivée : une mention, aucun bouton', async () => {
+  const voiceKept = /Votre message vocal est conservé/;
+
+  it('assistance désactivée : aucun texte, aucun bouton', async () => {
     setup(undefined, { settings: { assistSuggestions: false } });
-    await screen.findByRole('heading', { name: 'Nouvelle demande' });
-    expect(await screen.findByText('Les propositions automatiques ne sont pas disponibles.')).toBeVisible();
+    await describeNeed();
     expect(screen.queryByRole('button', { name: 'Proposer une catégorie et une priorité' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/propositions/i)).not.toBeInTheDocument();
   });
 
-  it('hors ligne : une mention, aucun bouton', async () => {
+  it('hors ligne : aucun texte, aucun bouton', async () => {
     vi.stubGlobal('navigator', Object.create(navigator, { onLine: { value: false, configurable: true } }));
     setup();
-    await screen.findByRole('heading', { name: 'Nouvelle demande' });
-    expect(await screen.findByText('Les propositions automatiques demandent une connexion.')).toBeVisible();
+    await describeNeed();
     expect(screen.queryByRole('button', { name: 'Proposer une catégorie et une priorité' })).not.toBeInTheDocument();
   });
 
@@ -264,84 +393,101 @@ describe('Propositions automatiques : disponibilité, erreurs et transcription (
     setup(() => json(status, { error: { code, message } }));
     await screen.findByRole('heading', { name: 'Nouvelle demande' });
     await user.type(screen.getByLabelText('Titre'), 'Mon titre');
-    await user.type(screen.getByLabelText('Description (facultative)'), 'La photocopieuse est en panne.');
+    await user.type(await openDescription(user), 'La photocopieuse est en panne.');
     await user.click(screen.getByRole('button', { name: 'Proposer une catégorie et une priorité' }));
     expect(await screen.findByText(message)).toBeVisible();
     expect(screen.getByLabelText('Titre')).toHaveValue('Mon titre');
     expect(screen.getByLabelText('Description (facultative)')).toHaveValue('La photocopieuse est en panne.');
   });
 
-  it('vocal : affiche la transcription à vérifier, modifiable, et redemande avec le texte corrigé', async () => {
+  it('la fin de l’enregistrement lance la transcription puis l’analyse, sans clic', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    let transcribed!: (r: Response) => void;
+    const calls = setup(undefined, {
+      settings: { assistTranscription: true },
+      onTranscribe: () => new Promise<Response>((r) => (transcribed = r)),
+    });
+    await screen.findByRole('heading', { name: 'Nouvelle demande' });
+    await recordVoice(user);
+
+    expect(await screen.findByText('Transcription du message vocal…')).toBeInTheDocument();
+    expect(calls.find((c) => c.url === '/api/assist/transcriptions')?.body).toBeInstanceOf(FormData);
+    transcribed(json(200, { text: 'La photocopieuse du premier étage est en panne.' }));
+
+    expect(await screen.findByText(SUGGESTED_HINT)).toBeVisible();
+    expect(suggestionCalls(calls).map((c) => c.body)).toEqual([{ text: 'La photocopieuse du premier étage est en panne.' }]);
+    expect(screen.getByLabelText('Titre')).toHaveValue('Photocopieuse du 1er en panne');
+    expect(screen.getByRole('radio', { name: 'Haute' })).toBeChecked();
+    // La transcription n'est pas affichée ; le vocal reste dans le formulaire, avec son lecteur.
+    expect(screen.queryByLabelText('Transcription (à vérifier)')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Lire le message vocal' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Supprimer le message vocal' })).toBeVisible();
+  });
+
+  it('« Relancer l’analyse » réutilise la transcription du vocal, sans nouvelle transcription', async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     const calls = setup(undefined, { settings: { assistTranscription: true } });
     await screen.findByRole('heading', { name: 'Nouvelle demande' });
-    expect(await screen.findByRole('button', { name: 'Proposer une catégorie et une priorité' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Proposer une catégorie et une priorité' })).not.toBeInTheDocument();
     await recordVoice(user);
+    await waitFor(() => expect(suggestionCalls(calls).map((c) => c.body)).toEqual([{ text: 'Transcription du vocal.' }]));
 
-    await user.click(screen.getByRole('button', { name: 'Proposer une catégorie et une priorité' }));
-    const transcript = await screen.findByLabelText('Transcription (à vérifier)');
-    expect(transcript).toHaveValue('Transcription du vocal.');
-    await waitFor(() =>
-      expect(calls.filter((c) => c.url === '/api/assist/suggestions').map((c) => c.body)).toEqual([{ text: 'Transcription du vocal.' }]),
-    );
-    expect(calls.find((c) => c.url === '/api/assist/transcriptions')?.body).toBeInstanceOf(FormData);
-
-    await user.clear(transcript);
-    await user.type(transcript, 'Texte corrigé.');
-    await user.click(screen.getByRole('button', { name: 'Proposer une catégorie et une priorité' }));
-    await waitFor(() => expect(calls.filter((c) => c.url === '/api/assist/suggestions')).toHaveLength(2));
-    expect(calls.filter((c) => c.url === '/api/assist/suggestions')[1]!.body).toEqual({ text: 'Texte corrigé.' });
-    // Une seule transcription : la version corrigée est réutilisée.
+    await user.click(await analysisDone());
+    await waitFor(() => expect(suggestionCalls(calls)).toHaveLength(2));
+    expect(suggestionCalls(calls)[1]!.body).toEqual({ text: 'Transcription du vocal.' });
     expect(calls.filter((c) => c.url === '/api/assist/transcriptions')).toHaveLength(1);
   });
 
-  it('un nouvel enregistrement remplace la transcription précédente (010, T016)', async () => {
+  it('un nouvel enregistrement efface les propositions de l’ancien vocal, garde les choix manuels et relance l’analyse (010, T016)', async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     let n = 0;
-    const calls = setup(undefined, {
+    const calls = setup((body) => json(200, { ...RESULT, suggestion: { ...RESULT.suggestion, title: body.text }, token: `jeton-${n}` }), {
       settings: { assistTranscription: true },
       onTranscribe: () => json(200, { text: `Transcription ${++n}.` }),
     });
     await screen.findByRole('heading', { name: 'Nouvelle demande' });
     await recordVoice(user);
-    await user.click(screen.getByRole('button', { name: 'Proposer une catégorie et une priorité' }));
-    expect(await screen.findByLabelText('Transcription (à vérifier)')).toHaveValue('Transcription 1.');
+    await waitFor(() => expect(screen.getByLabelText('Titre')).toHaveValue('Transcription 1.'));
+    await user.click(screen.getByRole('radio', { name: 'Normale' }));
 
-    // Refaire le vocal : l'ancienne transcription n'est plus affichée ni utilisée.
+    // Refaire le vocal : les propositions de l'ancien sont retirées, le choix manuel reste.
     await user.click(screen.getByRole('button', { name: 'Refaire l’enregistrement' }));
-    expect(screen.queryByLabelText('Transcription (à vérifier)')).not.toBeInTheDocument();
-    await recordVoice(user);
-    expect(screen.queryByLabelText('Transcription (à vérifier)')).not.toBeInTheDocument();
+    expect(screen.queryByText(SUGGESTED_HINT)).not.toBeInTheDocument();
+    expect(screen.queryByText('Suggéré')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Titre')).toHaveValue('');
+    expect(shown(screen.getByRole('combobox', { name: 'Catégorie' }))).toBe('');
+    expect(screen.getByRole('radio', { name: 'Normale' })).toBeChecked();
 
-    await user.click(screen.getByRole('button', { name: 'Proposer une catégorie et une priorité' }));
-    expect(await screen.findByLabelText('Transcription (à vérifier)')).toHaveValue('Transcription 2.');
+    await recordVoice(user);
+    await waitFor(() => expect(screen.getByLabelText('Titre')).toHaveValue('Transcription 2.'));
+    expect(screen.getByRole('radio', { name: 'Normale' })).toBeChecked();
     expect(calls.filter((c) => c.url === '/api/assist/transcriptions')).toHaveLength(2);
-    expect(calls.filter((c) => c.url === '/api/assist/suggestions').at(-1)!.body).toEqual({ text: 'Transcription 2.' });
+    expect(suggestionCalls(calls).at(-1)!.body).toEqual({ text: 'Transcription 2.' });
+
+    await user.click(screen.getByRole('button', { name: 'Envoyer la demande' }));
+    expect(await screen.findByText('Détail de la demande')).toBeVisible();
+    expect(calls.find((c) => c.url === '/api/requests')?.body).toMatchObject({ assistToken: 'jeton-2', priority: 'NORMAL' });
   });
 
-  it('« Utiliser comme description » : direct si vide, sinon après confirmation', async () => {
+  it('la réponse tardive de l’ancien vocal est ignorée', async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-    setup(undefined, { settings: { assistTranscription: true } });
+    const pending: Array<(r: Response) => void> = [];
+    setup((body) => json(200, { ...RESULT, suggestion: { ...RESULT.suggestion, title: body.text } }), {
+      settings: { assistTranscription: true },
+      onTranscribe: () => new Promise<Response>((r) => pending.push(r)),
+    });
     await screen.findByRole('heading', { name: 'Nouvelle demande' });
     await recordVoice(user);
-    await user.click(screen.getByRole('button', { name: 'Proposer une catégorie et une priorité' }));
-    await screen.findByLabelText('Transcription (à vérifier)');
+    await waitFor(() => expect(pending).toHaveLength(1));
+    await user.click(screen.getByRole('button', { name: 'Refaire l’enregistrement' }));
+    await recordVoice(user);
+    await waitFor(() => expect(pending).toHaveLength(2));
 
-    await user.click(screen.getByRole('button', { name: 'Utiliser comme description' }));
-    expect(screen.getByLabelText('Description (facultative)')).toHaveValue('Transcription du vocal.');
-
-    await user.clear(screen.getByLabelText('Description (facultative)'));
-    await user.type(screen.getByLabelText('Description (facultative)'), 'Mon texte');
-    await user.click(screen.getByRole('button', { name: 'Utiliser comme description' }));
-    let dialog = await screen.findByRole('dialog', { name: 'Remplacer la description actuelle ?' });
-    await user.click(within(dialog).getByRole('button', { name: 'Annuler' }));
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-    expect(screen.getByLabelText('Description (facultative)')).toHaveValue('Mon texte');
-
-    await user.click(screen.getByRole('button', { name: 'Utiliser comme description' }));
-    dialog = await screen.findByRole('dialog', { name: 'Remplacer la description actuelle ?' });
-    await user.click(within(dialog).getByRole('button', { name: 'Remplacer' }));
-    await waitFor(() => expect(screen.getByLabelText('Description (facultative)')).toHaveValue('Transcription du vocal.'));
+    pending[0]!(json(200, { text: 'Ancien vocal.' }));
+    pending[1]!(json(200, { text: 'Nouveau vocal.' }));
+    await waitFor(() => expect(screen.getByLabelText('Titre')).toHaveValue('Nouveau vocal.'));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.getByLabelText('Titre')).toHaveValue('Nouveau vocal.');
   });
 
   it('TRANSCRIPTION_EMPTY : message, vocal conservé, aucune proposition demandée', async () => {
@@ -352,9 +498,48 @@ describe('Propositions automatiques : disponibilité, erreurs et transcription (
     });
     await screen.findByRole('heading', { name: 'Nouvelle demande' });
     await recordVoice(user);
-    await user.click(screen.getByRole('button', { name: 'Proposer une catégorie et une priorité' }));
-    expect(await screen.findByText('Aucune parole n’a été reconnue dans le message vocal.')).toBeVisible();
+    expect(await screen.findByText(/^Aucune parole n’a été reconnue dans le message vocal\./)).toHaveTextContent(voiceKept);
     expect(screen.getByRole('button', { name: 'Supprimer le message vocal' })).toBeVisible();
-    expect(calls.some((c) => c.url === '/api/assist/suggestions')).toBe(false);
+    expect(suggestionCalls(calls)).toHaveLength(0);
+  });
+
+  it('transcription indisponible : vocal conservé, champs saisis à la main, envoi avec le vocal ; relance sans réenregistrer', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    let attempts = 0;
+    // Catégorie imposée : le serveur la reprend telle quelle.
+    const calls = setup((body) => json(200, { ...RESULT, suggestion: { ...RESULT.suggestion, categoryId: body.categoryId ?? 'cat-b' } }), {
+      settings: { assistTranscription: true },
+      onTranscribe: () =>
+        ++attempts === 1
+          ? json(503, { error: { code: 'ASSIST_UNAVAILABLE', message: 'Les propositions ne sont pas disponibles pour le moment.' } })
+          : json(200, { text: 'Transcription du vocal.' }),
+    });
+    await screen.findByRole('heading', { name: 'Nouvelle demande' });
+    await recordVoice(user);
+    expect(await screen.findByText(/^Les propositions ne sont pas disponibles pour le moment\./)).toHaveTextContent(voiceKept);
+    expect(screen.getByRole('button', { name: 'Lire le message vocal' })).toBeVisible();
+
+    // Relance : même vocal, aucun nouvel enregistrement.
+    await user.click(screen.getByRole('button', { name: 'Relancer l’analyse' }));
+    expect(await screen.findByText(SUGGESTED_HINT)).toBeVisible();
+    expect(attempts).toBe(2);
+    expect(screen.queryByRole('button', { name: 'Enregistrer un message vocal' })).not.toBeInTheDocument();
+
+    // Saisie manuelle par-dessus les propositions, puis envoi : le vocal part d'abord.
+    await chooseCategory('Photocopies', user);
+    await user.clear(screen.getByLabelText('Titre'));
+    await user.type(screen.getByLabelText('Titre'), 'Photocopieuse en panne');
+    await user.click(screen.getByRole('button', { name: 'Envoyer la demande' }));
+    expect(await screen.findByText('Détail de la demande')).toBeVisible();
+    const upload = calls.find((c) => c.url === '/api/files' && c.method === 'POST');
+    expect(upload?.body).toBeInstanceOf(FormData);
+    expect((upload!.body as FormData).get('kind')).toBe('VOICE');
+    expect(calls.find((c) => c.url === '/api/requests')?.body).toMatchObject({
+      title: 'Photocopieuse en panne',
+      categoryId: 'cat-a',
+      recipientId: 'repro',
+      priority: 'HIGH',
+      voiceFileId: 'f-voice',
+    });
   });
 });

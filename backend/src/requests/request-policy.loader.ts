@@ -81,6 +81,23 @@ export class RequestPolicyLoader {
     return this.prisma.category.findMany({ where, include: CATEGORY_MEMBERS, orderBy: { name: 'asc' } });
   }
 
+  /**
+   * Destinataires qu'un demandeur peut choisir (circuit A seulement) : utilisateurs actifs rattachés
+   * à la catégorie ; entre enseignants, jamais lui-même. Formulaire et propositions automatiques.
+   */
+  async recipients(category: Category, requesterId: string) {
+    if (category.circuit !== 'A_DIRECT') return [];
+    return this.prisma.user.findMany({
+      where: {
+        active: true,
+        recipientOf: { some: { categoryId: category.id } },
+        ...(category.routingMode === 'PEER' ? { id: { not: requesterId } } : {}),
+      },
+      select: { id: true, displayName: true, jobTitle: true, availability: true },
+      orderBy: { displayName: 'asc' },
+    });
+  }
+
   /** Construit l'instantané des règles à partir de la catégorie et de la priorité choisies. */
   async rulesSnapshot(category: Category, priority: Request['priority']): Promise<RequestRulesSnapshot> {
     const rule = await this.prisma.deadlineRule.findUnique({

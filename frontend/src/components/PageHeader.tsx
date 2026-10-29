@@ -30,6 +30,11 @@ interface PageHeaderProps {
   /** Contenu sous le titre (badges…). */
   children?: ReactNode;
   titleId?: string;
+  /**
+   * En-tête discret (formulaire centré) : retour et fil d'Ariane sur une seule petite ligne au-dessus
+   * du titre, sans action à droite.
+   */
+  compact?: boolean;
 }
 
 /** Fil d'Ariane (WAI-ARIA « breadcrumb ») : liens, puis la page courante (`aria-current`). */
@@ -86,8 +91,37 @@ function Breadcrumb({ items }: { items: Crumb[] }) {
 }
 
 /** En-tête de page : grand titre (h1), sous-titre discret, fil d'Ariane et action principale à droite. */
-export function PageHeader({ title, description, eyebrow, actions, back, breadcrumb, children, titleId }: PageHeaderProps) {
+export function PageHeader({ title, description, eyebrow, actions, back, breadcrumb, children, titleId, compact = false }: PageHeaderProps) {
   const crumbs = breadcrumb ?? (typeof title === 'string' ? [{ label: 'Accueil', to: '/' }, { label: title }] : false);
+  if (compact) {
+    return (
+      <Box component="header" sx={{ mb: 2.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, mb: 1, minHeight: 32 }}>
+          {back && (
+            <Button
+              component={RouterLink}
+              to={back.to}
+              size="small"
+              color="inherit"
+              startIcon={<ArrowLeft size={icon.sm} aria-hidden="true" />}
+              sx={(theme) => ({ ml: -1.25, color: tokensOf(theme).textSecondary, fontWeight: font.regular })}
+            >
+              {back.label}
+            </Button>
+          )}
+          {crumbs && <Breadcrumb items={crumbs} />}
+        </Box>
+        <Typography id={titleId} component="h1" variant="h1" sx={{ fontSize: { xs: fontSize.xl, sm: fontSize.xxl }, overflowWrap: 'anywhere' }}>
+          {title}
+        </Typography>
+        {description && (
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            {description}
+          </Typography>
+        )}
+      </Box>
+    );
+  }
   return (
     <Box component="header" sx={{ mb: 3 }}>
       {back && (

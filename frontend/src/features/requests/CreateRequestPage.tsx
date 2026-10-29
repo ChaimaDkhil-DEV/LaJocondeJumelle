@@ -1,6 +1,7 @@
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import GlobalStyles from '@mui/material/GlobalStyles';
 import { FilePen, Send } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRef, useState, type FormEvent } from 'react';
@@ -10,8 +11,8 @@ import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
 import { PageHeader } from '../../components/PageHeader';
 import { useToast } from '../../components/Toast';
-import { layout } from '../../design/tokens';
-import { AssistPanel } from '../assist/AssistPanel';
+import { tokensOf } from '../../design/tokens';
+import { AssistNote, similarRequestsSlot, useAssist } from '../assist/AssistPanel';
 import { saveToOutbox } from '../outbox/outbox';
 import { useClientSettings } from '../../api/settings';
 import { OUTBOX_KEY } from '../outbox/useOutbox';
@@ -26,10 +27,16 @@ import {
 import { RequestFields, useRequestForm } from './RequestForm';
 import type { CategoryOption } from './types';
 
+/** Largeur de la carte (maquette « Voix d'abord »). */
+const CARD_WIDTH = 640;
+/** Mobile : hauteur du bouton d'envoi fixé en bas de l'écran, avec ses marges. */
+const SEND_BAR_SPACE = 88;
+
 const header = (
   <PageHeader
+    compact
     title="Nouvelle demande"
-    description="Décrivez votre besoin : un message vocal suffit, la description écrite est facultative."
+    description="Parlez, on remplit le reste."
     back={{ to: '/demandes', label: 'Retour aux demandes' }}
   />
 );
@@ -60,6 +67,7 @@ function CreateRequestForm({ categories }: { categories: CategoryOption[] }) {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState<'send' | 'draft' | null>(null);
   const [assistToken, setAssistToken] = useState<string | null>(null);
+  const assist = useAssist(form, setAssistToken);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -144,42 +152,74 @@ function CreateRequestForm({ categories }: { categories: CategoryOption[] }) {
     }
   }
 
+  // Maquette « Voix d'abord » : une seule carte centrée ; vocal, titre, champs, puis envoi.
   return (
-    <>
+    <Box sx={{ maxWidth: CARD_WIDTH, mx: 'auto' }}>
       {header}
-      <Box component="form" noValidate onSubmit={(e: FormEvent<HTMLFormElement>) => void handleSubmit(e)} sx={{ maxWidth: layout.readable }}>
+      <Box component="form" noValidate onSubmit={(e: FormEvent<HTMLFormElement>) => void handleSubmit(e)}>
         <RequestFields
           form={form}
           voiceMaxSeconds={voiceMaxSeconds}
           alert={submitError && <Alert severity="error">{submitError}</Alert>}
+          assist={{
+            afterVoice: <AssistNote assist={assist} />,
+            recipientToConfirm: assist.recipientToConfirm,
+            similar: similarRequestsSlot(assist),
+          }}
+          footer={
+            <Box sx={{ display: 'grid', gap: 1, mt: 0.5 }}>
+              {/* Mobile : bouton d'envoi fixé en bas de l'écran ; le défilement (clavier compris)
+                s'arrête au-dessus, rien de focalisé n'est masqué. */}
+              <GlobalStyles styles={(theme) => ({ html: { [theme.breakpoints.down('sm')]: { scrollPaddingBottom: SEND_BAR_SPACE } } })} />
+              <Box
+                sx={(theme) => ({
+                  [theme.breakpoints.down('sm')]: {
+                    position: 'fixed',
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    zIndex: theme.zIndex.appBar,
+                    px: 2,
+                    pt: 1.5,
+                    pb: 'calc(12px + env(safe-area-inset-bottom))',
+                    bgcolor: 'background.paper',
+                    borderTop: `1px solid ${tokensOf(theme).border}`,
+                    boxShadow: '0 -4px 16px rgba(35, 42, 89, 0.06)',
+                  },
+                })}
+              >
+                <Button
+                  type="submit"
+                  variant="contained"
+                  size="large"
+                  fullWidth
+                  loading={submitting === 'send'}
+                  disabled={submitting === 'draft'}
+                  startIcon={<Send aria-hidden="true" />}
+                  sx={{ minHeight: 52 }}
+                >
+                  Envoyer la demande
+                </Button>
+              </Box>
+              {draftsEnabled && (
+                <Button
+                  variant="text"
+                  color="inherit"
+                  loading={submitting === 'draft'}
+                  disabled={submitting === 'send'}
+                  startIcon={<FilePen size={16} aria-hidden="true" />}
+                  onClick={() => void handleSaveDraft()}
+                  sx={(theme) => ({ justifySelf: 'center', minHeight: 44, color: tokensOf(theme).textSecondary })}
+                >
+                  Enregistrer en brouillon
+                </Button>
+              )}
+            </Box>
+          }
         />
-        <AssistPanel form={form} onToken={setAssistToken} />
-
-        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'flex-end', gap: 1.5, mt: 2 }}>
-          {draftsEnabled && (
-            <Button
-              variant="outlined"
-              size="large"
-              loading={submitting === 'draft'}
-              disabled={submitting === 'send'}
-              startIcon={<FilePen aria-hidden="true" />}
-              onClick={() => void handleSaveDraft()}
-            >
-              Enregistrer en brouillon
-            </Button>
-          )}
-          <Button
-            type="submit"
-            variant="contained"
-            size="large"
-            loading={submitting === 'send'}
-            disabled={submitting === 'draft'}
-            startIcon={<Send aria-hidden="true" />}
-          >
-            Envoyer la demande
-          </Button>
-        </Box>
+        {/* Mobile : place pour le bouton d'envoi fixé, sous la carte. */}
+        <Box aria-hidden="true" sx={{ display: { xs: 'block', sm: 'none' }, height: SEND_BAR_SPACE }} />
       </Box>
-    </>
+    </Box>
   );
 }

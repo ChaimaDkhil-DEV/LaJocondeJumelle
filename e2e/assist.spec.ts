@@ -1,12 +1,14 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { expectNoA11yViolations } from './support/axe';
 import { installFakeMediaRecorder } from './support/fake-media-recorder';
+import { clickInView, fillDescription } from './support/click';
 import { login } from './support/login';
 
 /**
  * T039 (spec 009) — assistance à la création : consigne créée par le super administrateur,
- * propositions appliquées puis envoyées, historique « Propositions automatiques », transcription
- * de démonstration d'un vocal. Fournisseurs `demo` : aucun appel externe.
+ * propositions reprises dans les champs puis envoyées, historique « Propositions automatiques ».
+ * Création vocale assistée : vocal analysé dès la fin de l'enregistrement, envoyé avec la demande
+ * et écouté par le destinataire. Fournisseurs `demo` : aucun appel externe.
  */
 
 function unique(base: string, testInfo: TestInfo): string {
@@ -38,22 +40,20 @@ test('le super administrateur crée une consigne ; l’enseignante applique les 
   await page.goto('/demandes/nouvelle');
   await expect(page.getByRole('heading', { name: 'Nouvelle demande' })).toBeVisible();
   const description = `La photocopieuse du premier étage est en panne depuis ce matin (${testInfo.project.name} ${Date.now()}).`;
-  await page.getByLabel('Description (facultative)').fill(description);
-  await page.getByRole('button', { name: 'Proposer une catégorie et une priorité' }).click();
+  await fillDescription(page, description);
+  await clickInView(page.getByRole('button', { name: 'Proposer une catégorie et une priorité' }));
 
-  const panel = page.getByRole('region', { name: 'Propositions automatiques' });
-  await expect(panel.getByRole('button', { name: 'Tout appliquer' })).toBeVisible();
-  await expect(panel.getByText('Pannes de reprographie', { exact: true })).toBeVisible();
+  // Une seule phrase sous le vocal ; les champs préremplis portent le badge « Suggéré ».
+  await expect(page.getByText(/^Champs préremplis d’après votre message/)).toBeVisible();
   await expectNoA11yViolations(page);
-  await panel.getByRole('button', { name: 'Tout appliquer' }).click();
 
   await expect(page.getByRole('combobox', { name: 'Catégorie' })).toHaveText('Photocopies');
   await expect(page.getByRole('radio', { name: 'Haute' })).toBeChecked();
   const title = await page.getByLabel('Titre', { exact: true }).inputValue();
   expect(title).toContain('La photocopieuse du premier étage est en panne');
-  await page.getByRole('combobox', { name: /^Destinataire/ }).click();
-  await page.getByRole('option', { name: 'Reprographie — Reprographie' }).click();
-  await page.getByRole('button', { name: 'Envoyer la demande' }).click();
+  // Seul destinataire de « Photocopies » : déjà prérempli.
+  await expect(page.getByRole('combobox', { name: /^Destinataire/ })).toHaveText('Reprographie — Reprographie');
+  await clickInView(page.getByRole('button', { name: 'Envoyer la demande' }));
 
   await expect(page.getByText('Votre demande a été envoyée.')).toBeVisible();
   const history = page.getByRole('list', { name: 'Historique' });
@@ -62,7 +62,10 @@ test('le super administrateur crée une consigne ; l’enseignante applique les 
   await expectNoA11yViolations(page);
 });
 
-test('un vocal est transcrit (démonstration), affiché à vérifier, puis sert aux propositions', async ({ page, browserName }) => {
+test('un vocal est analysé dès la fin de l’enregistrement, envoyé avec la demande et écouté par le destinataire', async ({
+  page,
+  browserName,
+}, testInfo) => {
   if (browserName === 'webkit') await installFakeMediaRecorder(page);
   await login(page, 'enseignante');
   await page.goto('/demandes/nouvelle');
@@ -74,14 +77,37 @@ test('un vocal est transcrit (démonstration), affiché à vérifier, puis sert 
   await page.getByRole('button', { name: 'Arrêter l’enregistrement' }).click();
   await expect(page.getByRole('button', { name: 'Lire le message vocal' })).toBeVisible();
 
-  await page.getByRole('button', { name: 'Proposer une catégorie et une priorité' }).click();
-  await expect(page.getByLabel('Transcription (à vérifier)')).toHaveValue(/photocopieuse du premier étage est en panne/);
-  const panel = page.getByRole('region', { name: 'Propositions automatiques' });
-  await expect(panel.getByRole('button', { name: 'Tout appliquer' })).toBeVisible();
-
-  await page.getByRole('button', { name: 'Utiliser comme description' }).click();
-  await expect(page.getByLabel('Description (facultative)')).toHaveValue(/photocopieuse du premier étage est en panne/);
+  // Aucun clic : transcription puis propositions, reprises dans les champs vides.
+  await expect(page.getByText(/^Champs préremplis d’après votre message/)).toBeVisible();
+  await expect(page.getByRole('combobox', { name: 'Catégorie' })).toHaveText('Photocopies');
+  await expect(page.getByRole('combobox', { name: /^Destinataire/ })).toHaveText('Reprographie — Reprographie');
+  await expect(page.getByLabel('Titre', { exact: true })).not.toHaveValue('');
   await expectNoA11yViolations(page);
+
+  // Les propositions restent modifiables : titre propre à ce test.
+  const title = `Vocal transmis (${testInfo.project.name} ${Date.now()})`;
+  await page.getByLabel('Titre', { exact: true }).fill(title);
+  await clickInView(page.getByRole('radio', { name: 'Moyenne' }));
+  await expect(page.getByRole('radio', { name: 'Moyenne' })).toBeChecked();
+  await clickInView(page.getByRole('button', { name: 'Envoyer la demande' }));
+  await expect(page.getByText('Votre demande a été envoyée.')).toBeVisible();
+  await expect(page.getByRole('heading', { name: title })).toBeVisible();
+  const requestUrl = page.url();
+
+  // Le destinataire écoute le vocal original.
+  await logout(page);
+  await login(page, 'reprographie');
+  await page.goto(requestUrl);
+  await expect(page.getByRole('heading', { name: title })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Lire le message vocal' })).toBeVisible();
+  // Fichier servi au destinataire, avec sa session : le vocal original joint à la demande.
+  const requestId = new URL(requestUrl).pathname.split('/').pop();
+  const detail = (await (await page.request.get(`/api/requests/${requestId}`)).json()) as { voice: { fileId: string } | null };
+  expect(detail.voice).not.toBeNull();
+  const audio = await page.request.get(`/api/files/${detail.voice!.fileId}`);
+  expect(audio.status()).toBe(200);
+  expect(audio.headers()['content-type']).toBe('audio/mp4');
+  expect((await audio.body()).length).toBeGreaterThan(0);
 });
 
 test('les demandes similaires visibles s’affichent, ouvertes dans un nouvel onglet (010)', async ({ page }, testInfo) => {
@@ -106,9 +132,11 @@ test('les demandes similaires visibles s’affichent, ouvertes dans un nouvel on
   expect(created.status()).toBe(201);
 
   await page.goto('/demandes/nouvelle');
-  await page.getByLabel('Description (facultative)').fill(`Le ${marker} de la salle 12 est en panne.`);
-  await page.getByRole('button', { name: 'Proposer une catégorie et une priorité' }).click();
+  await fillDescription(page, `Le ${marker} de la salle 12 est en panne.`);
+  await clickInView(page.getByRole('button', { name: 'Proposer une catégorie et une priorité' }));
 
+  // Repliées derrière une pastille « N demande(s) similaire(s) ».
+  await clickInView(page.getByRole('button', { name: /demandes? similaires?$/ }));
   const list = page.getByRole('list', { name: 'Demandes similaires' });
   const link = list.getByRole('link', { name: new RegExp(marker) });
   await expect(link).toBeVisible();
