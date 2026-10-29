@@ -233,10 +233,16 @@ describe('Modification d’une affectation par l’admin (spec 006)', () => {
     });
 
     it('surveillant absent : 409 NOT_AVAILABLE sans conflit nommé', async () => {
-      const coverageId = await createOk(daySlot(10, 60).iso);
+      // Créneau et nouvelle heure de fin tirés du même jour : deux appels à daySlot pouvaient tomber
+      // de part et d'autre de minuit (vers 22 h 30) et produire une fin avant le début (400).
+      const longer = daySlot(10, 90);
+      const coverageId = await createOk({
+        startAt: longer.iso.startAt,
+        endAt: minutesFrom(new Date(longer.iso.startAt), 60).toISOString(),
+      });
       await prisma.user.update({ where: { id: id.surveillant }, data: { availability: 'ABSENT' } });
       try {
-        const res = await modify(coverageId, { endTime: daySlot(10, 90).endTime });
+        const res = await modify(coverageId, { endTime: longer.endTime });
         expect(res.status).toBe(409);
         expect(res.body.error.code).toBe('NOT_AVAILABLE');
         expect(res.body.error.details?.conflict).toBeUndefined();
