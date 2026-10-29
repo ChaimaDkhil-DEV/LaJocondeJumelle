@@ -29,3 +29,15 @@ export function formatRelative(value: string | Date, now: Date = new Date()): st
   if (diff < 7 * DAY) return relative.format(-Math.floor(diff / DAY), 'day');
   return (date.getFullYear() === now.getFullYear() ? shortDate : shortDateWithYear).format(date);
 }
+
+/**
+ * Retard écoulé depuis une échéance : « 3 j de retard », « 5 h de retard », « 12 min de retard ».
+ * Null si l'échéance n'est pas dépassée.
+ */
+export function formatLateness(dueAt: string | Date, now: Date = new Date()): string | null {
+  const late = now.getTime() - toDate(dueAt).getTime();
+  if (late <= 0) return null;
+  if (late < HOUR) return `${Math.max(1, Math.floor(late / MINUTE))} min de retard`;
+  if (late < DAY) return `${Math.floor(late / HOUR)} h de retard`;
+  return `${Math.floor(late / DAY)} j de retard`;
+}

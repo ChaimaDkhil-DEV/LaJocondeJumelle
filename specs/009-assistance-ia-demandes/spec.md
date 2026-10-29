@@ -6,6 +6,10 @@
 
 **Status**: Draft
 
+**Revised**: 2026-10-29 — création vocale assistée et page « Nouvelle demande » « Voix d'abord »
+(PR #44) : analyse automatique du vocal, champs préremplis, destinataire proposé (voir
+Clarifications, session 2026-10-29).
+
 **Input**: User description: "Assistance IA à la création des demandes de travail (lot « socle ») :
 transcription du vocal, suggestions de catégorie, de priorité, d'un résumé et d'une justification
 appuyées sur des consignes rédigées par le super administrateur ; confirmation du demandeur avant
@@ -28,6 +32,23 @@ toujours possible."
 - Q : Faut-il suivre le cycle Spec Kit complet avant de coder ? → A : oui (spécification,
   plan, tâches, puis implémentation par incréments testés).
 
+### Session 2026-10-29 (révision)
+
+- Q : Le vocal est-il la pièce centrale de la demande ? → A : **oui** : sa conservation et sa
+  transmission priment sur l'analyse ; une analyse en échec ne le fait jamais perdre.
+- Q : Faut-il cliquer pour obtenir les propositions ? → A : **non** : l'analyse démarre dès la
+  fin de l'enregistrement ; un lien permet de la relancer (ou de la lancer pour une description
+  seule).
+- Q : Les propositions doivent-elles attendre un clic pour remplir le formulaire ? → A : **non**
+  (remplace l'ancienne règle « rien sans clic ») : elles préremplissent les champs vides ou déjà
+  proposés, signalés par un badge « Suggéré » ; un choix de l'utilisateur n'est jamais remplacé.
+- Q : Le destinataire est-il proposé ? → A : **oui**, par le serveur et d'après les règles
+  d'affectation seulement (jamais par le fournisseur, jamais d'après un nom seul) ; s'il reste
+  incertain, il est « À confirmer ».
+- Q : Que montre l'écran ? → A : maquette « Option A · Voix d'abord » : une seule phrase sous le
+  vocal, justification repliée (« Voir pourquoi »), ni bloc « Propositions automatiques » séparé,
+  ni transcription, ni consignes affichées (contrat d'interface : `contracts/ui.md`).
+
 ## Contexte
 
 - Aujourd'hui, le demandeur saisit un titre, choisit une catégorie et une priorité, puis ajoute
@@ -47,40 +68,48 @@ toujours possible."
 
 ### User Story 1 - Obtenir des suggestions avant d'envoyer une demande (Priority: P1)
 
-Un employé ouvre « Nouvelle demande », écrit sa demande ou enregistre un vocal, puis clique sur
-« Proposer une catégorie et une priorité ». L'application lui montre la transcription du vocal
-(s'il y en a un), un titre proposé, une catégorie et une priorité proposées, une justification
-courte et les consignes sur lesquelles elle s'appuie. Il applique les propositions qui lui
-conviennent, corrige les autres, puis envoie la demande comme aujourd'hui.
+Un employé ouvre « Nouvelle demande » et enregistre un vocal. Dès la fin de l'enregistrement,
+l'application transcrit le vocal et préremplit le titre, la catégorie, le destinataire et la
+priorité qu'elle peut proposer avec assez de fiabilité ; une phrase l'invite à les vérifier. Il
+écoute éventuellement son vocal, corrige ce qui ne lui convient pas, puis envoie la demande comme
+aujourd'hui, avec le vocal original. Sans vocal, il peut écrire une description et demander les
+propositions.
 
 **Why this priority**: c'est le besoin principal : gagner du temps et mieux classer les demandes,
 surtout celles dictées à la voix.
 
-**Independent Test**: avec le fournisseur de démonstration et deux consignes connues, créer une
-demande dont le texte correspond à l'une d'elles ; vérifier les propositions, les appliquer,
-envoyer, puis vérifier la demande créée et son historique.
+**Independent Test**: avec les fournisseurs de démonstration et deux consignes connues, enregistrer
+un vocal dont la transcription correspond à l'une d'elles ; vérifier les champs préremplis, en
+modifier un, envoyer, puis vérifier la demande créée, son vocal (lisible par le destinataire) et
+son historique.
 
 **Acceptance Scenarios**:
 
-1. **Given** un employé sur « Nouvelle demande » avec une description écrite, **When** il demande
-   des propositions, **Then** il voit un titre proposé, une catégorie proposée parmi celles qu'il
-   peut choisir dans le formulaire, une priorité parmi « Normale », « Moyenne », « Haute »,
-   « Urgente », une justification et la liste des consignes utilisées (titre et extrait).
-2. **Given** des propositions affichées, **When** il clique sur « Appliquer » pour l'une d'elles
-   (ou « Tout appliquer »), **Then** seul le champ concerné du formulaire est rempli ; aucun
-   champ n'est modifié sans ce geste, et il reste modifiable.
-3. **Given** une demande accompagnée d'un vocal, **When** il demande des propositions, **Then**
-   la transcription s'affiche dans un champ séparé « Transcription (à vérifier) », modifiable ;
-   la description qu'il a écrite n'est jamais remplacée. « Utiliser comme description » ne
-   remplace une description non vide qu'après confirmation.
-4. **Given** une transcription corrigée par l'employé, **When** il redemande des propositions,
-   **Then** elles sont calculées à partir du texte corrigé.
-5. **Given** des propositions appliquées, **When** il envoie la demande, **Then** elle est créée
-   par le parcours habituel, avec les mêmes contrôles et les mêmes notifications que sans
-   propositions, et le vocal est conservé tel qu'enregistré.
+1. **Given** un employé sur « Nouvelle demande », **When** il termine l'enregistrement d'un
+   vocal, **Then** sans autre action l'application annonce la transcription puis la recherche de
+   propositions, et préremplit les champs vides : un titre, une catégorie parmi celles qu'il peut
+   choisir, un destinataire autorisé pour cette catégorie, une priorité parmi « Normale »,
+   « Moyenne », « Haute », « Urgente » ; chaque champ prérempli porte un badge « Suggéré » et une
+   seule phrase indique « Champs préremplis d'après votre message : vérifiez-les. ».
+2. **Given** des champs préremplis, **When** il en modifie un, **Then** sa valeur devient la
+   sienne (le badge disparaît) et aucune analyse ultérieure ne la remplace ; les quatre champs
+   restent modifiables.
+3. **Given** un champ déjà rempli par l'employé avant l'analyse, **When** l'analyse aboutit,
+   **Then** ce champ n'est pas modifié ; seuls les champs vides ou déjà proposés le sont.
+4. **Given** un vocal analysé, **When** l'employé le refait ou le supprime, **Then** les valeurs
+   proposées d'après l'ancien vocal sont retirées des champs (ses propres choix restent) ; un
+   nouveau vocal est analysé à son tour, et une réponse tardive de l'ancien est ignorée.
+5. **Given** des champs préremplis, **When** il envoie la demande, **Then** elle est créée par le
+   parcours habituel, avec les mêmes contrôles et les mêmes notifications que sans propositions,
+   et le vocal original est joint, lisible par le destinataire selon ses droits.
 6. **Given** une demande envoyée après propositions, **When** un utilisateur autorisé consulte
    son historique, **Then** il voit une entrée « Propositions automatiques » : valeurs proposées,
    valeurs finalement retenues, consignes utilisées, auteur (le demandeur) et date.
+7. **Given** une description écrite sans vocal, **When** il choisit « Proposer une catégorie et
+   une priorité », **Then** les champs sont préremplis de la même façon.
+8. **Given** une catégorie choisie à la main après une analyse (circuit direct), **When** il la
+   change, **Then** une nouvelle analyse propose le destinataire et la priorité pour cette
+   catégorie, sans remplacer ses choix.
 
 ---
 
@@ -112,12 +141,16 @@ catégorie X, puis vérifier les propositions et l'absence de toute écriture.
    priorité inexistante, réponse mal formée), **When** elle est reçue, **Then** elle est écartée
    champ par champ ; l'utilisateur voit seulement les propositions valides, ou un message
    indiquant qu'aucune proposition fiable n'a pu être faite.
-5. **Given** une catégorie à validation administrative, **When** l'employé applique la catégorie
+5. **Given** une catégorie à validation administrative, **When** l'employé garde la catégorie
    proposée et envoie, **Then** la demande suit la validation de l'administration comme
-   aujourd'hui.
+   aujourd'hui, et aucun destinataire n'est proposé (l'administration le choisit).
 6. **Given** un utilisateur qui ne peut pas créer de demande de travail, ou non connecté,
    **When** il demande des propositions, même directement par l'adresse, **Then** il est refusé
    comme pour la création, et le refus est journalisé.
+7. **Given** un nom cité dans le vocal, **When** le destinataire est proposé, **Then** seul un
+   destinataire autorisé pour la catégorie (actif, rattaché, jamais le demandeur entre
+   enseignants) peut l'être ; un destinataire hors de cette liste n'est ni affiché ni accepté à
+   l'envoi. Sans certitude (plusieurs possibles, aucun cité), le champ reste « À confirmer ».
 
 ---
 
@@ -153,9 +186,9 @@ proposition ; la désactiver puis la supprimer, vérifier qu'elle n'apparaît pl
 
 ### User Story 4 - Fonctionner sans IA (Priority: P1)
 
-Par défaut, l'assistance est désactivée : l'application fonctionne comme aujourd'hui et le
-formulaire l'indique sobrement. Si l'assistance est active mais échoue, la demande se crée
-toujours à la main.
+Par défaut, l'assistance est désactivée : l'application fonctionne comme aujourd'hui, sans
+élément d'assistance dans le formulaire. Si l'assistance est active mais échoue, la demande se
+crée toujours à la main, avec son vocal.
 
 **Why this priority**: ce lot ne branche aucun fournisseur réel ; la création de demandes ne
 doit dépendre d'aucun service d'assistance.
@@ -166,15 +199,16 @@ répond pas, créer une demande à la main.
 **Acceptance Scenarios**:
 
 1. **Given** l'assistance désactivée, **When** un employé ouvre « Nouvelle demande », **Then** le
-   formulaire est inchangé, le bouton de propositions n'est pas proposé, et une mention indique
-   que les propositions automatiques ne sont pas disponibles.
-2. **Given** un fournisseur indisponible ou trop lent, **When** l'employé demande des
-   propositions, **Then** il voit en moins de 20 secondes un message clair (« Les propositions
-   ne sont pas disponibles pour le moment. Vous pouvez remplir la demande vous-même. ») et son
-   formulaire est intact.
+   formulaire fonctionne sans assistance : aucune analyse ne démarre, aucun lien ni aucune
+   mention d'assistance n'est affiché.
+2. **Given** un fournisseur indisponible ou trop lent, **When** une analyse est lancée, **Then**
+   l'employé voit dans le délai de l'analyse un message clair (« Les propositions ne sont pas
+   disponibles pour le moment. Vous pouvez remplir la demande vous-même. », suivi, s'il a un
+   vocal, de « Votre message vocal est conservé : remplissez les champs vous-même ou relancez
+   l'analyse. ») et son formulaire est intact.
 3. **Given** une transcription vide ou impossible (vocal inaudible, trop court, format refusé),
-   **When** il demande des propositions, **Then** il en est informé et le vocal reste joint à la
-   demande.
+   **When** l'analyse échoue, **Then** il en est informé, le vocal reste dans le formulaire et
+   joint à la demande à l'envoi, et « Relancer l'analyse » ne demande pas de réenregistrer.
 4. **Given** un employé hors ligne, **When** il ouvre le formulaire, **Then** les propositions ne
    sont pas proposées et la création hors ligne fonctionne comme aujourd'hui.
 5. **Given** un employé qui demande des propositions de façon répétée, **When** il dépasse la
@@ -184,21 +218,26 @@ répond pas, créer une demande à la main.
 
 ### Edge Cases
 
-- Demande sans aucun texte ni vocal : le bouton de propositions est désactivé, avec une
-  explication.
+- Demande sans aucun texte ni vocal : aucune analyse n'est proposée.
 - Aucune consigne pertinente : les propositions sont faites à partir des seules catégories
-  autorisées et la mention « Aucune consigne ne correspond à cette demande » est affichée ; si
-  rien ne permet de proposer une catégorie, aucune catégorie n'est proposée.
-- Demande ambiguë ou incomplète : la réponse peut ne proposer que certains champs et indiquer ce
-  qui manque (par ex. « Précisez le lieu »).
+  autorisées (sans mention à l'écran) ; si rien ne permet de proposer une catégorie, aucune
+  catégorie n'est proposée.
+- Demande ambiguë ou incomplète : la réponse peut ne proposer que certains champs ; plusieurs
+  catégories plausibles ou besoin trop vague : aucune catégorie n'est choisie arbitrairement, le
+  champ reste à choisir. Aucune proposition fiable : « Aucune suggestion fiable : remplissez les
+  champs vous-même. ».
+- Mécontentement sans fait précis (« c'est inadmissible, c'est urgent ») : la priorité n'est pas
+  relevée pour autant ; elle repose sur les faits (danger, échéance, impact sur les cours ou le
+  fonctionnement).
 - Catégorie proposée devenue inactive ou non autorisée entre la proposition et l'envoi : l'envoi
   est refusé par les contrôles existants, avec leur message habituel.
 - Plusieurs demandes de propositions successives : seules les dernières s'affichent ; une réponse
   tardive à une demande précédente est ignorée.
 - Formulaire abandonné ou demande enregistrée en brouillon : aucune trace des propositions n'est
   conservée.
-- Écran de 320 px : le panneau des propositions tient sans défilement horizontal et se parcourt
-  au clavier.
+- Écran de 320 px : le formulaire, le vocal et les champs préremplis tiennent sans défilement
+  horizontal et se parcourent au clavier ; le bouton d'envoi, fixé en bas, ne masque jamais le
+  champ focalisé.
 
 ## Requirements *(mandatory)*
 
@@ -206,17 +245,22 @@ répond pas, créer une demande à la main.
 
 #### Propositions à la création
 
-- **FR-001**: Le formulaire « Nouvelle demande » DOIT proposer, quand l'assistance est
-  disponible, une action « Proposer une catégorie et une priorité », active dès qu'il y a une
-  description ou un vocal.
+- **FR-001** *(révisé 2026-10-29)*: Quand l'assistance est disponible, l'analyse DOIT démarrer
+  automatiquement dès la fin de l'enregistrement d'un vocal (transcription puis propositions),
+  sans action de l'utilisateur. Un lien « Proposer une catégorie et une priorité » DOIT la lancer
+  pour une description seule, et « Relancer l'analyse » DOIT la relancer sans réenregistrer.
 - **FR-002**: Les propositions DOIVENT comprendre, chacune facultative : un titre (au plus 120
   caractères), une catégorie choisie uniquement parmi les catégories de demande de travail
   actives que l'utilisateur peut créer, une priorité parmi les quatre priorités existantes, une
   justification (au plus 500 caractères), la liste des consignes utilisées (titre et extrait) et,
-  le cas échéant, les informations qui manquent.
-- **FR-003**: Aucune proposition NE DOIT modifier le formulaire sans un geste explicite de
-  l'utilisateur (« Appliquer » par champ ou « Tout appliquer ») ; les champs remplis restent
-  modifiables.
+  le cas échéant, les informations qui manquent ; s'y ajoute un destinataire (FR-027). À l'écran,
+  seule la justification est consultable, repliée derrière « Voir pourquoi ».
+- **FR-003** *(révisé 2026-10-29, remplace « rien sans clic »)*: Les propositions DOIVENT
+  préremplir directement les champs vides ou déjà proposés (titre, catégorie, destinataire,
+  priorité) ; une valeur saisie ou choisie par l'utilisateur NE DOIT jamais être remplacée par une
+  analyse, et changer de catégorie NE DOIT pas effacer un destinataire choisi à la main. Chaque
+  champ prérempli porte un badge « Suggéré », retiré dès que l'utilisateur le modifie ; une seule
+  phrase, sous le vocal, invite à vérifier. Tous les champs restent modifiables.
 - **FR-004**: Aucun score de confiance NE DOIT être affiché dans ce lot ; l'application indique
   seulement si une proposition a pu être faite ou non.
 - **FR-005**: Chaque réponse du fournisseur DOIT être contrôlée côté serveur avant d'être
@@ -225,11 +269,13 @@ répond pas, créer une demande à la main.
 
 #### Transcription
 
-- **FR-006**: Si la demande comporte un vocal, les propositions DOIVENT s'appuyer sur sa
-  transcription, affichée dans un champ « Transcription (à vérifier) » distinct de la
-  description et modifiable ; les propositions suivantes utilisent le texte corrigé.
-- **FR-007**: La transcription NE DOIT jamais remplacer la description sans l'action « Utiliser
-  comme description », et une description non vide n'est remplacée qu'après confirmation.
+- **FR-006** *(révisé 2026-10-29)*: Si la demande comporte un vocal, les propositions DOIVENT
+  s'appuyer sur sa transcription, sans demander à l'utilisateur de recopier son message. La
+  transcription n'est pas affichée ; elle est réutilisée par « Relancer l'analyse » tant que le
+  vocal ne change pas.
+- **FR-007** *(révisé 2026-10-29)*: La transcription NE DOIT jamais remplacer ni remplir la
+  description, qui reste facultative et écrite par l'utilisateur seul ; elle ne remplace jamais
+  le vocal original.
 - **FR-008**: Le vocal transcrit est l'enregistrement de la demande en cours ; il DOIT passer les
   mêmes contrôles de format, de durée et de taille que l'envoi d'un vocal. Le vocal reste joint à
   la demande quel que soit le résultat.
@@ -269,8 +315,8 @@ répond pas, créer une demande à la main.
 
 #### Disponibilité
 
-- **FR-019**: L'assistance DOIT être désactivée par défaut ; désactivée, l'application fonctionne
-  comme aujourd'hui et le formulaire indique que les propositions ne sont pas disponibles.
+- **FR-019** *(révisé 2026-10-29)*: L'assistance DOIT être désactivée par défaut ; désactivée (ou
+  hors ligne), l'application fonctionne comme aujourd'hui, sans élément d'assistance affiché.
 - **FR-020**: Le fournisseur de transcription et le fournisseur de propositions DOIVENT être
   choisis par la configuration du serveur, sans modifier le parcours ; ce lot fournit un
   fournisseur « désactivé » et un fournisseur de démonstration local, déterministe, qui
@@ -284,9 +330,9 @@ répond pas, créer une demande à la main.
 #### Historique et journaux
 
 - **FR-023**: Une demande envoyée après propositions DOIT porter dans son historique une entrée
-  « Propositions automatiques » : valeurs proposées (titre, catégorie, priorité), valeurs
-  retenues, consignes utilisées (identifiant et titre), acteur et date. L'historique reste en
-  ajout seul.
+  « Propositions automatiques » : valeurs proposées (titre, catégorie, priorité et, s'il a été
+  proposé, destinataire), valeurs retenues, consignes utilisées (identifiant et titre), acteur et
+  date. L'historique reste en ajout seul.
 - **FR-024**: L'historique et les journaux NE DOIVENT contenir ni le texte transmis au
   fournisseur, ni la transcription, ni l'audio, ni de donnée d'identification d'un fournisseur ;
   les erreurs techniques sont journalisées avec leur type et leur durée seulement.
@@ -295,10 +341,38 @@ répond pas, créer une demande à la main.
 
 #### Accessibilité
 
-- **FR-026**: Le panneau des propositions, ses actions « Appliquer » et la gestion des consignes
-  DOIVENT respecter les règles d'accessibilité du projet (libellés explicites, clavier, focus
-  visible, annonce de l'arrivée des propositions et des erreurs aux lecteurs d'écran) et rester
-  utilisables à 320 px.
+- **FR-026** *(révisé 2026-10-29)*: Le formulaire avec propositions (vocal, champs préremplis,
+  phrase d'état, liens repliables) et la gestion des consignes DOIVENT respecter les règles
+  d'accessibilité du projet : libellés liés aux champs, `aria-label` des boutons-icônes, clavier,
+  focus visible et jamais masqué par le bouton d'envoi fixé, annonce de l'analyse, des champs
+  préremplis et des erreurs aux lecteurs d'écran, cibles tactiles d'au moins 44 px, contraste
+  d'au moins 4,5:1, utilisables à 320 px.
+
+#### Création vocale assistée (révision 2026-10-29)
+
+- **FR-027**: Le destinataire proposé DOIT être calculé par le serveur d'après les règles
+  d'affectation de la catégorie proposée ou choisie, jamais d'après la réponse du fournisseur ni
+  d'après un nom seul : seul destinataire autorisé de la catégorie, ou unique destinataire
+  autorisé dont le nom complet figure dans le message. Catégorie à validation administrative :
+  aucun destinataire proposé. Le formulaire NE DOIT afficher ni envoyer qu'un destinataire de la
+  liste autorisée ; l'envoi garde ses contrôles (FR-011).
+- **FR-028**: Après une analyse, un destinataire resté vide (circuit direct) DOIT être signalé
+  « À confirmer » dans le champ lui-même (contour et fond d'avertissement), seule mise en
+  évidence du formulaire.
+- **FR-029**: Quand l'utilisateur choisit lui-même la catégorie après une analyse (circuit
+  direct), une nouvelle analyse DOIT être faite pour cette catégorie (`categoryId`), qui n'est plus
+  proposée mais oriente le destinataire et la priorité.
+- **FR-030**: Un nouveau vocal, ou sa suppression, DOIT retirer des champs les valeurs proposées
+  d'après l'ancien vocal (les choix de l'utilisateur restent) et annuler le jeton de propositions ;
+  une réponse tardive concernant l'ancien vocal DOIT être ignorée.
+- **FR-031**: La priorité proposée DOIT reposer sur les faits exprimés (danger pour les personnes,
+  échéance proche, impact sur les cours ou le fonctionnement) et sur les consignes ; le
+  mécontentement ou l'insistance seuls NE DOIVENT pas la relever. Une consigne qui fixe la
+  priorité prévaut, sauf danger signalé.
+- **FR-032**: Le vocal original DOIT rester la pièce centrale : jamais modifié ni retiré par
+  l'analyse, conservé dans le formulaire en cas d'échec, envoyé avec la demande et lisible par
+  le destinataire selon ses droits. L'application NE DOIT annoncer l'envoi qu'après confirmation
+  du serveur.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -306,7 +380,8 @@ répond pas, créer une demande à la main.
   une catégorie), état (active ou inactive), auteur et date de la dernière modification. Pas de
   donnée personnelle.
 - **Proposition** : réponse calculée à la demande, non conservée en tant que telle ; titre,
-  catégorie, priorité, justification, informations manquantes, consignes utilisées.
+  catégorie, priorité, destinataire (nom et raison, calculés par le serveur), justification,
+  informations manquantes, consignes utilisées.
 - **Entrée d'historique « Propositions automatiques »** : rattachée à la demande créée ; valeurs
   proposées, valeurs retenues, consignes utilisées, acteur, date.
 - **Entrée d'audit « consigne »** : création, modification, activation, désactivation,
@@ -316,8 +391,8 @@ répond pas, créer une demande à la main.
 
 ### Measurable Outcomes
 
-- **SC-001**: Un employé obtient les propositions et les applique en 2 actions au plus depuis le
-  formulaire rempli.
+- **SC-001** *(révisé 2026-10-29)*: Après l'enregistrement d'un vocal, les champs proposables
+  sont préremplis sans aucune action supplémentaire de l'employé.
 - **SC-002**: 100 % des propositions affichées portent sur une catégorie que l'utilisateur peut
   créer et une des quatre priorités existantes, y compris face à un texte contenant des
   instructions.
@@ -332,6 +407,10 @@ répond pas, créer une demande à la main.
 - **SC-007**: 100 % des demandes envoyées après propositions ont une entrée d'historique avec les
   valeurs proposées et retenues ; 0 transcription, texte transmis ou audio dans l'historique et
   les journaux.
+- **SC-010**: 100 % des destinataires proposés font partie des destinataires autorisés de la
+  catégorie ; 0 valeur saisie par l'utilisateur remplacée par une analyse.
+- **SC-011**: Dans 100 % des échecs d'analyse (transcription ou propositions), le vocal reste dans
+  le formulaire et la demande peut être envoyée avec lui.
 - **SC-008**: Aucune violation d'accessibilité détectée par l'audit automatique sur le formulaire
   avec propositions et sur la gestion des consignes, à 320 px et sur desktop.
 - **SC-009**: Aucun appel réseau vers un service extérieur à l'application n'est émis dans ce lot,
@@ -348,10 +427,13 @@ répond pas, créer une demande à la main.
   recherche sémantique n'est pas nécessaire pour quelques dizaines de consignes et pourra venir
   avec un fournisseur réel.
 - La priorité est choisie librement par le demandeur à la création aujourd'hui ; la proposition
-  ne fait que pré-remplir ce choix. Les changements de priorité après création restent régis par
+  ne fait que préremplir ce choix. Les changements de priorité après création restent régis par
   les droits existants (hors périmètre).
 - Suite (spec 010, `specs/010-assistance-fournisseurs-similaires/`) : connecteurs réels Whisper
-  (auto-hébergé) et Claude, désactivés par défaut, et demandes similaires visibles par l'utilisateur.
+  (auto-hébergé) et Claude, désactivés par défaut, et demandes similaires visibles par l'utilisateur
+  (repliées derrière « N demandes similaires » depuis la révision du 2026-10-29).
+- Révision 2026-10-29 : la présentation détaillée de la page (maquette « Option A · Voix
+  d'abord ») est décrite dans `contracts/ui.md` ; cette spécification n'en fixe que les règles.
 - Le titre proposé fait office de résumé : un titre court est obligatoire, alors qu'aucun champ
   « résumé » n'existe.
 - Finalité des données : aider le demandeur à remplir sa demande. Le texte et le vocal ne quittent
