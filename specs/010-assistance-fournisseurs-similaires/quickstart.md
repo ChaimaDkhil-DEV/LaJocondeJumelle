@@ -27,3 +27,42 @@ npx playwright test -c e2e/playwright.config.ts assist.spec.ts
 - Analyse : `ASSIST_SUGGESTION_PROVIDER=claude`, `ANTHROPIC_API_KEY=…` (secret, jamais commité),
   éventuellement `ASSIST_CLAUDE_MODEL`.
 - Une configuration incomplète empêche l'API de démarrer, avec un message explicite.
+
+## Sans abonnement : règles et Whisper local (complément 011)
+
+### Développement (poste Windows avec Docker Desktop)
+
+> Commandes de téléchargement du modèle à confirmer lors de l'essai réel (T026) ; le résultat
+> est consigné dans `docs/validation/verification-011.md`.
+
+```text
+docker compose -f deploy/docker-compose.dev.yml --profile whisper up -d whisper
+curl -X POST http://127.0.0.1:8000/v1/models/Systran/faster-whisper-small   # téléchargement du modèle (une fois)
+```
+
+`backend/.env` :
+
+```text
+ASSIST_SUGGESTION_PROVIDER=rules
+ASSIST_TRANSCRIPTION_PROVIDER=whisper
+ASSIST_WHISPER_URL=http://127.0.0.1:8000
+```
+
+Test réel facultatif (le serveur ci-dessus doit tourner) :
+
+```text
+ASSIST_WHISPER_TEST_URL=http://127.0.0.1:8000 npx jest -c backend/test/jest-integration.config.ts --runInBand backend/test/integration/assist-whisper-live.spec.ts
+```
+
+### Production
+
+`deploy/.env` : `ASSIST_SUGGESTION_PROVIDER=rules`, `ASSIST_TRANSCRIPTION_PROVIDER=whisper` (adresse et
+certificat par défaut : relais HTTPS interne de Caddy), puis :
+
+```text
+docker compose -f deploy/docker-compose.yml --env-file deploy/.env --profile whisper up -d --build
+docker compose -f deploy/docker-compose.yml --env-file deploy/.env exec whisper curl -X POST http://localhost:8000/v1/models/Systran/faster-whisper-small
+```
+
+Le port de Whisper n'est jamais publié ; seul le réseau Docker privé joint `https://caddy:8444`.
+

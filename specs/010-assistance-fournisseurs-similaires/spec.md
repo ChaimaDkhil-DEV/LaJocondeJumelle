@@ -139,6 +139,43 @@ transcription, la transcription affichée disparaît et une nouvelle est demand�
 - Réponse du modèle sans proposition exploitable : « Aucune proposition fiable n'a pu être faite ».
 - Fournisseur réel configuré en développement sans clé : refus de démarrer, comme en production.
 
+### User Story 5 - Propositions par règles en production, sans abonnement (Priority: P1)
+
+Complément du 29/10/2026 (branche `011-assistance-regles-whisper-local`). L'établissement veut des
+propositions sans service payant. Le moteur par règles existant (consignes « Priorité : … », mots des
+noms de catégories, première phrase comme titre) devient un fournisseur à part entière, `rules`,
+autorisé en production, avec les demandes similaires. La transcription de démonstration (texte fixe)
+reste interdite en production.
+
+**Independent Test**: démarrage en production avec `ASSIST_SUGGESTION_PROVIDER=rules` ; propositions
+identiques à celles du moteur de démonstration ; transcription `demo` refusée en production.
+
+**Acceptance Scenarios**:
+
+1. **Given** `ASSIST_SUGGESTION_PROVIDER=rules` en production, **When** l'API démarre, **Then** elle
+   démarre sans clé ni service externe et propose catégorie, priorité, titre et demandes similaires.
+2. **Given** `ASSIST_TRANSCRIPTION_PROVIDER=demo` en production, **When** l'API démarre, **Then** elle
+   refuse de démarrer, quel que soit le fournisseur de propositions.
+
+---
+
+### User Story 6 - Transcription locale dans un délai adapté (Priority: P2)
+
+Un vocal peut durer 180 s (réglage par défaut, jusqu'à 600 s) ; sa transcription par un serveur
+Whisper sur processeur prend bien plus que les 20 s autorisés pour les propositions. La transcription
+dispose de son propre délai configurable, calibré sur une mesure réelle. Le serveur Whisper tourne
+dans l'infrastructure de l'école, sans port publié, et l'API le joint en HTTPS par Caddy.
+
+**Independent Test**: un fournisseur simulé de 2 s aboutit en transcription (délai 4 s) et échoue en
+propositions (délai 1 s) ; mesure réelle consignée dans `docs/validation/verification-011.md`.
+
+**Acceptance Scenarios**:
+
+1. **Given** un délai de transcription supérieur à la durée de transcription, **When** un vocal est
+   transcrit, **Then** le texte s'affiche, même si ce temps dépasse le délai des propositions.
+2. **Given** la production, **When** l'API joint Whisper, **Then** l'échange est chiffré (HTTPS par
+   Caddy sur un port interne non publié) et le port de Whisper n'est jamais exposé à Internet.
+
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
@@ -172,6 +209,19 @@ transcription, la transcription affichée disparaît et une nouvelle est demand�
 - **FR-011**: Aucun test automatisé NE DOIT appeler un service extérieur ; les connecteurs sont
   vérifiés avec des réponses simulées.
 - **FR-012**: Un nouvel enregistrement vocal DOIT rendre caduque la transcription précédente.
+- **FR-013**: Le fournisseur de propositions `rules` DOIT utiliser le moteur par règles existant, sans
+  appel externe, et DOIT être autorisé en production ; la transcription `demo` DOIT rester interdite
+  en production.
+- **FR-014**: La transcription DOIT avoir son propre délai configurable (borné, valeur par défaut
+  calibrée sur une mesure réelle), indépendant du délai des propositions ; la durée maximale des
+  vocaux n'est pas réduite.
+- **FR-015**: En production, l'API DOIT joindre Whisper en HTTPS ; le service Whisper NE DOIT publier
+  aucun port ; son certificat (autorité interne de Caddy) DOIT être reconnu par l'API sans désactiver
+  la vérification TLS.
+- **FR-016**: Le déploiement DOIT transmettre à l'API les variables de l'assistance et proposer un
+  service Whisper (image de version figée, volume persistant pour les modèles) désactivé par défaut.
+- **FR-017**: Un test d'intégration facultatif PEUT utiliser un vrai serveur Whisper local, seulement
+  si une variable de test le désigne ; les tests ordinaires n'en dépendent jamais.
 
 ### Key Entities
 
@@ -194,6 +244,9 @@ transcription, la transcription affichée disparaît et une nouvelle est demand�
 - **SC-005**: 0 occurrence d'une clé, d'une adresse interne ou du texte d'une demande dans les
   journaux et réponses d'erreur.
 - **SC-006**: Le serveur refuse de démarrer dans 100 % des cas de configuration réelle incomplète.
+- **SC-007**: Avec `rules` en production, 0 appel à un service extérieur et 0 frais d'API.
+- **SC-008**: La transcription d'un vocal de la durée maximale par défaut aboutit dans le délai de
+  transcription par défaut sur le matériel de mesure consigné.
 
 ## Assumptions
 

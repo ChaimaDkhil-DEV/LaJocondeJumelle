@@ -78,7 +78,7 @@ export class AssistService {
       this.similarRequests.find(user, text),
     ]);
     const started = Date.now();
-    const raw = await this.callProvider('Propositions', provider.name, (signal) =>
+    const raw = await this.callProvider('Propositions', provider.name, this.config.assist.timeoutMs, (signal) =>
       provider.suggest(
         {
           text,
@@ -141,7 +141,7 @@ export class AssistService {
       const voice = await this.files.prepareVoice(temp);
       converted = voice.path;
       const started = Date.now();
-      const raw = await this.callProvider('Transcription', provider.name, (signal) =>
+      const raw = await this.callProvider('Transcription', provider.name, this.config.assist.transcriptionTimeoutMs, (signal) =>
         provider.transcribe({ path: voice.path, mimeType: voice.mimeType, durationSeconds: voice.durationSeconds }, signal),
       );
       const text = typeof raw === 'string' ? raw.replace(/\s+/g, ' ').trim().slice(0, MAX_TRANSCRIPT).trim() : '';
@@ -155,11 +155,16 @@ export class AssistService {
   }
 
   /**
-   * Appel d'un fournisseur borné par ASSIST_TIMEOUT_MS, même s'il ignore le signal d'annulation.
+   * Appel d'un fournisseur borné par son délai (ASSIST_TIMEOUT_MS ou ASSIST_TRANSCRIPTION_TIMEOUT_MS), même s'il ignore le signal d'annulation.
    * Échec ou délai dépassé : ASSIST_UNAVAILABLE ; le journal ne contient jamais le texte.
    */
-  private async callProvider<T>(label: string, providerName: string, call: (signal: AbortSignal) => Promise<T>): Promise<T> {
-    const signal = AbortSignal.timeout(this.config.assist.timeoutMs);
+  private async callProvider<T>(
+    label: string,
+    providerName: string,
+    timeoutMs: number,
+    call: (signal: AbortSignal) => Promise<T>,
+  ): Promise<T> {
+    const signal = AbortSignal.timeout(timeoutMs);
     const aborted = new Promise<never>((_resolve, reject) => {
       signal.addEventListener('abort', () => reject(signal.reason), { once: true });
     });

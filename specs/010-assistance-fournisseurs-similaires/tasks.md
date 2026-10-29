@@ -111,3 +111,16 @@ Aucun test n'appelle un service extérieur (`fetch` et SDK simulés).
 1. MVP : Phases 1-3 (demandes similaires), utile sans décision de l'établissement.
 2. Connecteurs (US2, US3) : livrés désactivés.
 3. US4 et finitions.
+
+---
+
+## Phase 8: Complément 011 — sans abonnement (US5, US6)
+
+- [X] T020 [US5] `backend/test/unit/config.spec.ts`, nouveau `backend/test/unit/assist-providers.spec.ts` (rouges) : `rules` accepté en production pour les propositions, refusé pour la transcription ; transcription `demo` refusée en production ; `rules` = `demoSuggest`, annulable ; puis `backend/src/config/config.ts` et `backend/src/assist/providers/assist-providers.ts`
+- [X] T021 [US6] Tests (rouges) : `ASSIST_TRANSCRIPTION_TIMEOUT_MS` de 1 000 à 300 000 ms, défaut 120 000 ; fournisseur simulé de 2 s : transcription aboutie (délai 4 s), propositions indisponibles (délai 1 s) ; puis `config.ts` et `AssistService.callProvider` (délai par appel)
+- [X] T022 [US6] Tests (rouges) puis `ASSIST_WHISPER_CA_FILE` : certificat lu à chaque appel et transmis à la connexion TLS (vérification jamais désactivée) ; transport HTTP(S) natif de Node vérifié contre un serveur local de test
+- [X] T023 [US6] `deploy/docker-compose.yml`, `deploy/Caddyfile`, `deploy/.env.example` : variables `ASSIST_*` transmises à l'API ; service `whisper` (image figée, sans port, volume des modèles, profil désactivé par défaut) ; bloc Caddy interne `:8444` `tls internal` ; volume de Caddy monté en lecture seule dans l'API
+- [X] T024 [US6] `deploy/docker-compose.dev.yml` : service `whisper` (même image, profil), sans changer les services existants
+- [X] T025 [US6] Test d'intégration facultatif `backend/test/integration/assist-whisper-live.spec.ts`, ignoré sans `ASSIST_WHISPER_TEST_URL`
+- [ ] T026 [US6] Mesure réelle (Docker) : transcription d'un vocal sans donnée personnelle, compatibilité du connecteur, calibrage du délai par défaut ; `docs/validation/verification-011.md`
+- [ ] T027 Documentation (`docs/ARCHITECTURE.md`, `quickstart.md`) et vérifications (lint, typages, unitaires, intégration, frontend, E2E concernés, `npm audit`)

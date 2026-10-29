@@ -39,3 +39,6 @@ Thumbs.db
 
 # Sauvegardes de production (jamais dans le dépôt)
 deploy/backups/
+
+# Inspirations visuelles de tiers (droits non acquis, jamais dans le dépôt)
+docs/design-reference/

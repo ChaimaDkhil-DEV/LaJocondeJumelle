@@ -63,6 +63,8 @@ export function transcriptionProviderFor(config: AssistConfig): TranscriptionPro
 export function suggestionProviderFor(config: AssistConfig): SuggestionProvider | null {
   // Connecteur réel (spec 010) : configuration complète garantie par loadConfig.
   if (config.suggestionProvider === 'claude' && config.claude) return claudeSuggestionProvider(config.claude);
+  // Propositions par règles (spec 010, US5) : moteur de `demo`, déterministe et local, permis en production.
+  if (config.suggestionProvider === 'rules') return { name: 'rules', suggest: (input, signal) => abortable(signal, () => demoSuggest(input)) };
   if (config.suggestionProvider !== 'demo') return null;
   return { name: 'demo', suggest: (input, signal) => abortable(signal, () => demoSuggest(input)) };
 }

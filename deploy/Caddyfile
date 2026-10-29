@@ -3,6 +3,9 @@
 # (défauts api:3000 et /srv) ne servent qu’aux tests locaux de cette configuration.
 {
 	email {$ACME_EMAIL}
+	# Autorité interne (relais Whisper ci-dessous) : son certificat racine reste dans /data, rien
+	# n'est installé dans le magasin du système.
+	skip_install_trust
 }
 
 {$DOMAIN} {
@@ -43,4 +46,17 @@
 		try_files {path} /index.html
 		file_server
 	}
+}
+
+# Relais HTTPS interne vers le serveur de transcription (spec 010, research R11). Le port 8444 n'est
+# jamais publié (docker-compose.yml) : seul le réseau Docker privé y accède. Certificat émis par
+# l'autorité interne de Caddy, reconnu par l'API grâce à ASSIST_WHISPER_CA_FILE. Sans le profil
+# « whisper », ce relais répond 502 ; aucun délai de lecture n'y est imposé (transcriptions longues).
+https://caddy:8444 {
+	tls internal
+
+	request_body {
+		max_size 26MB
+	}
+	reverse_proxy {$WHISPER_UPSTREAM:whisper:8000}
 }
