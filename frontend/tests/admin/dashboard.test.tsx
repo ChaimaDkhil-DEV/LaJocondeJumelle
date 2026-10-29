@@ -166,6 +166,12 @@ function setup(path = '/', handler: Handler = () => undefined, me: unknown = SUP
   return { urls, router };
 }
 
+/** Chiffre clé sans cadre (« À traiter maintenant », « Échanges ») : élément dd associé au libellé. */
+function figure(label: string): HTMLElement {
+  const term = screen.getByText(label, { selector: 'dt, dt *' }).closest('dt') as HTMLElement;
+  return term.parentElement!.querySelector('dd') as HTMLElement;
+}
+
 /** Valeur affichée dans la carte d'indicateur portant ce libellé. */
 function kpi(label: string): string {
   const card = screen.getByText(label, { selector: 'div' }).closest('.MuiPaper-root') as HTMLElement;
@@ -190,16 +196,33 @@ describe('Tableau de bord', () => {
     expect(kpi('En attente de prise en charge')).toBe('3');
     expect(kpi('Terminées')).toBe('4');
     expect(kpi('Hors délai')).toBe('2');
-    expect(kpi('En retard')).toBe('1');
-    expect(kpi('Urgentes en cours')).toBe('2');
-    // Tuiles d'alerte : l'état est écrit, pas seulement porté par la couleur de fond.
-    const tile = (label: string) => screen.getByText(label, { selector: 'div' }).closest('.MuiPaper-root') as HTMLElement;
-    expect(within(tile('En retard')).getByText('À traiter')).toBeVisible();
-    expect(within(tile('Sans employé affecté')).getByText('Rien à signaler')).toBeVisible();
-    expect(kpi('Vocaux')).toBe('3');
+    // « À traiter maintenant » : chiffres sans cadre ; seul un chiffre problématique (> 0) est coloré.
+    expect(figure('En retard')).toHaveTextContent('1');
+    expect(figure('Urgentes en cours')).toHaveTextContent('2');
+    expect(figure('Sans employé affecté')).toHaveTextContent('0');
+    expect(figure('En retard')).toHaveStyle({ color: '#dc2626' });
+    expect(figure('Urgentes en cours')).toHaveStyle({ color: '#b45309' });
+    expect(figure('Sans employé affecté')).toHaveStyle({ color: '#18181b' });
+    expect(screen.queryByText('À traiter')).not.toBeInTheDocument();
+    expect(screen.queryByText('Rien à signaler')).not.toBeInTheDocument();
+    expect(figure('Écrits')).toHaveTextContent('7');
+    expect(figure('Vocaux')).toHaveTextContent('3');
+
+    // Tableau des alertes : 4 colonnes, plus de « Statut » ; retard écrit en texte, numéro au survol.
     const alerts = screen.getByRole('table', { name: 'Demandes à traiter en priorité' });
+    expect(within(alerts).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['Demande', 'Priorité', 'Échéance', 'Affectée à']);
     expect(within(alerts).getByRole('link', { name: 'Photocopies du contrôle' })).toHaveAttribute('href', '/demandes/r1');
-    expect(within(alerts).getByText('En retard (prise en charge)', { exact: false })).toBeVisible();
+    expect(within(alerts).getByText(/^\d+ j de retard$/)).toBeVisible();
+    expect(within(alerts).queryByText(/prise en charge/)).not.toBeInTheDocument();
+    expect(within(alerts).getByText('D-2026-000001', { exact: false })).toHaveClass('tdb-ref');
+    expect(within(alerts).getByText('Urgente')).toBeVisible();
+
+    // Par catégorie : « hors délai / total », détail complet en infobulle.
+    const category = within(screen.getByRole('list', { name: 'Demandes par catégorie' })).getByRole('listitem');
+    expect(category).toHaveTextContent(/Photocopies2 hors délai sur \/ 12/);
+    // Au focus clavier comme au survol : détail complet, sans les valeurs nulles.
+    category.focus();
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('12 au total · 6 à traiter · 4 terminées · 2 hors délai');
     // Vue tableau des graphiques (accessibilité).
     expect(screen.getByRole('table', { name: 'Demandes créées et terminées par jour' })).toBeInTheDocument();
   });
@@ -278,7 +301,7 @@ describe('Tableau de bord', () => {
         : undefined,
     );
     expect(await screen.findByText('Aucune demande ne correspond à cette période et à ces filtres.')).toBeVisible();
-    expect(screen.getByText('Aucune alerte')).toBeVisible();
+    expect(screen.getByText('Aucune alerte : aucune demande en retard ni urgente en cours.')).toBeVisible();
   });
 
   it('montre l’évolution quand des demandes créées avant la période y sont terminées', async () => {

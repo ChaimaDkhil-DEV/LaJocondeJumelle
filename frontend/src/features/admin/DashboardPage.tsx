@@ -24,32 +24,28 @@ import {
   Download,
   Hourglass,
   Inbox,
-  Mic,
   MessageSquare,
   Play,
   RefreshCw,
   SearchX,
-  Siren,
   SlidersHorizontal,
   Timer,
-  TriangleAlert,
-  UserRoundX,
   type LucideIcon,
 } from 'lucide-react';
 import { useState } from 'react';
 import { Link as RouterLink, useSearchParams } from 'react-router';
 import { loadErrorMessage } from '../../api/client';
 import type { Priority } from '../../api/types';
-import { STAGE_LABELS, type DeadlineStage } from '../../components/Countdown';
+import { STAGE_LABELS } from '../../components/Countdown';
 import { visuallyHidden } from '../../components/a11y';
 import { Badge } from '../../components/Badge';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
-import { formatDateTime, formatRelative } from '../../components/format';
+import { formatDateTime, formatLateness, formatRelative } from '../../components/format';
 import { PageHeader } from '../../components/PageHeader';
-import { PRIORITY_LABELS, PriorityBadge } from '../../components/PriorityBadge';
+import { PRIORITY_LABELS, PriorityBadge, PriorityLabel } from '../../components/PriorityBadge';
 import { SectionCard } from '../../components/SectionCard';
-import { STATUS_LABELS, StatusBadge } from '../../components/StatusBadge';
+import { STATUS_LABELS } from '../../components/StatusBadge';
 import { Person } from '../../components/UserAvatar';
 import { cardShadow, font, fontSize, icon, radius, tokensOf, type AccentName } from '../../design/tokens';
 import { useRequestList } from '../requests/api';
@@ -72,6 +68,7 @@ import {
   type ActivityItem,
   type DashboardAlert,
   type DashboardFilters,
+  type DashboardSummary,
   type DurationStats,
   type PerformanceStats,
   type StatusGroup,
@@ -127,15 +124,6 @@ function scrollRegion(label: string) {
  * mobile, la page défile normalement (pas de zone défilante imbriquée).
  */
 const stickyArea = { maxHeight: { md: 560 } } as const;
-
-/** Retard : icône et texte, la couleur rouge n'est qu'un complément. */
-function OverdueBadge({ stage }: { stage: DeadlineStage }) {
-  return (
-    <Badge tone="error" icon={AlarmClock}>
-      En retard ({STAGE_LABELS[stage]})
-    </Badge>
-  );
-}
 
 const SUBJECT = 'le tableau de bord';
 
@@ -332,35 +320,19 @@ function GeneralView({ qs }: { qs: string }) {
         </Box>
       )}
 
-      <SectionCard elevated title="À traiter maintenant" icon={TriangleAlert} description="Situation actuelle, toutes périodes confondues (les autres filtres s’appliquent)." contentGap={2}>
-        <Box sx={{ ...kpiGrid, gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, minmax(0, 1fr))' } }}>
-          <KpiCard
-            label="En retard"
-            value={s.current.overdueNow}
-            tone="error"
-            alert={{ active: s.current.overdueNow > 0 }}
-            icon={AlarmClock}
-            hint="Échéance de l’étape en cours dépassée"
-          />
-          <KpiCard
-            label="Urgentes en cours"
-            value={s.current.urgentActive}
-            tone="warning"
-            alert={{ active: s.current.urgentActive > 0 }}
-            icon={Siren}
-            hint="Priorité urgente, non terminées"
-          />
-          <KpiCard
-            label="Sans employé affecté"
-            value={s.current.unassigned}
-            tone="info"
-            alert={{ active: s.current.unassigned > 0 }}
-            icon={UserRoundX}
-            hint="Envoyées ou en cours sans employé affecté"
-          />
-        </Box>
+      <SectionCard elevated title="À traiter maintenant" description="Situation actuelle, toutes périodes confondues (les autres filtres s’appliquent)." contentGap={3}>
+        <Figures
+          label="Situation actuelle"
+          items={[
+            { label: 'En retard', value: s.current.overdueNow, hint: 'Échéance de l’étape en cours dépassée', alert: 'error' },
+            { label: 'Urgentes en cours', value: s.current.urgentActive, hint: 'Priorité urgente, non terminées', alert: 'warning' },
+            { label: 'Sans employé affecté', value: s.current.unassigned, hint: 'Envoyées ou en cours sans employé affecté' },
+          ]}
+        />
         {s.alerts.length === 0 ? (
-          <EmptyState compact icon={CircleCheck} title="Aucune alerte" description="Aucune demande en retard ni urgente en cours." />
+          <Typography variant="body2" color="text.secondary">
+            Aucune alerte : aucune demande en retard ni urgente en cours.
+          </Typography>
         ) : (
           <AlertTable alerts={s.alerts} />
         )}
@@ -371,86 +343,286 @@ function GeneralView({ qs }: { qs: string }) {
           {s.byCategory.length === 0 ? (
             <EmptyState compact title="Aucune donnée" description="Aucune demande sur la période." />
           ) : (
-            <Box component="ul" aria-label="Demandes par catégorie" sx={{ listStyle: 'none', m: 0, p: 0, '& > li + li': { borderTop: 1, borderColor: 'divider' } }}>
-              {s.byCategory.map((c, index) => (
-                <Box
-                  component="li"
-                  key={c.category.id}
-                  sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1.5, px: { xs: 2, sm: 3 }, py: 1.5 }}
-                >
-                  <Box
-                    component="span"
-                    aria-hidden="true"
-                    sx={{ width: 10, height: 10, borderRadius: '50%', flex: 'none', bgcolor: t.chart.series[index % t.chart.series.length] }}
-                  />
-                  <Typography sx={{ flex: '1 1 160px', minWidth: 0, fontWeight: font.medium, overflowWrap: 'anywhere' }}>{c.category.name}</Typography>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
-                    <Badge tone="accent">{c.total} au total</Badge>
-                    <Badge tone="info">{c.active} à traiter</Badge>
-                    <Badge tone="success">{c.done} terminées</Badge>
-                    {c.overdue > 0 && <Badge tone="error">{c.overdue} hors délai</Badge>}
-                  </Box>
-                </Box>
+            <Box
+              component="ul"
+              aria-label="Demandes par catégorie"
+              sx={(theme) => ({ listStyle: 'none', m: 0, p: 0, pb: 1, '& > li + li': { borderTop: `1px solid ${tokensOf(theme).border}` } })}
+            >
+              {s.byCategory.map((c) => (
+                <CategoryRow key={c.category.id} row={c} />
               ))}
             </Box>
           )}
         </SectionCard>
-        <SectionCard elevated title="Échanges" description="Messages sur les demandes de la période (nombre seulement, jamais le contenu)." contentGap={1.5}>
-          <Box sx={{ display: 'grid', gap: 1.5 }}>
-            <KpiCard label="Écrits" value={s.messages.text} icon={MessageSquare} accent="cyan" />
-            <KpiCard label="Vocaux" value={s.messages.voice} icon={Mic} accent="indigo" />
-          </Box>
+        <SectionCard elevated title="Échanges" description="Messages sur les demandes de la période (nombre seulement, jamais le contenu).">
+          <Figures
+            label="Échanges"
+            items={[
+              { label: 'Écrits', value: s.messages.text },
+              { label: 'Vocaux', value: s.messages.voice },
+            ]}
+            stackOnMobile={false}
+          />
         </SectionCard>
       </Box>
     </Box>
   );
 }
 
+/** Libellé gris avec infobulle (survol et focus clavier) : la description n'encombre plus la carte. */
+function HintLabel({ label, hint }: { label: string; hint?: string }) {
+  if (!hint) return <>{label}</>;
+  return (
+    <Tooltip title={hint} describeChild placement="bottom-start">
+      <Box
+        component="span"
+        tabIndex={0}
+        sx={(theme) => ({
+          cursor: 'help',
+          textDecoration: 'underline dotted',
+          textUnderlineOffset: '3px',
+          textDecorationColor: tokensOf(theme).borderStrong,
+          borderRadius: '2px',
+        })}
+      >
+        {label}
+      </Box>
+    </Tooltip>
+  );
+}
+
+interface Figure {
+  label: string;
+  value: number;
+  hint?: string;
+  /** Couleur du chiffre quand il dépasse 0 : rouge (retard) ou ambre (urgence) ; absent : neutre. */
+  alert?: 'error' | 'warning';
+}
+
+/**
+ * Chiffres clés sans cadre : grand chiffre, libellé gris dessous. Seul le chiffre prend de la
+ * couleur, et seulement s'il signale un problème (> 0) ; le libellé reste écrit. Liste de
+ * définitions : le libellé (dt) est lu avant la valeur (dd), même affichée au-dessus.
+ */
+function Figures({ items, label, stackOnMobile = true }: { items: Figure[]; label: string; stackOnMobile?: boolean }) {
+  return (
+    <Box
+      component="dl"
+      aria-label={label}
+      sx={(theme) => {
+        const t = tokensOf(theme);
+        return {
+          m: 0,
+          display: 'grid',
+          gridTemplateColumns: stackOnMobile ? { xs: '1fr', sm: `repeat(${items.length}, minmax(0, 1fr))` } : `repeat(${items.length}, minmax(0, 1fr))`,
+          '& > div': { minWidth: 0, display: 'flex', flexDirection: 'column-reverse', justifyContent: 'flex-end', gap: 0.5 },
+          // Filets fins entre les chiffres : verticaux en ligne, horizontaux une fois empilés.
+          '& > div + div': stackOnMobile
+            ? { [theme.breakpoints.down('sm')]: { borderTop: `1px solid ${t.border}`, pt: 1.5, mt: 1.5 }, [theme.breakpoints.up('sm')]: { borderLeft: `1px solid ${t.border}`, pl: 3 } }
+            : { borderLeft: `1px solid ${t.border}`, pl: 3 },
+        };
+      }}
+    >
+      {items.map((f) => (
+        <div key={f.label}>
+          <Box component="dt" sx={(theme) => ({ fontSize: fontSize.sm, color: tokensOf(theme).textSecondary })}>
+            <HintLabel label={f.label} hint={f.hint} />
+          </Box>
+          <Box
+            component="dd"
+            sx={(theme) => {
+              const t = tokensOf(theme);
+              return {
+                m: 0,
+                fontSize: fontSize.xxl,
+                fontWeight: font.semibold,
+                lineHeight: 1.1,
+                letterSpacing: '-0.02em',
+                fontVariantNumeric: 'tabular-nums',
+                // Teinte franche (rouge, orange) : contraste ≥ 4,5:1 sur blanc, chiffre en grand corps.
+                color: f.alert && f.value > 0 ? t[f.alert].main : t.text,
+              };
+            }}
+          >
+            {f.value}
+          </Box>
+        </div>
+      ))}
+    </Box>
+  );
+}
+
+/**
+ * Échéance d'une alerte : texte rouge simple « 3 j de retard » (ou « En retard » sans date) ; étape
+ * et date exacte en infobulle, accessible au clavier. Sinon, la date d'échéance en gris.
+ */
+function DueText({ alert: a }: { alert: DashboardAlert }) {
+  if (a.overdueStage) {
+    // Le marqueur de retard porte sur l'étape en cours : son échéance est la date dépassée.
+    const dueAt = a.currentStage === a.overdueStage ? a.currentDueAt : null;
+    const lateness = dueAt ? formatLateness(dueAt) : null;
+    const detail = `En retard (${STAGE_LABELS[a.overdueStage]})${dueAt ? `, échéance le ${formatDateTime(dueAt)}` : ''}`;
+    return (
+      <Tooltip title={detail} describeChild placement="bottom-start">
+        <Box component="span" tabIndex={0} sx={(theme) => ({ color: tokensOf(theme).error.text, fontWeight: font.medium, borderRadius: '2px' })}>
+          {lateness ?? 'En retard'}
+        </Box>
+      </Tooltip>
+    );
+  }
+  return (
+    <Box component="span" sx={(theme) => ({ color: tokensOf(theme).textSecondary })}>
+      {a.currentDueAt ? formatDateTime(a.currentDueAt) : '—'}
+    </Box>
+  );
+}
+
+/**
+ * Alertes : titre en texte principal, catégorie en gris ; le numéro (D-2026-…) n'apparaît qu'au
+ * survol de la ligne ou au focus du lien (toujours visible sur écran tactile). Séparateurs fins,
+ * sans cadre autour du tableau. Le statut n'est écrit que s'il diffère de « Envoyée ».
+ */
 function AlertTable({ alerts }: { alerts: DashboardAlert[] }) {
   return (
-    <TableContainer component={Paper} variant="outlined" sx={stickyArea} {...scrollRegion('Demandes à traiter en priorité')}>
-      <Table size="small" stickyHeader aria-label="Demandes à traiter en priorité">
+    <TableContainer sx={stickyArea} {...scrollRegion('Demandes à traiter en priorité')}>
+      <Table
+        size="small"
+        stickyHeader
+        aria-label="Demandes à traiter en priorité"
+        sx={(theme) => {
+          const t = tokensOf(theme);
+          return {
+            minWidth: 600,
+            '& th': { bgcolor: t.surface, color: t.textSecondary, fontWeight: font.medium, borderBottom: `1px solid ${t.border}` },
+            '& td': { borderBottom: `1px solid ${t.border}`, py: 1.25, verticalAlign: 'middle' },
+            '& tbody tr:last-of-type td': { borderBottom: 0 },
+            '& th:first-of-type, & td:first-of-type': { pl: 0 },
+            '& .tdb-ref': { opacity: 0, transition: 'opacity 150ms' },
+            '& tbody tr:hover .tdb-ref, & tbody tr:focus-within .tdb-ref': { opacity: 1 },
+            '@media (hover: none)': { '& .tdb-ref': { opacity: 1 } },
+          };
+        }}
+      >
         <TableHead>
           <TableRow>
             <TableCell>Demande</TableCell>
             <TableCell>Priorité</TableCell>
-            <TableCell>Statut</TableCell>
             <TableCell>Échéance</TableCell>
-            <TableCell>Employé affecté</TableCell>
+            <TableCell>Affectée à</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
           {alerts.map((a) => (
             <TableRow key={a.id}>
-              <TableCell sx={{ minWidth: 200 }}>
-                <Box component={RouterLink} to={`/demandes/${a.id}`} sx={{ color: 'inherit', fontWeight: font.medium }}>
+              <TableCell sx={{ minWidth: 220 }}>
+                <Box
+                  component={RouterLink}
+                  to={`/demandes/${a.id}`}
+                  sx={{ color: 'text.primary', fontWeight: font.medium, textDecoration: 'none', overflowWrap: 'anywhere', '&:hover, &:focus-visible': { textDecoration: 'underline' } }}
+                >
                   {a.title}
                 </Box>
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                  {a.reference} · {a.category.name}
+                  {a.category.name}
+                  {a.status !== 'SENT' && ` · ${STATUS_LABELS[a.status]}`}
+                  <Box component="span" className="tdb-ref" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                    {' '}
+                    · {a.reference}
+                  </Box>
                 </Typography>
               </TableCell>
-              <TableCell>
-                <PriorityBadge priority={a.priority} />
-              </TableCell>
-              <TableCell>
-                <StatusBadge status={a.status} />
+              <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                <PriorityLabel priority={a.priority} />
               </TableCell>
               <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                {a.overdueStage ? (
-                  <OverdueBadge stage={a.overdueStage} />
-                ) : a.currentDueAt ? (
-                  formatDateTime(a.currentDueAt)
+                <DueText alert={a} />
+              </TableCell>
+              <TableCell>
+                {a.assignee ? (
+                  <Person name={a.assignee.displayName} id={a.assignee.id} size={24} neutral />
                 ) : (
-                  '—'
+                  <Box component="span" sx={{ color: 'text.secondary' }}>
+                    Personne
+                  </Box>
                 )}
               </TableCell>
-              <TableCell>{a.assignee ? <Person name={a.assignee.displayName} id={a.assignee.id} size={24} /> : 'Personne'}</TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
     </TableContainer>
+  );
+}
+
+type CategoryStats = DashboardSummary['byCategory'][number];
+
+/**
+ * Une catégorie (service) : nom, mini-barre (rouge : hors délai, accent : terminées, gris : le
+ * reste) et « hors délai / total ». Détail complet, sans les zéros, en infobulle (survol et focus).
+ */
+function CategoryRow({ row: c }: { row: CategoryStats }) {
+  const detail = [
+    `${c.total} au total`,
+    c.active > 0 && `${c.active} à traiter`,
+    c.done > 0 && `${c.done} ${c.done > 1 ? 'terminées' : 'terminée'}`,
+    c.overdue > 0 && `${c.overdue} hors délai`,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  // Une demande hors délai peut aussi être terminée : la barre ne dépasse jamais le total.
+  const overdueShare = c.total > 0 ? Math.min(c.overdue, c.total) / c.total : 0;
+  const doneShare = c.total > 0 ? Math.min(c.done, c.total - Math.min(c.overdue, c.total)) / c.total : 0;
+  return (
+    <Tooltip title={detail} describeChild placement="top-start">
+      <Box
+        component="li"
+        tabIndex={0}
+        sx={{
+          display: 'grid',
+          // Petit écran : nom et indicateur sur une ligne, barre pleine largeur dessous.
+          gridTemplateColumns: { xs: 'minmax(0, 1fr) auto', sm: 'minmax(0, 1fr) minmax(56px, 160px) auto' },
+          gridTemplateAreas: { xs: '"name count" "bar bar"', sm: '"name bar count"' },
+          alignItems: 'center',
+          columnGap: { xs: 1.5, sm: 2 },
+          rowGap: 1,
+          px: { xs: 2, sm: 3 },
+          py: 1.5,
+          '&:focus-visible': { outlineOffset: -2 },
+        }}
+      >
+        <Typography sx={{ gridArea: 'name', fontWeight: font.medium, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.category.name}</Typography>
+        <Box
+          aria-hidden="true"
+          sx={(theme) => ({ gridArea: 'bar', display: 'flex', height: 6, borderRadius: 3, overflow: 'hidden', bgcolor: tokensOf(theme).surfaceMuted })}
+        >
+          {overdueShare > 0 && <Box sx={(theme) => ({ width: `${overdueShare * 100}%`, bgcolor: tokensOf(theme).error.main })} />}
+          {doneShare > 0 && <Box sx={(theme) => ({ width: `${doneShare * 100}%`, bgcolor: tokensOf(theme).accent.main })} />}
+        </Box>
+        <Box component="span" sx={(theme) => ({ gridArea: 'count', fontVariantNumeric: 'tabular-nums', fontSize: fontSize.sm, color: tokensOf(theme).textSecondary, whiteSpace: 'nowrap' })}>
+          {c.overdue > 0 ? (
+            <>
+              <Box component="span" sx={(theme) => ({ color: tokensOf(theme).error.text, fontWeight: font.semibold })}>
+                {c.overdue}
+              </Box>
+              <Box component="span" sx={visuallyHidden}>
+                {' '}
+                hors délai sur
+              </Box>
+              <span aria-hidden="true"> / </span>
+              {c.total}
+            </>
+          ) : (
+            <>
+              {c.total}
+              <Box component="span" sx={visuallyHidden}>
+                {' '}
+                au total
+              </Box>
+            </>
+          )}
+        </Box>
+      </Box>
+    </Tooltip>
   );
 }
 

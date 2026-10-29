@@ -1,7 +1,7 @@
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import type { ReactNode } from 'react';
-import { avatarColors, font, fontSize } from '../design/tokens';
+import { avatarColors, font, fontSize, tokensOf } from '../design/tokens';
 
 /** « Marie Dupont » → « MD » ; « reprographie » → « RE ». */
 export function initials(name: string): string {
@@ -23,16 +23,18 @@ interface UserAvatarProps {
   /** Clé de couleur (identifiant) ; par défaut le nom. */
   id?: string;
   size?: number;
+  /** Gris neutre, identique pour tous (listes denses : la couleur reste réservée aux alertes). */
+  neutral?: boolean;
 }
 
 /** Avatar rond à initiales. Décoratif : le nom est toujours écrit à côté. */
-export function UserAvatar({ name, id, size = 28 }: UserAvatarProps) {
+export function UserAvatar({ name, id, size = 28, neutral = false }: UserAvatarProps) {
   const { bg, fg } = colorFor(id ?? name);
   return (
     <Box
       component="span"
       aria-hidden="true"
-      sx={{
+      sx={(theme) => ({
         width: size,
         height: size,
         flex: 'none',
@@ -40,13 +42,14 @@ export function UserAvatar({ name, id, size = 28 }: UserAvatarProps) {
         alignItems: 'center',
         justifyContent: 'center',
         borderRadius: '50%',
-        bgcolor: bg,
-        color: fg,
+        bgcolor: neutral ? tokensOf(theme).surfaceMuted : bg,
+        color: neutral ? tokensOf(theme).textSecondary : fg,
+        border: neutral ? `1px solid ${tokensOf(theme).border}` : undefined,
         fontSize: fontSize.xs,
         fontWeight: font.medium,
         letterSpacing: '0.02em',
         userSelect: 'none',
-      }}
+      })}
     >
       {initials(name)}
     </Box>
@@ -61,13 +64,15 @@ interface PersonProps {
   secondary?: ReactNode;
   /** Texte placé avant le nom, ex. « De : ». */
   prefix?: string;
+  /** Avatar gris neutre (voir UserAvatar). */
+  neutral?: boolean;
 }
 
 /** Avatar + nom (et éventuellement une ligne secondaire), partout où un auteur apparaît. */
-export function Person({ name, id, size = 28, secondary, prefix }: PersonProps) {
+export function Person({ name, id, size = 28, secondary, prefix, neutral = false }: PersonProps) {
   return (
     <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
-      <UserAvatar name={name} id={id} size={size} />
+      <UserAvatar name={name} id={id} size={size} neutral={neutral} />
       <Box component="span" sx={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         <Typography component="span" variant="body2" sx={{ fontWeight: font.medium, color: 'text.primary', overflowWrap: 'anywhere' }}>
           {prefix && (
