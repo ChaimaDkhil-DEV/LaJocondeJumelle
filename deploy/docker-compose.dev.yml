@@ -25,6 +25,19 @@ services:
     extra_hosts:
       - 'host.docker.internal:host-gateway'
 
+  # Transcription locale (spec 010) : même image figée qu'en production, désactivée par défaut.
+  #   docker compose -f deploy/docker-compose.dev.yml --profile whisper up -d whisper
+  # L'API de développement tourne hors de Docker : port publié sur le poste seulement (127.0.0.1),
+  # jamais sur le réseau. backend/.env : ASSIST_WHISPER_URL=http://127.0.0.1:8000.
+  whisper:
+    image: ghcr.io/speaches-ai/speaches:0.8.3-cpu@sha256:21e3df06d842fb7802ab470dd77c25f0e8c0d22950e8d8c6ae886e851af53ef8
+    profiles: ['whisper']
+    ports:
+      - '127.0.0.1:8000:8000'
+    volumes:
+      - whisper-models-dev:/home/ubuntu/.cache/huggingface/hub
+
 volumes:
   pgdata-dev:
   caddy-dev-data:
+  whisper-models-dev:

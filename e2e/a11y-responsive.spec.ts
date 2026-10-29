@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { fillDescription } from './support/click';
 import { expectNoA11yViolations } from './support/axe';
 import { login } from './support/login';
 
@@ -328,17 +329,15 @@ test('009 — propositions automatiques et consignes à 320 px, au clavier, sans
   await login(page, 'enseignante');
   await page.goto('/demandes/nouvelle');
   await expect(page.getByRole('heading', { name: 'Nouvelle demande' })).toBeVisible();
-  await page.getByLabel('Description (facultative)').fill('La photocopieuse du premier étage est en panne.');
+  await fillDescription(page, 'La photocopieuse du premier étage est en panne.');
 
   const propose = page.getByRole('button', { name: 'Proposer une catégorie et une priorité' });
   await tabTo(page, propose);
   await page.keyboard.press('Enter');
-  const panel = page.getByRole('region', { name: 'Propositions automatiques' });
-  const applyAll = panel.getByRole('button', { name: 'Tout appliquer' });
-  await expect(applyAll).toBeVisible();
-  await tabTo(page, applyAll);
-  await page.keyboard.press('Enter');
+  // Les champs vides reçoivent les propositions ; l'analyse se relance au clavier.
+  await expect(page.getByText(/^Champs préremplis d’après votre message/)).toBeVisible();
   await expect(page.getByRole('radio', { name: 'Haute' })).toBeChecked();
+  await tabTo(page, page.getByRole('button', { name: 'Relancer l’analyse' }));
   await checkScreen(page, 'création avec propositions');
 
   await page.getByRole('button', { name: 'Se déconnecter' }).click();

@@ -68,6 +68,54 @@ describe('demoSuggest', () => {
     expect(result.categoryId).toBeUndefined();
   });
 
+  it('transcription d’un vocal : le titre écarte les formules de politesse et d’introduction', () => {
+    const text = 'Bonjour. Oui, alors je vous appelle parce que la connexion Internet ne fonctionne plus en salle informatique. Merci.';
+    expect(demoSuggest({ text, categories, guidelines: [] }).title).toBe('La connexion Internet ne fonctionne plus en salle informatique');
+  });
+
+  it('plusieurs catégories plausibles : aucune n’est choisie, la question est posée', () => {
+    const two = [
+      { id: 'cat-info', name: 'Maintenance informatique' },
+      { id: 'cat-bat', name: 'Maintenance bâtiment' },
+    ];
+    const result = demoSuggest({ text: 'Une maintenance est nécessaire dans la salle 4', categories: two, guidelines: [] });
+    expect(result.categoryId).toBeUndefined();
+    expect(result.missing).toEqual(['Plusieurs catégories sont possibles (« Maintenance informatique », « Maintenance bâtiment ») : choisissez-la.']);
+  });
+
+  describe('priorité d’après les faits, pas d’après le ton', () => {
+    const priorityOf = (text: string) => demoSuggest({ text, categories, guidelines: [] }).priority;
+
+    it('danger signalé : Urgente', () => {
+      expect(priorityOf('Il y a une fuite d’eau importante dans le couloir du deuxième')).toBe('URGENT');
+    });
+
+    it('échéance proche et impact sur les cours : Haute', () => {
+      expect(priorityOf('Le vidéoprojecteur de la salle 12 ne fonctionne plus et j’ai cours ce matin')).toBe('HIGH');
+    });
+
+    it('mécontentement et « urgent » sans fait précis : Moyenne, jamais Urgente', () => {
+      expect(priorityOf('C’est inadmissible, encore une fois, c’est urgent, faites quelque chose')).toBe('MEDIUM');
+    });
+
+    it('gêne sans échéance : Moyenne', () => {
+      expect(priorityOf('La photocopieuse du premier étage est en panne')).toBe('MEDIUM');
+    });
+
+    it('aucun fait d’urgence : priorité laissée à l’utilisateur', () => {
+      expect(priorityOf('Pourriez-vous commander des feuilles de couleur pour la rentrée')).toBeUndefined();
+    });
+
+    it('une consigne fixe la priorité ; seul un danger la relève', () => {
+      expect(demoSuggest({ text: 'La photocopieuse est en panne, il y a de la fumée', categories, guidelines: [pannes] }).priority).toBe(
+        'URGENT',
+      );
+      expect(
+        demoSuggest({ text: 'La photocopieuse est en panne, c’est urgent pour ce matin', categories, guidelines: [pannes] }).priority,
+      ).toBe('HIGH');
+    });
+  });
+
   it('texte vide : aucune proposition', () => {
     expect(demoSuggest({ text: '   ', categories, guidelines: [pannes] })).toEqual({ missing: ['Décrivez le besoin en quelques mots.'], sourceIds: [] });
   });

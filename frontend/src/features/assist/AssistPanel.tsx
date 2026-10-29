@@ -1,30 +1,20 @@
-import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
+import Collapse from '@mui/material/Collapse';
 import Link from '@mui/material/Link';
-import Paper from '@mui/material/Paper';
-import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import { Check, FileText, Sparkles } from 'lucide-react';
-import { useId, useRef, useState, useSyncExternalStore } from 'react';
+import { CircleAlert } from 'lucide-react';
+import { useEffect, useEffectEvent, useId, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { Link as RouterLink } from 'react-router';
 import { ApiError } from '../../api/client';
 import { useClientSettings } from '../../api/settings';
+import { StatusBadge } from '../../components/StatusBadge';
 import { visuallyHidden } from '../../components/a11y';
-import { ConfirmDialog } from '../../components/ConfirmDialog';
-import { PRIORITY_LABELS } from '../../components/PriorityBadge';
-import { STATUS_LABELS } from '../../components/StatusBadge';
-import { font, icon } from '../../design/tokens';
-import type { RequestFormState } from '../requests/RequestForm';
+import { font, tokensOf } from '../../design/tokens';
+import { SUGGESTED_HINT, type FormChange, type RequestFormState, type SuggestedValues } from '../requests/RequestForm';
 import type { VoiceRecording } from '../voice/VoiceRecorder';
-import { requestSuggestions, requestTranscription, type SuggestionResult } from './api';
-
-interface AssistPanelProps {
-  form: RequestFormState;
-  /** Jeton du dernier résultat (null : aucun), transmis à l'envoi de la demande. */
-  onToken: (token: string | null) => void;
-}
+import { requestSuggestions, requestTranscription, type Suggestion, type SuggestionResult } from './api';
 
 function subscribeOnline(onChange: () => void): () => void {
   window.addEventListener('online', onChange);
@@ -42,272 +32,260 @@ function useOnline(): boolean {
 
 type State =
   | { kind: 'idle' }
-  | { kind: 'loading' }
+  | { kind: 'transcribing' }
+  | { kind: 'analysing' }
   | { kind: 'done'; result: SuggestionResult }
   | { kind: 'error'; message: string };
 
-function Row({ label, value, applyLabel, onApply }: { label: string; value: string; applyLabel: string; onApply: () => void }) {
+/** Vocal et catégorie à partir desquels les propositions affichées ont été calculées. */
+interface Basis {
+  voice: VoiceRecording | null;
+  categoryId: string | undefined;
+}
+
+const VOICE_KEPT = 'Votre message vocal est conservé : remplissez les champs vous-même ou relancez l’analyse.';
+
+/**
+ * Propositions automatiques (spec 009, US1, US4) du formulaire « Nouvelle demande ». Dès qu'un vocal
+ * est enregistré, il est transcrit puis analysé : catégorie, destinataire (règles d'affectation),
+ * priorité et titre proposés remplissent les champs vides ou déjà proposés, jamais un choix de
+ * l'utilisateur. Le vocal n'est jamais touché : une analyse en échec le laisse dans le formulaire,
+ * prêt à l'envoi. Affichage réduit : badge « Suggéré » sur les champs (RequestFields), une phrase
+ * sous le vocal (AssistNote), destinataire à confirmer, demandes similaires repliées.
+ */
+export function useAssist(form: RequestFormState, onToken: (token: string | null) => void) {
+  const { assistSuggestions, assistTranscription } = useClientSettings();
+  const online = useOnline();
+  const [state, setState] = useState<State>({ kind: 'idle' });
+  // Transcription liée à l'enregistrement : un nouveau vocal la rend caduque.
+  const [transcript, setTranscript] = useState<{ voice: VoiceRecording; text: string } | null>(null);
+  const [basis, setBasis] = useState<Basis | null>(null);
+  // Une nouvelle demande de propositions remplace la précédente : la réponse tardive est ignorée.
+  const lastCall = useRef(0);
+  // Formulaire du dernier rendu : une réponse arrive parfois après des saisies de l'utilisateur.
+  const formRef = useRef(form);
+  useEffect(() => {
+    formRef.current = form;
+  });
+  const available = assistSuggestions && online;
+
+  /** Reprend les propositions dans les champs vides ou déjà proposés ; un choix manuel reste. */
+  function applyResult(suggestion: Suggestion | null): void {
+    if (!suggestion) return;
+    const current = formRef.current;
+    const values: SuggestedValues = {};
+    // Changer de catégorie effacerait un destinataire choisi à la main : on ne le fait pas.
+    const recipientManual = current.isManual('recipientId');
+    let category = current.categoryId;
+    if (suggestion.categoryId && !current.isManual('categoryId') && !recipientManual) {
+      values.categoryId = suggestion.categoryId;
+      category = suggestion.categoryId;
+    }
+    if (suggestion.recipientId && category === suggestion.categoryId && !recipientManual) values.recipientId = suggestion.recipientId;
+    if (suggestion.priority && !current.isManual('priority')) values.priority = suggestion.priority;
+    if (suggestion.title && !current.isManual('title')) values.title = suggestion.title;
+    current.applySuggestion(values);
+  }
+
+  /** `changed` : saisie qui vient d'avoir lieu, pas encore visible dans `form`. */
+  async function propose(changed: { voice?: VoiceRecording | null; categoryId?: string } = {}): Promise<void> {
+    const call = ++lastCall.current;
+    const current = formRef.current;
+    const voice = 'voice' in changed ? (changed.voice ?? null) : current.voice;
+    const description = current.description.trim();
+    // Catégorie choisie par l'utilisateur : conservée, elle oriente destinataire et priorité.
+    const chosenCategory = changed.categoryId ?? (current.isManual('categoryId') ? current.categoryId : undefined);
+    let heard = transcript && transcript.voice === voice ? transcript.text : null;
+    try {
+      if (voice && heard === null && assistTranscription) {
+        setState({ kind: 'transcribing' });
+        try {
+          heard = (await requestTranscription(voice)).text;
+        } catch (error) {
+          if (call !== lastCall.current) return;
+          const reason = error instanceof ApiError ? error.message : 'La transcription du message vocal n’a pas abouti.';
+          setState({ kind: 'error', message: `${reason} ${VOICE_KEPT}` });
+          return;
+        }
+        if (call !== lastCall.current) return;
+        setTranscript({ voice, text: heard });
+      }
+      const text = [description, heard?.trim()].filter(Boolean).join('\n');
+      if (!text) {
+        setState({ kind: 'idle' });
+        return;
+      }
+      setState({ kind: 'analysing' });
+      const result = await requestSuggestions(text, chosenCategory);
+      if (call !== lastCall.current) return;
+      setState({ kind: 'done', result });
+      setBasis({ voice, categoryId: result.suggestion?.categoryId ?? chosenCategory });
+      onToken(result.token);
+      applyResult(result.suggestion);
+    } catch (error) {
+      if (call !== lastCall.current) return;
+      const reason = error instanceof ApiError ? error.message : 'Les propositions ne sont pas disponibles pour le moment.';
+      setState({ kind: 'error', message: voice ? `${reason} ${VOICE_KEPT}` : reason });
+    }
+  }
+
+  /**
+   * Nouveau vocal (ou vocal supprimé) : les propositions de l'ancien ne valent plus et sont retirées
+   * des champs (les choix de l'utilisateur restent) ; un nouveau vocal est aussitôt analysé.
+   */
+  const onVoiceChange = (voice: VoiceRecording | null) => {
+    const pending = state.kind === 'transcribing' || state.kind === 'analysing';
+    if ((basis && basis.voice !== voice) || pending || state.kind === 'error') {
+      lastCall.current++;
+      setState({ kind: 'idle' });
+      setBasis(null);
+      onToken(null);
+      if (basis?.voice) formRef.current.clearSuggested();
+    }
+    if (voice && available && assistTranscription) void propose({ voice });
+  };
+
+  /** Catégorie choisie à la main après une analyse : nouvelle proposition de destinataire. */
+  const onCategoryChange = (categoryId: string) => {
+    if (state.kind !== 'done' || !categoryId || categoryId === basis?.categoryId) return;
+    if (formRef.current.categories.find((c) => c.id === categoryId)?.circuit !== 'A_DIRECT') return;
+    void propose({ categoryId });
+  };
+
+  const onFormChange = useEffectEvent((change: FormChange) =>
+    change.type === 'voice' ? onVoiceChange(change.voice) : onCategoryChange(change.categoryId),
+  );
+  const { subscribe } = form;
+  useEffect(() => subscribe((change) => onFormChange(change)), [subscribe]);
+
+  const description = form.description.trim();
+  const spoken = transcript && transcript.voice === form.voice ? transcript.text : null;
+  const mustTranscribe = Boolean(form.voice) && spoken === null && assistTranscription;
+  const result = state.kind === 'done' ? state.result : null;
+
+  return {
+    form,
+    available,
+    state,
+    busy: state.kind === 'transcribing' || state.kind === 'analysing',
+    canPropose: Boolean(description || spoken?.trim() || mustTranscribe),
+    hasBasis: Boolean(basis),
+    propose: () => void propose(),
+    result,
+    // Après une analyse, un destinataire encore vide (circuit A) demande une action : à confirmer.
+    recipientToConfirm: Boolean(result && form.isCircuitA && !form.recipientId),
+  };
+}
+
+export type Assist = ReturnType<typeof useAssist>;
+
+/** Petit lien texte de la phrase sous le vocal (cible tactile ≥ 44 px). */
+const linkSx = { minHeight: 44, px: 0.75, py: 0, fontSize: 13, fontWeight: font.medium } as const;
+
+/**
+ * Une seule phrase, en petit et en gris, sous le message vocal : analyse en cours, « Champs
+ * préremplis d'après votre message : vérifiez-les. » (avec « Voir pourquoi », replié), ou erreur
+ * (le vocal reste dans le formulaire). Petits liens pour relancer ou lancer l'analyse.
+ */
+export function AssistNote({ assist }: { assist: Assist }) {
+  const { form, state, busy, result } = assist;
+  const [showWhy, setShowWhy] = useState(false);
+  const whyId = useId();
+  if (!assist.available) return null;
+
+  const suggestion = result?.suggestion ?? null;
+  let sentence: string | null = null;
+  if (state.kind === 'transcribing') sentence = 'Transcription du message vocal…';
+  else if (state.kind === 'analysing') sentence = 'Recherche de propositions…';
+  else if (state.kind === 'error') sentence = state.message;
+  else if (result && !suggestion) sentence = 'Aucune suggestion fiable : remplissez les champs vous-même.';
+  else if (suggestion && form.suggested.size > 0) sentence = SUGGESTED_HINT;
+  const why = [suggestion?.reason, suggestion?.recipientReason && `Destinataire : ${suggestion.recipientReason}`].filter(Boolean);
+  // Description seule, sans vocal : rien ne se déclenche tout seul, l'analyse se demande ici.
+  const action = assist.hasBasis || state.kind === 'error' ? 'Relancer l’analyse' : 'Proposer une catégorie et une priorité';
+  if (!sentence && !assist.canPropose && !assist.hasBasis) return null;
+
   return (
-    <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, py: 0.75 }}>
-      <Box sx={{ minWidth: 0, flex: '1 1 12rem' }}>
-        <Typography variant="body2" color="text.secondary">
-          {label}
-        </Typography>
-        <Typography sx={{ fontWeight: font.medium, overflowWrap: 'anywhere' }}>{value}</Typography>
+    <Box aria-live="polite">
+      <Box
+        sx={(theme) => ({
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          columnGap: 0.5,
+          color: state.kind === 'error' ? tokensOf(theme).warning.text : tokensOf(theme).textSecondary,
+        })}
+      >
+        {busy && <CircularProgress size={12} aria-hidden="true" sx={{ color: 'inherit', mr: 0.5 }} />}
+        {state.kind === 'error' && <CircleAlert size={14} aria-hidden="true" style={{ flex: 'none', marginRight: 4 }} />}
+        {sentence && (
+          <Typography component="span" sx={{ fontSize: 13, color: 'inherit', mr: 0.5 }}>
+            {sentence}
+          </Typography>
+        )}
+        {state.kind === 'done' && why.length > 0 && (
+          <Button size="small" variant="text" aria-expanded={showWhy} aria-controls={whyId} onClick={() => setShowWhy((v) => !v)} sx={linkSx}>
+            Voir pourquoi
+          </Button>
+        )}
+        {/* Reste actif pendant le chargement : une nouvelle demande remplace la précédente. */}
+        {assist.canPropose && (
+          <Button size="small" variant="text" onClick={assist.propose} sx={linkSx}>
+            {action}
+          </Button>
+        )}
       </Box>
-      <Button size="small" variant="text" startIcon={<Check size={icon.sm} aria-hidden="true" />} aria-label={applyLabel} onClick={onApply}>
-        Appliquer
-      </Button>
+      {state.kind === 'done' && why.length > 0 && (
+        <Collapse in={showWhy} id={whyId}>
+          <Box sx={{ display: 'grid', gap: 0.25, pb: 0.5 }}>
+            {why.map((line) => (
+              <Typography key={line} sx={{ fontSize: 13 }} color="text.secondary">
+                {line}
+              </Typography>
+            ))}
+          </Box>
+        </Collapse>
+      )}
     </Box>
   );
 }
 
 /**
- * Propositions automatiques (spec 009, US1, US4) sous les champs de « Nouvelle demande » : titre,
- * catégorie et priorité proposés d'après les consignes ; seul un clic les applique. Un vocal est
- * d'abord transcrit ; la transcription, à vérifier, reste distincte de la description.
+ * Demandes similaires (spec 010), pour le lien repliable du formulaire : libellé (« 3 demandes
+ * similaires ») et liste, une ligne par demande (référence, titre, statut), ouverte dans un nouvel
+ * onglet pour laisser le formulaire intact.
  */
-export function AssistPanel({ form, onToken }: AssistPanelProps) {
-  const { assistSuggestions, assistTranscription } = useClientSettings();
-  const online = useOnline();
-  const titleId = useId();
-  const [state, setState] = useState<State>({ kind: 'idle' });
-  // Transcription liée à l'enregistrement : un nouveau vocal la rend caduque.
-  const [transcript, setTranscript] = useState<{ voice: VoiceRecording; text: string } | null>(null);
-  const [confirmReplace, setConfirmReplace] = useState(false);
-  // Une nouvelle demande de propositions remplace la précédente : la réponse tardive est ignorée.
-  const lastCall = useRef(0);
-
-  const heading = (
-    <Typography id={titleId} component="h2" variant="subtitle1" sx={{ fontWeight: font.medium, display: 'flex', alignItems: 'center', gap: 1 }}>
-      <Sparkles size={icon.md} aria-hidden="true" />
-      Propositions automatiques
-    </Typography>
-  );
-
-  if (!assistSuggestions || !online) {
-    return (
-      <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-        {assistSuggestions ? 'Les propositions automatiques demandent une connexion.' : 'Les propositions automatiques ne sont pas disponibles.'}
-      </Typography>
-    );
-  }
-
-  const description = form.description.trim();
-  const spoken = transcript && transcript.voice === form.voice ? transcript.text : null;
-  const mustTranscribe = Boolean(form.voice) && spoken === null && assistTranscription;
-  const canPropose = Boolean(description || spoken?.trim() || mustTranscribe);
-
-  async function propose(): Promise<void> {
-    const call = ++lastCall.current;
-    setState({ kind: 'loading' });
-    try {
-      let heard = spoken;
-      if (mustTranscribe && form.voice) {
-        const voice = form.voice;
-        heard = (await requestTranscription(voice)).text;
-        if (call !== lastCall.current) return;
-        setTranscript({ voice, text: heard });
-      }
-      const text = [description, heard?.trim()].filter(Boolean).join('\n');
-      const result = await requestSuggestions(text);
-      if (call !== lastCall.current) return;
-      setState({ kind: 'done', result });
-      onToken(result.token);
-    } catch (error) {
-      if (call !== lastCall.current) return;
-      setState({ kind: 'error', message: error instanceof ApiError ? error.message : 'Les propositions ne sont pas disponibles pour le moment.' });
-    }
-  }
-
-  const result = state.kind === 'done' ? state.result : null;
-  const suggestion = result?.suggestion ?? null;
-  const categoryName = suggestion?.categoryId ? form.categories.find((c) => c.id === suggestion.categoryId)?.name : undefined;
-
-  const applyTitle = () => suggestion?.title && form.setTitle(suggestion.title);
-  const applyCategory = () => categoryName && suggestion?.categoryId && form.setCategoryId(suggestion.categoryId);
-  const applyPriority = () => suggestion?.priority && form.setPriority(suggestion.priority);
-
-  return (
-    <Paper component="section" variant="outlined" aria-labelledby={titleId} sx={{ mt: 2, p: { xs: 2, md: 2.5 } }}>
-      {heading}
-      <Box sx={{ mt: 1.5 }}>
-        {/* Reste actif pendant le chargement : une nouvelle demande remplace la précédente. */}
-        <Button
-          variant="outlined"
-          disabled={!canPropose}
-          aria-busy={state.kind === 'loading'}
-          startIcon={
-            state.kind === 'loading' ? <CircularProgress size={icon.sm} aria-hidden="true" /> : <Sparkles size={icon.sm} aria-hidden="true" />
-          }
-          onClick={() => void propose()}
-        >
-          Proposer une catégorie et une priorité
-        </Button>
-        {!canPropose && (
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            Écrivez une description ou enregistrez un vocal.
-          </Typography>
-        )}
-      </Box>
-
-      {spoken !== null && transcript && (
-        <Box sx={{ mt: 2 }}>
-          <TextField
-            id="assist-transcription"
-            label="Transcription (à vérifier)"
-            multiline
-            minRows={2}
-            fullWidth
-            value={spoken}
-            onChange={(e) => setTranscript({ voice: transcript.voice, text: e.target.value })}
-            helperText="Corrigez le texte si besoin : il sert aux propositions, pas à la demande."
-            slotProps={{ htmlInput: { maxLength: 4000 } }}
-          />
-          <Button
-            size="small"
-            sx={{ mt: 1 }}
-            disabled={!spoken.trim()}
-            startIcon={<FileText size={icon.sm} aria-hidden="true" />}
-            onClick={() => (description ? setConfirmReplace(true) : form.setDescription(spoken.trim()))}
+export function similarRequestsSlot(assist: Assist): { label: string; list: ReactNode } | null {
+  const similar = assist.result?.similar ?? [];
+  if (similar.length === 0) return null;
+  return {
+    label: similar.length === 1 ? '1 demande similaire' : `${similar.length} demandes similaires`,
+    list: (
+      <Box component="ul" aria-label="Demandes similaires" sx={{ m: 0, p: 0, listStyle: 'none' }}>
+        {similar.map((r) => (
+          <Box
+            component="li"
+            key={r.id}
+            sx={(theme) => ({ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, minHeight: 44, borderTop: `1px solid ${tokensOf(theme).border}` })}
           >
-            Utiliser comme description
-          </Button>
-        </Box>
-      )}
-      <ConfirmDialog
-        open={confirmReplace}
-        title="Remplacer la description actuelle ?"
-        confirmLabel="Remplacer"
-        onConfirm={() => {
-          if (spoken) form.setDescription(spoken.trim());
-          setConfirmReplace(false);
-        }}
-        onClose={() => setConfirmReplace(false)}
-      >
-        La description saisie sera remplacée par la transcription du message vocal.
-      </ConfirmDialog>
-
-      <Box aria-live="polite" sx={{ mt: 1.5 }}>
-        {state.kind === 'loading' && (
-          <Typography variant="body2" color="text.secondary">
-            Recherche de propositions…
-          </Typography>
-        )}
-        {state.kind === 'error' && <Alert severity="warning">{state.message}</Alert>}
-        {result && !suggestion && (
-          <Typography variant="body2">Aucune proposition fiable n’a pu être faite. Vous pouvez remplir la demande vous-même.</Typography>
-        )}
-        {suggestion && (
-          <Box>
-            {suggestion.title && <Row label="Titre" value={suggestion.title} applyLabel="Appliquer le titre proposé" onApply={applyTitle} />}
-            {categoryName && <Row label="Catégorie" value={categoryName} applyLabel="Appliquer la catégorie proposée" onApply={applyCategory} />}
-            {suggestion.priority && (
-              <Row
-                label="Priorité"
-                value={PRIORITY_LABELS[suggestion.priority]}
-                applyLabel="Appliquer la priorité proposée"
-                onApply={applyPriority}
-              />
-            )}
-            <Button
-              variant="contained"
-              size="small"
-              sx={{ mt: 1 }}
-              onClick={() => {
-                applyTitle();
-                applyCategory();
-                applyPriority();
-              }}
+            <Link
+              component={RouterLink}
+              to={`/demandes/${r.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              variant="body2"
+              sx={{ minWidth: 0, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
             >
-              Tout appliquer
-            </Button>
-            {suggestion.reason && (
-              <Typography variant="body2" sx={{ mt: 1.5 }}>
-                <Box component="span" sx={{ fontWeight: font.medium }}>
-                  Pourquoi :{' '}
-                </Box>
-                <span>{suggestion.reason}</span>
-              </Typography>
-            )}
-            {suggestion.missing.length > 0 && (
-              <Box sx={{ mt: 1 }}>
-                <Typography variant="body2" sx={{ fontWeight: font.medium }}>
-                  À préciser :
-                </Typography>
-                <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
-                  {suggestion.missing.map((m) => (
-                    <Typography component="li" variant="body2" key={m}>
-                      {m}
-                    </Typography>
-                  ))}
-                </Box>
+              {r.reference} · {r.title}
+              <Box component="span" sx={visuallyHidden}>
+                {' '}
+                (nouvel onglet)
               </Box>
-            )}
+            </Link>
+            <StatusBadge status={r.status} />
           </Box>
-        )}
-        {result && (
-          <Box sx={{ mt: 1.5 }}>
-            {result.noGuideline || result.sources.length === 0 ? (
-              <Typography variant="body2" color="text.secondary">
-                Aucune consigne ne correspond à cette demande.
-              </Typography>
-            ) : (
-              <>
-                <Typography variant="body2" sx={{ fontWeight: font.medium }}>
-                  Consignes utilisées
-                </Typography>
-                <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
-                  {result.sources.map((s) => (
-                    <Box component="li" key={s.id} sx={{ mt: 0.5 }}>
-                      <Typography variant="body2" sx={{ fontWeight: font.medium, overflowWrap: 'anywhere' }}>
-                        {s.title}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
-                        {s.excerpt}
-                      </Typography>
-                    </Box>
-                  ))}
-                </Box>
-              </>
-            )}
-          </Box>
-        )}
-        {/* Demandes similaires (spec 010) : ouvertes dans un nouvel onglet, le formulaire reste intact. */}
-        {result && (result.similar ?? []).length > 0 && (
-          <Box sx={{ mt: 1.5 }}>
-            <Typography variant="body2" sx={{ fontWeight: font.medium }}>
-              Demandes similaires
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Vérifiez qu’il ne s’agit pas d’un doublon.
-            </Typography>
-            <Box component="ul" aria-label="Demandes similaires" sx={{ m: 0, mt: 0.5, pl: 2.5 }}>
-              {(result.similar ?? []).map((r) => (
-                <Box component="li" key={r.id} sx={{ mt: 0.5 }}>
-                  <Link
-                    component={RouterLink}
-                    to={`/demandes/${r.id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    variant="body2"
-                    sx={{ overflowWrap: 'anywhere' }}
-                  >
-                    {r.reference} · {r.title}
-                    <Box component="span" sx={visuallyHidden}>
-                      {' '}
-                      (nouvel onglet)
-                    </Box>
-                  </Link>
-                  <Typography variant="body2" color="text.secondary">
-                    {r.categoryName} · {PRIORITY_LABELS[r.priority]} · {STATUS_LABELS[r.status]}
-                  </Typography>
-                </Box>
-              ))}
-            </Box>
-          </Box>
-        )}
+        ))}
       </Box>
-    </Paper>
-  );
+    ),
+  };
 }

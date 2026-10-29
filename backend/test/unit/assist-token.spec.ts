@@ -16,6 +16,13 @@ describe('jeton des propositions automatiques', () => {
     expect(readAssistToken(SECRET, token, 'u1', new Date(NOW.getTime() + 60_000))).toEqual(PAYLOAD);
   });
 
+  it('transporte le destinataire proposé ; un destinataire mal formé invalide le jeton', () => {
+    const withRecipient = { ...PAYLOAD, recipientId: '6f1c0b0e-3333-4c2a-9b1a-000000000003' };
+    expect(readAssistToken(SECRET, signAssistToken(SECRET, 'u1', withRecipient, NOW), 'u1', NOW)).toEqual(withRecipient);
+    const malformed = { ...PAYLOAD, recipientId: 42 } as unknown as AssistTokenPayload;
+    expect(readAssistToken(SECRET, signAssistToken(SECRET, 'u1', malformed, NOW), 'u1', NOW)).toBeNull();
+  });
+
   it('refuse un autre utilisateur', () => {
     expect(readAssistToken(SECRET, signAssistToken(SECRET, 'u1', PAYLOAD, NOW), 'u2', NOW)).toBeNull();
   });

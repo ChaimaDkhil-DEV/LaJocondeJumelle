@@ -75,3 +75,32 @@
   « référence · titre » (lien `target="_blank" rel="noopener"`, mention masquée « nouvel onglet »),
   puis catégorie, priorité et statut en texte. Test du remplacement de la transcription : la
   transcription est liée à l'objet d'enregistrement (déjà le cas), le test le prouve.
+
+## R9 — Propositions par règles en production (FR-013, complément 011)
+
+- **Décision** : nouvelle valeur `rules` pour `ASSIST_SUGGESTION_PROVIDER`, branchée sur
+  `demoSuggest` (même moteur que `demo`), autorisée en production. `demo` garde son sens « données de
+  démonstration » et reste refusé en production, notamment pour la transcription (texte fixe).
+- **Pourquoi** : le moteur par règles est déterministe, local et gratuit ; seul son nom `demo` le
+  bloquait en production. Le fournisseur `rules` n'existe pas pour la transcription.
+- **Alternative écartée** : autoriser `demo` en production (laisserait passer la fausse transcription).
+
+## R10 — Délai propre à la transcription (FR-014)
+
+- **Décision** : `ASSIST_TRANSCRIPTION_TIMEOUT_MS`, de 1 000 à 300 000 ms, défaut 120 000 ms
+  (provisoire, calibré par la mesure réelle de `verification-011.md`). Plafond sous le
+  `requestTimeout` de Node (300 s) ; le client HTTP du navigateur et Caddy n'imposent aucun délai.
+- **Pourquoi** : `voiceMaxSeconds` vaut 180 s par défaut (600 s au plus) ; la durée maximale des
+  vocaux n'est pas réduite sans preuve.
+
+## R11 — HTTPS interne par Caddy (FR-015)
+
+- **Décision** : bloc Caddy sur un port interne **non publié** (8444) avec `tls internal`, en relais
+  vers le service `whisper` ; l'API joint `https://caddy:8444` et reconnaît l'autorité interne de
+  Caddy par `ASSIST_WHISPER_CA_FILE` (certificat racine dans le volume de Caddy, monté en lecture
+  seule). Le connecteur lit ce fichier **à chaque appel** : Caddy démarre après l'API
+  (`depends_on`), le certificat n'existe donc pas encore au premier démarrage de l'API.
+- **Pourquoi** : chiffrement sans désactiver la vérification TLS, sans port exposé ; un bloc sur
+  80/443 serait joignable depuis Internet par son nom d'hôte.
+- **Alternatives écartées** : HTTP sur le réseau Docker (contraire au principe IV) ;
+  `NODE_EXTRA_CA_CERTS` (lu une seule fois au démarrage, avant que le certificat existe).

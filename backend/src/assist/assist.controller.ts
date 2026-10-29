@@ -23,7 +23,7 @@ export class AssistController {
   @Post('suggestions')
   @HttpCode(200)
   suggest(@CurrentUser() user: AuthenticatedUser, @Body() dto: SuggestDto, @Req() req: Request): Promise<SuggestionResult> {
-    return this.assist.suggest(user, dto.text, contextOf(req));
+    return this.assist.suggest(user, dto.text, contextOf(req), dto.categoryId);
   }
 
   /** Vocal du formulaire (multipart, champ `file`), contrôlé comme POST /api/files puis effacé. */

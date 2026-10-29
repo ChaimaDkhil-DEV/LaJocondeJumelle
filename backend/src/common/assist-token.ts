@@ -11,6 +11,8 @@ export interface AssistTokenPayload {
   title?: string;
   categoryId?: string;
   priority?: Priority;
+  /** Destinataire proposé (création vocale assistée), absent des jetons antérieurs. */
+  recipientId?: string;
   sources: Array<{ id: string; title: string }>;
 }
 
@@ -43,6 +45,7 @@ function isPayload(value: unknown): value is AssistTokenPayload {
     (p.title === undefined || typeof p.title === 'string') &&
     (p.categoryId === undefined || typeof p.categoryId === 'string') &&
     (p.priority === undefined || (typeof p.priority === 'string' && PRIORITIES.includes(p.priority))) &&
+    (p.recipientId === undefined || typeof p.recipientId === 'string') &&
     Array.isArray(p.sources) &&
     p.sources.every(
       (s: unknown) =>

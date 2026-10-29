@@ -30,25 +30,34 @@ export interface AppConfig {
 
 /**
  * `disabled` : aucune assistance ; `demo` : fournisseur local déterministe, refusé en production ;
- * `claude` / `whisper` : connecteurs réels (spec 010), à n'activer qu'après la décision de
- * l'établissement (accord de traitement, conservation).
+ * `rules` : propositions par règles (même moteur que `demo`, consignes et mots-clés), sans service
+ * externe, autorisé en production (spec 010, US5) ; `claude` / `whisper` : connecteurs réels
+ * (spec 010), à n'activer qu'après la décision de l'établissement (accord de traitement, conservation).
  */
-export type SuggestionProviderName = 'disabled' | 'demo' | 'claude';
+export type SuggestionProviderName = 'disabled' | 'demo' | 'rules' | 'claude';
 export type TranscriptionProviderName = 'disabled' | 'demo' | 'whisper';
 
 export interface AssistConfig {
   suggestionProvider: SuggestionProviderName;
   transcriptionProvider: TranscriptionProviderName;
-  /** Délai maximal d'un appel de fournisseur (1 000 à 20 000 ms). */
+  /** Délai maximal d'un appel de fournisseur de propositions (1 000 à 20 000 ms). */
   timeoutMs: number;
+  /**
+   * Délai maximal d'une transcription (1 000 à 300 000 ms) : un vocal peut durer jusqu'à
+   * voiceMaxSeconds (180 s par défaut), et sa transcription sur processeur prend plus de 20 s.
+   */
+  transcriptionTimeoutMs: number;
   /** Appels (transcription et propositions réunies) par utilisateur et par 5 minutes. */
   rateLimit: number;
   /** Texte renvoyé par la transcription de démonstration ; null : phrase par défaut. */
   demoTranscript: string | null;
   /** Connecteur Claude (`claude` seulement) : clé secrète et modèle. */
   claude: { apiKey: string; model: string } | null;
-  /** Connecteur Whisper auto-hébergé (`whisper` seulement) : adresse, modèle, clé facultative. */
-  whisper: { url: string; model: string; apiKey: string | null } | null;
+  /**
+   * Connecteur Whisper auto-hébergé (`whisper` seulement) : adresse, modèle, clé facultative et
+   * certificat d'autorité supplémentaire (autorité interne de Caddy, spec 010 R11), lu à chaque appel.
+   */
+  whisper: { url: string; model: string; apiKey: string | null; caFile: string | null } | null;
 }
 
 export class ConfigError extends Error {}
@@ -81,9 +90,11 @@ export function schoolTimezoneFromEnv(env: NodeJS.ProcessEnv = process.env): str
   return cachedTimezone.value;
 }
 
-const SUGGESTION_PROVIDERS: readonly SuggestionProviderName[] = ['disabled', 'demo', 'claude'];
+const SUGGESTION_PROVIDERS: readonly SuggestionProviderName[] = ['disabled', 'demo', 'rules', 'claude'];
 const TRANSCRIPTION_PROVIDERS: readonly TranscriptionProviderName[] = ['disabled', 'demo', 'whisper'];
 const DEFAULT_ASSIST_TIMEOUT_MS = 15_000;
+// Valeur provisoire, à calibrer sur une mesure réelle (docs/validation/verification-011.md).
+const DEFAULT_TRANSCRIPTION_TIMEOUT_MS = 120_000;
 const DEFAULT_ASSIST_RATE_LIMIT = 10;
 const DEFAULT_CLAUDE_MODEL = 'claude-opus-5-5';
 const DEFAULT_WHISPER_MODEL = 'Systran/faster-whisper-small';
@@ -130,6 +141,7 @@ function parseWhisper(env: NodeJS.ProcessEnv, isProduction: boolean): AssistConf
     url: raw!.replace(/\/+$/, ''),
     model: trimmed(env.ASSIST_WHISPER_MODEL) ?? DEFAULT_WHISPER_MODEL,
     apiKey: trimmed(env.ASSIST_WHISPER_API_KEY),
+    caFile: trimmed(env.ASSIST_WHISPER_CA_FILE),
   };
 }
 
@@ -154,6 +166,14 @@ function parseAssist(env: NodeJS.ProcessEnv, isProduction: boolean): AssistConfi
     suggestionProvider,
     transcriptionProvider,
     timeoutMs: parseBoundedInt('ASSIST_TIMEOUT_MS', env.ASSIST_TIMEOUT_MS, DEFAULT_ASSIST_TIMEOUT_MS, 1_000, 20_000),
+    // Plafond sous le requestTimeout de Node (300 s) : le navigateur et Caddy n'imposent aucun délai.
+    transcriptionTimeoutMs: parseBoundedInt(
+      'ASSIST_TRANSCRIPTION_TIMEOUT_MS',
+      env.ASSIST_TRANSCRIPTION_TIMEOUT_MS,
+      DEFAULT_TRANSCRIPTION_TIMEOUT_MS,
+      1_000,
+      300_000,
+    ),
     rateLimit: parseBoundedInt('ASSIST_RATE_LIMIT', env.ASSIST_RATE_LIMIT, DEFAULT_ASSIST_RATE_LIMIT, 1, 1_000),
     demoTranscript: env.ASSIST_DEMO_TRANSCRIPT?.trim() || null,
     // Configuration retenue seulement pour le connecteur choisi, et complète dès le démarrage.

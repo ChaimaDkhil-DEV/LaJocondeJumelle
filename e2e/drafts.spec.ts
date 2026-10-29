@@ -1,4 +1,5 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
+import { fillDescription } from './support/click';
 import { expectNoA11yViolations } from './support/axe';
 import { login } from './support/login';
 
@@ -82,7 +83,7 @@ test.describe('Brouillons de demande (spec 007)', () => {
     await expect(page.getByLabel('Titre')).toHaveValue(title);
     await expect(page.getByRole('button', { name: 'Lire le message vocal' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Remplacer le message vocal' })).toBeVisible();
-    await page.getByLabel('Description (facultative)').fill('Vingt-huit copies recto verso.');
+    await fillDescription(page, 'Vingt-huit copies recto verso.');
     await page.getByRole('button', { name: 'Envoyer la demande' }).click();
 
     await expect(page.getByRole('heading', { name: title })).toBeVisible();

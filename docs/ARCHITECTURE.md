@@ -860,3 +860,24 @@ Spécification : `specs/010-assistance-fournisseurs-similaires/`.
   (`ConfigError`). Leur activation envoie des données hors de l'application et exige la décision de
   l'établissement (accord de traitement, conservation). Les tests n'appellent aucun service
   extérieur (`fetch` et SDK simulés).
+
+### Compléments du 29/10/2026 (branche `011-assistance-regles-whisper-local`) : sans abonnement
+
+- **Propositions par règles** : `ASSIST_SUGGESTION_PROVIDER=rules` branche le moteur `demoSuggest`
+  (consignes « Priorité : … », mots des noms de catégories, première phrase comme titre) et les
+  demandes similaires, **autorisé en production**, sans service externe ni frais. `demo` reste
+  refusé en production (la transcription `demo` renvoie un texte fixe).
+- **Délai propre à la transcription** : `ASSIST_TRANSCRIPTION_TIMEOUT_MS` (1 000 à 300 000 ms, défaut
+  120 000 ms) ; `ASSIST_TIMEOUT_MS` (20 s au plus) ne concerne plus que les propositions. Plafond sous
+  le `requestTimeout` de Node (300 s) ; ni le client HTTP du navigateur ni Caddy n'imposent de délai.
+- **Whisper local en HTTPS** : service `whisper` (image `speaches` 0.8.3-cpu figée par empreinte,
+  profil `whisper` désactivé par défaut, **aucun port publié**, volume `whisper_models`) ; Caddy le
+  relaie sur `https://caddy:8444`, port interne jamais publié, certificat de son autorité interne.
+  L'API reconnaît cette autorité par `ASSIST_WHISPER_CA_FILE` (volume de Caddy monté en lecture
+  seule), relu à chaque appel par le connecteur (transport `http`/`https` natif de Node, vérification
+  TLS jamais désactivée), car Caddy démarre après l'API.
+- **Variables** transmises à l'API par `deploy/docker-compose.yml` (valeurs vides = défauts de
+  l'API) ; documentées dans `deploy/.env.example` et `backend/.env.example`.
+- **Test réel facultatif** : `backend/test/integration/assist-whisper-live.spec.ts`, ignoré sans
+  `ASSIST_WHISPER_TEST_URL`.
+

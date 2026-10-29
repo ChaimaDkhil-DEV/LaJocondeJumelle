@@ -98,6 +98,7 @@ describe('loadConfig — assistance IA (009, FR-019, FR-020)', () => {
       suggestionProvider: 'disabled',
       transcriptionProvider: 'disabled',
       timeoutMs: 15_000,
+      transcriptionTimeoutMs: 120_000,
       rateLimit: 10,
       demoTranscript: null,
       claude: null,
@@ -150,7 +151,7 @@ describe('loadConfig — assistance IA (009, FR-019, FR-020)', () => {
   it('connecteur Whisper : adresse valide obligatoire, https en production, modèle par défaut', () => {
     const config = loadConfig({ ...valid, ASSIST_TRANSCRIPTION_PROVIDER: 'whisper', ASSIST_WHISPER_URL: 'http://whisper.ecole.local:8000' });
     expect(config.assist.transcriptionProvider).toBe('whisper');
-    expect(config.assist.whisper).toEqual({ url: 'http://whisper.ecole.local:8000', model: 'Systran/faster-whisper-small', apiKey: null });
+    expect(config.assist.whisper).toEqual({ url: 'http://whisper.ecole.local:8000', model: 'Systran/faster-whisper-small', apiKey: null, caFile: null });
     expect(
       loadConfig({
         ...valid,
@@ -160,7 +161,12 @@ describe('loadConfig — assistance IA (009, FR-019, FR-020)', () => {
         ASSIST_WHISPER_MODEL: 'Systran/faster-whisper-medium',
         ASSIST_WHISPER_API_KEY: 'secret',
       }).assist.whisper,
-    ).toEqual({ url: 'https://whisper.ecole.fr', model: 'Systran/faster-whisper-medium', apiKey: 'secret' });
+    ).toEqual({ url: 'https://whisper.ecole.fr', model: 'Systran/faster-whisper-medium', apiKey: 'secret', caFile: null });
+    // 011 : autorité interne de Caddy (certificat racine, lu à chaque appel par le connecteur).
+    expect(
+      loadConfig({ ...valid, ASSIST_TRANSCRIPTION_PROVIDER: 'whisper', ASSIST_WHISPER_URL: 'https://caddy:8444', ASSIST_WHISPER_CA_FILE: ' /caddy/root.crt ' })
+        .assist.whisper?.caFile,
+    ).toBe('/caddy/root.crt');
     for (const url of [undefined, '', 'pas une url', 'ftp://whisper.ecole.fr']) {
       expect(() => loadConfig({ ...valid, ASSIST_TRANSCRIPTION_PROVIDER: 'whisper', ASSIST_WHISPER_URL: url })).toThrow(ConfigError);
     }
@@ -170,9 +176,33 @@ describe('loadConfig — assistance IA (009, FR-019, FR-020)', () => {
     ).toThrow(/https/);
   });
 
+  // 011 : propositions par règles (moteur demoSuggest), sans service externe, autorisées en production.
+  it('fournisseur de propositions rules : accepté en production, sans clé ni configuration', () => {
+    const config = loadConfig({ ...valid, NODE_ENV: 'production', ASSIST_SUGGESTION_PROVIDER: 'rules' });
+    expect(config.assist).toMatchObject({ suggestionProvider: 'rules', claude: null });
+    expect(loadConfig({ ...valid, ASSIST_SUGGESTION_PROVIDER: 'rules' }).assist.suggestionProvider).toBe('rules');
+  });
+
+  it('rules n’existe pas pour la transcription ; la transcription demo reste interdite en production', () => {
+    expect(() => loadConfig({ ...valid, ASSIST_TRANSCRIPTION_PROVIDER: 'rules' })).toThrow(ConfigError);
+    expect(() =>
+      loadConfig({ ...valid, NODE_ENV: 'production', ASSIST_SUGGESTION_PROVIDER: 'rules', ASSIST_TRANSCRIPTION_PROVIDER: 'demo' }),
+    ).toThrow(/ASSIST_TRANSCRIPTION_PROVIDER=demo/);
+  });
+
   it('n’accepte chaque connecteur que pour son usage', () => {
     expect(() => loadConfig({ ...valid, ASSIST_SUGGESTION_PROVIDER: 'whisper' })).toThrow(ConfigError);
     expect(() => loadConfig({ ...valid, ASSIST_TRANSCRIPTION_PROVIDER: 'claude', ANTHROPIC_API_KEY: 'k' })).toThrow(ConfigError);
+  });
+
+  // 011 : délai propre à la transcription (un vocal de 3 min sur processeur dépasse 20 s).
+  it('borne le délai de transcription entre 1 000 et 300 000 ms, indépendamment des propositions', () => {
+    const config = loadConfig({ ...valid, ASSIST_TRANSCRIPTION_TIMEOUT_MS: '180000', ASSIST_TIMEOUT_MS: '5000' });
+    expect(config.assist).toMatchObject({ transcriptionTimeoutMs: 180_000, timeoutMs: 5000 });
+    expect(loadConfig({ ...valid, ASSIST_TRANSCRIPTION_TIMEOUT_MS: '300000' }).assist.transcriptionTimeoutMs).toBe(300_000);
+    for (const value of ['999', '300001', 'abc', '2.5']) {
+      expect(() => loadConfig({ ...valid, ASSIST_TRANSCRIPTION_TIMEOUT_MS: value })).toThrow(ConfigError);
+    }
   });
 
   it('exige une limite d’appels entière et positive', () => {

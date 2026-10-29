@@ -1,4 +1,5 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
+import { fillDescription } from './support/click';
 import { expectNoA11yViolations } from './support/axe';
 import { installFakeMediaRecorder } from './support/fake-media-recorder';
 import { login } from './support/login';
@@ -101,7 +102,7 @@ test('V3 — une coupure réseau conserve la demande, renvoyée une seule fois',
   await login(page, 'enseignante');
   await page.goto('/demandes/nouvelle');
   await fillCommonFields(page, title);
-  await page.getByLabel('Description (facultative)').fill('20 exemplaires couleur');
+  await fillDescription(page, '20 exemplaires couleur');
 
   await page.context().setOffline(true);
   await page.getByRole('button', { name: 'Envoyer la demande' }).click();
@@ -148,7 +149,7 @@ test('V4 — micro refusé : explication, et envoi possible avec une description
   await expect(page.getByRole('alert')).toContainText('micro');
   await expect(page.getByRole('alert')).toContainText('description écrite');
 
-  await page.getByLabel('Description (facultative)').fill('Merci de photocopier le document posé sur votre bureau.');
+  await fillDescription(page, 'Merci de photocopier le document posé sur votre bureau.');
   await page.getByRole('button', { name: 'Envoyer la demande' }).click();
   await expect(page.getByRole('heading', { name: title })).toBeVisible();
 });

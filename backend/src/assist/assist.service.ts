@@ -9,10 +9,11 @@ import type { AppConfig } from '../config/config';
 import { APP_CONFIG } from '../config/config.module';
 import { FilesService, type UploadedTempFile } from '../files/files.service';
 import { canCreateInCategory } from '../requests/domain/access-policy';
-import { RequestPolicyLoader, toPolicyCategory } from '../requests/request-policy.loader';
+import { RequestPolicyLoader, toPolicyCategory, type CategoryWithMembers } from '../requests/request-policy.loader';
 import type { RequestContext } from '../requests/requests.service';
 import { AssistRateLimiter } from './assist-rate-limiter';
-import { sanitizeSuggestion } from './domain/sanitize-suggestion';
+import { sanitizeSuggestion, type CleanSuggestion } from './domain/sanitize-suggestion';
+import { suggestRecipient, type RecipientSuggestion } from './domain/suggest-recipient';
 import { GuidelinesService } from './guidelines.service';
 import { SimilarRequestsService, type SimilarRequest } from './similar-requests.service';
 import {
@@ -31,6 +32,13 @@ export interface SuggestionResult {
     categoryId?: string;
     priority?: Priority;
     reason?: string;
+    /**
+     * Destinataire autorisé pour la catégorie proposée (ou choisie), d'après les règles
+     * d'affectation ; absent : à confirmer par l'utilisateur, ou choisi par l'administration.
+     */
+    recipientId?: string;
+    recipientName?: string;
+    recipientReason?: string;
     missing: string[];
   } | null;
   /** Consignes citées par la proposition. */
@@ -64,11 +72,17 @@ export class AssistService {
     private readonly audit: AuditService,
   ) {}
 
-  async suggest(user: AuthenticatedUser, text: string, ctx: RequestContext): Promise<SuggestionResult> {
+  /**
+   * `chosenCategoryId` : catégorie déjà choisie par l'utilisateur ; elle seule est transmise au
+   * fournisseur, qui ne peut donc pas en proposer une autre.
+   */
+  async suggest(user: AuthenticatedUser, text: string, ctx: RequestContext, chosenCategoryId?: string): Promise<SuggestionResult> {
     const provider = this.suggestions;
     if (!provider) throw new AppException('ASSIST_DISABLED');
-    const categories = await this.creatableCategories(user, ctx);
+    const creatable = await this.creatableCategories(user, ctx);
     await this.consume(user, ctx);
+    const chosen = creatable.find((c) => c.id === chosenCategoryId);
+    const categories = (chosen ? [chosen] : creatable).map((c) => ({ id: c.id, name: c.name }));
 
     const [found, similar] = await Promise.all([
       this.guidelines.search(
@@ -78,7 +92,7 @@ export class AssistService {
       this.similarRequests.find(user, text),
     ]);
     const started = Date.now();
-    const raw = await this.callProvider('Propositions', provider.name, (signal) =>
+    const raw = await this.callProvider('Propositions', provider.name, this.config.assist.timeoutMs, (signal) =>
       provider.suggest(
         {
           text,
@@ -90,10 +104,13 @@ export class AssistService {
       ),
     );
 
-    const { suggestion, discarded } = sanitizeSuggestion(raw, {
+    const sanitized = sanitizeSuggestion(raw, {
       categoryIds: categories.map((c) => c.id),
       sourceIds: found.map((g) => g.id),
     });
+    const { discarded } = sanitized;
+    let suggestion: CleanSuggestion | null = sanitized.suggestion;
+    if (chosen) suggestion = { missing: [], sourceIds: [], ...suggestion, categoryId: chosen.id };
     this.logger.log(
       `Propositions (fournisseur ${provider.name}, ${Date.now() - started} ms, ${found.length} consigne(s), ${discarded} champ(s) écarté(s))`,
     );
@@ -105,11 +122,14 @@ export class AssistService {
 
     // Les consignes citées sont renvoyées dans `sources`, pas dans la proposition.
     const { title, categoryId, priority, reason, missing } = suggestion;
+    const category = categoryId ? creatable.find((c) => c.id === categoryId) : undefined;
+    const recipient = category ? await this.recipientFor(user, category, text) : null;
     const fields = {
       ...(title !== undefined ? { title } : {}),
       ...(categoryId !== undefined ? { categoryId } : {}),
       ...(priority !== undefined ? { priority } : {}),
       ...(reason !== undefined ? { reason } : {}),
+      ...(recipient ?? {}),
       missing,
     };
     const token = signAssistToken(
@@ -119,6 +139,7 @@ export class AssistService {
         ...(fields.title !== undefined ? { title: fields.title } : {}),
         ...(fields.categoryId !== undefined ? { categoryId: fields.categoryId } : {}),
         ...(fields.priority !== undefined ? { priority: fields.priority } : {}),
+        ...(recipient ? { recipientId: recipient.recipientId } : {}),
         sources: sources.map(({ id, title }) => ({ id, title })),
       },
       new Date(),
@@ -141,7 +162,7 @@ export class AssistService {
       const voice = await this.files.prepareVoice(temp);
       converted = voice.path;
       const started = Date.now();
-      const raw = await this.callProvider('Transcription', provider.name, (signal) =>
+      const raw = await this.callProvider('Transcription', provider.name, this.config.assist.transcriptionTimeoutMs, (signal) =>
         provider.transcribe({ path: voice.path, mimeType: voice.mimeType, durationSeconds: voice.durationSeconds }, signal),
       );
       const text = typeof raw === 'string' ? raw.replace(/\s+/g, ' ').trim().slice(0, MAX_TRANSCRIPT).trim() : '';
@@ -155,11 +176,16 @@ export class AssistService {
   }
 
   /**
-   * Appel d'un fournisseur borné par ASSIST_TIMEOUT_MS, même s'il ignore le signal d'annulation.
+   * Appel d'un fournisseur borné par son délai (ASSIST_TIMEOUT_MS ou ASSIST_TRANSCRIPTION_TIMEOUT_MS), même s'il ignore le signal d'annulation.
    * Échec ou délai dépassé : ASSIST_UNAVAILABLE ; le journal ne contient jamais le texte.
    */
-  private async callProvider<T>(label: string, providerName: string, call: (signal: AbortSignal) => Promise<T>): Promise<T> {
-    const signal = AbortSignal.timeout(this.config.assist.timeoutMs);
+  private async callProvider<T>(
+    label: string,
+    providerName: string,
+    timeoutMs: number,
+    call: (signal: AbortSignal) => Promise<T>,
+  ): Promise<T> {
+    const signal = AbortSignal.timeout(timeoutMs);
     const aborted = new Promise<never>((_resolve, reject) => {
       signal.addEventListener('abort', () => reject(signal.reason), { once: true });
     });
@@ -177,11 +203,19 @@ export class AssistService {
     }
   }
 
+  /**
+   * Destinataire proposé : seulement parmi ceux que les règles d'affectation autorisent pour cette
+   * catégorie et ce demandeur (mêmes règles que le formulaire et que l'envoi) ; circuit B : aucun.
+   */
+  private async recipientFor(user: AuthenticatedUser, category: CategoryWithMembers, text: string): Promise<RecipientSuggestion | null> {
+    return suggestRecipient(text, await this.policies.recipients(category, user.id));
+  }
+
   /** Catégories de demande de travail où l'utilisateur peut créer ; aucune : refus journalisé. */
-  private async creatableCategories(user: AuthenticatedUser, ctx: RequestContext): Promise<Array<{ id: string; name: string }>> {
-    const categories = (await this.policies.categories({ active: true, kind: 'WORK' }))
-      .filter((c) => canCreateInCategory(user, toPolicyCategory(c)))
-      .map((c) => ({ id: c.id, name: c.name }));
+  private async creatableCategories(user: AuthenticatedUser, ctx: RequestContext): Promise<CategoryWithMembers[]> {
+    const categories = (await this.policies.categories({ active: true, kind: 'WORK' })).filter((c) =>
+      canCreateInCategory(user, toPolicyCategory(c)),
+    );
     if (categories.length === 0) {
       await this.logDenied(user, 'NO_CATEGORY', ctx);
       throw new AppException('NOT_FOUND');

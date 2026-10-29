@@ -42,14 +42,46 @@ services:
       PRE_MIGRATION_BACKUP_MAX_AGE_MINUTES: ${PRE_MIGRATION_BACKUP_MAX_AGE_MINUTES:-60}
       # Fuseau de l'école (jours et heures locales des affectations), identifiant IANA.
       SCHOOL_TIMEZONE: ${SCHOOL_TIMEZONE:-${TZ:-Europe/Paris}}
+      # Assistance aux demandes (specs 009 et 010) : désactivée par défaut ; valeurs vides = défauts
+      # de l'API. `demo` est refusé en production ; `rules` n'utilise aucun service externe.
+      ASSIST_SUGGESTION_PROVIDER: ${ASSIST_SUGGESTION_PROVIDER:-disabled}
+      ASSIST_TRANSCRIPTION_PROVIDER: ${ASSIST_TRANSCRIPTION_PROVIDER:-disabled}
+      ASSIST_TIMEOUT_MS: ${ASSIST_TIMEOUT_MS:-}
+      ASSIST_TRANSCRIPTION_TIMEOUT_MS: ${ASSIST_TRANSCRIPTION_TIMEOUT_MS:-}
+      ASSIST_RATE_LIMIT: ${ASSIST_RATE_LIMIT:-}
+      # Transcription locale : relais HTTPS interne de Caddy (port 8444 non publié) et certificat de
+      # son autorité interne, lu à chaque appel dans le volume de Caddy (monté en lecture seule).
+      ASSIST_WHISPER_URL: ${ASSIST_WHISPER_URL:-https://caddy:8444}
+      ASSIST_WHISPER_MODEL: ${ASSIST_WHISPER_MODEL:-}
+      ASSIST_WHISPER_API_KEY: ${ASSIST_WHISPER_API_KEY:-}
+      ASSIST_WHISPER_CA_FILE: ${ASSIST_WHISPER_CA_FILE:-/caddy-data/caddy/pki/authorities/local/root.crt}
+      # Connecteur Claude (service payant, décision de l'établissement requise) : clé jamais commitée.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ASSIST_CLAUDE_MODEL: ${ASSIST_CLAUDE_MODEL:-}
     volumes:
       # Vocaux, photos et documents : jamais servis par Caddy, lus uniquement via l'API.
       - files:/data/files
+      # Certificat racine de l'autorité interne de Caddy (relais HTTPS vers Whisper), lecture seule.
+      - caddy_data:/caddy-data:ro
       # Lecture seule : l'API vérifie la présence d'une sauvegarde récente avant de migrer.
       - ${BACKUP_DIR:-./backups}:/backups:ro
     depends_on:
       db:
         condition: service_healthy
+
+  # Transcription locale (spec 010, research R5 et R11) : serveur Whisper compatible OpenAI, sans
+  # service payant ; l'audio ne quitte pas le serveur. Désactivé par défaut, démarré avec le profil :
+  #   docker compose -f deploy/docker-compose.yml --env-file deploy/.env --profile whisper up -d
+  # Aucun port publié : l'API le joint en HTTPS par Caddy (https://caddy:8444).
+  whisper:
+    image: ghcr.io/speaches-ai/speaches:0.8.3-cpu@sha256:21e3df06d842fb7802ab470dd77c25f0e8c0d22950e8d8c6ae886e851af53ef8
+    profiles: ['whisper']
+    restart: unless-stopped
+    expose:
+      - '8000'
+    volumes:
+      # Modèles téléchargés (Hugging Face), conservés entre deux redémarrages.
+      - whisper_models:/home/ubuntu/.cache/huggingface/hub
 
   db:
     image: postgres:17
@@ -98,3 +130,4 @@ volumes:
   files:
   caddy_data:
   caddy_config:
+  whisper_models:

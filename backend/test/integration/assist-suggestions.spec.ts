@@ -98,6 +98,8 @@ describe('POST /api/assist/suggestions', () => {
       title: res.body.suggestion.title,
       categoryId: photocopiesId,
       priority: 'HIGH',
+      // Seul destinataire de « Photocopies » : proposé d'après les règles d'affectation.
+      recipientId: await userId(prisma, 'reprographie'),
       sources: [{ id: guidelineId, title: 'Pannes de reprographie' }],
     });
     // FR-010 : aucune écriture métier.
@@ -360,7 +362,7 @@ describe('Assistance désactivée', () => {
 
 /** 009, US4 (T034) : fournisseur en erreur ou trop lent, limite d'appels, journal sans le texte. */
 describe('Indisponibilité et limite d’appels', () => {
-  withEnv({ ASSIST_TIMEOUT_MS: '1000', ASSIST_RATE_LIMIT: '10' });
+  withEnv({ ASSIST_TIMEOUT_MS: '1000', ASSIST_TRANSCRIPTION_TIMEOUT_MS: '1000', ASSIST_RATE_LIMIT: '10' });
   const prisma = new PrismaClient();
   let app: INestApplication;
   let enseignante: string;
@@ -443,5 +445,54 @@ describe('Indisponibilité et limite d’appels', () => {
       orderBy: { createdAt: 'desc' },
     });
     expect(denied.details).toMatchObject({ reason: 'RATE_LIMITED' });
+  });
+});
+
+/** 011 : la transcription a son propre délai, plus long que celui des propositions. */
+describe('Délai propre à la transcription', () => {
+  withEnv({ ASSIST_TIMEOUT_MS: '1000', ASSIST_TRANSCRIPTION_TIMEOUT_MS: '4000', ASSIST_RATE_LIMIT: '1000' });
+  const prisma = new PrismaClient();
+  let app: INestApplication;
+  let enseignante: string;
+  // Fournisseurs simulés qui répondent après 2 s : au-delà du délai des propositions (1 s),
+  // en deçà de celui de la transcription (4 s).
+  const slow = <T>(value: T) => new Promise<T>((resolve) => setTimeout(() => resolve(value), 2000));
+  const suggestions = { name: 'test', suggest: () => slow({ priority: 'HIGH' }) };
+  const transcriptions = { name: 'test', transcribe: () => slow('Texte transcrit lentement.') };
+
+  beforeAll(async () => {
+    await resetDatabase(prisma);
+    await seedDemo(prisma);
+    app = await createTestApp(
+      [],
+      [
+        { provide: SUGGESTION_PROVIDER, useValue: suggestions },
+        { provide: TRANSCRIPTION_PROVIDER, useValue: transcriptions },
+      ],
+    );
+    enseignante = await loginAs(app, 'enseignante');
+  });
+
+  afterAll(async () => {
+    await app.close();
+    await prisma.$disconnect();
+  });
+
+  it('une transcription de 2 s aboutit, des propositions de 2 s sont indisponibles', async () => {
+    const transcription = await request(app.getHttpServer())
+      .post('/api/assist/transcriptions')
+      .set('Cookie', enseignante)
+      .set('Origin', TEST_ORIGIN)
+      .attach('file', audio);
+    expect(transcription.status).toBe(200);
+    expect(transcription.body).toEqual({ text: 'Texte transcrit lentement.' });
+
+    const suggestion = await request(app.getHttpServer())
+      .post('/api/assist/suggestions')
+      .set('Cookie', enseignante)
+      .set('Origin', TEST_ORIGIN)
+      .send({ text: 'La photocopieuse est en panne.' });
+    expect(suggestion.status).toBe(503);
+    expect(suggestion.body.error.code).toBe('ASSIST_UNAVAILABLE');
   });
 });
