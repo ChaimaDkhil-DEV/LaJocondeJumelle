@@ -42,3 +42,6 @@ deploy/backups/
 
 # Inspirations visuelles de tiers (droits non acquis, jamais dans le dépôt)
 docs/design-reference/
+
+# Claude Code : réglages personnels (non partagés)
+.claude/settings.local.json
