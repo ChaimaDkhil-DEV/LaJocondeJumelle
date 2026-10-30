@@ -195,6 +195,8 @@ enum AuditAction {
   COVERAGE_STATS_EXPORTED
   // Assistance IA (009) : consignes
   GUIDELINE_CHANGED
+  // Élèves
+  STUDENT_CHANGED
 }
 
 enum NotificationType {
@@ -270,6 +272,18 @@ enum MergeProposalStatus {
   PENDING
   CONFIRMED
   REJECTED
+}
+
+/// Cycle d'un niveau scolaire.
+enum SchoolCycle {
+  PREPARATORY
+  PRIMARY
+}
+
+/// Service de restauration d'un élève : exactement un (colonne obligatoire, jamais deux cases).
+enum MealService {
+  CANTINE
+  PANIER
 }
 
 /// Utilisateur. `username` est unique et insensible à la casse : il est toujours
@@ -618,11 +632,48 @@ model SchoolClass {
   qrVersion Int      @default(1)
   /// Obligatoire à la création et à la modification (DTO) ; null pour les classes antérieures (004).
   floorId   String?  @db.Uuid
+  /// Niveau scolaire ; null pour les salles sans élèves et les classes antérieures.
+  levelId   String?  @db.Uuid
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
 
   floor     Floor?           @relation(fields: [floorId], references: [id])
+  level     GradeLevel?      @relation(fields: [levelId], references: [id])
   coverages CoverageDetail[]
+  students  Student[]
+
+  @@index([levelId])
+}
+
+/// Niveau scolaire (ex. « Préparatoire 1 », « 1re année primaire »), ordonné par `position`.
+model GradeLevel {
+  id        String      @id @default(uuid()) @db.Uuid
+  name      String      @unique @db.VarChar(60)
+  cycle     SchoolCycle
+  position  Int         @unique
+  createdAt DateTime    @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime    @updatedAt @db.Timestamptz(3)
+
+  classes SchoolClass[]
+}
+
+/// Élève : une classe (le niveau s'en déduit) et un seul service de restauration.
+model Student {
+  id          String      @id @default(uuid()) @db.Uuid
+  firstName   String      @db.VarChar(60)
+  lastName    String      @db.VarChar(60)
+  classId     String      @db.Uuid
+  /// Téléphone d'un parent (format libre contrôlé par le DTO).
+  parentPhone String      @db.VarChar(20)
+  mealService MealService
+  active      Boolean     @default(true)
+  createdAt   DateTime    @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime    @updatedAt @db.Timestamptz(3)
+
+  class SchoolClass @relation(fields: [classId], references: [id])
+
+  @@index([classId])
+  @@index([lastName, firstName])
 }
 
 /// Étage, géré par le super administrateur (004, FR-006). Désactivé, il reste lié à l'historique.
