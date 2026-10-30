@@ -19,6 +19,12 @@ enum Role {
   EMPLOYEE
 }
 
+/// Photo de profil : avatar par défaut calculé par l'interface (aucun fichier), ou photo choisie.
+enum AvatarType {
+  DEFAULT
+  CUSTOM
+}
+
 enum Priority {
   NORMAL
   MEDIUM
@@ -281,6 +287,10 @@ model User {
   availability       Availability @default(AVAILABLE)
   /// Affectations : étage de rattachement d'un surveillant (004, FR-006).
   floorId            String?      @db.Uuid
+  /// Photo de profil (CUSTOM) : adresse de l'image servie par l'API, versionnée ; null : avatar
+  /// par défaut, calculé par l'interface (initiales ou illustration), sans fichier.
+  avatarUrl          String?      @db.VarChar(255)
+  avatarType         AvatarType   @default(DEFAULT)
   createdAt          DateTime     @default(now()) @db.Timestamptz(3)
   updatedAt          DateTime     @updatedAt @db.Timestamptz(3)
 
