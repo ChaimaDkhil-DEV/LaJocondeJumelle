@@ -20,6 +20,10 @@ npx tsx demo/run.ts all --env=test --reburn       sous-titres réincrustés (dem
 npx tsx demo/run.ts parcours --env=test           parcours d'une demande vocale (P01 à P05) + vidéo compilée
 ```
 
+`all` et `parcours` s'emploient seuls. Les séries S et P ne se mélangent pas dans une même
+exécution (`S01 P01` est refusé) : la série P a besoin de la création vocale assistée, la série S
+la désactive.
+
 L'environnement doit être déclaré explicitement « dev » ou « test » (`--env=…` ou `NODE_ENV`) :
 sinon la démo refuse de s'exécuter. Elle refuse aussi toute base qui n'est pas locale.
 
@@ -79,8 +83,8 @@ modification et suppression d'une garde.
 `demo/videos/demo-parcours-demande-vocale.mp4`. La vidéo s'ouvre sur la création vocale assistée :
 
 - la demande est prononcée par une voix de synthèse française (Windows, `System.Speech`), générée
-  une fois dans `demo/tmp/voix-demande.wav` (texte : `VOICE_SENTENCE`, `lib/config.ts`) et
-  diffusée par le micro simulé de Chromium ;
+  dans `demo/tmp/voix-demande.wav` (texte : `VOICE_SENTENCE`, `lib/config.ts`) et régénérée
+  seulement quand ce texte change ; elle est diffusée par le micro simulé de Chromium ;
 - si le serveur Whisper de `backend/.env` (`ASSIST_WHISPER_URL`) répond, le message est
   **réellement transcrit** par Whisper et les propositions viennent du moteur par règles ; sinon,
   repli sur les fournisseurs locaux de démonstration, et le sous-titre le signale ;

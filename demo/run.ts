@@ -44,14 +44,16 @@ const ALL_SCENARIOS = [...SCENARIOS, ...PARCOURS];
 /** Demande parlée de la série « parcours » : synthèse vocale française (Windows), 48 kHz mono. */
 const SPOKEN_REQUEST = join(DEMO_DIR, 'tmp', 'voix-demande.wav');
 
-/** Chemin dans une chaîne PowerShell entre apostrophes (une apostrophe s'y écrit doublée). */
-const psQuoted = (path: string): string => `'${path.replace(/'/g, "''")}'`;
+/** Chemin dans une chaîne PowerShell entre apostrophes (toute apostrophe, droite ou typographique, s'y écrit doublée). */
+const psQuoted = (path: string): string => `'${path.replace(/['‘’‚‛]/g, '$&$&')}'`;
 
 function prepareSpokenRequest(): void {
   const raw = join(DEMO_DIR, 'tmp', 'voix-demande-brute.wav');
   const text = join(DEMO_DIR, 'tmp', 'voix-demande.txt');
-  // Le WAV n'est réutilisé que s'il a été produit à partir de la phrase actuelle (VOICE_SENTENCE).
-  if (existsSync(SPOKEN_REQUEST) && existsSync(text) && readFileSync(text, 'utf8') === VOICE_SENTENCE) return;
+  // Phrase du WAV, écrite seulement une fois le WAV complet : un WAV interrompu n'est jamais réutilisé.
+  const done = join(DEMO_DIR, 'tmp', 'voix-demande.ok');
+  if (existsSync(SPOKEN_REQUEST) && existsSync(done) && readFileSync(done, 'utf8') === VOICE_SENTENCE) return;
+  rmSync(done, { force: true });
   rmSync(SPOKEN_REQUEST, { force: true });
   writeFileSync(text, VOICE_SENTENCE, 'utf8');
   const script = [
@@ -70,13 +72,14 @@ function prepareSpokenRequest(): void {
   // Une seconde de silence avant et après : la phrase entière tombe dans l'enregistrement.
   const result = spawnSync(ffmpegPath(), ['-v', 'error', '-y', '-i', raw, '-af', 'adelay=1000:all=1,apad=pad_dur=1', '-ac', '1', '-ar', '48000', SPOKEN_REQUEST], { stdio: 'inherit' });
   if (result.status !== 0) throw new Error('Préparation de la voix de la demande impossible.');
+  writeFileSync(done, VOICE_SENTENCE, 'utf8');
 }
 
 /** Whisper (adresse de backend/.env) s'il répond, sinon fournisseurs locaux de démonstration. */
 async function detectAssist(): Promise<{ assist: AssistMode; whisperUrl?: string }> {
   const env = join(DEMO_DIR, '..', 'backend', '.env');
   const url = existsSync(env)
-    ? /^\s*ASSIST_WHISPER_URL\s*=\s*(.+)$/m
+    ? /^[ \t]*ASSIST_WHISPER_URL[ \t]*=[ \t]*(.+)$/m
         .exec(readFileSync(env, 'utf8'))?.[1]
         ?.trim()
         .replace(/^(['"])(.*)\1$/, '$2')

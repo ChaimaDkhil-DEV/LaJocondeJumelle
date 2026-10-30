@@ -64,15 +64,27 @@ goto WAIT_POSTGRES
 
 echo PostgreSQL repond. Application des migrations...
 
-REM Une seule tentative, sortie visible : une migration en echec doit etre lisible.
-call npm run -w backend prisma:deploy
+REM Sortie visible : une migration en echec doit etre lisible. Trois essais : le port peut
+REM s'ouvrir quelques instants avant que PostgreSQL accepte les connexions.
+set "DEPLOY_COUNT=0"
 
-if errorlevel 1 (
-    echo.
-    echo ERREUR : echec des migrations Prisma ^(voir le message ci-dessus^).
-    pause
-    exit /b 1
+:DEPLOY
+set /a DEPLOY_COUNT+=1
+call npm run -w backend prisma:deploy
+if not errorlevel 1 goto DEPLOY_DONE
+
+if !DEPLOY_COUNT! LSS 3 (
+    echo Nouvel essai des migrations dans 3 secondes...
+    timeout /t 3 /nobreak >nul
+    goto DEPLOY
 )
+
+echo.
+echo ERREUR : echec des migrations Prisma ^(voir le message ci-dessus^).
+pause
+exit /b 1
+
+:DEPLOY_DONE
 
 echo Migrations appliquees.
 
