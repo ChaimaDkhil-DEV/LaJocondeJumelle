@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { Notification, NotificationType, Prisma, Request } from '@prisma/client';
+import type { Notification, Prisma, Request } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import { AppException } from '../common/errors';
@@ -9,6 +9,7 @@ import { SuperAdminAlertsService } from '../notifications/super-admin-alerts.ser
 import { RealtimeService } from '../realtime/realtime.service';
 import { SettingsService } from '../settings/settings.service';
 import { nextDeadlineState } from './domain/deadlines';
+import { transitionNotifications } from './domain/transition-notifications';
 import { actorsFor, administrationActs, canPickRecipient, canReadRequest, isReadOnlyStatus } from './domain/access-policy';
 import {
   applyAction,
@@ -391,40 +392,11 @@ export class RequestTransitionsService {
     actorId: string | null,
   ): Promise<Notification[]> {
     const managers = category.managers.map((m) => m.userId);
-    const urgent = after.priority === 'URGENT';
-    const send = (users: Array<string | null>, type: NotificationType) =>
-      this.notifications.notifyInTx(tx, users, actorId, { type, requestId: after.id, priority: after.priority });
-
-    switch (result.steps[0].action) {
-      case 'SUBMIT':
-        return result.to === 'SENT'
-          ? send([after.assigneeId], urgent ? 'URGENT' : 'REQUEST_NEW')
-          : send(managers, urgent ? 'URGENT' : 'REQUEST_NEW');
-      case 'APPROVE':
-      case 'REASSIGN':
-        return [
-          ...(await send([after.requesterId], 'STATUS_CHANGED')),
-          ...(await send([after.assigneeId], urgent ? 'URGENT' : 'ASSIGNED')),
-        ];
-      case 'REJECT':
-      case 'DECLINE':
-        return send([after.requesterId], 'REJECTED');
-      case 'CANCEL':
-        return send(before.assigneeId ? [before.assigneeId] : managers, 'CANCELLED');
-      case 'REQUEST_CORRECTION':
-        return send([after.assigneeId], 'TO_CORRECT');
-      case 'CLOSE':
-      case 'VALIDATE_FINAL':
-        return send([after.requesterId, after.assigneeId], 'CLOSED');
-      case 'COMPLETE':
-        if (result.to === 'CLOSED') return send([after.requesterId, after.assigneeId], 'CLOSED');
-        return [
-          ...(await send([after.requesterId], 'STATUS_CHANGED')),
-          ...(result.to === 'PENDING_FINAL_VALIDATION' ? await send(managers, 'STATUS_CHANGED') : []),
-        ];
-      default:
-        return send([after.requesterId], 'STATUS_CHANGED');
+    const created: Notification[] = [];
+    for (const { users, type } of transitionNotifications(result, before, after, managers)) {
+      created.push(...(await this.notifications.notifyInTx(tx, users, actorId, { type, requestId: after.id, priority: after.priority })));
     }
+    return created;
   }
 
   private async logDenied(user: AuthenticatedUser, id: string, ctx: RequestContext, reason: string): Promise<void> {
