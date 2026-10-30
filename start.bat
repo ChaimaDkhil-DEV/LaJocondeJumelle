@@ -1,4 +1,3 @@
-
 @echo off
 setlocal EnableExtensions EnableDelayedExpansion
 title LaJocondeJumelle - Demarrage
@@ -34,26 +33,24 @@ if not errorlevel 1 (
 ) else (
     echo Demarrage de PostgreSQL embarque...
 
-    start "LaJocondeJumelle - PostgreSQL" cmd /k "cd /d ""%~dp0"" && set DEV_DB_PORT=5433 && npm run -w backend db:dev"
+    REM La fenetre PostgreSQL herite de DEV_DB_PORT=5433 (defini plus haut).
+    start "LaJocondeJumelle - PostgreSQL" cmd /k "cd /d ""%~dp0"" && npm run -w backend db:dev"
 
     echo Attente du demarrage de PostgreSQL...
 )
 
 :WAIT_POSTGRES
 
-REM Verifier que PostgreSQL accepte reellement les connexions
-call npm run -w backend prisma:deploy >nul 2>&1
+REM Attendre que le port 5433 accepte les connexions (essai d'une seconde)
+powershell -NoProfile -Command "$c = New-Object Net.Sockets.TcpClient; try { if ($c.ConnectAsync('127.0.0.1', 5433).Wait(1000)) { exit 0 } else { exit 1 } } catch { exit 1 } finally { $c.Dispose() }" >nul 2>&1
 
-if not errorlevel 1 (
-    echo PostgreSQL est pret et les migrations sont appliquees.
-    goto DB_READY
-)
+if not errorlevel 1 goto DB_READY
 
 set /a RETRY_COUNT+=1
 
 if !RETRY_COUNT! GEQ %MAX_RETRIES% (
     echo.
-    echo ERREUR : PostgreSQL n'est pas pret apres %MAX_RETRIES% tentatives.
+    echo ERREUR : PostgreSQL ne repond pas sur le port 5433 apres %MAX_RETRIES% tentatives.
     echo Verifiez la fenetre PostgreSQL et les logs.
     pause
     exit /b 1
@@ -64,6 +61,20 @@ timeout /t 2 /nobreak >nul
 goto WAIT_POSTGRES
 
 :DB_READY
+
+echo PostgreSQL repond. Application des migrations...
+
+REM Une seule tentative, sortie visible : une migration en echec doit etre lisible.
+call npm run -w backend prisma:deploy
+
+if errorlevel 1 (
+    echo.
+    echo ERREUR : echec des migrations Prisma ^(voir le message ci-dessus^).
+    pause
+    exit /b 1
+)
+
+echo Migrations appliquees.
 
 echo.
 echo [2/3] Verification du backend...
@@ -77,7 +88,7 @@ if not errorlevel 1 (
     exit /b 1
 )
 
-echo Backend disponible pour le demarrage.
+echo Port 3002 libre.
 
 echo.
 echo [3/3] Demarrage du backend et du frontend...

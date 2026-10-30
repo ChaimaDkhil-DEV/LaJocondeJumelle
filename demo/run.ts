@@ -11,7 +11,7 @@
  */
 import { chromium } from '@playwright/test';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { session } from './lib/api';
 import { compileAll, PARCOURS_COMPILATION, SUPERADMIN_COMPILATION, type Compilation } from './lib/compile';
@@ -44,10 +44,15 @@ const ALL_SCENARIOS = [...SCENARIOS, ...PARCOURS];
 /** Demande parlée de la série « parcours » : synthèse vocale française (Windows), 48 kHz mono. */
 const SPOKEN_REQUEST = join(DEMO_DIR, 'tmp', 'voix-demande.wav');
 
+/** Chemin dans une chaîne PowerShell entre apostrophes (une apostrophe s'y écrit doublée). */
+const psQuoted = (path: string): string => `'${path.replace(/'/g, "''")}'`;
+
 function prepareSpokenRequest(): void {
-  if (existsSync(SPOKEN_REQUEST)) return;
   const raw = join(DEMO_DIR, 'tmp', 'voix-demande-brute.wav');
   const text = join(DEMO_DIR, 'tmp', 'voix-demande.txt');
+  // Le WAV n'est réutilisé que s'il a été produit à partir de la phrase actuelle (VOICE_SENTENCE).
+  if (existsSync(SPOKEN_REQUEST) && existsSync(text) && readFileSync(text, 'utf8') === VOICE_SENTENCE) return;
+  rmSync(SPOKEN_REQUEST, { force: true });
   writeFileSync(text, VOICE_SENTENCE, 'utf8');
   const script = [
     'Add-Type -AssemblyName System.Speech',
@@ -56,8 +61,8 @@ function prepareSpokenRequest(): void {
     "if (-not $v) { throw 'Aucune voix française installée.' }",
     '$s.SelectVoice($v.VoiceInfo.Name)',
     '$s.Rate = -1',
-    `$s.SetOutputToWaveFile('${raw}')`,
-    `$s.Speak([IO.File]::ReadAllText('${text}', [Text.Encoding]::UTF8))`,
+    `$s.SetOutputToWaveFile(${psQuoted(raw)})`,
+    `$s.Speak([IO.File]::ReadAllText(${psQuoted(text)}, [Text.Encoding]::UTF8))`,
     '$s.Dispose()',
   ].join('; ');
   const tts = spawnSync('powershell', ['-NoProfile', '-Command', script], { stdio: 'inherit' });
@@ -70,10 +75,16 @@ function prepareSpokenRequest(): void {
 /** Whisper (adresse de backend/.env) s'il répond, sinon fournisseurs locaux de démonstration. */
 async function detectAssist(): Promise<{ assist: AssistMode; whisperUrl?: string }> {
   const env = join(DEMO_DIR, '..', 'backend', '.env');
-  const url = existsSync(env) ? /^ASSIST_WHISPER_URL=(.+)$/m.exec(readFileSync(env, 'utf8'))?.[1]?.trim() : undefined;
+  const url = existsSync(env)
+    ? /^\s*ASSIST_WHISPER_URL\s*=\s*(.+)$/m
+        .exec(readFileSync(env, 'utf8'))?.[1]
+        ?.trim()
+        .replace(/^(['"])(.*)\1$/, '$2')
+    : undefined;
   if (url) {
     try {
-      if ((await fetch(url, { signal: AbortSignal.timeout(5000) })).ok) return { assist: 'whisper', whisperUrl: url };
+      // Toute réponse HTTP (même 404 sur « / ») prouve que le serveur écoute ; 5xx : serveur en panne.
+      if ((await fetch(url, { signal: AbortSignal.timeout(5000) })).status < 500) return { assist: 'whisper', whisperUrl: url };
     } catch {
       // Serveur absent : repli.
     }
@@ -83,11 +94,22 @@ async function detectAssist(): Promise<{ assist: AssistMode; whisperUrl?: string
 
 function select(args: readonly string[]): Scenario[] {
   const wanted = args.filter((a) => !a.startsWith('--')).map((a) => a.toUpperCase());
-  if (wanted.length === 0 || wanted.includes('ALL')) return SCENARIOS;
-  if (wanted.includes('PARCOURS')) return PARCOURS;
+  if (wanted.length === 0) return SCENARIOS;
+  // « all » et « parcours » désignent une série entière : ils s'emploient seuls.
+  if (wanted.length > 1 && wanted.some((w) => w === 'ALL' || w === 'PARCOURS')) {
+    throw new Error(`« all » et « parcours » s'emploient seuls, sans autre scénario (reçu : ${wanted.join(' ')}).`);
+  }
+  if (wanted[0] === 'ALL') return SCENARIOS;
+  if (wanted[0] === 'PARCOURS') return PARCOURS;
   const unknown = wanted.filter((w) => !ALL_SCENARIOS.some((s) => s.id === w));
   if (unknown.length > 0) throw new Error(`Scénario inconnu : ${unknown.join(', ')} (disponibles : ${ALL_SCENARIOS.map((s) => s.id).join(', ')})`);
-  return ALL_SCENARIOS.filter((s) => wanted.includes(s.id));
+  const chosen = ALL_SCENARIOS.filter((s) => wanted.includes(s.id));
+  // La série P a besoin de la création vocale assistée, la série S la désactive : pas de mélange.
+  const journey = chosen.filter((s) => PARCOURS.includes(s));
+  if (journey.length > 0 && journey.length < chosen.length) {
+    throw new Error('Séries S et P mélangées : lancez les scénarios S et P séparément.');
+  }
+  return chosen;
 }
 
 /** Série des scénarios choisis : parcours (P…) ou super administrateur (S…). */

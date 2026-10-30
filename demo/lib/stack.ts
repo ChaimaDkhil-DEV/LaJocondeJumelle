@@ -5,7 +5,7 @@
  */
 import { PrismaClient } from '@prisma/client';
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
-import { existsSync, mkdtempSync, openSync, rmSync } from 'node:fs';
+import { closeSync, existsSync, mkdtempSync, openSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { runSeed } from '../../backend/prisma/seed';
@@ -88,11 +88,12 @@ export async function startDemoStack(log: (message: string) => void, options: De
     await seed();
     log(`API (port ${PORTS.api})…`);
     const nestCli = require.resolve('@nestjs/cli/bin/nest.js', { paths: [BACKEND_DIR] });
+    // DEMO_API_LOG=<fichier> : journal de l'API de démo (sorties standard et d'erreur), pour diagnostiquer un scénario.
+    const apiLog = process.env.DEMO_API_LOG ? openSync(process.env.DEMO_API_LOG, 'w') : undefined;
     children.push(
       spawn(process.execPath, [nestCli, 'start'], {
         cwd: BACKEND_DIR,
-        // DEMO_API_LOG=<fichier> : journal de l'API de démo, pour diagnostiquer un scénario.
-        stdio: process.env.DEMO_API_LOG ? ['ignore', openSync(process.env.DEMO_API_LOG, 'w'), 'pipe'] : 'ignore',
+        stdio: apiLog === undefined ? 'ignore' : ['ignore', apiLog, apiLog],
         env: {
           ...process.env,
           PORT: String(PORTS.api),
@@ -107,6 +108,8 @@ export async function startDemoStack(log: (message: string) => void, options: De
         },
       }),
     );
+    // Le processus de l'API a sa propre copie du descripteur.
+    if (apiLog !== undefined) closeSync(apiLog);
 
     log(`Frontend (port ${PORTS.web})…`);
     // Vite n'expose pas son exécutable dans « exports » : on le cherche dans les node_modules.
