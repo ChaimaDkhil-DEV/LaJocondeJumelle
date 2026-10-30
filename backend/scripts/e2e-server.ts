@@ -1,7 +1,8 @@
 /**
  * Pile de tests de bout en bout (lancée par e2e/playwright.config.ts) :
  * PostgreSQL embarqué jetable → migrations → seed e2e → API Nest.
- * Variables : PORT (API), APP_ORIGIN (SPA de test), E2E_DB_PORT (défaut 55434).
+ * Variables : PORT (API), APP_ORIGIN (SPA de test), E2E_DB_PORT (défaut 55434),
+ * E2E_FILES_DIR (défaut backend/.e2e-files).
  */
 import { PrismaClient } from '@prisma/client';
 import { spawn } from 'node:child_process';
@@ -43,7 +44,8 @@ async function main(): Promise<void> {
       ...process.env,
       DATABASE_URL: db.url,
       SESSION_SECRET: process.env.SESSION_SECRET ?? 'e2e-session-secret-0123456789abcdef0123456789',
-      FILES_DIR: process.env.FILES_DIR ?? join(BACKEND_DIR, '.e2e-files'),
+      // Pas FILES_DIR : l'import de @prisma/client charge backend/.env, dont FILES_DIR (fichiers de développement).
+      FILES_DIR: process.env.E2E_FILES_DIR ?? join(BACKEND_DIR, '.e2e-files'),
       APP_ORIGIN: process.env.APP_ORIGIN ?? 'http://localhost:5174',
       // Cookie non Secure : la SPA de test est servie en HTTP (WebKit refuse les cookies Secure sur http://localhost).
       COOKIE_SECURE: 'false',

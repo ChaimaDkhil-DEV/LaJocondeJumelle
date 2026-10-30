@@ -36,10 +36,9 @@ import { loadErrorMessage } from '../../api/client';
 import type { Priority } from '../../api/types';
 import { STAGE_LABELS } from '../../components/Countdown';
 import { visuallyHidden } from '../../components/a11y';
-import { Badge } from '../../components/Badge';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
-import { formatDateTime, formatLateness, formatRelative } from '../../components/format';
+import { formatDateTime, formatLateness } from '../../components/format';
 import { PageHeader } from '../../components/PageHeader';
 import { PRIORITY_LABELS, PriorityLabel } from '../../components/PriorityBadge';
 import { SectionCard } from '../../components/SectionCard';
@@ -53,15 +52,14 @@ import { useAdminCategories, useAdminUsers } from './api';
 import { DailyChart, Sparkline, StatusDonut } from './DashboardCharts';
 import { DashboardSkeleton } from './DashboardSkeleton';
 import { DelaysView } from './DelaysView';
+import { EmployeesView } from './EmployeesView';
 import { KpiCard } from './KpiCard';
 import {
   DEFAULT_FILTERS,
-  formatDurationMs,
   periodOf,
   toDashboardQuery,
   toRequestListFilters,
   useDashboardActivity,
-  useDashboardEmployees,
   useDashboardSummary,
   type ActivityItem,
   type DashboardAlert,
@@ -69,7 +67,6 @@ import {
   type DashboardSummary,
   type StatusGroup,
 } from './dashboardApi';
-import { ROLE_LABELS } from './labels';
 
 const GROUP_LABELS: Record<StatusGroup, string> = {
   pendingValidation: 'À valider',
@@ -633,78 +630,6 @@ function CategoryRow({ row: c }: { row: CategoryStats }) {
         </Box>
       </Box>
     </Tooltip>
-  );
-}
-
-function EmployeesView({ qs }: { qs: string }) {
-  const employees = useDashboardEmployees(qs);
-  if (employees.isPending) return <DashboardSkeleton label="Chargement des employés" shape="table" />;
-  if (employees.error) return <ErrorState message={loadErrorMessage(employees.error, 'l’activité des employés')} actionLabel="Réessayer" onAction={() => void employees.refetch()} />;
-  const items = employees.data.items;
-  if (items.length === 0) {
-    return (
-      <Paper variant="elevated">
-        <EmptyState icon={SearchX} title="Aucune activité" description="Aucun compte actif et aucune demande sur cette période." />
-      </Paper>
-    );
-  }
-  return (
-    <Box sx={{ display: 'grid', gap: 1.5 }}>
-      <TableContainer component={Paper} variant="elevated" sx={stickyArea} {...scrollRegion('Activité des employés')}>
-        <Table size="small" stickyHeader aria-label="Activité des employés">
-          <TableHead>
-            <TableRow>
-              <TableCell>Employé</TableCell>
-              <TableCell align="right">Créées</TableCell>
-              <TableCell align="right">Reçues</TableCell>
-              <TableCell align="right">À prendre en charge</TableCell>
-              <TableCell align="right">En cours</TableCell>
-              <TableCell align="right">Terminées</TableCell>
-              <TableCell align="right">En retard</TableCell>
-              <TableCell align="right">Prise en charge moy.</TableCell>
-              <TableCell align="right">Traitement net moy.</TableCell>
-              <TableCell>Dernière action</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {items.map((e) => (
-              <TableRow key={e.user.id}>
-                <TableCell sx={{ minWidth: 180 }}>
-                  <Person
-                    name={e.user.displayName}
-                    id={e.user.id}
-                    size={24}
-                    secondary={`${e.user.jobTitle ?? ROLE_LABELS[e.user.role]}${e.user.active ? '' : ' · compte désactivé'}`}
-                  />
-                </TableCell>
-                <TableCell align="right">{e.created}</TableCell>
-                <TableCell align="right">{e.assigned}</TableCell>
-                <TableCell align="right">{e.pendingTakeover}</TableCell>
-                <TableCell align="right">{e.inProgress}</TableCell>
-                <TableCell align="right">{e.done}</TableCell>
-                <TableCell align="right">
-                  {e.overdueNow > 0 ? (
-                    <Badge tone="error" icon={AlarmClock}>
-                      {e.overdueNow}
-                    </Badge>
-                  ) : (
-                    0
-                  )}
-                </TableCell>
-                <TableCell align="right">{formatDurationMs(e.takeover.avgMs)}</TableCell>
-                <TableCell align="right">{formatDurationMs(e.resolution.avgMs)}</TableCell>
-                <TableCell sx={{ whiteSpace: 'nowrap' }}>{e.lastActionAt ? formatRelative(e.lastActionAt) : '—'}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-      <Typography variant="body2" color="text.secondary">
-        « Reçues » : demandes de la période actuellement affectées à l’employé. Les comptes actifs sans demande sur la période (destinataires de la
-        catégorie si elle est filtrée) figurent à zéro. « Dernière action » : dernière action enregistrée sur une demande ; elle
-        n’indique ni la présence ni la disponibilité de la personne.
-      </Typography>
-    </Box>
   );
 }
 
