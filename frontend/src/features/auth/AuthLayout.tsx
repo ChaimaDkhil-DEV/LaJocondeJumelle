@@ -1,9 +1,8 @@
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
-import { ClipboardList } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { icon, tokensOf } from '../../design/tokens';
+import { AppLogo } from '../../components/AppLogo';
 
 interface AuthLayoutProps {
   title: string;
@@ -29,21 +28,7 @@ export function AuthLayout({ title, description, children }: AuthLayoutProps) {
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
-        <Box
-          aria-hidden="true"
-          sx={(theme) => ({
-            width: 32,
-            height: 32,
-            borderRadius: 1,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            bgcolor: tokensOf(theme).accent.main,
-            color: tokensOf(theme).accent.contrastText,
-          })}
-        >
-          <ClipboardList size={icon.md} />
-        </Box>
+        <AppLogo height={48} />
         <Typography component="p" variant="subtitle1">
           La Joconde Jumelle
         </Typography>

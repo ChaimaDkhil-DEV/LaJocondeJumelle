@@ -3,10 +3,9 @@ import Button from '@mui/material/Button';
 import Drawer from '@mui/material/Drawer';
 import Link from '@mui/material/Link';
 import Typography from '@mui/material/Typography';
-import { alpha, useTheme } from '@mui/material/styles';
+import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import {
-  ClipboardList,
   Inbox,
   LayoutDashboard,
   LogOut,
@@ -19,6 +18,7 @@ import {
 import { useState } from 'react';
 import { Link as RouterLink, Outlet, useLocation, useNavigate } from 'react-router';
 import type { Me } from '../api/types';
+import { AppLogo } from '../components/AppLogo';
 import { IconAction } from '../components/IconAction';
 import { visuallyHidden } from '../components/a11y';
 import { Person } from '../components/UserAvatar';
@@ -124,23 +124,7 @@ function SkipLink() {
 function Brand() {
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0 }}>
-      <Box
-        aria-hidden="true"
-        sx={(theme) => ({
-          width: 34,
-          height: 34,
-          flex: 'none',
-          borderRadius: `${radius.control}px`,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          bgcolor: tokensOf(theme).accent.main,
-          color: tokensOf(theme).accent.contrastText,
-          boxShadow: `0 4px 12px ${alpha(tokensOf(theme).accent.main, 0.3)}`,
-        })}
-      >
-        <ClipboardList size={icon.md} />
-      </Box>
+      <AppLogo />
       <Typography component="p" sx={{ fontSize: fontSize.sm, fontWeight: font.semibold, lineHeight: 1.25 }}>
         La Joconde Jumelle
       </Typography>
