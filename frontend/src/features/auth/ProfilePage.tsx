@@ -2,13 +2,16 @@ import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
-import { KeyRound } from 'lucide-react';
+import { Camera, KeyRound } from 'lucide-react';
+import { useState } from 'react';
 import { Link as RouterLink, useLocation } from 'react-router';
 import type { Me } from '../../api/types';
 import { PageHeader } from '../../components/PageHeader';
 import { SectionCard } from '../../components/SectionCard';
 import { font, icon } from '../../design/tokens';
+import { UserAvatar } from '../../components/UserAvatar';
 import { ROLE_LABELS } from '../admin/labels';
+import { AvatarDialog } from '../avatar/AvatarDialog';
 import { useCurrentUser } from './useCurrentUser';
 
 /** Groupes d'affectation (groupes à clé système) dont le compte est membre. */
@@ -26,6 +29,7 @@ export function ProfilePage() {
   const me = useCurrentUser();
   const location = useLocation();
   const passwordChanged = (location.state as { passwordChanged?: boolean } | null)?.passwordChanged === true;
+  const [avatarOpen, setAvatarOpen] = useState(false);
   if (!me.data) return null;
 
   const rows: Array<[string, string]> = [
@@ -45,6 +49,22 @@ export function ProfilePage() {
             Mot de passe modifié. Vos autres sessions ont été fermées.
           </Alert>
         )}
+        {/* Photo de profil : chacun change la sienne (avatar par défaut tant qu'il n'en a pas). */}
+        <SectionCard>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 2 }}>
+            <UserAvatar user={me.data} size={64} labelled />
+            <Box sx={{ flex: '1 1 200px', minWidth: 0 }}>
+              <Typography sx={{ fontWeight: font.medium, overflowWrap: 'anywhere' }}>{me.data.displayName}</Typography>
+              <Typography variant="body2" color="text.secondary">
+                Votre photo apparaît dans les demandes, les messages et l’historique.
+              </Typography>
+            </Box>
+            <Button variant="outlined" startIcon={<Camera size={icon.sm} aria-hidden="true" />} onClick={() => setAvatarOpen(true)}>
+              Changer la photo
+            </Button>
+          </Box>
+        </SectionCard>
+        <AvatarDialog open={avatarOpen} user={me.data} onClose={() => setAvatarOpen(false)} />
         <SectionCard>
           <Box
             component="dl"

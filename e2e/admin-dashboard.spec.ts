@@ -79,6 +79,19 @@ test('le super administrateur supervise les demandes depuis le tableau de bord ;
   }
   await expectNoA11yViolations(page);
 
+  // Onglet Employés : tableau (grand écran) ou cartes (mobile), détail au clic, sans violation axe.
+  await page.getByRole('tab', { name: 'Employés' }).click();
+  const employees = page.getByRole('table', { name: 'Employés' }).or(page.getByRole('list', { name: 'Employés' }));
+  await expect(employees).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('button', { name: 'Nouvel employé', exact: true })).toBeVisible();
+  await expectNoA11yViolations(page);
+  await page.getByRole('button', { name: 'Reprographie, voir le détail' }).click();
+  const detail = page.getByRole('dialog', { name: 'Reprographie' });
+  await expect(detail.getByText('Délais moyens')).toBeVisible();
+  await expectNoA11yViolations(page);
+  await detail.getByRole('button', { name: 'Fermer le détail' }).click();
+  await expect(detail).toBeHidden();
+
   // Onglet Demandes : la demande du test, la plus récente, mène à son détail.
   await page.getByRole('tab', { name: 'Demandes' }).click();
   const link = page.getByRole('table', { name: 'Demandes de la période' }).getByRole('link', { name: title });

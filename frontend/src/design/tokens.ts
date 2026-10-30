@@ -202,4 +202,6 @@ export const avatarColors: ReadonlyArray<{ bg: string; fg: string }> = [
   { bg: '#e0f2fe', fg: '#075985' },
   { bg: '#ede9fe', fg: '#5b21b6' },
   { bg: '#f1f5f9', fg: '#334155' },
+  { bg: '#ccfbf1', fg: '#115e59' },
+  { bg: '#ffedd5', fg: '#9a3412' },
 ];
