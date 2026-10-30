@@ -5,7 +5,7 @@
 import type { Browser, BrowserContext, Locator, Page } from '@playwright/test';
 import { devices } from '@playwright/test';
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { PrismaClient } from '@prisma/client';
 import type { Api } from './api';
@@ -39,6 +39,13 @@ interface Cue {
   start: number;
   end: number;
   text: string;
+}
+
+/** Passage accéléré de la vidéo (attente d'un traitement), en millisecondes depuis le début. */
+interface FastSegment {
+  start: number;
+  end: number;
+  factor: number;
 }
 
 /** Curseur rond visible à l'écran (le pointeur système n'apparaît pas dans les vidéos). */
@@ -86,6 +93,7 @@ function srtTime(ms: number): string {
 
 export class Demo {
   private readonly cues: Cue[] = [];
+  private readonly fast: FastSegment[] = [];
   private constructor(
     readonly page: Page,
     readonly context: BrowserContext,
@@ -120,6 +128,18 @@ export class Demo {
     const last = this.cues.at(-1);
     if (last && last.end === -1) last.end = at;
     this.cues.push({ start: at, end: -1, text });
+  }
+
+  /**
+   * Attente d'un traitement (transcription…) montrée en accéléré dans la vidéo ; le sous-titre
+   * l'indique. L'attente réelle a bien lieu pendant l'enregistrement.
+   */
+  async fastForward<T>(caption: string, wait: () => Promise<T>, factor = 8): Promise<T> {
+    this.say(`${caption} (accéléré ×${factor})`);
+    const start = this.now();
+    const result = await wait();
+    this.fast.push({ start, end: this.now(), factor });
+    return result;
   }
 
   pause(ms = STEP_MS): Promise<void> {
@@ -226,6 +246,9 @@ export class Demo {
     const webm = join(TMP_DIR, `${scenario.id}.webm`);
     await video!.saveAs(webm);
     await video!.delete();
+    const fastFile = join(TMP_DIR, `${scenario.id}.fast.json`);
+    if (this.fast.length > 0) writeFileSync(fastFile, JSON.stringify(this.fast), 'utf8');
+    else rmSync(fastFile, { force: true });
     const srt = join(TMP_DIR, `${scenario.id}.srt`);
     writeFileSync(
       srt,
@@ -253,7 +276,37 @@ function run(args: string[], cwd: string): void {
  * ffmpeg est lancé dans demo/tmp avec des chemins relatifs (le filtre « subtitles » gère mal les
  * chemins Windows absolus).
  */
+/**
+ * Passages accélérés (demo/tmp/<id>.fast.json) : la vidéo sous-titrée est découpée, les passages
+ * concernés accélérés, puis l'ensemble recollé.
+ */
+function speedUp(input: string, output: string, segments: FastSegment[]): void {
+  const parts: string[] = [];
+  let cursor = 0;
+  const chain: string[] = [];
+  const add = (start: number, end: number | null, factor: number) => {
+    const label = `v${parts.length}`;
+    const range = end === null ? `start=${start / 1000}` : `start=${start / 1000}:end=${end / 1000}`;
+    chain.push(`[0:v]trim=${range},setpts=(PTS-STARTPTS)/${factor}[${label}]`);
+    parts.push(`[${label}]`);
+  };
+  for (const segment of [...segments].sort((a, b) => a.start - b.start)) {
+    if (segment.start > cursor) add(cursor, segment.start, 1);
+    add(segment.start, segment.end, segment.factor);
+    cursor = segment.end;
+  }
+  add(cursor, null, 1);
+  const graph = `${chain.join(';')};${parts.join('')}concat=n=${parts.length}:v=1:a=0[out]`;
+  run(
+    ['-v', 'error', '-y', '-i', input, '-filter_complex', graph, '-map', '[out]', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '22', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', '-an', output],
+    TMP_DIR,
+  );
+}
+
 export function burnSubtitles(scenario: Scenario, output: string): void {
+  const fastFile = join(TMP_DIR, `${scenario.id}.fast.json`);
+  const segments = existsSync(fastFile) ? (JSON.parse(readFileSync(fastFile, 'utf8')) as FastSegment[]) : [];
+  const subtitled = segments.length > 0 ? `${scenario.id}.sous-titres.mp4` : output;
   const mobile = scenario.viewport === 'mobile';
   // En haut de l'écran : les messages de confirmation de l'application s'affichent en bas.
   // La taille est relative à la hauteur de la vidéo (844 px en mobile) : plus petite en mobile.
@@ -275,10 +328,11 @@ export function burnSubtitles(scenario: Scenario, output: string): void {
       '-i', `${scenario.id}.webm`,
       '-vf', `subtitles=${scenario.id}.srt:force_style='${style}'`,
       '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '22', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', '-an',
-      output,
+      subtitled,
     ],
     TMP_DIR,
   );
+  if (segments.length > 0) speedUp(subtitled, output, segments);
 }
 
 export function ffmpegInDir(args: string[], cwd: string): void {

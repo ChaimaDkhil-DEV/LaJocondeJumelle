@@ -25,10 +25,23 @@ async function titleCard(browser: Browser, file: string, eyebrow: string, title:
   await page.close();
 }
 
-export async function compileAll(browser: Browser, done: Array<{ scenario: Scenario; file: string }>): Promise<string> {
+/** Vidéo compilée d'une série : titre de l'écran d'ouverture et fichier produit. */
+export interface Compilation {
+  title: string;
+  file: string;
+}
+
+export const SUPERADMIN_COMPILATION: Compilation = { title: 'Démonstration — super administrateur', file: 'demo-superadmin-complete.mp4' };
+export const PARCOURS_COMPILATION: Compilation = { title: 'Parcours d’une demande vocale', file: 'demo-parcours-demande-vocale.mp4' };
+
+export async function compileAll(
+  browser: Browser,
+  done: Array<{ scenario: Scenario; file: string }>,
+  compilation: Compilation = SUPERADMIN_COMPILATION,
+): Promise<string> {
   const parts: string[] = [];
   const intro = join(TMP_DIR, 'titre-00.png');
-  await titleCard(browser, intro, 'La Joconde Jumelle', 'Démonstration — super administrateur');
+  await titleCard(browser, intro, 'La Joconde Jumelle', compilation.title);
   ffmpegInDir(['-v', 'error', '-y', '-loop', '1', '-t', '3', '-i', basename(intro), '-vf', NORMALIZE, ...ENCODE, 'part-00.mp4'], TMP_DIR);
   parts.push('part-00.mp4');
 
@@ -42,7 +55,7 @@ export async function compileAll(browser: Browser, done: Array<{ scenario: Scena
   }
 
   writeFileSync(join(TMP_DIR, 'parts.txt'), parts.map((p) => `file '${p}'`).join('\n'), 'utf8');
-  const output = join(VIDEOS_DIR, 'demo-superadmin-complete.mp4');
+  const output = join(VIDEOS_DIR, compilation.file);
   ffmpegInDir(['-v', 'error', '-y', '-f', 'concat', '-safe', '0', '-i', 'parts.txt', '-c', 'copy', '-movflags', '+faststart', output], TMP_DIR);
   return output;
 }

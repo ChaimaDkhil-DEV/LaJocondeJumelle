@@ -5,7 +5,7 @@
  */
 import { PrismaClient } from '@prisma/client';
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, openSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { runSeed } from '../../backend/prisma/seed';
@@ -13,7 +13,7 @@ import { SETTING_DEFAULTS } from '../../backend/src/settings/settings.service';
 import { startTestDatabase, type TestDatabase } from '../../backend/test/utils/embedded-db';
 import { resetDatabase } from '../../backend/test/utils/test-db';
 import { session } from './api';
-import { BASE_URL, DEMO_PASSWORD, PORTS } from './config';
+import { BASE_URL, DEMO_PASSWORD, PORTS, VOICE_SENTENCE, type AssistMode } from './config';
 import { assertLocalDatabase } from './env';
 
 
@@ -48,7 +48,26 @@ function killTree(child: ChildProcess): void {
   else child.kill('SIGTERM');
 }
 
-export async function startDemoStack(log: (message: string) => void): Promise<DemoStack> {
+export interface DemoStackOptions {
+  /**
+   * Assistance de la création vocale : Whisper réel (URL de backend/.env) et propositions par règles,
+   * fournisseurs locaux de démonstration, ou aucune (défaut).
+   */
+  assist?: AssistMode;
+  whisperUrl?: string;
+}
+
+function assistEnv(options: DemoStackOptions): Record<string, string> {
+  if (options.assist === 'whisper' && options.whisperUrl) {
+    return { ASSIST_TRANSCRIPTION_PROVIDER: 'whisper', ASSIST_WHISPER_URL: options.whisperUrl, ASSIST_SUGGESTION_PROVIDER: 'rules', ASSIST_RATE_LIMIT: '1000' };
+  }
+  if (options.assist === 'demo') {
+    return { ASSIST_TRANSCRIPTION_PROVIDER: 'demo', ASSIST_DEMO_TRANSCRIPT: VOICE_SENTENCE, ASSIST_SUGGESTION_PROVIDER: 'demo', ASSIST_RATE_LIMIT: '1000' };
+  }
+  return { ASSIST_SUGGESTION_PROVIDER: 'disabled', ASSIST_TRANSCRIPTION_PROVIDER: 'disabled' };
+}
+
+export async function startDemoStack(log: (message: string) => void, options: DemoStackOptions = {}): Promise<DemoStack> {
   log(`Base PostgreSQL jetable (port ${PORTS.db}) et migrations…`);
   const db: TestDatabase = await startTestDatabase(PORTS.db);
   assertLocalDatabase(db.url);
@@ -72,7 +91,8 @@ export async function startDemoStack(log: (message: string) => void): Promise<De
     children.push(
       spawn(process.execPath, [nestCli, 'start'], {
         cwd: BACKEND_DIR,
-        stdio: 'ignore',
+        // DEMO_API_LOG=<fichier> : journal de l'API de démo, pour diagnostiquer un scénario.
+        stdio: process.env.DEMO_API_LOG ? ['ignore', openSync(process.env.DEMO_API_LOG, 'w'), 'pipe'] : 'ignore',
         env: {
           ...process.env,
           PORT: String(PORTS.api),
@@ -83,6 +103,7 @@ export async function startDemoStack(log: (message: string) => void): Promise<De
           COOKIE_SECURE: 'false',
           LOGIN_RATE_LIMIT: '1000',
           NODE_ENV: 'test',
+          ...assistEnv(options),
         },
       }),
     );
