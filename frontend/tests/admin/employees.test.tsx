@@ -204,6 +204,31 @@ describe('Onglet « Employés »', () => {
     await waitFor(() => expect(screen.queryByRole('region', { name: 'Actions sur la sélection' })).not.toBeInTheDocument());
   });
 
+  it('export CSV de la sélection : fichier daté du jour local, pas de la date UTC', async () => {
+    const user = userEvent.setup();
+    setup();
+    await table();
+    URL.createObjectURL = vi.fn(() => 'blob:employes');
+    URL.revokeObjectURL = vi.fn();
+    const names: string[] = [];
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+      names.push(this.download);
+    });
+    // 23 h 30 UTC : déjà le lendemain à Paris (UTC+1).
+    const now = new Date('2026-10-29T23:30:00.000Z');
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(now);
+    try {
+      await user.click(screen.getByRole('checkbox', { name: 'Sélectionner Employé 04' }));
+      await user.click(within(screen.getByRole('region', { name: 'Actions sur la sélection' })).getByRole('button', { name: 'Exporter' }));
+    } finally {
+      vi.useRealTimers();
+      click.mockRestore();
+    }
+    const pad = (n: number) => String(n).padStart(2, '0');
+    expect(names).toEqual([`employes-${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}.csv`]);
+  });
+
   it('mobile : une carte par employé (avatar, nom, statut, retard), pas de tableau', async () => {
     const user = userEvent.setup();
     setup(false);

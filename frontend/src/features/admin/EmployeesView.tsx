@@ -126,7 +126,8 @@ function downloadCsv(rows: EmployeeStats[]): void {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `employes-${new Date().toISOString().slice(0, 10)}.csv`;
+  // Date du jour dans le fuseau du navigateur (AAAA-MM-JJ) : toISOString donnerait la veille après minuit.
+  link.download = `employes-${new Intl.DateTimeFormat('en-CA').format(new Date())}.csv`;
   link.click();
   URL.revokeObjectURL(url);
 }
