@@ -5,7 +5,7 @@
  */
 import { PrismaClient } from '@prisma/client';
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { closeSync, existsSync, mkdtempSync, openSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { runSeed } from '../../backend/prisma/seed';
@@ -13,7 +13,7 @@ import { SETTING_DEFAULTS } from '../../backend/src/settings/settings.service';
 import { startTestDatabase, type TestDatabase } from '../../backend/test/utils/embedded-db';
 import { resetDatabase } from '../../backend/test/utils/test-db';
 import { session } from './api';
-import { BASE_URL, DEMO_PASSWORD, PORTS } from './config';
+import { BASE_URL, DEMO_PASSWORD, PORTS, VOICE_SENTENCE, type AssistMode } from './config';
 import { assertLocalDatabase } from './env';
 
 
@@ -48,7 +48,26 @@ function killTree(child: ChildProcess): void {
   else child.kill('SIGTERM');
 }
 
-export async function startDemoStack(log: (message: string) => void): Promise<DemoStack> {
+export interface DemoStackOptions {
+  /**
+   * Assistance de la création vocale : Whisper réel (URL de backend/.env) et propositions par règles,
+   * fournisseurs locaux de démonstration, ou aucune (défaut).
+   */
+  assist?: AssistMode;
+  whisperUrl?: string;
+}
+
+function assistEnv(options: DemoStackOptions): Record<string, string> {
+  if (options.assist === 'whisper' && options.whisperUrl) {
+    return { ASSIST_TRANSCRIPTION_PROVIDER: 'whisper', ASSIST_WHISPER_URL: options.whisperUrl, ASSIST_SUGGESTION_PROVIDER: 'rules', ASSIST_RATE_LIMIT: '1000' };
+  }
+  if (options.assist === 'demo') {
+    return { ASSIST_TRANSCRIPTION_PROVIDER: 'demo', ASSIST_DEMO_TRANSCRIPT: VOICE_SENTENCE, ASSIST_SUGGESTION_PROVIDER: 'demo', ASSIST_RATE_LIMIT: '1000' };
+  }
+  return { ASSIST_SUGGESTION_PROVIDER: 'disabled', ASSIST_TRANSCRIPTION_PROVIDER: 'disabled' };
+}
+
+export async function startDemoStack(log: (message: string) => void, options: DemoStackOptions = {}): Promise<DemoStack> {
   log(`Base PostgreSQL jetable (port ${PORTS.db}) et migrations…`);
   const db: TestDatabase = await startTestDatabase(PORTS.db);
   assertLocalDatabase(db.url);
@@ -69,10 +88,12 @@ export async function startDemoStack(log: (message: string) => void): Promise<De
     await seed();
     log(`API (port ${PORTS.api})…`);
     const nestCli = require.resolve('@nestjs/cli/bin/nest.js', { paths: [BACKEND_DIR] });
+    // DEMO_API_LOG=<fichier> : journal de l'API de démo (sorties standard et d'erreur), pour diagnostiquer un scénario.
+    const apiLog = process.env.DEMO_API_LOG ? openSync(process.env.DEMO_API_LOG, 'w') : undefined;
     children.push(
       spawn(process.execPath, [nestCli, 'start'], {
         cwd: BACKEND_DIR,
-        stdio: 'ignore',
+        stdio: apiLog === undefined ? 'ignore' : ['ignore', apiLog, apiLog],
         env: {
           ...process.env,
           PORT: String(PORTS.api),
@@ -83,9 +104,12 @@ export async function startDemoStack(log: (message: string) => void): Promise<De
           COOKIE_SECURE: 'false',
           LOGIN_RATE_LIMIT: '1000',
           NODE_ENV: 'test',
+          ...assistEnv(options),
         },
       }),
     );
+    // Le processus de l'API a sa propre copie du descripteur.
+    if (apiLog !== undefined) closeSync(apiLog);
 
     log(`Frontend (port ${PORTS.web})…`);
     // Vite n'expose pas son exécutable dans « exports » : on le cherche dans les node_modules.

@@ -17,6 +17,7 @@ npx tsx demo/run.ts S01 S05 --env=test          plusieurs scénarios
 npx tsx demo/run.ts all --env=test --no-compile sans la vidéo compilée
 npx tsx demo/run.ts all --env=test --compile-only vidéo compilée à partir des vidéos existantes
 npx tsx demo/run.ts all --env=test --reburn       sous-titres réincrustés (demo/tmp), sans réenregistrer
+npx tsx demo/run.ts parcours --env=test           parcours d'une demande vocale (P01 à P05) + vidéo compilée
 ```
 
 L'environnement doit être déclaré explicitement « dev » ou « test » (`--env=…` ou `NODE_ENV`) :
@@ -71,3 +72,25 @@ la démo avant 22 h, heure de l'école : plus tard, les créneaux d'une heure d�
 
 Fonctionnalités absentes de l'application (inventaire : `docs/superadmin-fonctionnalites.md`) :
 modification et suppression d'une garde.
+
+## Parcours d'une demande vocale (série P)
+
+`npx tsx demo/run.ts parcours --env=test` produit `demo/videos/P01-…` à `P05-…` et
+`demo/videos/demo-parcours-demande-vocale.mp4`. La vidéo s'ouvre sur la création vocale assistée :
+
+- la demande est prononcée par une voix de synthèse française (Windows, `System.Speech`), générée
+  une fois dans `demo/tmp/voix-demande.wav` (texte : `VOICE_SENTENCE`, `lib/config.ts`) et
+  diffusée par le micro simulé de Chromium ;
+- si le serveur Whisper de `backend/.env` (`ASSIST_WHISPER_URL`) répond, le message est
+  **réellement transcrit** par Whisper et les propositions viennent du moteur par règles ; sinon,
+  repli sur les fournisseurs locaux de démonstration, et le sous-titre le signale ;
+- l'attente de la transcription est montrée en accéléré (×8), signalé par le sous-titre ;
+- `DEMO_API_LOG=<fichier>` écrit le journal de l'API de démo (durée de transcription, propositions).
+
+| Id | Fichier | Contenu |
+| --- | --- | --- |
+| P01 | `scenarios/P01-demande-vocale.ts` | Dictée vocale : transcription, titre, catégorie (d'après une consigne), priorité et destinataire remplis automatiquement, « Voir pourquoi », historique ; puis traitement avec photo de preuve et clôture. |
+| P02 | `scenarios/P02-validation-administration.ts` | Demande écrite. Validation par la surveillante générale et choix de l'employé, renvoi à corriger, reprise, validation finale. |
+| P03 | `scenarios/P03-refus-annulation.ts` | Refus motivé par l'administration, refus motivé par l'employé, annulation par l'enseignante. |
+| P04 | `scenarios/P04-discussion.ts` | Message écrit, réponse vocale dans la discussion, notifications. |
+| P05 | `scenarios/P05-super-administrateur.ts` | Alertes ciblées, tableau de bord, réaffectation, journal d'audit. |
