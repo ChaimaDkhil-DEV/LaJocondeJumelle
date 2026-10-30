@@ -3,6 +3,7 @@ import {
   Activity,
   BookOpen,
   Building2,
+  GraduationCap,
   School,
   ScrollText,
   SlidersHorizontal,
@@ -26,6 +27,7 @@ const SECTIONS: Array<{ to: string; label: string; icon: LucideIcon }> = [
   { to: '/admin/groupes', label: 'Groupes', icon: UsersRound },
   { to: '/admin/etages', label: 'Étages', icon: Building2 },
   { to: '/admin/classes', label: 'Classes', icon: School },
+  { to: '/admin/eleves', label: 'Élèves', icon: GraduationCap },
   { to: '/admin/reglages', label: 'Réglages', icon: SlidersHorizontal },
   { to: '/admin/journal', label: 'Journal d’audit', icon: ScrollText },
 ];
@@ -42,7 +44,7 @@ export function AdminLayout() {
     <Box>
       <PageHeader
         title="Administrateur"
-        description="Suivi des gardes, comptes, catégories, consignes, groupes, étages, classes, réglages et journal d’audit de l’établissement."
+        description="Suivi des gardes, comptes, catégories, consignes, groupes, étages, classes, élèves, réglages et journal d’audit de l’établissement."
       />
       <Box
         component="nav"

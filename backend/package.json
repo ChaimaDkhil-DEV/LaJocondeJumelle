@@ -17,6 +17,7 @@
     "e2e:server": "tsx scripts/e2e-server.ts",
     "fixtures:generate": "tsx scripts/generate-test-fixtures.ts",
     "seed:volume": "tsx prisma/seed-volume.ts",
+    "db:seed:demo": "tsx prisma/seed-demo.ts",
     "preflight:supervision": "tsx scripts/supervision-preflight.ts"
   },
   "prisma": {

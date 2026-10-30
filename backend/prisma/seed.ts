@@ -205,7 +205,7 @@ function temporaryPassword(): string {
   return randomBytes(12).toString('base64url'); // 16 caractères
 }
 
-async function seedSettings(prisma: PrismaClient): Promise<void> {
+export async function seedSettings(prisma: PrismaClient): Promise<void> {
   for (const [key, value] of Object.entries(SETTING_DEFAULTS)) {
     await prisma.setting.upsert({
       where: { key },
@@ -215,7 +215,7 @@ async function seedSettings(prisma: PrismaClient): Promise<void> {
   }
 }
 
-async function seedPermissions(prisma: PrismaClient): Promise<void> {
+export async function seedPermissions(prisma: PrismaClient): Promise<void> {
   const data = Object.entries(DEFAULT_PERMISSIONS).flatMap(([role, permissions]) =>
     permissions.map((permission) => ({ role: role as Role, permission })),
   );

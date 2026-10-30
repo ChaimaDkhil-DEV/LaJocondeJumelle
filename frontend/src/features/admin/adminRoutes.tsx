@@ -3,6 +3,7 @@ import { ClassesAdminPage } from '../coverage/ClassesAdminPage';
 import { CoverageDashboardPage } from '../coverage/CoverageDashboardPage';
 import { FloorsAdminPage } from '../coverage/FloorsAdminPage';
 import { GroupsAdminPage } from '../coverage/GroupsAdminPage';
+import { StudentsAdminPage } from '../students/StudentsAdminPage';
 import { AdminLayout } from './AdminLayout';
 import { AuditLogPage } from './AuditLogPage';
 import { CategoriesAdminPage } from './CategoriesAdminPage';
@@ -34,6 +35,7 @@ export const adminRoutes: RouteObject[] = [
       { path: 'groupes', element: <GroupsAdminPage /> },
       { path: 'etages', element: <FloorsAdminPage /> },
       { path: 'classes', element: <ClassesAdminPage /> },
+      { path: 'eleves', element: <StudentsAdminPage /> },
     ],
   },
 ];

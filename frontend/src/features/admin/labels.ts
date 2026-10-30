@@ -80,6 +80,7 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   COVERAGE_MERGE_DECIDED: 'Doublon tranché',
   COVERAGE_STATS_EXPORTED: 'Export des statistiques des affectations',
   GUIDELINE_CHANGED: 'Consigne créée / modifiée / supprimée',
+  STUDENT_CHANGED: 'Élève créé / modifié',
 };
 
 const GUIDELINE_ACTION_LABELS: Record<string, string> = {

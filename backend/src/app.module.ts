@@ -16,6 +16,7 @@ import { RealtimeModule } from './realtime/realtime.module';
 import { RequestsModule } from './requests/requests.module';
 import { SchedulerModule } from './scheduler/scheduler.module';
 import { SettingsModule } from './settings/settings.module';
+import { StudentsModule } from './students/students.module';
 import { UsersModule } from './users/users.module';
 
 @Module({
@@ -36,6 +37,7 @@ import { UsersModule } from './users/users.module';
     MessagesModule,
     SchedulerModule,
     UsersModule,
+    StudentsModule,
     RealtimeGatewayModule,
   ],
   controllers: [HealthController],
