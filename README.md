@@ -51,6 +51,17 @@ npm run test:e2e                           # bout en bout : 6 profils navigateur
 Avant toute fusion vers `master` : [vérification avant fusion](docs/procedure-fusion.md). Elle est
 manuelle : la CI GitHub signale les échecs mais n'empêche pas la fusion.
 
+## Démonstration en ligne (gratuite, sans compte)
+
+Pour montrer l'application sur téléphone ou tablette sans serveur : `demo-en-ligne.bat` (ou
+`npm run -w backend demo:en-ligne`) construit l'API et l'interface, ouvre un Quick Tunnel
+Cloudflare et affiche une adresse `https://xxxx.trycloudflare.com` avec son QR code. HTTPS : le
+micro fonctionne sur iPhone. Prérequis : `winget install --id Cloudflare.cloudflared -e`.
+
+Le poste doit rester allumé, l'adresse change à chaque lancement et toute personne qui la
+connaît accède à l'écran de connexion (base de développement locale) : ne la communiquer qu'aux
+personnes concernées. Ctrl+C arrête tout. Ce mode ne remplace pas le déploiement ci-dessous.
+
 ## Déploiement
 
 Sur un VPS avec Docker (détails et contrôles dans le
