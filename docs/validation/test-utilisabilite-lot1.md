@@ -1,47 +1,47 @@
-# Test d'utilisabilité du Lot 1 (T120, SC-002)
+# Phase 1 usability test (T120, SC-002)
 
-**Statut : à organiser.** Critère SC-002 : au moins 90 % des employés non techniques réalisent
-les tâches sans aide. Avec 5 participants, l'objectif impose **5 réussites sur 5** pour chaque tâche.
+**Status: to be organized.** Criterion SC-002: at least 90% of non-technical employees complete
+the tasks without help. With 5 participants, the target requires **5 successes out of 5** for each task.
 
-## Protocole
+## Protocol
 
-- **Participants** : 5 employés de l'école, non techniques, n'ayant jamais utilisé l'application
-  (par exemple enseignants, personnel d'accueil, de cantine, d'entretien). Aucun développeur.
-- **Matériel** : le téléphone personnel du participant si possible (sinon un smartphone de test),
-  application de recette en HTTPS, comptes de test préparés.
-- **Durée** : 20 minutes par participant, en individuel.
-- **Animation** : un animateur lit les consignes ; un observateur note sans intervenir.
-  **Aucune aide** pendant les tâches. En cas de blocage de plus de 2 minutes, la tâche est
-  notée « échec » et l'animateur passe à la suivante.
-- **Consigne d'introduction** : « Nous testons l'application, pas vous. Pensez à voix haute. »
-- **Mesures par tâche** : réussite sans aide (oui / non), durée, hésitations et erreurs observées,
-  commentaires du participant.
-- **Consentement** : accord écrit du participant ; aucune donnée personnelle réelle dans les
-  demandes ; notes anonymisées (P1 à P5).
+- **Participants**: 5 school employees, non-technical, who have never used the application
+  (for example teachers, reception, canteen and maintenance staff). No developers.
+- **Equipment**: the participant's own phone if possible (otherwise a test smartphone),
+  acceptance application over HTTPS, test accounts prepared.
+- **Duration**: 20 minutes per participant, one-on-one.
+- **Facilitation**: a facilitator reads the instructions; an observer takes notes without intervening.
+  **No help** during the tasks. If the participant is stuck for more than 2 minutes, the task is
+  marked "échec" (failure) and the facilitator moves on to the next one.
+- **Introductory instruction**: "Nous testons l'application, pas vous. Pensez à voix haute." (We are testing the application, not you. Think out loud.)
+- **Measures per task**: success without help (yes / no), duration, hesitations and errors observed,
+  participant comments.
+- **Consent**: written agreement from the participant; no real personal data in the
+  requests; notes anonymized (P1 to P5).
 
-## Tâches
+## Tasks
 
-| # | Consigne lue au participant | Réussite si |
+| # | Instruction read to the participant | Success if |
 |---|-----------------------------|-------------|
-| T1 | « Vous avez besoin de 30 photocopies du sujet de demain. Demandez-les à la reprographie en laissant un message vocal. » | Demande envoyée avec un vocal, catégorie Photocopies, destinataire Reprographie |
-| T2 | « Avant d'envoyer, réécoutez votre message ; recommencez-le s'il ne vous convient pas. » | Réécoute effectuée (et, si souhaité, enregistrement refait) avant l'envoi |
-| T3 | Compte `reprographie` : « Une demande vous est arrivée. Écoutez-la, acceptez-la et commencez-la. » | Vocal écouté, statut « En cours » |
-| T4 | « Le travail est fait. Terminez la demande en joignant une photo du résultat. » (catégorie avec photo obligatoire) | Statut « Terminée » avec une photo de preuve |
+| T1 | "Vous avez besoin de 30 photocopies du sujet de demain. Demandez-les à la reprographie en laissant un message vocal." (You need 30 photocopies of tomorrow's exam. Ask the print room for them by leaving a voice message.) | Request sent with a voice message, category Photocopies, recipient Reprographie |
+| T2 | "Avant d'envoyer, réécoutez votre message ; recommencez-le s'il ne vous convient pas." (Before sending, listen to your message again; redo it if it does not suit you.) | Playback done (and, if wanted, recording redone) before sending |
+| T3 | `reprographie` account: "Une demande vous est arrivée. Écoutez-la, acceptez-la et commencez-la." (A request has reached you. Listen to it, accept it and start it.) | Voice message listened to, status "En cours" (In progress) |
+| T4 | "Le travail est fait. Terminez la demande en joignant une photo du résultat." (The work is done. Complete the request by attaching a photo of the result.) (category with mandatory photo) | Status "Terminée" (Completed) with a proof photo |
 
-## Résultats
+## Results
 
-| Participant | Profil | T1 | T2 | T3 | T4 | Durée T1 | Observations |
+| Participant | Profile | T1 | T2 | T3 | T4 | T1 duration | Observations |
 |-------------|--------|----|----|----|----|----------|--------------|
 | P1 | | | | | | | |
 | P2 | | | | | | | |
 | P3 | | | | | | | |
 | P4 | | | | | | | |
 | P5 | | | | | | | |
-| **Taux de réussite** | | /5 | /5 | /5 | /5 | | |
+| **Success rate** | | /5 | /5 | /5 | /5 | | |
 
 ## Conclusion
 
-- Date de la séance :
-- Animateur / observateur :
-- SC-002 atteint (5/5 sur chaque tâche) : oui / non
-- Problèmes d'utilisabilité relevés (gravité, écran, proposition) :
+- Session date:
+- Facilitator / observer:
+- SC-002 met (5/5 on each task): yes / no
+- Usability problems noted (severity, screen, proposal):

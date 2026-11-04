@@ -1,4 +1,4 @@
-# Specification Quality Checklist: Lot 1 – Demandes de travail et messagerie vocale
+# Specification Quality Checklist: Phase 1 – Work requests and voice messaging
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
 **Created**: 2026-10-12
@@ -31,9 +31,9 @@
 
 ## Notes
 
-- Iteration 1 : 3 marqueurs [NEEDS CLARIFICATION] en attente de réponse (statut après refus en
-  circuit B, refus/redirection par le destinataire en circuit A, annulation par le demandeur).
-- Les « Points ouverts » listés par le client sont volontairement non tranchés : ils sont
-  couverts par des exigences paramétrables (FR-007, FR-018, FR-024, FR-027, FR-037) et seront
-  traités par `/speckit-clarify`.
+- Iteration 1: 3 [NEEDS CLARIFICATION] markers awaiting an answer (status after a rejection in
+  workflow B, rejection/redirection by the recipient in workflow A, cancellation by the requester).
+- The "Open points" listed by the client are deliberately left undecided: they are
+  covered by configurable requirements (FR-007, FR-018, FR-024, FR-027, FR-037) and will be
+  handled by `/speckit-clarify`.
 - Items marked incomplete require spec updates before `/speckit-clarify` or `/speckit-plan`

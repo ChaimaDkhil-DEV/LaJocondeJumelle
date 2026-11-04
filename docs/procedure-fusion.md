@@ -1,40 +1,40 @@
-# Vérification avant fusion vers `master`
+# Checks before merging into `master`
 
-> **Procédure manuelle : elle ne constitue pas une protection technique.** GitHub n'empêche pas
-> une fusion dont les tests échouent, ni un envoi direct sur `master`.
+> **Manual procedure: it is not a technical safeguard.** GitHub does not prevent
+> a merge whose tests fail, nor a direct push to `master`.
 
-Le dépôt GitHub est privé, sur l'offre gratuite : les règles de protection de branche n'y sont
-pas disponibles (l'API renvoie `403 Upgrade to GitHub Pro or make this repository public`,
-constaté le 15 octobre 2026). La règle de la constitution, « Aucune modification ne peut être
-fusionnée si la suite de tests échoue », repose donc sur la personne qui fusionne
-(décision D10, `specs/003-corrections-audit-technique/spec.md`).
+The GitHub repository is private, on the free plan: branch protection rules are not
+available there (the API returns `403 Upgrade to GitHub Pro or make this repository public`,
+observed on 15 October 2026). The constitution's rule, "No change may be
+merged if the test suite fails", therefore relies on the person who merges
+(decision D10, `specs/003-corrections-audit-technique/spec.md`).
 
-## Règles
+## Rules
 
-- Toute modification de `master` passe par une demande de fusion. Pas d'envoi direct sur
+- Every change to `master` goes through a pull request. No direct push to
   `master`.
-- Juste avant de fusionner, la personne qui fusionne vérifie les quatre contrôles ci-dessous
-  sur le **dernier commit** de la demande, et les coche dans sa description (modèle
+- Just before merging, the person who merges checks the four controls below
+  on the **latest commit** of the pull request, and ticks them in its description (template
   `.github/pull_request_template.md`).
-- Un contrôle non coché ou non satisfait interdit la fusion.
+- A control that is unchecked or not satisfied forbids the merge.
 
-## Les quatre contrôles
+## The four controls
 
-| #   | Contrôle               | Comment le vérifier                                                                                                                                                                                                                                            | Fusion interdite si                                                                       |
+| #   | Control                | How to check it                                                                                                                                                                                                                                                | Merge forbidden if                                                                        |
 | --- | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| 1   | Résultat de la CI      | `gh pr checks <n°>` ou onglet « Checks » : le job « Contrôles qualité » a tourné sur le dernier commit                                                                                                                                                         | absent, en cours, en échec ou annulé                                                      |
-| 2   | Tests requis           | le job a exécuté toutes ses étapes : lint, types backend et frontend, tests unitaires, d'intégration et frontend, `npm audit --audit-level=high`. Pour une livraison, en plus : `npm run test:e2e` lancé à la main et consigné dans `docs/validation/`         | une étape manque ou a été sautée ; compte rendu de bout en bout absent pour une livraison |
-| 3   | Aucun échec non résolu | aucun test désactivé ou ignoré (`.skip`, `.only`, `--testPathIgnorePatterns`) sans raison consignée dans `docs/validation/` ; branche à jour avec `master` (sinon y fusionner `master` et attendre une nouvelle CI verte) ; aucune discussion de revue ouverte | une de ces conditions n'est pas remplie                                                   |
-| 4   | Examen du diff         | relecture complète de `gh pr diff <n°>` (onglet « Files changed ») selon la revue de code de la constitution : tests écrits d'abord et verts, attendus des tests existants inchangés sauf exception documentée, aucun secret, aucun fichier inattendu          | un point de la revue n'est pas satisfait                                                  |
+| 1   | CI result              | `gh pr checks <n°>` or the "Checks" tab: the "Contrôles qualité" (quality checks) job ran on the latest commit                                                                                                                                                 | missing, in progress, failed or cancelled                                                 |
+| 2   | Required tests         | the job ran all its steps: lint, backend and frontend types, unit, integration and frontend tests, `npm audit --audit-level=high`. For a release, in addition: `npm run test:e2e` run by hand and recorded in `docs/validation/`                                | a step is missing or was skipped; end-to-end report missing for a release                 |
+| 3   | No unresolved failure  | no test disabled or skipped (`.skip`, `.only`, `--testPathIgnorePatterns`) without a reason recorded in `docs/validation/`; branch up to date with `master` (otherwise merge `master` into it and wait for a new green CI); no open review discussion          | one of these conditions is not met                                                        |
+| 4   | Diff review            | full read of `gh pr diff <n°>` ("Files changed" tab) following the constitution's code review: tests written first and green, existing test expectations unchanged except for a documented exception, no secret, no unexpected file                           | a point of the review is not satisfied                                                    |
 
-## Fusion faite malgré un échec
+## Merge done despite a failure
 
-La corriger aussitôt par une nouvelle demande de fusion (correctif ou `git revert`), et le
-consigner dans `docs/validation/`.
+Fix it right away with a new pull request (a fix or `git revert`), and record
+it in `docs/validation/`.
 
-## Si la protection de branche devient disponible
+## If branch protection becomes available
 
-Si le dépôt passe à une offre qui le permet, créer sur `master` (GitHub → Settings → Branches →
-Branch protection rules) : « Require a pull request before merging », « Require status checks
-to pass before merging » avec « Contrôles qualité », « Require branches to be up to date before
-merging ». Les contrôles 2 à 4 restent à vérifier à la main.
+If the repository moves to a plan that allows it, create on `master` (GitHub → Settings → Branches →
+Branch protection rules): "Require a pull request before merging", "Require status checks
+to pass before merging" with "Contrôles qualité", "Require branches to be up to date before
+merging". Controls 2 to 4 still have to be checked by hand.

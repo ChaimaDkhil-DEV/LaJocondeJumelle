@@ -1,4 +1,4 @@
-# Specification Quality Checklist: Export des statistiques des affectations
+# Specification Quality Checklist: Export des statistiques des affectations (Assignment statistics export)
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
 **Created**: 2026-10-23
@@ -31,10 +31,10 @@
 
 ## Notes
 
-- Itération 1 (2026-10-23) : 1 question ouverte, la journalisation des exports réussis (FR-009).
-  « CSV » est retenu comme format visible de l'utilisateur, aligné sur les deux exports
-  existants, et non comme détail d'implémentation.
-- Itération 2 (2026-10-23, `/speckit-clarify`) : réponse A consignée dans « Clarifications » ;
-  FR-009, US2 scénario 5, SC-004, entités et hypothèses ajustés. Tous les points passent.
-- Choix par défaut non questionnés (voir « Assumptions ») : même public que la page, CSV seul,
-  un fichier par vue affichée, aucune règle de calcul nouvelle.
+- Iteration 1 (2026-10-23): 1 open question, the logging of successful exports (FR-009).
+  "CSV" is kept as the user-visible format, aligned with the two existing exports, and not as an
+  implementation detail.
+- Iteration 2 (2026-10-23, `/speckit-clarify`): answer A recorded in "Clarifications";
+  FR-009, US2 scenario 5, SC-004, entities and assumptions adjusted. All items pass.
+- Default choices not questioned (see "Assumptions"): same audience as the page, CSV only, one
+  file per displayed view, no new computation rule.

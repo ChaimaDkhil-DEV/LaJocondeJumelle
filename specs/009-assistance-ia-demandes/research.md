@@ -1,145 +1,149 @@
-# Research: Assistance IA à la création des demandes (socle)
+# Research: Assistance IA à la création des demandes (socle) (AI assistance when creating requests (foundation))
 
-Décisions de conception, chacune avec sa raison et les alternatives écartées.
+Design decisions, each with its reason and the alternatives discarded.
 
-## R1 — Fournisseurs interchangeables, aucun appel externe
+## R1 — Interchangeable providers, no external call
 
-- **Décision** : deux interfaces côté serveur, `TranscriptionProvider` et `SuggestionProvider`,
-  choisies par la configuration (`ASSIST_TRANSCRIPTION_PROVIDER`, `ASSIST_SUGGESTION_PROVIDER`).
-  Ce lot fournit deux implémentations de chacune : `disabled` (par défaut) et `demo`
-  (déterministe, locale, sans réseau). `demo` est refusé au démarrage quand
-  `NODE_ENV=production` (`ConfigError`) : une fausse transcription ne doit jamais atteindre les
-  utilisateurs réels.
-- **Pourquoi** : décision de cadrage (« socle d'abord ») ; l'application n'appelle aujourd'hui
-  aucun tiers (`docs/ARCHITECTURE.md`) et ce lot ne change pas cet état (SC-009). Un fournisseur
-  réel s'ajoutera par une nouvelle implémentation, sans toucher au parcours (FR-020).
-- **Alternatives écartées** : brancher dès maintenant un fournisseur en ligne (décision RGPD non
-  prise) ; un modèle local (charge serveur et dépendances lourdes pour un lot de démonstration).
+- **Decision**: two server-side interfaces, `TranscriptionProvider` and `SuggestionProvider`,
+  chosen by configuration (`ASSIST_TRANSCRIPTION_PROVIDER`, `ASSIST_SUGGESTION_PROVIDER`).
+  This phase provides two implementations of each: `disabled` (default) and `demo`
+  (deterministic, local, no network). `demo` is refused at startup when
+  `NODE_ENV=production` (`ConfigError`): a fake transcription must never reach real
+  users.
+- **Why**: framing decision ("foundation first"); the application calls no third party
+  today (`docs/ARCHITECTURE.md`) and this phase does not change that state (SC-009). A real
+  provider will be added as a new implementation, without touching the flow (FR-020).
+- **Alternatives discarded**: plugging in an online provider right now (GDPR decision not
+  made); a local model (server load and heavy dependencies for a demonstration phase).
 
-## R2 — Fournisseur de démonstration
+## R2 — Demonstration provider
 
-- **Transcription `demo`** : renvoie un texte fixe (`ASSIST_DEMO_TRANSCRIPT`, sinon une phrase
-  par défaut signalée comme démonstration) après les contrôles audio réels (R4). Elle prouve le
-  parcours, pas la reconnaissance vocale.
-- **Propositions `demo`** (fonction pure `demoSuggest`) :
-  - catégorie : celle de la consigne la mieux classée rattachée à une catégorie ; sinon une
-    catégorie dont un mot du nom (4 lettres ou plus, sans accents) figure dans le texte ; sinon
-    aucune ;
-  - priorité : la mention « Priorité : Normale | Moyenne | Haute | Urgente » de la première consigne
-    retenue qui en contient une ; sinon `URGENT` si le texte contient « urgent » ; sinon aucune ;
-  - titre : la première phrase du texte, coupée à 120 caractères sur un mot ;
-  - justification : « D'après la consigne « … ». » ou « D'après le nom de la catégorie « … ». » ;
-  - informations manquantes : « Décrivez le besoin en quelques mots. » sous 4 mots.
-- **Pourquoi** : résultats prévisibles pour les tests unitaires, d'intégration et e2e, sans coût
-  ni réseau ; elle ignore par construction toute instruction contenue dans le texte.
+- **`demo` transcription**: returns fixed text (`ASSIST_DEMO_TRANSCRIPT`, otherwise a default
+  sentence flagged as a demonstration) after the real audio checks (R4). It proves the flow,
+  not speech recognition.
+- **`demo` suggestions** (pure function `demoSuggest`):
+  - category: that of the best-ranked guideline attached to a category; otherwise a
+    category with a word of its name (4 letters or more, without accents) in the text; otherwise
+    none;
+  - priority: the « Priorité : Normale | Moyenne | Haute | Urgente » mention of the first
+    retained guideline that contains one; otherwise `URGENT` if the text contains « urgent »; otherwise
+    none;
+  - title: the first sentence of the text, cut at 120 characters on a word;
+  - justification: « D'après la consigne « … ». » (According to the guideline "…".) or « D'après le
+    nom de la catégorie « … ». » (According to the category name "…".);
+  - missing information: « Décrivez le besoin en quelques mots. » (Describe the need in a few
+    words.) under 4 words.
+- **Why**: predictable results for unit, integration and e2e tests, with no cost
+  or network; by construction it ignores any instruction contained in the text.
 
-## R3 — Validation stricte des réponses (FR-005, FR-012)
+## R3 — Strict validation of responses (FR-005, FR-012)
 
-- **Décision** : une fonction pure `sanitizeSuggestion(raw: unknown, allowed)` contrôle chaque
-  champ séparément : `categoryId` ∈ catégories autorisées pour cet utilisateur, `priority` ∈
-  `Priority` (Prisma), longueurs (titre 120, justification 500, 3 informations manquantes de
-  200 caractères), `sourceIds` ⊂ consignes effectivement transmises. Un champ invalide est
-  écarté et compté (`discarded`) ; si rien ne reste, la réponse vaut « aucune proposition
-  fiable ». La réponse du fournisseur est typée `unknown` : aucun champ n'est utilisé sans ce
-  contrôle.
-- **Pourquoi** : même un fournisseur réel compromis ou trompé par une injection ne peut produire
-  qu'une proposition bornée ; rien n'est exécuté.
-- **Alternative écartée** : ajouter zod ou ajv (nouvelle dépendance pour une seule structure ;
-  class-validator sert aux corps de requête, pas aux réponses internes).
+- **Decision**: a pure function `sanitizeSuggestion(raw: unknown, allowed)` checks each
+  field separately: `categoryId` ∈ categories allowed for this user, `priority` ∈
+  `Priority` (Prisma), lengths (title 120, justification 500, 3 missing-information items of
+  200 characters), `sourceIds` ⊂ guidelines actually transmitted. An invalid field is
+  discarded and counted (`discarded`); if nothing remains, the response counts as "no
+  reliable suggestion". The provider's response is typed `unknown`: no field is used without this
+  check.
+- **Why**: even a real provider that is compromised or fooled by an injection can only produce
+  a bounded suggestion; nothing is executed.
+- **Alternative discarded**: adding zod or ajv (new dependency for a single structure;
+  class-validator serves request bodies, not internal responses).
 
-## R4 — Transcription sans fichier conservé (FR-008, FR-009)
+## R4 — Transcription without a kept file (FR-008, FR-009)
 
-- **Décision** : `POST /api/assist/transcriptions` reçoit l'enregistrement (multipart, comme
-  `POST /api/files`), applique les mêmes contrôles (taille `voiceMaxBytes`, signature, ffprobe,
-  durée `voiceMaxSeconds`, conversion) grâce à une fonction extraite de `FilesService.upload`
-  (`prepareVoice`), transcrit le fichier converti puis l'efface dans un `finally`. Aucune ligne
-  `File` n'est créée.
-- **Pourquoi** : dans le formulaire, le vocal reste dans le navigateur jusqu'à l'envoi
-  (`submitRequest`, boîte d'envoi hors ligne) ; le téléverser plus tôt créerait un fichier
-  provisoire de plus et changerait le parcours d'envoi. Le vocal est transmis deux fois (moins de
-  2 Mo pour 180 s à 64 kbit/s) : coût accepté.
-- **Alternative écartée** : téléverser le vocal en provisoire et transcrire par identifiant
-  (fichiers orphelins, double rattachement à gérer).
+- **Decision**: `POST /api/assist/transcriptions` receives the recording (multipart, like
+  `POST /api/files`), applies the same checks (size `voiceMaxBytes`, signature, ffprobe,
+  duration `voiceMaxSeconds`, conversion) thanks to a function extracted from `FilesService.upload`
+  (`prepareVoice`), transcribes the converted file then erases it in a `finally`. No `File`
+  row is created.
+- **Why**: in the form, the voice message stays in the browser until submission
+  (`submitRequest`, offline outbox); uploading it earlier would create one more temporary file
+  and change the submission flow. The voice message is sent twice (under
+  2 MB for 180 s at 64 kbit/s): cost accepted.
+- **Alternative discarded**: uploading the voice message as temporary and transcribing by identifier
+  (orphan files, double attachment to manage).
 
-## R5 — Consignes et recherche plein texte PostgreSQL (FR-015 à FR-017)
+## R5 — Guidelines and PostgreSQL full-text search (FR-015 to FR-017)
 
-- **Décision** : table `Guideline` (titre, texte, catégorie facultative, active, auteur de la
-  dernière modification). Recherche par `$queryRaw` paramétré :
-  - requête construite côté base à partir des lexèmes du texte :
-    `to_tsquery('simple', string_agg(quote_literal(lexeme), ' | '))` sur
-    `unnest(to_tsvector('french', $texte))` (« ou » entre les mots, sans double racinisation) ;
-  - document : `to_tsvector('french', title || ' ' || body)` ;
-  - filtres : `active = true` et (`categoryId IS NULL` ou `categoryId = ANY($catégoriesAutorisées)`) ;
-  - classement `ts_rank`, rang > 0, 5 résultats au plus ; extrait = 200 premiers caractères.
-- **Pourquoi** : quelques dizaines de consignes ; la configuration `french` de PostgreSQL 17
-  suffit, sans extension ni index (balayage négligeable). Les filtres d'accès sont dans la
-  requête : une consigne non autorisée n'est jamais lue (FR-016, SC-006).
-- **Alternatives écartées** : pgvector (changement d'image `postgres:17`, fournisseur
-  d'embeddings, donc appel externe ou modèle local) ; recherche en mémoire dans Node (accents et
-  racines français à refaire).
+- **Decision**: table `Guideline` (title, text, optional category, active, author of the
+  last modification). Search by parameterized `$queryRaw`:
+  - query built database-side from the lexemes of the text:
+    `to_tsquery('simple', string_agg(quote_literal(lexeme), ' | '))` over
+    `unnest(to_tsvector('french', $texte))` ("or" between words, no double stemming);
+  - document: `to_tsvector('french', title || ' ' || body)`;
+  - filters: `active = true` and (`categoryId IS NULL` or `categoryId = ANY($allowedCategories)`);
+  - ranking `ts_rank`, rank > 0, 5 results at most; excerpt = first 200 characters.
+- **Why**: a few dozen guidelines; the PostgreSQL 17 `french` configuration
+  is enough, with no extension or index (negligible scan). The access filters are in the
+  query: an unauthorized guideline is never read (FR-016, SC-006).
+- **Alternatives discarded**: pgvector (change of the `postgres:17` image, embeddings
+  provider, hence external call or local model); in-memory search in Node (French accents and
+  stems to redo).
 
-## R6 — Lier la proposition à la demande créée sans la stocker (FR-023, FR-025)
+## R6 — Link the suggestion to the created request without storing it (FR-023, FR-025)
 
-- **Décision** : la réponse de `POST /api/assist/suggestions` contient un `token` signé
-  (HMAC-SHA256, clé dérivée de `SESSION_SECRET` avec un préfixe propre à cet usage, `node:crypto`)
-  qui porte l'utilisateur, l'heure d'émission et les valeurs proposées (titre, catégorie,
-  priorité, sources : identifiant et titre). `CreateRequestDto` accepte un `assistToken`
-  facultatif. À l'envoi (pas pour un brouillon), si le jeton est valide, du même utilisateur et
-  émis depuis moins de 24 h, `create` écrit dans la même transaction un `RequestEvent`
-  `ASSIST_SUGGESTED` : `fromValue` = valeurs proposées et sources, `toValue` = valeurs réellement
-  enregistrées. Un jeton absent, invalide ou expiré est ignoré : la création n'en dépend jamais.
-- **Pourquoi** : aucune proposition n'est conservée tant que la demande n'est pas envoyée
-  (formulaire abandonné : aucune trace) ; les valeurs proposées ne peuvent pas être falsifiées par
-  le navigateur ; 24 h couvrent l'envoi différé par la boîte d'envoi hors ligne.
-- **Alternatives écartées** : table des propositions (données conservées pour des formulaires
-  abandonnés) ; valeurs proposées renvoyées en clair par le navigateur (historique falsifiable).
+- **Decision**: the response of `POST /api/assist/suggestions` contains a signed `token`
+  (HMAC-SHA256, key derived from `SESSION_SECRET` with a prefix specific to this use, `node:crypto`)
+  that carries the user, the issue time and the suggested values (title, category,
+  priority, sources: identifier and title). `CreateRequestDto` accepts an optional
+  `assistToken`. On submission (not for a draft), if the token is valid, from the same user and
+  issued less than 24 h ago, `create` writes in the same transaction a `RequestEvent`
+  `ASSIST_SUGGESTED`: `fromValue` = suggested values and sources, `toValue` = values actually
+  saved. A missing, invalid or expired token is ignored: creation never depends on it.
+- **Why**: no suggestion is kept until the request is submitted
+  (abandoned form: no trace); the suggested values cannot be forged by
+  the browser; 24 h covers deferred submission through the offline outbox.
+- **Alternatives discarded**: suggestions table (data kept for abandoned forms);
+  suggested values sent back in clear by the browser (forgeable history).
 
-## R7 — Limite d'appels par utilisateur (FR-014)
+## R7 — Call limit per user (FR-014)
 
-- **Décision** : `AssistRateLimiter`, fenêtre glissante en mémoire par utilisateur, partagée par
-  la transcription et les propositions : `ASSIST_RATE_LIMIT` (10 par défaut) appels par 5 minutes.
-  Dépassement : `ASSIST_RATE_LIMITED` (429, message adapté à la fenêtre de 5 minutes) et `ACCESS_DENIED` journalisé avec
-  `reason: RATE_LIMITED`, comme la connexion.
-- **Pourquoi** : l'API tourne en un seul conteneur (`deploy/docker-compose.yml`) ; la clé est
-  l'utilisateur, pas l'adresse IP (établissement derrière une même adresse).
-- **Alternative écartée** : un second throttler nommé dans `ThrottlerModule` : il s'appliquerait
-  aussi à `LoginThrottlerGuard`, qui parcourt tous les throttlers déclarés.
+- **Decision**: `AssistRateLimiter`, in-memory sliding window per user, shared by
+  transcription and suggestions: `ASSIST_RATE_LIMIT` (10 by default) calls per 5 minutes.
+  Exceeded: `ASSIST_RATE_LIMITED` (429, message adapted to the 5-minute window) and `ACCESS_DENIED` logged with
+  `reason: RATE_LIMITED`, like login.
+- **Why**: the API runs in a single container (`deploy/docker-compose.yml`); the key is
+  the user, not the IP address (school behind a single address).
+- **Alternative discarded**: a second named throttler in `ThrottlerModule`: it would also apply
+  to `LoginThrottlerGuard`, which goes through all declared throttlers.
 
-## R8 — Délai et erreurs (FR-021, FR-024)
+## R8 — Timeout and errors (FR-021, FR-024)
 
-- **Décision** : chaque appel de fournisseur reçoit un `AbortSignal.timeout(ASSIST_TIMEOUT_MS)`
-  (15 000 ms par défaut, borné à 1 000 à 20 000 ms). Délai dépassé ou erreur :
-  `ASSIST_UNAVAILABLE` (503, nouveau code d'erreur, message « Les propositions ne sont pas
-  disponibles pour le moment. Vous pouvez remplir la demande vous-même. ») ; transcription vide :
-  `TRANSCRIPTION_EMPTY` (422). Journal applicatif : type d'erreur, fournisseur et durée, jamais le
-  texte ni l'audio. Assistance désactivée : `ASSIST_DISABLED` (404), et le formulaire ne propose
-  pas l'action.
-- **Pourquoi** : 15 s laissent de la marge sous les 20 s de SC-005 (conversion audio comprise).
+- **Decision**: each provider call receives an `AbortSignal.timeout(ASSIST_TIMEOUT_MS)`
+  (15,000 ms by default, bounded to 1,000 to 20,000 ms). Timeout exceeded or error:
+  `ASSIST_UNAVAILABLE` (503, new error code, message « Les propositions ne sont pas
+  disponibles pour le moment. Vous pouvez remplir la demande vous-même. » (Suggestions are not
+  available at the moment. You can fill in the request yourself.)); empty transcription:
+  `TRANSCRIPTION_EMPTY` (422). Application log: error type, provider and duration, never the
+  text or the audio. Assistance disabled: `ASSIST_DISABLED` (404), and the form does not offer
+  the action.
+- **Why**: 15 s leaves margin under the 20 s of SC-005 (audio conversion included).
 
-## R9 — Interface
+## R9 — UI
 
-- **Décision** : `AssistPanel` (nouveau, `features/assist/`) placé dans `CreateRequestPage` sous
-  les champs, hors de `RequestFields` (la reprise de brouillon reste inchangée). Il lit
-  `useClientSettings()` (`assistSuggestions`, `assistTranscription`, ajoutés à
-  `GET /api/settings/client`) et `navigator.onLine`. Les actions « Appliquer » appellent les
-  setters existants de `useRequestForm` ; la réponse la plus récente seule est affichée (compteur
-  de requête) ; arrivée des propositions et erreurs annoncées par une région `aria-live`.
-  `assistToken` est joint à `submitRequest` (et à la boîte d'envoi).
-- **Consignes** : onglet « Consignes » de l'espace Administrateur (`/admin/consignes`), même
-  modèle que « Catégories » (liste, dialogue de saisie, confirmation de suppression).
+- **Decision**: `AssistPanel` (new, `features/assist/`) placed in `CreateRequestPage` under
+  the fields, outside `RequestFields` (draft resumption stays unchanged). It reads
+  `useClientSettings()` (`assistSuggestions`, `assistTranscription`, added to
+  `GET /api/settings/client`) and `navigator.onLine`. The « Appliquer » actions call the
+  existing setters of `useRequestForm`; only the most recent response is displayed (request
+  counter); arrival of suggestions and errors announced by an `aria-live` region.
+  `assistToken` is attached to `submitRequest` (and to the outbox).
+- **Guidelines**: « Consignes » tab of the Administrator area (`/admin/consignes`), same
+  model as « Catégories » (list, input dialog, deletion confirmation).
 
 ## R10 — Tests
 
-- Unitaires (Jest) : `sanitizeSuggestion`, `demoSuggest`, jeton (signature, expiration,
-  utilisateur), `AssistRateLimiter`, configuration (`demo` refusé en production, bornes du
-  délai).
-- Intégration (Jest + PostgreSQL embarqué) : recherche des consignes (filtres d'accès, consignes
-  inactives ou supprimées, aucun résultat), propositions (catégorie non autorisée jamais
-  proposée, texte avec instructions, fournisseur en échec ou trop lent, réponse mal formée),
-  aucune écriture métier, création avec jeton (événement, valeurs retenues, validation
-  administrative inchangée), jeton invalide ignoré, brouillon sans événement, refus d'accès,
-  limite d'appels, transcription (audio effacé, vocal vide refusé), CRUD des consignes et audit.
-- Interface (Vitest) : panneau (désactivé, hors ligne, chargement, erreur, appliquer, ne remplace
-  pas la description sans confirmation, dernière réponse seule), gestion des consignes.
-- E2E (Playwright, fournisseurs `demo` dans `e2e-server`) : parcours complet et audit axe à
+- Unit (Jest): `sanitizeSuggestion`, `demoSuggest`, token (signature, expiry,
+  user), `AssistRateLimiter`, configuration (`demo` refused in production, timeout
+  bounds).
+- Integration (Jest + embedded PostgreSQL): guideline search (access filters, inactive
+  or deleted guidelines, no result), suggestions (unauthorized category never
+  suggested, text with instructions, failing or too slow provider, malformed response),
+  no business write, creation with token (event, kept values, administrative validation
+  unchanged), invalid token ignored, draft without event, access denial,
+  call limit, transcription (audio erased, empty voice message rejected), guideline CRUD and audit.
+- UI (Vitest): panel (disabled, offline, loading, error, apply, does not replace
+  the description without confirmation, last response only), guideline management.
+- E2E (Playwright, `demo` providers in `e2e-server`): full flow and axe audit at
   320 px.

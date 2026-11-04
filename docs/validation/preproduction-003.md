@@ -1,87 +1,87 @@
-# Préproduction — liste de contrôle (fonctionnalité 003, T055 à T058 et T061)
+# Pre-production — checklist (feature 003, T055 to T058 and T061)
 
-> Préparée le 2026-10-21 sur `master` (`72c7d81`). Tâches : `specs/003-corrections-audit-technique/tasks.md`
-> (T055 à T058, T061) ; scénario 6 de `specs/003-corrections-audit-technique/quickstart.md`.
-> Constats fermés une fois la liste déroulée : A22, A23 (T055), A24 (T056), A25 (T057),
-> A20 et A26 (T058).
+> Prepared on 2026-10-21 on `master` (`72c7d81`). Tasks: `specs/003-corrections-audit-technique/tasks.md`
+> (T055 to T058, T061); scenario 6 of `specs/003-corrections-audit-technique/quickstart.md`.
+> Findings closed once the list has been worked through: A22, A23 (T055), A24 (T056), A25 (T057),
+> A20 and A26 (T058).
 
-Ordre conseillé : **A** en local (sans serveur), puis **B** et **C** sur la préproduction, puis **D**
-sur un serveur vierge. Chaque section dit où consigner le résultat.
+Recommended order: **A** locally (no server), then **B** and **C** on pre-production, then **D**
+on a blank server. Each section says where to record the result.
 
-## Prérequis
+## Prerequisites
 
-- [ ] Préproduction : hôte Docker avec le dépôt cloné sur `master` (`72c7d81` ou plus récent),
-      `deploy/.env` rempli à partir de `deploy/.env.example` (`DOMAIN` pointant vers l'hôte,
-      `ACME_EMAIL`, `POSTGRES_PASSWORD`, `SESSION_SECRET`), ports 80 et 443 ouverts.
-- [ ] Préproduction déployée une première fois avec `deploy/deploy.sh` ;
-      `docker compose -f deploy/docker-compose.yml --env-file deploy/.env ps` : tous les services
-      `running`, `api` en `healthy`.
-- [ ] Un compte de test sur la préproduction (identifiant et mot de passe connus).
-- [ ] Serveur vierge pour D : Docker et Docker Compose installés, rien d'autre.
+- [ ] Pre-production: Docker host with the repository cloned on `master` (`72c7d81` or later),
+      `deploy/.env` filled in from `deploy/.env.example` (`DOMAIN` pointing to the host,
+      `ACME_EMAIL`, `POSTGRES_PASSWORD`, `SESSION_SECRET`), ports 80 and 443 open.
+- [ ] Pre-production deployed once with `deploy/deploy.sh`;
+      `docker compose -f deploy/docker-compose.yml --env-file deploy/.env ps`: all services
+      `running`, `api` `healthy`.
+- [ ] A test account on pre-production (known username and password).
+- [ ] Blank server for D: Docker and Docker Compose installed, nothing else.
 
-Dans la suite, `DC` désigne `docker compose -f deploy/docker-compose.yml --env-file deploy/.env`,
-lancé depuis la racine du dépôt.
+Below, `DC` stands for `docker compose -f deploy/docker-compose.yml --env-file deploy/.env`,
+run from the repository root.
 
-## A. En local — tests de bout en bout et vérification finale (T058, T061)
+## A. Locally — end-to-end tests and final verification (T058, T061)
 
-- [ ] `npm run test:e2e` (tous les profils, dont `e2e/sc001-create-timing.spec.ts`).
-      Attendu : tout vert. Les parcours d'affectations (`coverage-class.spec.ts`) s'ignorent
-      d'eux-mêmes après 22 h, heure de l'école : lancer en journée pour qu'ils tournent.
+- [ ] `npm run test:e2e` (all profiles, including `e2e/sc001-create-timing.spec.ts`).
+      Expected: all green. The assignment flows (`coverage-class.spec.ts`) skip
+      themselves after 22:00 school time: run during the day so that they run.
 - [ ] `npm run verify`, `npm run -w backend typecheck`, `npm run -w frontend typecheck`.
-- [ ] CI verte sur le dernier commit de `master` :
+- [ ] CI green on the latest commit of `master`:
       `gh run list --branch master --limit 1`.
 
-Consigner (compteurs de tests, durée de création mesurée par `sc001-create-timing`) dans
-`docs/validation/verification-003.md`, section « Vérification finale », sur le modèle de
+Record (test counts, creation time measured by `sc001-create-timing`) in
+`docs/validation/verification-003.md`, section "Vérification finale" (Final verification), on the model of
 `verification-finale.md`.
 
-## B. Préproduction — sauvegarde imposée avant migration (T055)
+## B. Pre-production — mandatory backup before migration (T055)
 
-La migration de test se crée **sur l'hôte de préproduction uniquement**, jamais dans le dépôt
-local : en local, le hook du projet appliquerait aussitôt tout nouveau `migration.sql` à la base
-de développement (voir `CLAUDE.md`).
+The test migration is created **on the pre-production host only**, never in the local
+repository: locally, the project hook would immediately apply any new `migration.sql` to the development
+database (see `CLAUDE.md`).
 
-1. [ ] Créer une migration vide, rangée après la dernière (`0009_supervision_data`) :
+1. [ ] Create an empty migration, sorted after the last one (`0009_supervision_data`):
 
    ```text
    mkdir backend/prisma/migrations/9999_test_sauvegarde_imposee
    echo "-- Migration de test (T055), sans effet." > backend/prisma/migrations/9999_test_sauvegarde_imposee/migration.sql
    ```
 
-2. [ ] S'assurer qu'aucune sauvegarde n'a moins d'une heure (sinon le refus n'aura pas lieu) :
-       `find deploy/backups -name 'db-*.dump' -mmin -60` ne doit rien afficher (adapter le chemin
-       si `BACKUP_DIR` est modifié). Au besoin, attendre ou déplacer temporairement ces fichiers.
-3. [ ] Lancer **sans** le script : `DC up -d --build`, puis `DC logs api --tail 20`.
-       Attendu : « Migration en attente sans sauvegarde récente : lancez deploy/deploy.sh. » ;
-       `DC ps` montre `api` arrêté ou en redémarrage.
-4. [ ] Lancer `deploy/deploy.sh`.
-       Attendu : « [deploy] 1/2 : sauvegarde avant mise à jour », une archive
-       `db-<horodatage>.dump` (et `files-<horodatage>.tar.gz`) dans le dossier des sauvegardes,
-       puis la migration `9999_test_sauvegarde_imposee` appliquée (`DC logs api`).
-5. [ ] `DC ps` : `api` en `healthy` (healthcheck sur `http://127.0.0.1:3000/api/health`).
-6. [ ] **Nettoyage, dans cet ordre** :
-   - supprimer le dossier `backend/prisma/migrations/9999_test_sauvegarde_imposee` sur l'hôte ;
-   - retirer la migration de l'historique de Prisma, sinon `migrate status` la signale comme
-     « appliquée mais absente » et l'API risque de refuser de démarrer au prochain déploiement :
+2. [ ] Make sure no backup is less than an hour old (otherwise the refusal will not happen):
+       `find deploy/backups -name 'db-*.dump' -mmin -60` must display nothing (adjust the path
+       if `BACKUP_DIR` is changed). If needed, wait or temporarily move these files.
+3. [ ] Run **without** the script: `DC up -d --build`, then `DC logs api --tail 20`.
+       Expected: "Migration en attente sans sauvegarde récente : lancez deploy/deploy.sh." (Pending migration without a recent backup: run deploy/deploy.sh.);
+       `DC ps` shows `api` stopped or restarting.
+4. [ ] Run `deploy/deploy.sh`.
+       Expected: "[deploy] 1/2 : sauvegarde avant mise à jour" ([deploy] 1/2: backup before update), an archive
+       `db-<horodatage>.dump` (and `files-<horodatage>.tar.gz`) in the backups folder,
+       then the migration `9999_test_sauvegarde_imposee` applied (`DC logs api`).
+5. [ ] `DC ps`: `api` `healthy` (healthcheck on `http://127.0.0.1:3000/api/health`).
+6. [ ] **Cleanup, in this order**:
+   - delete the folder `backend/prisma/migrations/9999_test_sauvegarde_imposee` on the host;
+   - remove the migration from Prisma's history, otherwise `migrate status` reports it as
+     "applied but missing" and the API may refuse to start at the next deployment:
 
      ```text
      DC exec db psql -U app -d app -c "DELETE FROM _prisma_migrations WHERE migration_name = '9999_test_sauvegarde_imposee';"
      ```
 
-     (adapter `-U` et `-d` à `POSTGRES_USER` et `POSTGRES_DB`) ;
-   - `DC exec api npx --no-install prisma migrate status` : « Database schema is up to date! » ;
-   - `git status` sur l'hôte : propre.
+     (adjust `-U` and `-d` to `POSTGRES_USER` and `POSTGRES_DB`);
+   - `DC exec api npx --no-install prisma migrate status`: "Database schema is up to date!";
+   - `git status` on the host: clean.
 
-Consigner (sorties des étapes 3 à 6, horodatage de l'archive) dans
+Record (outputs of steps 3 to 6, archive timestamp) in
 `docs/validation/verification-003.md`.
 
-## C. Préproduction — en-têtes de sécurité et taille des envois (T057)
+## C. Pre-production — security headers and upload size (T057)
 
-1. [ ] `curl -sI https://<domaine>/` et `curl -sI https://<domaine>/api/health`.
-       Attendu sur les deux : `strict-transport-security: max-age=31536000; includeSubDomains`,
+1. [ ] `curl -sI https://<domaine>/` and `curl -sI https://<domaine>/api/health`.
+       Expected on both: `strict-transport-security: max-age=31536000; includeSubDomains`,
        `content-security-policy: default-src 'self'; …`, `x-content-type-options: nosniff`,
-       `referrer-policy`, `permissions-policy` ; pas d'en-tête `server`.
-2. [ ] Envoi de 27 Mo (au-delà de la limite de Caddy, 26 Mo) :
+       `referrer-policy`, `permissions-policy`; no `server` header.
+2. [ ] Upload of 27 MB (beyond Caddy's limit, 26 MB):
 
    ```text
    head -c 28311552 /dev/urandom > /tmp/envoi-27mo.bin
@@ -89,8 +89,8 @@ Consigner (sorties des étapes 3 à 6, horodatage de l'archive) dans
      -F kind=DOCUMENT -F file=@/tmp/envoi-27mo.bin https://<domaine>/api/files
    ```
 
-   Attendu : `413`, avant même l'API (pas besoin d'être connecté).
-3. [ ] Facultatif, limite de l'API (25 Mo) : se connecter puis envoyer 25,5 Mo.
+   Expected: `413`, even before the API (no need to be logged in).
+3. [ ] Optional, API limit (25 MB): log in then upload 25.5 MB.
 
    ```text
    curl -s -c /tmp/sid.txt -H "Origin: https://<domaine>" -H "Content-Type: application/json" \
@@ -100,42 +100,42 @@ Consigner (sorties des étapes 3 à 6, horodatage de l'archive) dans
      -F kind=DOCUMENT -F file=@/tmp/envoi-25-5mo.bin https://<domaine>/api/files
    ```
 
-   Attendu : refus par l'API (code 4xx et message d'erreur), aucun fichier enregistré.
-4. [ ] Supprimer les fichiers de test : `rm /tmp/envoi-*.bin /tmp/sid.txt`.
+   Expected: refusal by the API (4xx code and error message), no file saved.
+4. [ ] Delete the test files: `rm /tmp/envoi-*.bin /tmp/sid.txt`.
 
-Consigner les sorties dans un nouveau `docs/validation/en-tetes-securite.md` (date, domaine,
-en-têtes relevés, codes de retour).
+Record the outputs in a new `docs/validation/en-tetes-securite.md` (date, domain,
+headers observed, return codes).
 
-## D. Serveur vierge — restauration d'une sauvegarde réelle (T056)
+## D. Blank server — restoring a real backup (T056)
 
-Utiliser une sauvegarde **réelle** (production, ou préproduction alimentée), jamais la
-préproduction elle-même comme cible : la restauration remplace toutes les données.
+Use a **real** backup (production, or populated pre-production), never pre-production
+itself as the target: the restore replaces all data.
 
-1. [ ] Cloner le dépôt sur le serveur vierge, au **même commit** que celui qui tournait lors de la
-       sauvegarde (sinon l'API trouvera une migration en attente et exigera une sauvegarde
-       récente au démarrage).
-2. [ ] Créer `deploy/.env` (mêmes `POSTGRES_USER`, `POSTGRES_DB` ; `DOMAIN` du serveur de test).
-3. [ ] Copier `db-<horodatage>.dump` et `files-<horodatage>.tar.gz` dans le dossier des
-       sauvegardes (`deploy/backups` par défaut).
-4. [ ] **Démarrer la base avant la restauration** : `DC up -d db`, puis attendre `healthy`
-       (`DC ps`). `restore.sh` lance `pg_restore` avec `--no-deps` : sur un serveur vierge, la base
-       ne serait pas démarrée sans cette étape.
-5. [ ] Noter l'heure de début, puis `deploy/backup/restore.sh <horodatage>` et taper `RESTAURER`.
-       Noter l'heure de fin (le premier `up -d` construit les images : le compter à part).
-6. [ ] `DC ps` : tous les services `running`, `api` en `healthy`.
-7. [ ] Contrôles dans l'application :
-   - [ ] connexion avec un compte existant ;
-   - [ ] une demande avec message vocal : lecture du vocal ;
-   - [ ] une photo (pièce jointe ou preuve de présence) : affichage ;
-   - [ ] journal d'audit (super administrateur) : événements antérieurs à la sauvegarde présents.
+1. [ ] Clone the repository on the blank server, at the **same commit** as the one that was running at the
+       time of the backup (otherwise the API will find a pending migration and require a recent
+       backup at startup).
+2. [ ] Create `deploy/.env` (same `POSTGRES_USER`, `POSTGRES_DB`; `DOMAIN` of the test server).
+3. [ ] Copy `db-<horodatage>.dump` and `files-<horodatage>.tar.gz` into the backups
+       folder (`deploy/backups` by default).
+4. [ ] **Start the database before the restore**: `DC up -d db`, then wait for `healthy`
+       (`DC ps`). `restore.sh` runs `pg_restore` with `--no-deps`: on a blank server, the database
+       would not be started without this step.
+5. [ ] Note the start time, then `deploy/backup/restore.sh <horodatage>` and type `RESTAURER` (RESTORE).
+       Note the end time (the first `up -d` builds the images: count it separately).
+6. [ ] `DC ps`: all services `running`, `api` `healthy`.
+7. [ ] Checks in the application:
+   - [ ] login with an existing account;
+   - [ ] a request with a voice message: playback of the voice message;
+   - [ ] a photo (attachment or proof of attendance): display;
+   - [ ] audit log (super administrator): events prior to the backup present.
 
-Consigner dans un nouveau `docs/validation/restauration.md` : date, serveur, horodatage et
-origine de la sauvegarde, durée (restauration seule, et construction des images), résultat de
-chaque contrôle, écarts.
+Record in a new `docs/validation/restauration.md`: date, server, timestamp and
+origin of the backup, duration (restore alone, and image build), result of
+each check, deviations.
 
-## Clôture
+## Closing
 
-- [ ] Cocher T055 à T058 et T061 dans `specs/003-corrections-audit-technique/tasks.md`.
-- [ ] Mettre à jour le tableau du §12 de `docs/ARCHITECTURE.md` : A20, A22, A23, A24, A25, A26
-      (statut et preuve).
-- [ ] Cocher les critères SC atteints dans `specs/003-corrections-audit-technique/spec.md`.
+- [ ] Tick T055 to T058 and T061 in `specs/003-corrections-audit-technique/tasks.md`.
+- [ ] Update the table in §12 of `docs/ARCHITECTURE.md`: A20, A22, A23, A24, A25, A26
+      (status and proof).
+- [ ] Tick the SC criteria met in `specs/003-corrections-audit-technique/spec.md`.

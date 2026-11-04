@@ -1,93 +1,92 @@
-# Contrat de migration — 004
+# Migration contract — 004
 
-Objectif : passer de la diffusion des gardes au module d'affectations **sans perte de données**,
-en étapes **réversibles**, avec l'historique et l'audit intacts (principe V). Décisions :
+Goal: move from broadcasting guard duties to the assignments module **without losing data**, in
+**reversible** steps, with history and audit log intact (principle V). Decisions:
 [research.md](../research.md) R1, R7, R8, R12, R13.
 
-## Étape 0 — Pré-contrôle (lecture seule)
+## Step 0 — Pre-check (read-only)
 
 `npm run preflight:supervision -w backend` (script `backend/scripts/supervision-preflight.ts`,
-`DATABASE_URL` de la base cible) produit `supervision-preflight-<date>.md` :
+`DATABASE_URL` of the target database) produces `supervision-preflight-<date>.md`:
 
-| Section | Contenu | Validation humaine demandée |
+| Section | Content | Human validation required |
 | --- | --- | --- |
-| A. Membres du groupe | Membres de « Surveillants/Remplaçants » : nom, identifiant, intitulé de poste, rôle | **V1** — l'établissement indique les non-surveillants (FR-005a). Ils restent membres (aucun retrait automatique) ; le retrait éventuel se fait ensuite dans l'administration, audité. |
-| B. Statuts | Décompte des gardes par statut et statut cible (R1) ; liste nominative des gardes **sans équivalent évident** | **V2** — décision pour chaque garde listée (FR-008d). La migration 0009 refuse de s'exécuter s'il en reste. |
-| C. Conservation | Durée proposée (12 mois glissants), nombre d'affectations anonymisées dès la première exécution | **V3** — validation par la direction (FR-023a) ; la valeur validée est saisie dans le réglage `coverageRetentionMonths` juste après la migration, avant l'activation des jobs. |
+| A. Group members | Members of "Surveillants/Remplaçants" (Supervisors/Substitutes): name, identifier, job title, role | **V1** — the school names the non-supervisors (FR-005a). They stay members (no automatic removal); any removal is done afterwards in the administration, audited. |
+| B. Statuses | Count of guard duties by status and target status (R1); named list of guard duties **with no obvious equivalent** | **V2** — decision for each listed guard duty (FR-008d). Migration 0009 refuses to run if any remain. |
+| C. Retention | Proposed duration (12 rolling months), number of assignments anonymized on the first run | **V3** — validation by the school management (FR-023a); the validated value is entered in the `coverageRetentionMonths` setting right after the migration, before the jobs are enabled. |
 
-Les trois validations sont consignées (nom, date) dans le rapport, joint à la demande de mise en
-production. Sans elles, pas de déploiement.
+The three validations are recorded (name, date) in the report, attached to the production release
+request. Without them, no deployment.
 
-Statut « sans équivalent évident » : statut de garde absent du tableau R1, garde `COVERAGE`
-portant un statut de demande de travail, ou `UNFILLED` dont la fin de créneau est inconnue et la
-journée non terminée.
+Status "with no obvious equivalent": a guard-duty status missing from the R1 table, a `COVERAGE`
+guard duty carrying a work-request status, or an `UNFILLED` one whose time-slot end is unknown and
+whose day is not over.
 
-## Étape 1 — `0008_supervision_schema` (additive)
+## Step 1 — `0008_supervision_schema` (additive)
 
-- `ALTER TYPE … ADD VALUE` : `RequestStatus.PENDING`, nouveaux `RequestEventType`,
+- `ALTER TYPE … ADD VALUE`: `RequestStatus.PENDING`, new `RequestEventType`,
   `NotificationType`, `AuditAction`.
-- `CREATE TYPE` : `CoverageSource`, `CoverageType`, `GroupSystemKey`, `CoverageReminderKind`,
+- `CREATE TYPE`: `CoverageSource`, `CoverageType`, `GroupSystemKey`, `CoverageReminderKind`,
   `MergeProposalStatus`.
-- `CREATE TABLE` : `Floor`, `CoverageSupport`, `CoverageMergeProposal`, `CoverageReminder`.
-- `ADD COLUMN` (nullables) : `CoverageDetail.source|type|teacherId|reason|floorId|mergedIntoId|anonymizedAt`,
-  `SchoolClass.floorId`, `User.floorId`, `EmployeeGroup.systemKey` (+ index uniques).
-- Aucune donnée modifiée. `down.sql` : refuse s'il existe des lignes dans les nouvelles tables ou
-  des colonnes nouvelles renseignées ; sinon retire tables et colonnes et recrée les types sans
-  les valeurs ajoutées (même méthode que `0002_coverage/down.sql`).
+- `CREATE TABLE`: `Floor`, `CoverageSupport`, `CoverageMergeProposal`, `CoverageReminder`.
+- `ADD COLUMN` (nullable): `CoverageDetail.source|type|teacherId|reason|floorId|mergedIntoId|anonymizedAt`,
+  `SchoolClass.floorId`, `User.floorId`, `EmployeeGroup.systemKey` (+ unique indexes).
+- No data modified. `down.sql`: refuses if the new tables contain rows or the new columns are
+  filled in; otherwise removes tables and columns and recreates the types without the added
+  values (same method as `0002_coverage/down.sql`).
 
-## Étape 2 — `0009_supervision_data` (données, une transaction)
+## Step 2 — `0009_supervision_data` (data, one transaction)
 
-1. **Garde-fou** : `DO $$ … RAISE EXCEPTION` si une garde sans équivalent (V2) subsiste.
-2. **Rôle** : `ALTER TYPE "Role" RENAME VALUE 'MANAGER' TO 'ADMIN'`.
-3. **Groupes** : « Surveillants/Remplaçants » → nom « Surveillants », `systemKey = SUPERVISORS`
-   (membres conservés) ; création de « Enseignants » (`TEACHERS`), vide. Si un groupe porte déjà
-   le nom cible, la migration s'arrête (décision humaine).
-4. **Gardes ouvertes** : `BROADCAST` → `PENDING` ; `UNFILLED` dont la fin de créneau n'est pas
-   passée → `PENDING` ; `UNFILLED` passées : inchangées (FR-011c). Pour chaque ligne modifiée :
-   `RequestEvent STATUS_CHANGED` (acteur SYSTEM, `fromValue`/`toValue`, commentaire
-   `migration-0009`) ; `currentStage/currentDueAt` remis à null (l'étape `TAKEOVER` disparaît) ;
-   une ligne `CoverageReminder TAKEOVER` est créée selon R3.
-5. **Source** : `CoverageDetail.source = ADMIN_DIRECT` pour toutes les gardes existantes ;
-   `type` laissé null (inconnu), `absentTeacher` conservé.
-6. **Compte de démonstration** : `responsable` → `admin` seulement si `admin` est libre et si
-   le nom affiché est celui du seed ; sinon rien.
-7. **Compte technique** `enseignant-anonymise` (inactif, rôle `EMPLOYEE`, mot de passe
-   inutilisable) créé pour l'anonymisation.
-8. **Réglages** : clés `coverage*` insérées avec leurs valeurs par défaut.
+1. **Guard**: `DO $$ … RAISE EXCEPTION` if a guard duty with no equivalent (V2) remains.
+2. **Role**: `ALTER TYPE "Role" RENAME VALUE 'MANAGER' TO 'ADMIN'`.
+3. **Groups**: "Surveillants/Remplaçants" → name "Surveillants", `systemKey = SUPERVISORS`
+   (members kept); creation of "Enseignants" (`TEACHERS`), empty. If a group already has the
+   target name, the migration stops (human decision).
+4. **Open guard duties**: `BROADCAST` → `PENDING`; `UNFILLED` whose time-slot end has not passed
+   → `PENDING`; `UNFILLED` already past: unchanged (FR-011c). For each modified row:
+   `RequestEvent STATUS_CHANGED` (actor SYSTEM, `fromValue`/`toValue`, comment
+   `migration-0009`); `currentStage/currentDueAt` reset to null (the `TAKEOVER` stage goes away);
+   a `CoverageReminder TAKEOVER` row is created according to R3.
+5. **Source**: `CoverageDetail.source = ADMIN_DIRECT` for all existing guard duties;
+   `type` left null (unknown), `absentTeacher` kept.
+6. **Demo account**: `responsable` → `admin` only if `admin` is free and the display name is the
+   seed's; otherwise nothing.
+7. **Technical account** `enseignant-anonymise` (inactive, role `EMPLOYEE`, unusable password)
+   created for anonymization.
+8. **Settings**: `coverage*` keys inserted with their default values.
 
-Les autres statuts ne changent pas en base : leur statut principal et leur sous-état sont
-calculés (R1). Aucune ligne de `RequestEvent` ni d'`AuditLog` n'est modifiée ni supprimée.
+The other statuses do not change in the database: their main status and sub-state are computed
+(R1). No `RequestEvent` or `AuditLog` row is modified or deleted.
 
-`down.sql` (manuel, `npx prisma db execute --file …`) :
+`down.sql` (manual, `npx prisma db execute --file …`):
 
-- refuse s'il existe des affectations créées après la migration (source `TEACHER_REQUEST` ou
-  `SUPERVISOR_REPORT`, ou `PENDING` sans événement `migration-0009`) ;
-- remet `PENDING` → statut d'origine d'après les événements `migration-0009`, en **ajoutant**
-  des événements inverses `migration-0009-down` ;
-- `ADMIN` → `MANAGER`, groupes renommés à l'identique, `systemKey` à null, groupe « Enseignants »
-  supprimé s'il est vide, compte de démo renommé à l'identique, compte technique supprimé s'il
-  n'est référencé par aucune demande, réglages `coverage*` supprimés, lignes `CoverageReminder`
-  supprimées ;
-- retire la ligne `0009_supervision_data` de `_prisma_migrations`.
+- refuses if assignments exist that were created after the migration (source `TEACHER_REQUEST` or
+  `SUPERVISOR_REPORT`, or `PENDING` without a `migration-0009` event);
+- puts `PENDING` back to the original status based on the `migration-0009` events, **adding**
+  inverse `migration-0009-down` events;
+- `ADMIN` → `MANAGER`, groups renamed back identically, `systemKey` to null, "Enseignants" group
+  deleted if empty, demo account renamed back identically, technical account deleted if no
+  request references it, `coverage*` settings deleted, `CoverageReminder` rows deleted;
+- removes the `0009_supervision_data` row from `_prisma_migrations`.
 
-## Étape 3 — Déploiement
+## Step 3 — Deployment
 
-1. Rapport de pré-contrôle et validations V1–V3 joints.
-2. `deploy/deploy.sh` : sauvegarde (`backup.sh`, existant), reconstruction des images.
-3. `deploy/api-entrypoint.sh` (existant) : refuse sans sauvegarde de moins de 60 min ; applique
-   `0008` puis `0009` (`migrate deploy`) ; démarre l'API.
-4. Juste après : saisie de `coverageRetentionMonths` validé (V3) ; rattachement des classes à un
-   étage et des surveillants à leur étage dans l'administration.
+1. Pre-check report and validations V1–V3 attached.
+2. `deploy/deploy.sh`: backup (`backup.sh`, existing), image rebuild.
+3. `deploy/api-entrypoint.sh` (existing): refuses without a backup less than 60 min old; applies
+   `0008` then `0009` (`migrate deploy`); starts the API.
+4. Right after: enter the validated `coverageRetentionMonths` (V3); link classes to a floor and
+   supervisors to their floor in the administration.
 
-## Retour arrière
+## Rollback
 
-Code précédent redéployé, puis `0009/down.sql`, puis `0008/down.sql`. En cas de refus des
-garde-fous (données nouvelles déjà saisies) : restauration de la sauvegarde prise à l'étape 3
-(`deploy/backup/restore.sh`, existant).
+Redeploy the previous code, then `0009/down.sql`, then `0008/down.sql`. If the guards refuse
+(new data already entered): restore the backup taken at step 3
+(`deploy/backup/restore.sh`, existing).
 
-## Vérification de la migration (tests)
+## Migration verification (tests)
 
-Test d'intégration `migration-0009.spec.ts` sur PostgreSQL embarqué : base en état `0003` +
-jeu de gardes dans chaque statut → `0008` + `0009` → contrôle des statuts, événements
-`migration-0009`, groupes, rôle, compte de démo ; puis `down.sql` → état initial restauré, aucun
-événement supprimé, garde-fous déclenchés sur données nouvelles.
+Integration test `migration-0009.spec.ts` on embedded PostgreSQL: database in state `0003` +
+a set of guard duties in each status → `0008` + `0009` → check statuses, `migration-0009`
+events, groups, role, demo account; then `down.sql` → initial state restored, no event deleted,
+guards triggered on new data.

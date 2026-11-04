@@ -1,226 +1,226 @@
-# Research: Lot 1 – Demandes de travail et messagerie vocale
+# Research: Phase 1 – Work requests and voice messaging
 
 **Date**: 2026-10-12 | **Plan**: [plan.md](./plan.md)
 
-La pile technique a été imposée par le client. Aucune entrée du contexte technique n'est restée
-« NEEDS CLARIFICATION » ; les points ci-dessous fixent la façon d'utiliser cette pile pour
-répondre à la spec et aux huit contraintes du plan.
+The technology stack was imposed by the client. No entry in the technical context was left as
+"NEEDS CLARIFICATION"; the points below set out how to use this stack to
+meet the spec and the plan's eight constraints.
 
-## R1. Architecture d'ensemble
+## R1. Overall architecture
 
-- **Decision**: une SPA React servie en fichiers statiques par Caddy ; une API NestJS unique
-  (REST sous `/api`, Socket.IO sous `/socket.io`) derrière Caddy sur le même domaine ;
-  PostgreSQL dans un conteneur ; volume disque privé pour les fichiers. Un seul processus API.
-- **Rationale**: même origine pour la SPA, l'API et le WebSocket : cookies de session simples,
-  pas de CORS, `<audio src="/api/files/…">` authentifié par cookie. Un seul processus suffit à
-  l'échelle d'une école et évite toute coordination entre instances (principe II).
-- **Alternatives considered**: rendu serveur (Next.js) — inutile pour une application
-  authentifiée sans SEO ; API et frontend sur deux domaines — impose CORS et cookies
-  inter-domaines.
+- **Decision**: a React SPA served as static files by Caddy; a single NestJS API
+  (REST under `/api`, Socket.IO under `/socket.io`) behind Caddy on the same domain;
+  PostgreSQL in a container; private disk volume for files. A single API process.
+- **Rationale**: same origin for the SPA, the API and the WebSocket: simple session cookies,
+  no CORS, `<audio src="/api/files/…">` authenticated by cookie. A single process is enough at
+  the scale of a school and avoids any coordination between instances (principle II).
+- **Alternatives considered**: server-side rendering (Next.js) — pointless for an authenticated
+  application without SEO; API and frontend on two domains — requires CORS and cross-domain
+  cookies.
 
-## R2. Enregistrement et lecture des vocaux
-
-- **Decision**:
-  1. Enregistrement avec `MediaRecorder` ; format choisi dans l'ordre par
-     `MediaRecorder.isTypeSupported` : `audio/webm;codecs=opus`, `audio/mp4` (AAC),
-     `audio/ogg;codecs=opus`. Le type retenu est envoyé avec le fichier.
-  2. Pré-écoute locale avant envoi à partir du Blob enregistré (le navigateur relit toujours
-     son propre format). Bouton « Refaire » qui remplace l'enregistrement.
-  3. Arrêt automatique à la durée maximale (réglage), avec avertissement à 80 % de la durée ;
-     refus d'envoi si durée < 1 s.
-  4. Côté serveur : ffprobe vérifie qu'il s'agit d'un flux audio valide et mesure la durée
-     (refus si au-delà du maximum + 2 s de tolérance) ; ffmpeg convertit systématiquement en
-     AAC mono 64 kbit/s dans un conteneur MP4 (`audio/mp4`, extension `.m4a`), avec
-     `+faststart`. Le fichier d'origine est supprimé après conversion réussie.
-  5. Lecture avec un lecteur basé sur l'élément `<audio>` natif, enveloppé dans des contrôles
-     MUI accessibles (lecture/pause, barre de progression clavier, durée lue à l'écran) ; le
-     serveur gère les requêtes HTTP Range, indispensables à Safari pour lire et se déplacer.
-  6. Conversion synchrone dans la requête d'envoi (quelques centaines de millisecondes pour un
-     vocal de quelques minutes) : pas de file de traitement.
-  7. Contexte sécurisé obligatoire : HTTPS en production (Caddy) et sur téléphone en test
-     (Caddy avec certificat interne, voir quickstart). Si `navigator.mediaDevices` ou
-     `MediaRecorder` est absent, ou si l'autorisation du micro est refusée, l'interface
-     explique comment l'autoriser et propose la description écrite (FR-002, US1 scénario 5).
-- **Rationale**: AAC/MP4 est le seul format lu nativement par Safari (iOS et macOS), Chrome,
-  Edge et Firefox sur toutes les plateformes cibles ; normaliser à l'arrivée supprime toute
-  matrice de compatibilité à la lecture et toute logique de format côté client.
-- **Alternatives considered**: conserver le format d'origine (lecture WebM incertaine sur
-  anciennes versions d'iOS) ; convertir en Opus/WebM (illisible sur certains Safari) ;
-  bibliothèque d'enregistrement tierce (recorder.js, encodage WAV) — fichiers lourds, dépendance
-  inutile ; conversion asynchrone via une file — complexité sans bénéfice à ce volume.
-
-## R3. Stockage et accès aux fichiers
+## R2. Recording and playing voice messages
 
 - **Decision**:
-  - Volume Docker dédié monté uniquement dans le conteneur API (`/data/files`), jamais exposé
-    par Caddy. Chemin `/{yyyy}/{mm}/{uuid}` sans extension ; le type, la taille, le nom
-    d'origine et l'auteur sont en base (`File`).
-  - Téléversement en `multipart/form-data` par Multer avec limite de taille, puis :
-    détection du type réel par octets magiques (module interne `files/file-signature.ts`, qui
-    remplace la bibliothèque `file-type`, ESM uniquement et non chargeable par Jest ; écart décidé
-    à l’implémentation le 2026-10-12) ; liste blanche de types ;
-    vocaux → ffprobe/ffmpeg (R2) ; photos → sharp (rotation selon EXIF, suppression de toutes
-    les métadonnées, ré-encodage JPEG qualité 85, côté long ≤ 2560 px).
-  - Formats autorisés par défaut (réglables) : photos JPEG, PNG, WebP ; fichiers PDF. HEIC
-    refusé avec un message clair : iOS convertit déjà en JPEG les photos choisies via un champ
-    fichier web, et sharp ne décode pas le HEIC de façon fiable.
-  - Téléchargement uniquement par `GET /api/files/:id` : session requise, contrôle
-    `canReadRequest` sur la demande parente, envoi par `res.sendFile` (gère Range/ETag),
-    en-têtes `Content-Type` stocké, `X-Content-Type-Options: nosniff`,
-    `Cache-Control: private, no-store`, `Content-Disposition: inline` pour images/audio et
-    `attachment` pour les autres. Accès refusé → 404 et entrée d'audit.
-  - Prise de photo : `<input type="file" accept="image/*" capture="environment">` pour
-    l'appareil, et le même champ sans `capture` pour la galerie.
-  - Limite de corps de requête aussi appliquée par Caddy (`request_body max_size`).
-- **Rationale**: même origine et cookie de session : pas besoin d'URL signées ; le contrôle
-  d'accès est le même code que pour la demande. Le champ fichier natif est la façon la plus
-  fiable et la plus accessible de prendre une photo sur mobile.
-- **Alternatives considered**: URL signées à durée limitée (utile seulement avec un stockage
-  objet externe) ; stockage S3/MinIO (service supplémentaire injustifié sur un VPS) ;
-  `getUserMedia` pour la photo (interface caméra à réécrire, moins accessible).
+  1. Recording with `MediaRecorder`; format chosen in order by
+     `MediaRecorder.isTypeSupported`: `audio/webm;codecs=opus`, `audio/mp4` (AAC),
+     `audio/ogg;codecs=opus`. The type retained is sent with the file.
+  2. Local preview before sending, from the recorded Blob (the browser can always replay
+     its own format). A « Refaire » (Redo) button that replaces the recording.
+  3. Automatic stop at the maximum duration (setting), with a warning at 80% of the duration;
+     sending refused if duration < 1 s.
+  4. Server side: ffprobe checks that it is a valid audio stream and measures the duration
+     (refused if above the maximum + 2 s tolerance); ffmpeg systematically converts to
+     mono AAC at 64 kbit/s in an MP4 container (`audio/mp4`, extension `.m4a`), with
+     `+faststart`. The original file is deleted after a successful conversion.
+  5. Playback with a player based on the native `<audio>` element, wrapped in accessible
+     MUI controls (play/pause, keyboard progress bar, duration read on screen); the
+     server handles HTTP Range requests, which Safari needs to play and seek.
+  6. Synchronous conversion within the sending request (a few hundred milliseconds for a
+     voice message of a few minutes): no processing queue.
+  7. Secure context mandatory: HTTPS in production (Caddy) and on a phone when testing
+     (Caddy with an internal certificate, see quickstart). If `navigator.mediaDevices` or
+     `MediaRecorder` is missing, or if microphone permission is refused, the interface
+     explains how to allow it and offers the written description (FR-002, US1 scenario 5).
+- **Rationale**: AAC/MP4 is the only format played natively by Safari (iOS and macOS), Chrome,
+  Edge and Firefox on all target platforms; normalizing on arrival removes any
+  playback compatibility matrix and any format logic on the client side.
+- **Alternatives considered**: keep the original format (WebM playback uncertain on
+  older iOS versions); convert to Opus/WebM (unplayable on some Safari versions);
+  third-party recording library (recorder.js, WAV encoding) — heavy files, needless
+  dependency; asynchronous conversion through a queue — complexity with no benefit at this volume.
 
-## R4. Délais, retards et clôture automatique
+## R3. File storage and access
 
 - **Decision**:
-  - À chaque entrée dans une étape suivie, le service calcule l'échéance à partir des durées
-    copiées dans la demande à sa création (instantané des règles, FR-022) et enregistre
-    `currentStage`, `currentDueAt` et `warnAt` (échéance − seuil d'alerte).
-    Étapes : VALIDATION (de la soumission à la décision), TAKEOVER (de l'affectation à
-    l'acceptation), COMPLETION (de l'acceptation à « Terminée » ; redémarre à chaque retour
-    « À corriger »).
-  - Job `@Interval(15_000)` (@nestjs/schedule) : `UPDATE … WHERE currentDueAt < now() AND
-    overdueStage IS DISTINCT FROM currentStage RETURNING …` pour marquer le retard de façon
-    idempotente ; pour chaque ligne : événement d'historique `OVERDUE`, notifications aux
-    responsables de la catégorie et à l'employé affecté, émission Socket.IO.
-  - Le même job clôt les demandes « Terminée » dont `autoCloseAt` est dépassé (catégories en
-    clôture automatique), avec l'acteur `SYSTEM`.
-  - « Proche de l'échéance » est calculé à la lecture (`now ≥ warnAt`), sans job.
-  - Le temps restant affiché côté client est un compte à rebours calculé depuis `currentDueAt`
-    et corrigé du décalage d'horloge mesuré à la connexion (`serverTime` renvoyé par l'API).
-- **Rationale**: un intervalle de 15 s garantit SC-006 (< 30 s) ; la mise à jour
-  conditionnelle évite les doubles notifications même si un tick est lent ; l'état en base
-  permet le rattrapage après un redémarrage, sans file ni Redis.
-- **Alternatives considered**: minuterie par demande en mémoire (perdue au redémarrage) ;
-  `pg_cron` (logique métier dans la base, moins testable) ; file BullMQ (exige Redis).
+  - Dedicated Docker volume mounted only in the API container (`/data/files`), never exposed
+    by Caddy. Path `/{yyyy}/{mm}/{uuid}` without extension; the type, size, original
+    name and author are in the database (`File`).
+  - Upload as `multipart/form-data` by Multer with a size limit, then:
+    detection of the real type by magic bytes (internal module `files/file-signature.ts`, which
+    replaces the `file-type` library, ESM-only and not loadable by Jest; deviation decided
+    during implementation on 2026-10-12); allow list of types;
+    voice messages → ffprobe/ffmpeg (R2); photos → sharp (rotation according to EXIF, removal of all
+    metadata, JPEG re-encoding at quality 85, long side ≤ 2560 px).
+  - Formats allowed by default (adjustable): JPEG, PNG, WebP photos; PDF files. HEIC
+    refused with a clear message: iOS already converts photos chosen through a web file field
+    to JPEG, and sharp does not decode HEIC reliably.
+  - Download only through `GET /api/files/:id`: session required, `canReadRequest` check
+    on the parent request, sent by `res.sendFile` (handles Range/ETag),
+    headers: stored `Content-Type`, `X-Content-Type-Options: nosniff`,
+    `Cache-Control: private, no-store`, `Content-Disposition: inline` for images/audio and
+    `attachment` for the others. Access denied → 404 and an audit entry.
+  - Taking a photo: `<input type="file" accept="image/*" capture="environment">` for the
+    camera, and the same field without `capture` for the gallery.
+  - Request body limit also enforced by Caddy (`request_body max_size`).
+- **Rationale**: same origin and session cookie: no need for signed URLs; the access check
+  is the same code as for the request. The native file field is the most reliable
+  and most accessible way to take a photo on mobile.
+- **Alternatives considered**: time-limited signed URLs (useful only with external object
+  storage); S3/MinIO storage (an extra service unjustified on a VPS);
+  `getUserMedia` for the photo (camera interface to rewrite, less accessible).
 
-## R5. Machine à états et concurrence
+## R4. Deadlines, delays and automatic closure
 
-- **Decision**: module pur `request-state-machine.ts` : table de transitions
-  `{from, action, to, actor, guards}` (voir data-model) et fonction
-  `applyAction(request, action, actor, context) → Result`. Le service applique la transition en
-  base avec un verrouillage optimiste : `updateMany({ where: { id, status: from, version } })` ;
-  0 ligne → 409 `STATE_CHANGED`, l'interface recharge la demande et l'explique à
-  l'utilisateur. La transition, l'événement d'historique et les notifications sont écrits dans
-  la même transaction ; l'émission Socket.IO a lieu après validation.
-- **Rationale**: une seule source de vérité testable sans base ; le verrouillage optimiste
-  règle le cas limite « deux utilisateurs changent le statut en même temps ».
-- **Alternatives considered**: bibliothèque de machines à états (XState) — inutile pour une
-  table de 20 lignes ; verrou `SELECT … FOR UPDATE` — fonctionne aussi mais garde la ligne
-  verrouillée plus longtemps.
+- **Decision**:
+  - On each entry into a tracked stage, the service computes the due date from the durations
+    copied into the request at creation (snapshot of the rules, FR-022) and records
+    `currentStage`, `currentDueAt` and `warnAt` (due date − warning threshold).
+    Stages: VALIDATION (from submission to the decision), TAKEOVER (from assignment to
+    acceptance), COMPLETION (from acceptance to « Terminée » (Completed); restarts at each return
+    to « À corriger » (To correct)).
+  - `@Interval(15_000)` job (@nestjs/schedule): `UPDATE … WHERE currentDueAt < now() AND
+    overdueStage IS DISTINCT FROM currentStage RETURNING …` to flag the delay
+    idempotently; for each row: `OVERDUE` history event, notifications to the category
+    managers and the assigned employee, Socket.IO emission.
+  - The same job closes « Terminée » requests whose `autoCloseAt` has passed (categories with
+    automatic closure), with the `SYSTEM` actor.
+  - "Close to the due date" is computed at read time (`now ≥ warnAt`), without a job.
+  - The remaining time displayed on the client side is a countdown computed from `currentDueAt`
+    and corrected for the clock offset measured at connection (`serverTime` returned by the API).
+- **Rationale**: a 15 s interval guarantees SC-006 (< 30 s); the conditional update
+  avoids double notifications even if a tick is slow; the state in the database
+  allows catch-up after a restart, with no queue or Redis.
+- **Alternatives considered**: in-memory timer per request (lost on restart);
+  `pg_cron` (business logic in the database, less testable); BullMQ queue (requires Redis).
 
-## R6. Historique et journal d'audit non modifiables
+## R5. State machine and concurrency
 
-- **Decision**: deux tables en ajout seul : `RequestEvent` (historique de chaque demande) et
-  `AuditLog` (actions sensibles hors demande : connexions, échecs, refus d'accès, comptes,
-  rôles, catégories, réglages). Une migration SQL crée sur les deux tables un trigger
-  `BEFORE UPDATE OR DELETE` qui lève une exception. Aucune route d'écriture ; lecture de
-  l'audit réservée au super administrateur. Les entrées ne contiennent ni mot de passe, ni
-  jeton, ni contenu de message (seulement des identifiants et les valeurs avant/après des
-  champs métier).
-- **Rationale**: la protection est assurée par la base elle-même, même en cas de bogue
-  applicatif (principe V).
-- **Alternatives considered**: rôle PostgreSQL séparé sans droit UPDATE/DELETE (plus lourd à
-  gérer avec Prisma et ses migrations) ; chaînage cryptographique des entrées (non demandé).
+- **Decision**: pure module `request-state-machine.ts`: transition table
+  `{from, action, to, actor, guards}` (see data-model) and function
+  `applyAction(request, action, actor, context) → Result`. The service applies the transition in
+  the database with optimistic locking: `updateMany({ where: { id, status: from, version } })`;
+  0 rows → 409 `STATE_CHANGED`, the interface reloads the request and explains it to
+  the user. The transition, the history event and the notifications are written in
+  the same transaction; the Socket.IO emission happens after commit.
+- **Rationale**: a single source of truth testable without a database; optimistic locking
+  handles the edge case "two users change the status at the same time".
+- **Alternatives considered**: state machine library (XState) — pointless for a
+  20-row table; `SELECT … FOR UPDATE` lock — also works but keeps the row
+  locked longer.
 
-## R7. Authentification et sessions
+## R6. Non-modifiable history and audit log
 
-- **Decision**: identifiant + mot de passe ; hachage Argon2id ; comptes créés par le super
-  administrateur avec mot de passe provisoire à changer à la première connexion (pas d'e-mail
-  dans ce lot). Session serveur stockée en base (`Session`), cookie `HttpOnly`, `Secure`,
-  `SameSite=Strict` ; expiration après 60 min d'inactivité et 12 h au maximum (réglables).
-  Vérification de l'en-tête `Origin` sur toutes les requêtes modifiantes et à la poignée de
-  main Socket.IO. Limitation des tentatives de connexion (@nestjs/throttler, 5 par minute et
-  par identifiant/IP). Désactiver un compte supprime ses sessions et déconnecte ses sockets.
-- **Rationale**: sessions révocables immédiatement, authentification identique pour REST et
-  WebSocket, aucune donnée sensible en stockage navigateur.
-- **Alternatives considered**: JWT en stockage local (vol par XSS, révocation difficile) ;
-  SSO de l'école (non demandé, à envisager dans un lot ultérieur).
+- **Decision**: two append-only tables: `RequestEvent` (history of each request) and
+  `AuditLog` (sensitive actions outside requests: logins, failures, access denials, accounts,
+  roles, categories, settings). An SQL migration creates on both tables a
+  `BEFORE UPDATE OR DELETE` trigger that raises an exception. No write route; reading of
+  the audit reserved for the super administrator. Entries contain no password, no
+  token, no message content (only identifiers and the before/after values of the
+  business fields).
+- **Rationale**: protection is provided by the database itself, even in case of an
+  application bug (principle V).
+- **Alternatives considered**: separate PostgreSQL role without UPDATE/DELETE rights (heavier to
+  manage with Prisma and its migrations); cryptographic chaining of entries (not requested).
 
-## R8. Autorisations
+## R7. Authentication and sessions
 
-- **Decision**: module pur `access-policy.ts` combinant le rôle global (SUPER_ADMIN, MANAGER,
-  EMPLOYEE), les permissions configurables par rôle (`RolePermission`) et l'appartenance aux
-  catégories (`CategoryRecipient`, `CategoryManager`). Fonctions : `canReadRequest`,
-  `allowedActions`, `canCreateInCategory`, `canPickRecipient`. Les listes et la recherche
-  appliquent le même filtre en SQL (`WHERE` de visibilité). Tout refus : 404 pour une
-  ressource (ne révèle pas son existence) ou 403 pour une action sur une ressource visible ;
-  dans les deux cas une entrée `ACCESS_DENIED` est écrite dans l'audit.
-- **Rationale**: une seule politique, testée par une table de cas exhaustive, appliquée aux
-  routes REST, aux fichiers et aux salles Socket.IO.
-- **Alternatives considered**: bibliothèque CASL — puissante mais superflue pour trois rôles
-  et quelques relations.
+- **Decision**: username + password; Argon2id hashing; accounts created by the super
+  administrator with a temporary password to change at first login (no email
+  in this phase). Server session stored in the database (`Session`), `HttpOnly`, `Secure`,
+  `SameSite=Strict` cookie; expiry after 60 min of inactivity and 12 h at most (adjustable).
+  `Origin` header check on all modifying requests and at the Socket.IO
+  handshake. Login attempt limiting (@nestjs/throttler, 5 per minute and
+  per username/IP). Deactivating an account deletes its sessions and disconnects its sockets.
+- **Rationale**: immediately revocable sessions, identical authentication for REST and
+  WebSocket, no sensitive data in browser storage.
+- **Alternatives considered**: JWT in local storage (theft by XSS, hard to revoke);
+  school SSO (not requested, to consider in a later phase).
 
-## R9. Temps réel et notifications
+## R8. Authorizations
 
-- **Decision**: gateway Socket.IO authentifiée par le cookie de session à la poignée de main ;
-  chaque socket rejoint uniquement `user:{userId}`. Toute notification est d'abord écrite en
-  base (`Notification`), puis émise après validation de la transaction. Le client, à chaque
-  connexion ou reconnexion, récupère les non lues par REST, puis invalide les requêtes
-  TanStack Query concernées à chaque événement. Les demandes urgentes portent
-  `priority: URGENT` pour un affichage distinct (couleur + icône + texte, pas la couleur
-  seule). Adaptateur Socket.IO en mémoire (un seul processus).
-- **Rationale**: aucune notification perdue si l'utilisateur est hors ligne (FR-033) ; les
-  données transitent toujours par REST, avec le même contrôle d'accès.
-- **Alternatives considered**: diffuser les données complètes par WebSocket (deux chemins de
-  contrôle d'accès) ; Server-Sent Events (pile imposée : Socket.IO).
+- **Decision**: pure module `access-policy.ts` combining the global role (SUPER_ADMIN, MANAGER,
+  EMPLOYEE), the permissions configurable per role (`RolePermission`) and category
+  membership (`CategoryRecipient`, `CategoryManager`). Functions: `canReadRequest`,
+  `allowedActions`, `canCreateInCategory`, `canPickRecipient`. Lists and search
+  apply the same filter in SQL (visibility `WHERE`). Any denial: 404 for a
+  resource (does not reveal its existence) or 403 for an action on a visible resource;
+  in both cases an `ACCESS_DENIED` entry is written to the audit.
+- **Rationale**: a single policy, tested by an exhaustive case table, applied to
+  REST routes, files and Socket.IO rooms.
+- **Alternatives considered**: CASL library — powerful but superfluous for three roles
+  and a few relationships.
 
-## R10. Envois échoués et conservation locale
+## R9. Real time and notifications
 
-- **Decision**: chaque création de demande ou de message reçoit un `clientId` (UUID généré
-  côté client). En cas d'échec réseau, le contenu (champs + Blob audio + photos) est conservé
-  dans IndexedDB (idb-keyval) dans une « boîte d'envoi » visible, avec bouton « Réessayer ».
-  Le serveur rend la création idempotente par contrainte unique `(authorId, clientId)` :
-  un nouvel essai d'un envoi déjà reçu renvoie la ressource existante.
-- **Rationale**: répond à FR-008 et SC-007 sans service worker (interdit dans ce lot) et sans
-  créer de doublons.
-- **Alternatives considered**: synchronisation en arrière-plan (Background Sync, exige un
-  service worker) ; ne rien conserver (contraire à la spec).
+- **Decision**: Socket.IO gateway authenticated by the session cookie at the handshake;
+  each socket joins only `user:{userId}`. Every notification is first written to the
+  database (`Notification`), then emitted after the transaction commits. The client, on each
+  connection or reconnection, retrieves the unread ones through REST, then invalidates the relevant
+  TanStack Query queries on each event. Urgent requests carry
+  `priority: URGENT` for a distinct display (color + icon + text, not color
+  alone). In-memory Socket.IO adapter (single process).
+- **Rationale**: no notification lost if the user is offline (FR-033); the
+  data always goes through REST, with the same access check.
+- **Alternatives considered**: broadcast the full data over WebSocket (two access-control
+  paths); Server-Sent Events (imposed stack: Socket.IO).
 
-## R11. Recherche et performances
+## R10. Failed sends and local retention
 
-- **Decision**: filtres en SQL avec index sur `(status)`, `(categoryId)`, `(assigneeId)`,
-  `(requesterId)`, `(priority)`, `(createdAt)`, `(currentDueAt)` ; recherche par titre avec
-  `ILIKE` ; pagination par curseur (`createdAt`, `id`), 25 éléments par page.
-- **Rationale**: largement suffisant pour 100 000 lignes (SC-009) sans moteur de recherche.
-- **Alternatives considered**: extension `pg_trgm` ou recherche plein texte (à ajouter si la
-  recherche devient lente) ; moteur externe (injustifié).
+- **Decision**: each request or message creation gets a `clientId` (UUID generated
+  on the client side). On a network failure, the content (fields + audio Blob + photos) is kept
+  in IndexedDB (idb-keyval) in a visible "outbox" with a « Réessayer » (Retry) button.
+  The server makes creation idempotent through a unique constraint `(authorId, clientId)`:
+  a new attempt at a send already received returns the existing resource.
+- **Rationale**: meets FR-008 and SC-007 without a service worker (forbidden in this phase) and without
+  creating duplicates.
+- **Alternatives considered**: background synchronization (Background Sync, requires a
+  service worker); keep nothing (contrary to the spec).
 
-## R12. Déploiement, sauvegardes et exploitation
+## R11. Search and performance
 
-- **Decision**: Docker Compose sur le VPS : `caddy` (HTTPS Let's Encrypt, HSTS, CSP stricte,
-  sert la SPA), `api` (Node 24 + ffmpeg, utilisateur non root, applique
-  `prisma migrate deploy` au démarrage), `db` (PostgreSQL 17, port non exposé), `backup`
-  (chaque nuit : `pg_dump` compressé + archive du volume fichiers, conservation 14 jours,
-  copie hors du VPS à configurer). Secrets dans un fichier `.env` hors dépôt. Journaux JSON sur
-  la sortie standard, sans données personnelles sensibles. Restauration testée et décrite dans
-  le quickstart.
-- **Rationale**: correspond à la pile imposée, une seule machine, restauration simple.
-- **Alternatives considered**: Kubernetes, stockage objet, base gérée — disproportionnés.
+- **Decision**: SQL filters with indexes on `(status)`, `(categoryId)`, `(assigneeId)`,
+  `(requesterId)`, `(priority)`, `(createdAt)`, `(currentDueAt)`; title search with
+  `ILIKE`; cursor pagination (`createdAt`, `id`), 25 items per page.
+- **Rationale**: more than enough for 100,000 rows (SC-009) without a search engine.
+- **Alternatives considered**: `pg_trgm` extension or full-text search (to add if
+  search becomes slow); external engine (unjustified).
 
-## R13. Décisions de produit prises pour ce plan (à confirmer avec le client)
+## R12. Deployment, backups and operations
 
-- **Clôture automatique différée** : pour une catégorie en clôture automatique, la demande
-  « Terminée » est clôturée après un délai de grâce (`autoCloseAfterMinutes`, défaut 1 440 min,
-  soit 24 h) et non immédiatement, afin que le demandeur puisse encore la renvoyer « À
-  corriger » (US2). Réglable par catégorie ; 0 = clôture immédiate.
-- **Réaffectation** : un responsable de la catégorie peut réaffecter une demande « Envoyée »,
-  « Acceptée », « En cours » ou « À corriger » ; elle repasse alors « Envoyée » pour le nouvel
-  employé et un nouveau délai de prise en charge démarre (FR-027).
-- **Affectation automatique (circuit B)** : un employé désigné par catégorie
+- **Decision**: Docker Compose on the VPS: `caddy` (Let's Encrypt HTTPS, HSTS, strict CSP,
+  serves the SPA), `api` (Node 24 + ffmpeg, non-root user, applies
+  `prisma migrate deploy` at startup), `db` (PostgreSQL 17, port not exposed), `backup`
+  (every night: compressed `pg_dump` + archive of the files volume, 14-day retention,
+  off-VPS copy to be configured). Secrets in a `.env` file outside the repository. JSON logs on
+  standard output, without sensitive personal data. Restore tested and described in
+  the quickstart.
+- **Rationale**: matches the imposed stack, a single machine, simple restore.
+- **Alternatives considered**: Kubernetes, object storage, managed database — disproportionate.
+
+## R13. Product decisions made for this plan (to confirm with the client)
+
+- **Deferred automatic closure**: for a category with automatic closure, the
+  « Terminée » request is closed after a grace period (`autoCloseAfterMinutes`, default 1,440 min,
+  i.e. 24 h) and not immediately, so that the requester can still send it back « À
+  corriger » (US2). Adjustable per category; 0 = immediate closure.
+- **Reassignment**: a category manager can reassign a request that is « Envoyée » (Sent),
+  « Acceptée » (Accepted), « En cours » (In progress) or « À corriger »; it then goes back to « Envoyée » for the new
+  employee and a new takeover deadline starts (FR-027).
+- **Automatic assignment (workflow B)**: one employee designated per category
   (`autoAssigneeId`).
-- **Brouillons** : activés par défaut (réglage global) ; un brouillon peut être supprimé par son
-  auteur, c'est le seul cas de suppression.
-- **Fuseau horaire** : horodatages stockés en UTC, affichés dans le fuseau du navigateur.
-- **Conservation des données** : durées provisoires documentées dans la spec (section
-  « Données personnelles »), à valider avant la mise en production ; aucune purge automatique
-  dans ce lot.
+- **Drafts**: enabled by default (global setting); a draft can be deleted by its
+  author, which is the only case of deletion.
+- **Time zone**: timestamps stored in UTC, displayed in the browser's time zone.
+- **Data retention**: provisional periods documented in the spec (section
+  "Personal data"), to be validated before going into production; no automatic purge
+  in this phase.

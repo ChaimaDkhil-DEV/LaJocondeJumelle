@@ -1,4 +1,4 @@
-# Specification Quality Checklist: Corrections issues de l'audit technique
+# Specification Quality Checklist: Fixes from the technical audit
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
 **Created**: 2026-10-15
@@ -31,16 +31,16 @@
 
 ## Notes
 
-- **Itération 3 (2026-10-15)** : après `/speckit-analyze`, exigences FR-008, FR-011, FR-023 et
-  SC-005 précisées par les décisions D8 et D9 (exceptions EXC-1 et EXC-2) ; cas limite de l'API
-  arrêtée rendu vérifiable ; scénario 2 de l'US1 reformulé. Tous les items passent toujours.
-- **Itération 2 (2026-10-15)** : les 3 marqueurs ont été résolus (D1 : A, D2 : B, D3 : C) et
-  consignés dans « Clarifications ». Tous les items passent.
-- **Détails techniques tolérés** : la fonctionnalité corrige un audit technique ; la spec cite
-  donc le port 3002, HSTS, la CSP et des chemins de documentation (`docs/ARCHITECTURE.md`,
-  `docs/validation/`), qui sont l'objet même des exigences. Aucun langage, framework, nom de
-  fichier source ou API n'est imposé : les constats renvoient aux sections de l'audit, où se
-  trouvent les fichiers concernés.
-- **Lecteurs** : le responsable du projet et l'exploitant ; les décisions métier sont isolées
-  dans la section « Décisions nécessitant une validation humaine » pour l'établissement.
+- **Iteration 3 (2026-10-15)**: after `/speckit-analyze`, requirements FR-008, FR-011, FR-023 and
+  SC-005 were clarified by decisions D8 and D9 (exceptions EXC-1 and EXC-2); the stopped-API edge
+  case was made verifiable; scenario 2 of US1 was reworded. All items still pass.
+- **Iteration 2 (2026-10-15)**: the 3 markers were resolved (D1: A, D2: B, D3: C) and recorded in
+  "Clarifications". All items pass.
+- **Technical details tolerated**: the feature fixes a technical audit; the spec therefore cites
+  port 3002, HSTS, the CSP and documentation paths (`docs/ARCHITECTURE.md`,
+  `docs/validation/`), which are the very subject of the requirements. No language, framework,
+  source file name or API is imposed: the findings refer to the audit sections, where the
+  files concerned are found.
+- **Readers**: the project lead and the operator; business decisions are isolated in the
+  "Decisions requiring human validation" section for the school.
 - Items marked incomplete require spec updates before `/speckit-clarify` or `/speckit-plan`

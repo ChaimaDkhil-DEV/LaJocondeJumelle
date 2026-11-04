@@ -1,141 +1,141 @@
-# Vérification de la fonctionnalité 006 — modification d'une affectation par l'admin
+# Verification of feature 006 — modification of an assignment by the admin
 
-Spécification, plan et tâches : `specs/006-modification-affectation/`.
+Specification, plan and tasks: `specs/006-modification-affectation/`.
 
-## État initial (T001)
+## Initial state (T001)
 
-Branche `006-modification-affectation`, créée depuis `master` (`d939375`, fusion de la PR #23).
-Aucun fichier de `backend/`, `frontend/`, `e2e/` ni des dépendances n'a changé depuis `d939375`.
+Branch `006-modification-affectation`, created from `master` (`d939375`, merge of PR #23).
+No file in `backend/`, `frontend/`, `e2e/` or the dependencies has changed since `d939375`.
 
-| Étape | Résultat |
+| Step | Result |
 |-------|----------|
-| CI sur `d939375` (« Contrôles qualité », toutes les étapes) | verte |
-| Tests unitaires backend | 575 / 575 (vérification finale de la 005) |
-| Tests d'intégration backend | 601 / 601 (idem) |
-| Tests frontend (Vitest) | 248 / 248 (247 + test de non-régression de la PR #23) |
-| Bout en bout (6 profils) | 143 réussis, 78 ignorés volontairement ; l'échec intermittent du parcours A à 768 px est corrigé par la PR #23 |
+| CI on `d939375` ("Contrôles qualité" (Quality checks), all steps) | green |
+| Backend unit tests | 575 / 575 (final verification of 005) |
+| Backend integration tests | 601 / 601 (same) |
+| Frontend tests (Vitest) | 248 / 248 (247 + non-regression test of PR #23) |
+| End to end (6 profiles) | 143 passed, 78 deliberately skipped; the intermittent failure of flow A at 768 px is fixed by PR #23 |
 
-## Attendus existants modifiés (exceptions consignées)
+## Existing expectations modified (exceptions recorded)
 
-Conséquences directes de la spec (FR-001, FR-002 : l'admin peut modifier une affectation, y
-compris « en attente ») ; aucun autre attendu existant n'est modifié.
+Direct consequences of the spec (FR-001, FR-002: the admin can modify an assignment, including
+"en attente" (pending)); no other existing expectation is modified.
 
-| Fichier | Attendu | Avant | Après |
+| File | Expectation | Before | After |
 |---------|---------|-------|-------|
-| `backend/test/unit/coverage-state-machine.spec.ts` (« UPDATE et WITHDRAW par l’enseignant auteur… ») | `UPDATE` par l'admin sur « en attente » | `FORBIDDEN` | autorisé, statut inchangé |
-| `backend/test/unit/coverage-state-machine.spec.ts` (« admin : en attente, puis en cours ») | actions proposées à l'admin, « en attente » et « en cours » | sans `UPDATE` | avec `UPDATE` |
-| `backend/test/unit/coverage-policy.spec.ts` (« admin : assigner, annuler… ») | actions proposées à l'admin, « en attente » | sans `UPDATE` | avec `UPDATE` |
+| `backend/test/unit/coverage-state-machine.spec.ts` ("UPDATE et WITHDRAW par l’enseignant auteur…" (UPDATE and WITHDRAW by the authoring teacher…)) | `UPDATE` by the admin on "en attente" | `FORBIDDEN` | allowed, status unchanged |
+| `backend/test/unit/coverage-state-machine.spec.ts` ("admin : en attente, puis en cours" (admin: pending, then in progress)) | actions offered to the admin, "en attente" and "en cours" (in progress) | without `UPDATE` | with `UPDATE` |
+| `backend/test/unit/coverage-policy.spec.ts` ("admin : assigner, annuler…" (admin: assign, cancel…)) | actions offered to the admin, "en attente" | without `UPDATE` | with `UPDATE` |
 
-Libellés « Demande modifiée » → « Affectation modifiée » (historique `UPDATED`, notification
-`COVERAGE_UPDATED`) : aucun test existant ne portait sur l'ancien libellé.
+Labels "Demande modifiée" → "Affectation modifiée" (history `UPDATED`, notification
+`COVERAGE_UPDATED`) (displayed as "Request modified" → "Assignment modified"): no existing test covered the old label.
 
-**Machine à états** : `findTransition` choisit désormais la règle de l'action **et de l'acteur**
-(l'action `UPDATE` a deux règles sur « en attente » : enseignant auteur et admin). Sans cela,
-l'admin aurait reçu `FORBIDDEN` sur « en attente ». Si l'acteur ne dispose de l'action que dans
-d'autres statuts, le refus reste `INVALID_TRANSITION` (enseignant sur une affectation assignée :
-comportement inchangé). Toute la suite unitaire est restée verte hors des attendus ci-dessus.
+**State machine**: `findTransition` now chooses the rule for the action **and the actor**
+(the `UPDATE` action has two rules on "en attente": authoring teacher and admin). Without this,
+the admin would have received `FORBIDDEN` on "en attente". If the actor only has the action in
+other statuses, the refusal remains `INVALID_TRANSITION` (teacher on an assigned assignment:
+behavior unchanged). The whole unit suite stayed green apart from the expectations above.
 
-## Tests ajoutés
+## Tests added
 
-| Fichier | Couvre |
+| File | Covers |
 |---------|--------|
 | `backend/test/unit/coverage-modification.spec.ts` | FR-002, FR-005 (`modifiableFields`) |
-| `backend/test/unit/coverage-state-machine.spec.ts` (bloc « modification par l’admin ») | FR-001, FR-002 |
-| `backend/test/unit/coverage-reminders.spec.ts` (`UPDATE` assignée / en cours) | FR-011 |
-| `backend/test/integration/supervision-update.spec.ts` (16 tests) | FR-002 à FR-012 : version, statuts définitifs, créneau, présence, conflit nommé, absent, traces (historique, audit sans motif, notifications, échéance), classe, « En route », QR, classe + créneau |
-| `backend/test/integration/supervision-permissions.spec.ts` (route ajoutée) | FR-001 (rôles, refus journalisés) |
-| `frontend/tests/coverage/edit-coverage.test.tsx` (14 tests) | FR-013 et contrat d'interface : bouton, pré-remplissage à l'heure de l'école, champs selon le statut, envoi des seuls champs changés, erreurs, conflit, confirmation, historique, classe |
-| `e2e/coverage-class.spec.ts` (2 parcours « spec 006 », Chromium) | US1 (vu du surveillant sans rechargement, conflit nommé), US2 (« En route » conservé, QR de la nouvelle classe) |
-| `e2e/a11y-responsive.spec.ts` (test 004 à 320 px) | FR-013, SC-005 (dialogue au clavier, axe, 320 px) |
+| `backend/test/unit/coverage-state-machine.spec.ts` ("modification par l’admin" (modification by the admin) block) | FR-001, FR-002 |
+| `backend/test/unit/coverage-reminders.spec.ts` (`UPDATE` assigned / in progress) | FR-011 |
+| `backend/test/integration/supervision-update.spec.ts` (16 tests) | FR-002 to FR-012: version, final statuses, time slot, attendance, named conflict, absent, traces (history, audit without reason, notifications, due date), class, "En route" (On the way), QR, class + time slot |
+| `backend/test/integration/supervision-permissions.spec.ts` (route added) | FR-001 (roles, logged refusals) |
+| `frontend/tests/coverage/edit-coverage.test.tsx` (14 tests) | FR-013 and interface contract: button, pre-filling at school time, fields depending on status, sending only changed fields, errors, conflict, confirmation, history, class |
+| `e2e/coverage-class.spec.ts` (2 "spec 006" flows, Chromium) | US1 (seen by the supervisor without reloading, named conflict), US2 ("En route" kept, QR of the new class) |
+| `e2e/a11y-responsive.spec.ts` (test 004 at 320 px) | FR-013, SC-005 (keyboard dialog, axe, 320 px) |
 
-Les deux parcours e2e ont été écrits après l'implémentation qu'ils couvrent (T016, T022) : ils ne
-sont pas passés par le rouge. Chacun des comportements vérifiés l'avait été d'abord par un test
-d'intégration ou frontend rouge (T009, T010, T018, T019).
+The two e2e flows were written after the implementation they cover (T016, T022): they did not
+go through red. Each of the behaviors checked had first been checked by a red
+integration or frontend test (T009, T010, T018, T019).
 
-## Constats pendant l'implémentation
+## Findings during implementation
 
-- **Champs de test incomplets** : l'ajout de `modifiableFields` au détail a fait échouer un test
-  (`stats.test.tsx`) dont la fixture construit un détail à la main ; champ ajouté aux fixtures de
-  détail d'affectation (`coverage.test.tsx`, `admin-duplicates.test.tsx`, `teacher-request.test.tsx`,
-  `stats.test.tsx`), sans changer d'attendu.
-- **Heures de l'école** : `formatTime` (existant) formate dans le fuseau du navigateur ;
-  l'historique des modifications formate explicitement dans le fuseau de l'école (`schoolClock`).
-- **Titre de l'affectation** : préfixes variés (« Garde », « Retard », « Absence », « Relève »,
-  « Classe vide ») ; le préfixe existant est conservé, seul le nom de la classe change.
+- **Incomplete test fields**: adding `modifiableFields` to the detail made a test fail
+  (`stats.test.tsx`) whose fixture builds a detail by hand; field added to the assignment
+  detail fixtures (`coverage.test.tsx`, `admin-duplicates.test.tsx`, `teacher-request.test.tsx`,
+  `stats.test.tsx`), without changing any expectation.
+- **School times**: `formatTime` (existing) formats in the browser's time zone;
+  the modification history formats explicitly in the school's time zone (`schoolClock`).
+- **Assignment title**: various prefixes ("Garde" (Shift), "Retard" (Delay), "Absence", "Relève" (Handover),
+  "Classe vide" (Empty class)); the existing prefix is kept, only the class name changes.
 
-## Scénarios du quickstart (T026)
+## Quickstart scenarios (T026)
 
-| Scénario | Couverture automatique | Reste à faire à la main |
+| Scenario | Automated coverage | Left to do by hand |
 |----------|------------------------|-------------------------|
-| 1 — Créneau | `supervision-update.spec.ts` (créneau, traces) ; e2e « créneau modifié, vu du surveillant » (sans rechargement, historique) | notification « Affectation modifiée — Garde — … » vue dans la cloche ; journal d'audit en `superadmin` |
-| 2 — Créneau invalide | intégration (fin avant début, au-delà de 7 jours) ; frontend (message sous le champ) | — |
-| 3 — Conflit nommé | intégration (409, message, `details.conflict`, rien de modifié) ; e2e (alerte du dialogue) | réaffectation puis modification acceptée |
-| 4 — Classe avant présence | intégration (« En route » conservé, QR) ; e2e (nouvelle classe vue, présence par son QR code) | notification mettant en avant la nouvelle classe, vue dans la cloche |
-| 5 — Pendant la présence | intégration (fin seulement, fin passée refusée, classe refusée) ; frontend (champs désactivés, explication) | — |
-| 6 — Statuts définitifs et rôles | intégration (`INVALID_TRANSITION`) ; matrice des permissions (404 et refus journalisé pour chaque rôle) | — |
-| 7 — Concurrence | intégration (`409 STATE_CHANGED` sans écriture) | deux onglets : message et rechargement |
-| 8 — Accessibilité | test 004 à 320 px (dialogue au clavier, axe, sans défilement horizontal) | lecteur d'écran réel ; contrôle visuel du focus |
+| 1 — Time slot | `supervision-update.spec.ts` (time slot, traces); e2e "créneau modifié, vu du surveillant" (time slot modified, seen by the supervisor) (without reloading, history) | notification "Affectation modifiée — Garde — …" seen in the bell; audit log as `superadmin` |
+| 2 — Invalid time slot | integration (end before start, beyond 7 days); frontend (message under the field) | — |
+| 3 — Named conflict | integration (409, message, `details.conflict`, nothing modified); e2e (dialog alert) | reassignment then modification accepted |
+| 4 — Class before attendance | integration ("En route" kept, QR); e2e (new class seen, attendance through its QR code) | notification highlighting the new class, seen in the bell |
+| 5 — During attendance | integration (end only, past end refused, class refused); frontend (disabled fields, explanation) | — |
+| 6 — Final statuses and roles | integration (`INVALID_TRANSITION`); permissions matrix (404 and logged refusal for each role) | — |
+| 7 — Concurrency | integration (`409 STATE_CHANGED` without write) | two tabs: message and reload |
+| 8 — Accessibility | test 004 at 320 px (keyboard dialog, axe, no horizontal scrolling) | real screen reader; visual check of focus |
 
-## Échec transitoire (T023)
+## Transient failure (T023)
 
-Une exécution de `npm run -w backend test:integration` (2026-10-22, vers 19 h 40, juste après une
-session e2e) a donné **18 échecs sur 623** ; sa sortie n'a pas été conservée (filtrée sur les
-compteurs). Relancée seule aussitôt : **623 / 623**. Aucune base n'a été modifiée entre les deux
-exécutions (seuls des fichiers de documentation et un test e2e). À surveiller : la vérification
-finale (T027) conserve la sortie complète.
+One run of `npm run -w backend test:integration` (2026-10-22, around 19:40, just after an
+e2e session) gave **18 failures out of 623**; its output was not kept (filtered down to the
+counters). Re-run alone immediately: **623 / 623**. No database was modified between the two
+runs (only documentation files and an e2e test). To be monitored: the final verification
+(T027) keeps the full output.
 
-## Garde de fin de soirée des parcours e2e (corrigée)
+## Late-evening guard of the e2e flows (fixed)
 
-Dans `e2e/coverage-class.spec.ts`, l'heure de l'école était lue par
-`Number(new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', … }).format(…))` : le format français
-d'une heure seule est « 20 h », et `Number('20 h')` vaut NaN. Les gardes `hour >= 22` (parcours de
-la 004, existante) et `hour >= 20` (parcours de la spec 006) n'ignoraient donc **jamais** les tests
-(constaté : le parcours « spec 006 » a tourné à 20 h 08 pendant la vérification finale — et réussi,
-ses créneaux tenant encore dans la journée). Corrigé par `schoolHour()` (`formatToParts`, valeur
-de l'heure seule). Mention inexacte de `verification-003.md` (« ignorés de 22 h à minuit »)
-rectifiée.
+In `e2e/coverage-class.spec.ts`, school time was read with
+`Number(new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', … }).format(…))`: the French
+format of an hour alone is "20 h", and `Number('20 h')` is NaN. The guards `hour >= 22` (flow of
+004, existing) and `hour >= 20` (flow of spec 006) therefore **never** skipped the tests
+(observed: the "spec 006" flow ran at 20:08 during the final verification — and passed,
+its time slots still fitting within the day). Fixed by `schoolHour()` (`formatToParts`, value
+of the hour alone). Inaccurate statement in `verification-003.md` ("skipped from 22:00 to midnight")
+corrected.
 
-## Vérification finale (T027) — 22 octobre 2026, branche `006-modification-affectation`
+## Final verification (T027) — 22 October 2026, branch `006-modification-affectation`
 
-`npm run verify` : code de sortie 0 ; types backend et frontend : aucune erreur. Sorties complètes
-conservées : la suite d'intégration est **verte** (pas de récidive de l'échec transitoire).
+`npm run verify`: exit code 0; backend and frontend types: no errors. Full outputs
+kept: the integration suite is **green** (the transient failure did not recur).
 
-| Étape | Départ (T001) | Final |
+| Step | Start (T001) | Final |
 |-------|---------------|-------|
-| Lint (dont `e2e/`) | aucun problème | aucun problème |
-| Tests unitaires backend | 575 | **585 / 585** (31 suites) |
-| Tests d'intégration backend | 601 | **623 / 623** (43 suites) |
-| Tests frontend (Vitest) | 248 | **262 / 262** (36 fichiers) |
-| `npm audit --audit-level=high` | aucune vulnérabilité élevée | aucune vulnérabilité élevée (21 modérées, inchangées) |
-| Bout en bout (6 profils, 234 tests) | 143 réussis (+1 échec intermittent corrigé par la PR #23) | **146 réussis, 0 échec, 88 ignorés volontairement** (39,3 min) |
+| Lint (including `e2e/`) | no problems | no problems |
+| Backend unit tests | 575 | **585 / 585** (31 suites) |
+| Backend integration tests | 601 | **623 / 623** (43 suites) |
+| Frontend tests (Vitest) | 248 | **262 / 262** (36 files) |
+| `npm audit --audit-level=high` | no high vulnerabilities | no high vulnerabilities (21 moderate, unchanged) |
+| End to end (6 profiles, 234 tests) | 143 passed (+1 intermittent failure fixed by PR #23) | **146 passed, 0 failed, 88 deliberately skipped** (39.3 min) |
 
-Bout en bout : les deux parcours « spec 006 » (Chromium) réussis à 20 h 08 et 20 h 09 (la garde de
-fin de soirée, alors inopérante, ne les a pas ignorés ; créneaux tenant dans la journée) ; dialogue
-de modification à 320 px (test 004) sans violation ; parcours A à 768 px vert. Les 88 ignorés sont
-les tests réservés à un profil (affectations et spec 006 : Chromium ; 320 px ; téléphones ; V14 ;
-compte `nouveau`), chacun exécuté dans son profil.
+End to end: the two "spec 006" flows (Chromium) passed at 20:08 and 20:09 (the late-evening
+guard, inoperative at the time, did not skip them; time slots fitting within the day); modification dialog
+at 320 px (test 004) without violation; flow A at 768 px green. The 88 skipped are
+the tests reserved for one profile (assignments and spec 006: Chromium; 320 px; phones; V14;
+`nouveau` account), each run in its own profile.
 
-Garde corrigée constatée : à 20 h 43, `-g "spec 006"` (Chromium) → **2 ignorés**.
+Fixed guard observed: at 20:43, `-g "spec 006"` (Chromium) → **2 skipped**.
 
-CI GitHub : à constater sur la demande de fusion.
+GitHub CI: to be observed on the pull request.
 
-## Correctif : heure de fin pendant la présence, garde finissant après minuit (22 octobre 2026)
+## Fix: end time during attendance, shift ending after midnight (22 October 2026)
 
-Constat : la CI de la PR #26 (spec 007, sans rapport avec ce code) a échoué à 23 h 07, heure de
-l'école, sur `supervision-update.spec.ts` (« pendant la présence : seule l'heure de fin change,
-jamais dans le passé ») : heure de fin passée acceptée (200 au lieu de 400 `INVALID_RANGE`).
+Finding: the CI of PR #26 (spec 007, unrelated to this code) failed at 23:07 school
+time on `supervision-update.spec.ts` ("pendant la présence : seule l'heure de fin change,
+jamais dans le passé" (during attendance: only the end time changes, never into the past)): a past end time was accepted (200 instead of 400 `INVALID_RANGE`).
 
-Cause : pendant la présence, l'heure de fin saisie était placée à la **date de la fin prévue**
-(`coverage.service.ts`). Pour une garde finissant après minuit, « 22:37 » devenait le lendemain
-à 22 h 37 : acceptée, la garde était prolongée d'environ un jour. Le test, qui crée une garde
-finissant 60 min plus tard, ne le révélait qu'entre 23 h et 0 h 30 (heure de l'école) ; il passait
-à toute autre heure, d'où les vérifications vertes de la 006.
+Cause: during attendance, the end time entered was placed on the **date of the planned end**
+(`coverage.service.ts`). For a shift ending after midnight, "22:37" became the next day
+at 22:37: accepted, the shift was extended by about a day. The test, which creates a shift
+ending 60 min later, only revealed it between 23:00 and 00:30 (school time); it passed
+at any other time, hence the green verifications of 006.
 
-Correction : `presenceEndAt` (`backend/src/coverage/domain/coverage-modification.ts`) place
-l'heure saisie à l'occurrence la plus proche de la fin prévue (à 12 h près) : « 23:59 » reste la
-veille, « 00:30 » est après minuit, une heure de la veille au soir n'est plus reportée au soir
-suivant. Avant la présence, rien ne change (la date est saisie).
+Fix: `presenceEndAt` (`backend/src/coverage/domain/coverage-modification.ts`) places
+the time entered at the occurrence closest to the planned end (within 12 h): "23:59" stays on the
+previous day, "00:30" is after midnight, a time from the previous evening is no longer moved to the following
+evening. Before attendance, nothing changes (the date is entered).
 
-Tests : `test/unit/coverage-modification.spec.ts`, 4 cas à heure fixe (écrits d'abord, rouges :
-fonction absente). Reproduction en direct à 23 h 15 (heure de l'école) :
-`supervision-update.spec.ts` sans correctif → 1 échec sur 16 ; avec correctif → 16 / 16.
+Tests: `test/unit/coverage-modification.spec.ts`, 4 fixed-time cases (written first, red:
+function missing). Live reproduction at 23:15 (school time):
+`supervision-update.spec.ts` without the fix → 1 failure out of 16; with the fix → 16 / 16.

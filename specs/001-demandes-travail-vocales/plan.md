@@ -1,4 +1,4 @@
-# Implementation Plan: Lot 1 – Demandes de travail et messagerie vocale
+# Implementation Plan: Phase 1 – Work requests and voice messaging
 
 **Branch**: `001-demandes-travail-vocales` | **Date**: 2026-10-12 | **Spec**: [spec.md](./spec.md)
 
@@ -8,82 +8,82 @@
 
 ## Summary
 
-Application web responsive (smartphone, tablette, ordinateur) permettant au personnel d'une
-école d'adresser des demandes de travail vocales à des destinataires définis par catégorie, de
-les traiter selon une machine à états stricte (circuit direct A ou circuit B avec validation
-administrative), d'échanger dans un fil par demande (texte, vocal, photos, fichiers), de suivre
-trois délais par demande et d'être notifié en temps réel dans l'application.
+Responsive web application (smartphone, tablet, computer) that lets school staff send voice
+work requests to recipients defined per category, process them
+according to a strict state machine (direct workflow A or workflow B with administrative
+validation), exchange messages in a thread per request (text, voice, photos, files), track
+three deadlines per request and be notified in real time within the application.
 
-Approche technique : un frontend React (SPA) et une API NestJS monolithique sur un seul VPS,
-PostgreSQL via Prisma, Socket.IO en processus unique (sans Redis), un job planifié en processus
-pour les retards et la clôture automatique, des fichiers stockés sur un volume privé et servis
-uniquement par l'API après contrôle d'accès, et des vocaux normalisés côté serveur en AAC/MP4
-pour une lecture identique sur tous les navigateurs. La machine à états et la politique d'accès
-sont des fonctions pures testées avant le code. Détails et justifications : [research.md](./research.md).
+Technical approach: a React frontend (SPA) and a monolithic NestJS API on a single VPS,
+PostgreSQL through Prisma, Socket.IO in a single process (no Redis), a scheduled in-process job
+for delays and automatic closure, files stored on a private volume and served
+only by the API after an access check, and voice messages normalized on the server to AAC/MP4
+for identical playback in every browser. The state machine and the access policy
+are pure functions tested before the code. Details and justifications: [research.md](./research.md).
 
 ## Technical Context
 
-**Language/Version**: TypeScript 5.x (strict) sur Node.js 24 LTS, côté serveur comme côté client
+**Language/Version**: TypeScript 5.x (strict) on Node.js 24 LTS, both server-side and client-side
 
-**Primary Dependencies**: Backend : NestJS 11 (REST + gateway WebSocket), Socket.IO 4,
+**Primary Dependencies**: Backend: NestJS 11 (REST + WebSocket gateway), Socket.IO 4,
 Prisma ORM, class-validator / class-transformer (DTO), @nestjs/schedule, @nestjs/throttler,
-argon2, Multer, détection interne des types de fichiers, sharp (photos), ffmpeg/ffprobe (vocaux, binaire
-système). Frontend : React 19, Vite, React Router, TanStack Query 5, Material UI, client
-Socket.IO, idb-keyval (conservation locale des envois échoués). Versions exactes figées dans
-les lockfiles à l'initialisation.
+argon2, Multer, internal file-type detection, sharp (photos), ffmpeg/ffprobe (voice messages, system
+binary). Frontend: React 19, Vite, React Router, TanStack Query 5, Material UI, Socket.IO
+client, idb-keyval (local retention of failed sends). Exact versions pinned in
+the lockfiles at initialization.
 
-**Storage**: PostgreSQL 17 (données, historique, audit, sessions) ; volume disque privé pour
-vocaux, photos et fichiers (hors de toute racine web)
+**Storage**: PostgreSQL 17 (data, history, audit, sessions); private disk volume for
+voice messages, photos and files (outside any web root)
 
-**Testing**: Backend : Jest + Supertest (unitaires et intégration sur une base PostgreSQL de
-test réelle). Frontend : Vitest + React Testing Library. Bout en bout : Playwright (Chromium,
-WebKit, Firefox ; profils mobiles) avec @axe-core/playwright pour l'accessibilité
+**Testing**: Backend: Jest + Supertest (unit and integration against a real test
+PostgreSQL database). Frontend: Vitest + React Testing Library. End to end: Playwright (Chromium,
+WebKit, Firefox; mobile profiles) with @axe-core/playwright for accessibility
 
-**Target Platform**: Navigateurs récents : Safari iOS/iPadOS 17+, Chrome Android, Chrome, Edge,
-Firefox, Safari macOS. Serveur : un VPS Linux, Docker Compose, Caddy (HTTPS automatique)
+**Target Platform**: Recent browsers: Safari iOS/iPadOS 17+, Chrome Android, Chrome, Edge,
+Firefox, Safari macOS. Server: one Linux VPS, Docker Compose, Caddy (automatic HTTPS)
 
-**Project Type**: Application web (frontend SPA + API backend)
+**Project Type**: Web application (SPA frontend + backend API)
 
-**Performance Goals**: Notification visible en < 5 s pour 95 % des événements (SC-003) ;
-retard détecté et notifié en < 30 s (SC-006) ; recherche filtrée < 2 s sur 10 000 demandes
-(SC-009) ; création d'une demande vocale < 60 s côté utilisateur (SC-001)
+**Performance Goals**: Notification visible in < 5 s for 95% of events (SC-003);
+delay detected and notified in < 30 s (SC-006); filtered search < 2 s over 10,000 requests
+(SC-009); creating a voice request < 60 s on the user's side (SC-001)
 
-**Constraints**: HTTPS obligatoire (MediaRecorder exige un contexte sécurisé) ; un seul VPS et
-un seul processus API ; aucun fichier accessible publiquement ; pas de push, pas d'e-mail, pas
-de service worker ; WCAG 2.2 AA ; utilisable dès 320 px de large
+**Constraints**: HTTPS mandatory (MediaRecorder requires a secure context); a single VPS and
+a single API process; no publicly accessible file; no push, no email, no
+service worker; WCAG 2.2 AA; usable from 320 px wide
 
-**Scale/Scope**: Une école : environ 50 à 300 comptes, quelques dizaines à quelques centaines
-de demandes par jour, 10 000 à 100 000 demandes sur plusieurs années, 8 user stories,
-environ 15 écrans
+**Scale/Scope**: One school: about 50 to 300 accounts, a few dozen to a few hundred
+requests per day, 10,000 to 100,000 requests over several years, 8 user stories,
+about 15 screens
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-| Principe | Vérification | Statut |
-|----------|--------------|--------|
-| I. TDD (non négociable) | La machine à états, la politique d'accès, le calcul des délais et la validation des fichiers sont des modules purs dont les tests (tables de cas exhaustives) sont écrits et échouent avant le code. Chaque user story a des tests d'intégration API et un parcours Playwright traçables vers ses scénarios d'acceptation. Aucune fusion si la suite échoue. | ✅ |
-| II. Simplicité / YAGNI | Un seul processus API, pas de Redis, pas de file de messages, pas de microservices ; job planifié en processus ; stockage fichiers sur disque local ; aucune escalade automatique (non spécifiée). Deux ajouts justifiés dans Complexity Tracking : ffmpeg et sharp. | ✅ (avec justifications) |
-| III. Accessibilité et UX | Material UI (composants accessibles), contrôles d'enregistrement et de lecture utilisables au clavier et libellés, tests axe automatisés sur chaque écran livré, tests Playwright à 320 px, états chargement/vide/erreur/succès normalisés. | ✅ |
-| IV. Sécurité et données | DTO avec liste blanche et rejet des champs inconnus ; contrôle de type réel des fichiers (octets magiques + ffprobe) ; secrets par variables d'environnement ; Argon2id ; HTTPS par Caddy (HSTS) ; métadonnées EXIF (dont GPS) supprimées des photos ; `npm audit` bloquant en niveau élevé. Finalités et durées de conservation documentées dans la spec (section « Données personnelles ») : vocaux, photos et pièces jointes 12 mois après clôture, historique 5 ans, audit 5 ans. **Ces durées sont des hypothèses provisoires à faire valider par le client avant la mise en production.** | ⚠️ durées provisoires à valider avant la production |
-| V. Workflows et communications | Ensemble fini de 11 statuts et table de transitions unique côté serveur ; historique de demande et journal d'audit en ajout seul, protégés par des triggers PostgreSQL contre UPDATE/DELETE ; RBAC + appartenance aux catégories vérifiés à chaque requête REST, chaque événement Socket.IO et chaque téléchargement de fichier ; refus d'accès journalisé et renvoyé en 404. | ✅ |
+| Principle | Check | Status |
+|-----------|-------|--------|
+| I. TDD (non-negotiable) | The state machine, the access policy, the deadline calculation and the file validation are pure modules whose tests (exhaustive case tables) are written and fail before the code. Each user story has API integration tests and a Playwright journey traceable to its acceptance scenarios. No merge if the suite fails. | ✅ |
+| II. Simplicity / YAGNI | A single API process, no Redis, no message queue, no microservices; in-process scheduled job; file storage on local disk; no automatic escalation (not specified). Two justified additions in Complexity Tracking: ffmpeg and sharp. | ✅ (with justifications) |
+| III. Accessibility and UX | Material UI (accessible components), recording and playback controls usable with the keyboard and labelled, automated axe tests on every delivered screen, Playwright tests at 320 px, standardized loading/empty/error/success states. | ✅ |
+| IV. Security and data | DTOs with an allow list and rejection of unknown fields; real file-type check (magic bytes + ffprobe); secrets through environment variables; Argon2id; HTTPS through Caddy (HSTS); EXIF metadata (including GPS) stripped from photos; blocking `npm audit` at high level. Purposes and retention periods documented in the spec (section "Personal data"): voice messages, photos and attachments 12 months after closure, history 5 years, audit 5 years. **These periods are provisional assumptions to be validated by the client before going into production.** | ⚠️ provisional periods to validate before production |
+| V. Workflows and communications | Finite set of 11 statuses and a single transition table on the server; request history and audit log append-only, protected by PostgreSQL triggers against UPDATE/DELETE; RBAC + category membership checked on every REST request, every Socket.IO event and every file download; access denial logged and returned as 404. | ✅ |
 
-**Résultat avant Phase 0** : passe. **Résultat après Phase 1** (re-vérifié sur
-[data-model.md](./data-model.md) et [contracts/](./contracts/)) : passe, sous réserve de la
-validation par le client des durées de conservation provisoires avant la mise en production.
+**Result before Phase 0**: pass. **Result after Phase 1** (rechecked against
+[data-model.md](./data-model.md) and [contracts/](./contracts/)): pass, subject to the
+client validating the provisional retention periods before going into production.
 
-## Traitement des contraintes imposées
+## Handling of the imposed constraints
 
-| # | Contrainte | Réponse du plan | Référence |
+| # | Constraint | Plan's response | Reference |
 |---|------------|-----------------|-----------|
-| 1 | Détection des retards | Job `@Interval` toutes les 15 s dans le processus API : sélectionne les demandes dont l'échéance de l'étape en cours est dépassée et non encore signalée, les marque « En retard » (étape précisée) par mise à jour conditionnelle idempotente, écrit l'événement d'historique et notifie les responsables de la catégorie. Le même job applique la clôture automatique. Rattrapage naturel après redémarrage (le job lit l'état en base). | research R4, data-model §Délais |
-| 2 | Enregistrement vocal | Choix du format d'enregistrement par `MediaRecorder.isTypeSupported` (WebM/Opus, puis MP4/AAC, puis Ogg/Opus) ; envoi du fichier brut ; validation par ffprobe et conversion systématique côté serveur en AAC mono dans un conteneur MP4 (`.m4a`), lu nativement par tous les navigateurs cibles. Repli sur la description écrite si micro refusé ou API absente. HTTPS partout, y compris en test sur téléphone. | research R2 |
-| 3 | Fichiers privés | Volume privé, noms de fichiers = UUID, aucune route statique. Accès uniquement par `GET /api/files/:id` (cookie de session, contrôle d'accès à la demande parente, prise en charge des requêtes Range pour Safari, `nosniff`, `Cache-Control: private`). Formats vérifiés par octets magiques, tailles limitées à Caddy, à Multer et selon les réglages. | research R3, contracts/rest-api.md §Fichiers |
-| 4 | Machine à états et droits testés d'abord | `request-state-machine.ts` et `access-policy.ts` sont des fonctions pures ; tests table-driven couvrant chaque couple (statut, action, rôle/relation) — autorisé et refusé — écrits en premier. Statuts Refusée et Annulée inclus. | data-model §Machine à états, §Matrice d'accès |
-| 5 | Journal d'audit non modifiable | Tables `AuditLog` et `RequestEvent` en ajout seul ; triggers PostgreSQL levant une erreur sur UPDATE/DELETE ; aucune route d'écriture exposée ; consultation réservée au super administrateur. | research R6 |
-| 6 | Notifications dans l'application | Notification persistée en base puis émise par Socket.IO dans la salle `user:{id}` après validation de la transaction ; récupération des non lues à la (re)connexion. Ni push, ni e-mail, ni service worker. | contracts/realtime-events.md |
-| 7 | Destinataires par catégorie | Table `CategoryRecipient` ; la création vérifie côté serveur que le destinataire est un utilisateur actif de la catégorie (sinon 422) ; l'interface ne propose que cette liste. | data-model §Catégorie |
-| 8 | Paramétrage | Réglages en base (`Setting`, `Category`, `DeadlineRule`) modifiables par le super administrateur, chaque modification auditée ; valeurs par défaut provisoires listées dans data-model §Valeurs par défaut et chargées par le script de seed. | data-model §Valeurs par défaut |
+| 1 | Delay detection | `@Interval` job every 15 s in the API process: selects requests whose current stage due date has passed and has not yet been flagged, marks them « En retard » (Overdue) (stage specified) by an idempotent conditional update, writes the history event and notifies the category managers. The same job applies automatic closure. Natural catch-up after a restart (the job reads the state from the database). | research R4, data-model §Deadlines |
+| 2 | Voice recording | Recording format chosen through `MediaRecorder.isTypeSupported` (WebM/Opus, then MP4/AAC, then Ogg/Opus); the raw file is sent; validation by ffprobe and systematic server-side conversion to mono AAC in an MP4 container (`.m4a`), played natively by all target browsers. Fallback to the written description if the microphone is refused or the API is missing. HTTPS everywhere, including when testing on a phone. | research R2 |
+| 3 | Private files | Private volume, file names = UUID, no static route. Access only through `GET /api/files/:id` (session cookie, access check on the parent request, support for Range requests for Safari, `nosniff`, `Cache-Control: private`). Formats checked by magic bytes, sizes limited at Caddy, at Multer and according to the settings. | research R3, contracts/rest-api.md §Files |
+| 4 | State machine and rights tested first | `request-state-machine.ts` and `access-policy.ts` are pure functions; table-driven tests covering each (status, action, role/relationship) pair — allowed and refused — written first. Statuses Refusée (Rejected) and Annulée (Cancelled) included. | data-model §State machine, §Access matrix |
+| 5 | Non-modifiable audit log | `AuditLog` and `RequestEvent` tables append-only; PostgreSQL triggers raising an error on UPDATE/DELETE; no write route exposed; consultation reserved for the super administrator. | research R6 |
+| 6 | In-app notifications | Notification persisted in the database then emitted by Socket.IO in the `user:{id}` room after the transaction commits; unread ones retrieved at (re)connection. No push, no email, no service worker. | contracts/realtime-events.md |
+| 7 | Recipients per category | `CategoryRecipient` table; creation checks on the server that the recipient is an active user of the category (otherwise 422); the interface offers only that list. | data-model §Category |
+| 8 | Configuration | Settings in the database (`Setting`, `Category`, `DeadlineRule`) editable by the super administrator, every change audited; provisional default values listed in data-model §Default values and loaded by the seed script. | data-model §Default values |
 
 ## Project Structure
 
@@ -91,13 +91,13 @@ validation par le client des durées de conservation provisoires avant la mise e
 
 ```text
 specs/001-demandes-travail-vocales/
-├── plan.md              # Ce fichier
+├── plan.md              # This file
 ├── research.md          # Phase 0
 ├── data-model.md        # Phase 1
 ├── quickstart.md        # Phase 1
 ├── contracts/
-│   ├── rest-api.md          # Routes REST, autorisations, erreurs
-│   └── realtime-events.md   # Événements Socket.IO
+│   ├── rest-api.md          # REST routes, authorizations, errors
+│   └── realtime-events.md   # Socket.IO events
 └── tasks.md             # Phase 2 (/speckit-tasks)
 ```
 
@@ -107,66 +107,66 @@ specs/001-demandes-travail-vocales/
 backend/
 ├── prisma/
 │   ├── schema.prisma
-│   ├── migrations/            # migrations versionnées (+ SQL des triggers d'ajout seul)
-│   └── seed.ts                # valeurs par défaut provisoires, compte super admin initial
+│   ├── migrations/            # versioned migrations (+ SQL of the append-only triggers)
+│   └── seed.ts                # provisional default values, initial super admin account
 ├── src/
 │   ├── main.ts
 │   ├── app.module.ts
-│   ├── common/                # garde de session, filtres d'erreurs, pipes de validation
-│   ├── auth/                  # connexion, sessions, changement de mot de passe
-│   ├── users/                 # comptes et rôles (super admin)
-│   ├── categories/            # catégories, destinataires, responsables, règles de délais
-│   ├── settings/              # réglages globaux (vocaux, pièces jointes, brouillons…)
+│   ├── common/                # session guard, error filters, validation pipes
+│   ├── auth/                  # login, sessions, password change
+│   ├── users/                 # accounts and roles (super admin)
+│   ├── categories/            # categories, recipients, managers, deadline rules
+│   ├── settings/              # global settings (voice messages, attachments, drafts…)
 │   ├── requests/
 │   │   ├── domain/
-│   │   │   ├── request-state-machine.ts   # transitions pures
-│   │   │   ├── access-policy.ts           # droits pures (lecture, actions)
-│   │   │   └── deadlines.ts               # calcul des échéances
+│   │   │   ├── request-state-machine.ts   # pure transitions
+│   │   │   ├── access-policy.ts           # pure rights (read, actions)
+│   │   │   └── deadlines.ts               # due date calculation
 │   │   ├── requests.controller.ts
 │   │   └── requests.service.ts
-│   ├── messages/              # fil de discussion
-│   ├── files/                 # stockage privé, validation, ffmpeg, sharp, téléchargement
-│   ├── notifications/         # persistance + gateway Socket.IO
-│   ├── audit/                 # journal d'audit (écriture interne, lecture super admin)
-│   └── scheduler/             # job retards + clôture automatique
+│   ├── messages/              # discussion thread
+│   ├── files/                 # private storage, validation, ffmpeg, sharp, download
+│   ├── notifications/         # persistence + Socket.IO gateway
+│   ├── audit/                 # audit log (internal write, super admin read)
+│   └── scheduler/             # delay job + automatic closure
 └── test/
-    ├── unit/                  # machine à états, politique d'accès, délais, validation fichiers
-    └── integration/           # API + base PostgreSQL de test, par user story
+    ├── unit/                  # state machine, access policy, deadlines, file validation
+    └── integration/           # API + test PostgreSQL database, per user story
 
 frontend/
 ├── src/
 │   ├── main.tsx
-│   ├── app/                   # routeur, thème MUI, fournisseurs (Query, Socket)
-│   ├── api/                   # client HTTP, types générés depuis l'OpenAPI du backend
+│   ├── app/                   # router, MUI theme, providers (Query, Socket)
+│   ├── api/                   # HTTP client, types generated from the backend's OpenAPI
 │   ├── features/
-│   │   ├── requests/          # liste, filtres, création, détail, actions de statut
-│   │   ├── voice/             # enregistreur, lecteur, détection des formats
-│   │   ├── thread/            # fil, pièces jointes, prise de photo
-│   │   ├── notifications/     # centre de notifications, connexion Socket.IO
-│   │   ├── outbox/            # envois échoués conservés (IndexedDB) et relance
-│   │   └── admin/             # comptes, catégories, délais, réglages, audit
-│   └── components/            # composants partagés (états, compte à rebours…)
+│   │   ├── requests/          # list, filters, creation, detail, status actions
+│   │   ├── voice/             # recorder, player, format detection
+│   │   ├── thread/            # thread, attachments, photo capture
+│   │   ├── notifications/     # notification center, Socket.IO connection
+│   │   ├── outbox/            # failed sends kept (IndexedDB) and retry
+│   │   └── admin/             # accounts, categories, deadlines, settings, audit
+│   └── components/            # shared components (states, countdown…)
 └── tests/                     # Vitest + Testing Library
 
-e2e/                           # Playwright + axe, un fichier par user story
+e2e/                           # Playwright + axe, one file per user story
 deploy/
 ├── docker-compose.yml         # caddy, api, db, backup
 ├── Caddyfile
 ├── api.Dockerfile             # Node 24 + ffmpeg
-└── backup/                    # pg_dump + archive du volume fichiers
+└── backup/                    # pg_dump + archive of the files volume
 ```
 
-**Structure Decision**: application web à deux projets (`backend/`, `frontend/`) dans un même
-dépôt avec npm workspaces, plus `e2e/` et `deploy/`. Pas de paquet partagé : le frontend
-consomme des types générés depuis l'OpenAPI du backend, et le serveur renvoie pour chaque
-demande la liste des actions permises (`allowedActions`), si bien que la machine à états
-n'existe qu'à un seul endroit.
+**Structure Decision**: web application with two projects (`backend/`, `frontend/`) in a single
+repository with npm workspaces, plus `e2e/` and `deploy/`. No shared package: the frontend
+consumes types generated from the backend's OpenAPI, and the server returns for each
+request the list of permitted actions (`allowedActions`), so that the state machine
+exists in only one place.
 
 ## Complexity Tracking
 
-| Ajout | Pourquoi c'est nécessaire | Alternative plus simple rejetée parce que |
-|-------|---------------------------|-------------------------------------------|
-| ffmpeg/ffprobe dans l'image de l'API (conversion des vocaux en AAC/MP4) | Safari/iOS enregistre en MP4/AAC, Chrome et Firefox en WebM/Opus ou Ogg ; la lecture croisée n'est pas garantie sur toutes les versions cibles. ffprobe sert aussi à vérifier que le fichier est bien un audio valide et à mesurer sa durée réelle (FR-007). | Stocker et servir le format d'origine : un vocal enregistré sur un navigateur peut être illisible sur un autre, ce qui casse le parcours principal (US1). |
-| sharp (traitement des photos) | Supprimer les métadonnées EXIF, dont la position GPS des photos prises au téléphone (principe IV, minimisation RGPD), et corriger l'orientation. | Enregistrer les photos telles quelles : diffuse la localisation des employés aux autres participants. |
-| embedded-postgres (dépendance de **développement** uniquement, ajoutée à l'implémentation le 2026-10-12) | Le poste de développement n'a ni Docker ni PostgreSQL. embedded-postgres télécharge un PostgreSQL 17 portable : base de développement persistante (`npm run -w backend db:dev`) et base jetable démarrée automatiquement par les tests d'intégration et l'e2e. Docker reste utilisé pour le déploiement (`deploy/docker-compose.yml`) ; `deploy/docker-compose.dev.yml` reste disponible pour les postes équipés de Docker. | Exiger Docker Desktop ou une installation native de PostgreSQL sur chaque poste : bloquait l'exécution des tests de la Phase 2 sur le poste actuel. |
-| Redis | **Non ajouté.** Un seul processus API sur un seul VPS : l'adaptateur Socket.IO en mémoire, le throttler en mémoire et le job en processus suffisent. À réévaluer uniquement si l'API passe à plusieurs instances. | — |
+| Addition | Why it is necessary | Simpler alternative rejected because |
+|----------|---------------------|--------------------------------------|
+| ffmpeg/ffprobe in the API image (converting voice messages to AAC/MP4) | Safari/iOS records in MP4/AAC, Chrome and Firefox in WebM/Opus or Ogg; cross-browser playback is not guaranteed on all target versions. ffprobe also serves to check that the file really is valid audio and to measure its real duration (FR-007). | Store and serve the original format: a voice message recorded in one browser may be unplayable in another, which breaks the main journey (US1). |
+| sharp (photo processing) | Strip EXIF metadata, including the GPS position of photos taken on a phone (principle IV, GDPR minimization), and correct the orientation. | Store photos as they are: spreads employees' location to the other participants. |
+| embedded-postgres (**development** dependency only, added during implementation on 2026-10-12) | The development machine has neither Docker nor PostgreSQL. embedded-postgres downloads a portable PostgreSQL 17: persistent development database (`npm run -w backend db:dev`) and a disposable database started automatically by the integration tests and e2e. Docker is still used for deployment (`deploy/docker-compose.yml`); `deploy/docker-compose.dev.yml` remains available for machines equipped with Docker. | Require Docker Desktop or a native PostgreSQL installation on every machine: blocked running the Phase 2 tests on the current machine. |
+| Redis | **Not added.** A single API process on a single VPS: the in-memory Socket.IO adapter, the in-memory throttler and the in-process job are enough. To be reassessed only if the API moves to several instances. | — |

@@ -1,32 +1,32 @@
-# Contrat d'interface — 007 Brouillons de demande de travail
+# UI Contract — 007 Brouillons de demande de travail (Work request drafts)
 
-## « Nouvelle demande » (`/demandes/nouvelle`)
+## « Nouvelle demande » (New request) (`/demandes/nouvelle`)
 
-- Bouton secondaire **« Enregistrer en brouillon »** à côté de « Envoyer la demande », seulement si
-  le réglage public `draftsEnabled` est vrai.
-- Validation pour le brouillon : catégorie (« Choisissez une catégorie. ») et titre (« Saisissez un
-  titre. ») seulement ; priorité « Normale » si non choisie.
-- Succès : toast « Brouillon enregistré. », ouverture de `/demandes/:id/brouillon`.
+- Secondary button **« Enregistrer en brouillon »** (Save as draft) next to « Envoyer la demande » (Send the request), only if
+  the public setting `draftsEnabled` is true.
+- Validation for the draft: category (« Choisissez une catégorie. » (Choose a category.)) and title (« Saisissez un
+  titre. » (Enter a title.)) only; priority « Normale » if not chosen.
+- Success: toast « Brouillon enregistré. » (Draft saved.), opens `/demandes/:id/brouillon`.
 
-## « Mes demandes » (`/`)
+## « Mes demandes » (My requests) (`/`)
 
-- Onglet **« Brouillons »** (`?onglet=brouillons`), après « Envoyées », affiché seulement si
-  l'utilisateur a au moins un brouillon ; liste du périmètre `drafts`.
-- Chaque brouillon : badge « Brouillon », titre, catégorie, date ; lien vers
+- **« Brouillons »** (Drafts) tab (`?onglet=brouillons`), after « Envoyées » (Sent), shown only if
+  the user has at least one draft; list for the `drafts` scope.
+- Each draft: « Brouillon » badge, title, category, date; link to
   `/demandes/:id/brouillon`.
-- « Envoyées » : plus aucun brouillon.
+- « Envoyées »: no more drafts.
 
-## Page brouillon (`/demandes/:id/brouillon`)
+## Draft page (`/demandes/:id/brouillon`)
 
-- Titre (`h1`) : « Brouillon de demande » ; retour « Retour aux demandes ».
-- Formulaire de « Nouvelle demande » pré-rempli (catégorie, destinataire, priorité, titre,
+- Title (`h1`): « Brouillon de demande » (Request draft); back link « Retour aux demandes » (Back to requests).
+- « Nouvelle demande » form pre-filled (category, recipient, priority, title,
   description).
-- Message vocal existant : lecteur (`VoicePlayer`) avec « Remplacer le message vocal » et
-  « Supprimer le message vocal » ; sans vocal : enregistreur comme à la création.
-- Actions : **« Envoyer la demande »** (principale), **« Enregistrer le brouillon »**,
-  **« Supprimer le brouillon »** (dialogue « Supprimer ce brouillon ? », confirmation « Supprimer »).
-- Succès : envoyer → toast « Votre demande a été envoyée. » et détail `/demandes/:id` ; enregistrer
-  → toast « Brouillon enregistré. » ; supprimer → toast « Brouillon supprimé. » et « Mes demandes ».
-- Brouillon déjà envoyé ou supprimé ailleurs : message d'erreur puis retour à « Mes demandes ».
-- Lien direct `/demandes/:id` vers un brouillon : redirection vers cette page.
-- 320 px sans défilement horizontal ; actions empilées sur mobile.
+- Existing voice message: player (`VoicePlayer`) with « Remplacer le message vocal » (Replace the voice message) and
+  « Supprimer le message vocal » (Delete the voice message); without a voice message: recorder as at creation.
+- Actions: **« Envoyer la demande »** (primary), **« Enregistrer le brouillon »** (Save the draft),
+  **« Supprimer le brouillon »** (Delete the draft) (dialog « Supprimer ce brouillon ? » (Delete this draft?), confirmation « Supprimer » (Delete)).
+- Success: send → toast « Votre demande a été envoyée. » (Your request has been sent.) and detail `/demandes/:id`; save
+  → toast « Brouillon enregistré. »; delete → toast « Brouillon supprimé. » (Draft deleted.) and « Mes demandes ».
+- Draft already sent or deleted elsewhere: error message then return to « Mes demandes ».
+- Direct link `/demandes/:id` to a draft: redirect to this page.
+- 320 px with no horizontal scrolling; actions stacked on mobile.

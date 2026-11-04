@@ -1,16 +1,16 @@
-# UI Contract: demandes similaires (010)
+# UI Contract: similar requests (010)
 
-## Panneau « Propositions automatiques » — section « Demandes similaires »
+## « Propositions automatiques » (Automatic suggestions) panel — « Demandes similaires » (Similar requests) section
 
-- Affichée après « Consignes utilisées » quand `similar` n'est pas vide ; absente sinon.
-- Titre « Demandes similaires », phrase « Vérifiez qu'il ne s'agit pas d'un doublon. ».
-- Liste nommée « Demandes similaires » ; chaque élément :
-  - lien « D-2026-000042 · Photocopieuse du 1er étage en panne » vers `/demandes/:id`,
-    `target="_blank"`, `rel="noopener"`, mention masquée « (nouvel onglet) » ;
-  - ligne secondaire : catégorie · priorité (libellé) · statut (libellé), texte simple.
-- Aucune action ne modifie le formulaire ; le jeton `assistToken` est inchangé.
+- Displayed after « Consignes utilisées » (Guidelines used) when `similar` is not empty; absent otherwise.
+- Title « Demandes similaires », sentence « Vérifiez qu'il ne s'agit pas d'un doublon. » (Check that it is not a duplicate.).
+- List named « Demandes similaires »; each item:
+  - link « D-2026-000042 · Photocopieuse du 1er étage en panne » to `/demandes/:id`,
+    `target="_blank"`, `rel="noopener"`, hidden mention « (nouvel onglet) » (new tab);
+  - secondary line: category · priority (label) · status (label), plain text.
+- No action modifies the form; the `assistToken` token is unchanged.
 
 ## Transcription
 
-Un nouvel enregistrement (ou sa suppression) masque la transcription précédente ; le clic suivant
-sur « Proposer… » demande une nouvelle transcription.
+A new recording (or its deletion) hides the previous transcription; the next click
+on « Proposer… » requests a new transcription.

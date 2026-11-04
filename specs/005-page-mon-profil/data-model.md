@@ -1,36 +1,35 @@
-# Data Model — 005 Page « Mon profil »
+# Data Model — 005 Page « Mon profil » (My profile page)
 
-**Aucune modification de schéma, aucune migration.** La fonctionnalité lit des données
-existantes du compte connecté.
+**No schema change, no migration.** The feature reads existing data from the signed-in account.
 
-## Compte utilisateur (`User`, existant)
+## User account (`User`, existing)
 
-| Champ | Type | Affiché comme | Valeur absente |
-|-------|------|---------------|----------------|
-| `displayName` | texte (obligatoire) | Nom | — (toujours renseigné) |
-| `username` | texte (obligatoire, unique) | Identifiant de connexion | — (toujours renseigné) |
-| `jobTitle` | texte, 100 caractères max, facultatif | Fonction | « Non renseignée » |
-| `role` | `EMPLOYEE` / `ADMIN` / `SUPER_ADMIN` | Rôle : « Employé », « Admin », « Super administrateur » (libellés existants `ROLE_LABELS`) | — |
-| `mustChangePassword` | booléen | non affiché ; décide du mode de `/mot-de-passe` (imposé ou volontaire) | — |
+| Field | Type | Displayed as | Missing value |
+|-------|------|--------------|---------------|
+| `displayName` | text (required) | Nom (Name) | — (always set) |
+| `username` | text (required, unique) | Identifiant de connexion (login identifier) | — (always set) |
+| `jobTitle` | text, 100 characters max, optional | Fonction (job title) | « Non renseignée » (not provided) |
+| `role` | `EMPLOYEE` / `ADMIN` / `SUPER_ADMIN` | Rôle (role): « Employé », « Admin », « Super administrateur » (existing `ROLE_LABELS` labels) | — |
+| `mustChangePassword` | boolean | not displayed; decides the mode of `/mot-de-passe` (forced or voluntary) | — |
 
-Modification : **aucune** par cette fonctionnalité, sauf le mot de passe par le parcours
-existant (`POST /api/auth/password`), qui remet `mustChangePassword` à `false`.
+Changes: **none** by this feature, except the password through the existing flow
+(`POST /api/auth/password`), which resets `mustChangePassword` to `false`.
 
-## Groupes d'affectation (`EmployeeGroup`, existant)
+## Assignment groups (`EmployeeGroup`, existing)
 
-| Donnée | Source | Affiché comme | Valeur absente |
-|--------|--------|---------------|----------------|
-| membre du groupe à clé `SUPERVISORS` | `isSupervisor` (déjà calculé pour `/api/auth/me`) | « Surveillants » | « Aucun » si aucun des deux |
-| membre du groupe à clé `TEACHERS` | `isTeacher` (idem) | « Enseignants » | |
+| Data | Source | Displayed as | Missing value |
+|------|--------|--------------|---------------|
+| member of the group with key `SUPERVISORS` | `isSupervisor` (already computed for `/api/auth/me`) | « Surveillants » (Supervisors) | « Aucun » (None) if neither |
+| member of the group with key `TEACHERS` | `isTeacher` (same) | « Enseignants » (Teachers) | |
 
-Les autres groupes (sans clé système) ne sont pas affichés : ils n'ont pas d'effet sur
-l'application (`docs/superadmin-fonctionnalites.md` §2.5).
+The other groups (without a system key) are not displayed: they have no effect on the
+application (`docs/superadmin-fonctionnalites.md` §2.5).
 
-## Règles
+## Rules
 
-- Seules les données du compte de la session sont lues (aucun identifiant passé par le client).
-- Données personnelles : rien de nouveau n'est collecté ni conservé ; `username` et `jobTitle`
-  sont renvoyés au seul titulaire du compte (principe IV, minimisation).
-- Pas de transition d'état propre à la fonctionnalité ; le changement de mot de passe garde son
-  comportement : `mustChangePassword` → `false`, autres sessions supprimées, audit
+- Only the session account's data is read (no identifier passed by the client).
+- Personal data: nothing new is collected or stored; `username` and `jobTitle`
+  are returned only to the account holder (principle IV, minimization).
+- No state transition specific to the feature; the password change keeps its
+  behavior: `mustChangePassword` → `false`, other sessions deleted, audit
   `PASSWORD_CHANGED`.

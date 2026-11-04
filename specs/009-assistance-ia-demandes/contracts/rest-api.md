@@ -1,11 +1,11 @@
-# REST API: Assistance IA (socle)
+# REST API: AI assistance (foundation)
 
-Règles communes : session obligatoire (`SessionGuard`), contrôle d'origine sur les écritures
-(`OriginGuard`), erreurs au format existant `{ error: { code, message, fields? } }`.
+Common rules: session required (`SessionGuard`), origin check on writes
+(`OriginGuard`), errors in the existing format `{ error: { code, message, fields? } }`.
 
-## GET /api/settings/client (existant, étendu)
+## GET /api/settings/client (existing, extended)
 
-Ajoute deux booléens, issus de la configuration du serveur :
+Adds two booleans, derived from the server configuration:
 
 ```json
 { "...": "...", "assistSuggestions": false, "assistTranscription": false }
@@ -13,30 +13,30 @@ Ajoute deux booléens, issus de la configuration du serveur :
 
 ## POST /api/assist/transcriptions
 
-- Accès : utilisateur qui peut créer une demande de travail (au moins une catégorie autorisée) ;
-  sinon `NOT_FOUND` (404) et `ACCESS_DENIED` journalisé.
-- Corps : `multipart/form-data`, champ `file` (enregistrement du formulaire).
-- Contrôles : ceux de `POST /api/files` pour un vocal (taille, signature, durée, conversion).
-- Limite d'appels : partagée avec les propositions (research R7).
-- `200` : `{ "text": "…" }` (au plus 4 000 caractères).
-- Erreurs : `ASSIST_DISABLED` (404) si la transcription est désactivée ; `FILE_TOO_LARGE` (413),
-  `FILE_TYPE_NOT_ALLOWED` (415), `VOICE_TOO_SHORT` / `VOICE_TOO_LONG` (existants) ;
-  `TRANSCRIPTION_EMPTY` (422) ; `ASSIST_RATE_LIMITED` (429) ; `ASSIST_UNAVAILABLE` (503).
-- Aucun fichier conservé, aucune ligne `File`.
+- Access: user who can create a work request (at least one allowed category);
+  otherwise `NOT_FOUND` (404) and `ACCESS_DENIED` logged.
+- Body: `multipart/form-data`, field `file` (recording from the form).
+- Checks: those of `POST /api/files` for a voice message (size, signature, duration, conversion).
+- Call limit: shared with suggestions (research R7).
+- `200`: `{ "text": "…" }` (at most 4,000 characters).
+- Errors: `ASSIST_DISABLED` (404) if transcription is disabled; `FILE_TOO_LARGE` (413),
+  `FILE_TYPE_NOT_ALLOWED` (415), `VOICE_TOO_SHORT` / `VOICE_TOO_LONG` (existing);
+  `TRANSCRIPTION_EMPTY` (422); `ASSIST_RATE_LIMITED` (429); `ASSIST_UNAVAILABLE` (503).
+- No file kept, no `File` row.
 
 ## POST /api/assist/suggestions
 
-- Accès et limite : comme ci-dessus.
-- Corps (JSON, class-validator) :
+- Access and limit: as above.
+- Body (JSON, class-validator):
 
 ```json
 { "text": "La photocopieuse du 1er étage ne marche plus" }
 ```
 
-  `text` : obligatoire, rogné, 1 à 4 000 caractères (description et transcription réunies par le
-  navigateur).
+  `text`: required, trimmed, 1 to 4,000 characters (description and transcription combined by
+  the browser).
 
-- `200` :
+- `200`:
 
 ```json
 {
@@ -53,28 +53,28 @@ Ajoute deux booléens, issus de la configuration du serveur :
 }
 ```
 
-  Chaque champ de `suggestion` est facultatif ; `suggestion: null` et `token: null` quand aucune
-  proposition fiable n'a pu être faite. `noGuideline: true` quand aucune consigne n'a été
-  retrouvée.
+  Each field of `suggestion` is optional; `suggestion: null` and `token: null` when no
+  reliable suggestion could be made. `noGuideline: true` when no guideline was
+  found.
 
-- Erreurs : `VALIDATION_ERROR` (400), `ASSIST_DISABLED` (404), `ASSIST_RATE_LIMITED` (429),
+- Errors: `VALIDATION_ERROR` (400), `ASSIST_DISABLED` (404), `ASSIST_RATE_LIMITED` (429),
   `ASSIST_UNAVAILABLE` (503).
-- Aucune écriture métier (FR-010).
+- No business write (FR-010).
 
-## POST /api/requests (existant, étendu)
+## POST /api/requests (existing, extended)
 
-`CreateRequestDto.assistToken?: string` (au plus 4 000 caractères). Ignoré pour un brouillon et
-quand il est invalide, expiré ou d'un autre utilisateur ; sinon un événement `ASSIST_SUGGESTED`
-est écrit (data-model). Tous les autres contrôles et réponses sont inchangés.
+`CreateRequestDto.assistToken?: string` (at most 4,000 characters). Ignored for a draft and
+when it is invalid, expired or from another user; otherwise an `ASSIST_SUGGESTED` event
+is written (data-model). All other checks and responses are unchanged.
 
-## /api/admin/guidelines (super administrateur, `SuperAdminGuard`)
+## /api/admin/guidelines (super administrator, `SuperAdminGuard`)
 
-| Méthode | Chemin | Corps | Réponse |
+| Method | Path | Body | Response |
 | --- | --- | --- | --- |
-| GET | `/api/admin/guidelines` | — | `200` liste triée par titre : `{ id, title, body, categoryId, categoryName, active, updatedAt, updatedBy }` |
-| POST | `/api/admin/guidelines` | `{ title, body, categoryId: string \| null, active }` | `201` consigne |
-| PATCH | `/api/admin/guidelines/:id` | champs facultatifs | `200` consigne |
+| GET | `/api/admin/guidelines` | — | `200` list sorted by title: `{ id, title, body, categoryId, categoryName, active, updatedAt, updatedBy }` |
+| POST | `/api/admin/guidelines` | `{ title, body, categoryId: string \| null, active }` | `201` guideline |
+| PATCH | `/api/admin/guidelines/:id` | optional fields | `200` guideline |
 | DELETE | `/api/admin/guidelines/:id` | — | `204` |
 
-Erreurs : `VALIDATION_ERROR` (catégorie inconnue ou de type garde : champ `categoryId`),
-`NOT_FOUND`. Chaque écriture : `GUIDELINE_CHANGED` dans le journal d'audit.
+Errors: `VALIDATION_ERROR` (unknown category or of shift type: field `categoryId`),
+`NOT_FOUND`. Each write: `GUIDELINE_CHANGED` in the audit log.

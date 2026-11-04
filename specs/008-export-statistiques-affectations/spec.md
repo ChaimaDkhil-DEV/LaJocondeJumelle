@@ -1,4 +1,4 @@
-# Feature Specification: Export des statistiques des affectations
+# Feature Specification: Export des statistiques des affectations (Assignment statistics export)
 
 **Feature Branch**: `008-export-statistiques-affectations`
 
@@ -6,180 +6,181 @@
 
 **Status**: Draft
 
-**Input**: User description: "Export des statistiques des affectations (/gardes/statistiques) :
-aujourd'hui la page des statistiques des affectations des surveillants n'a aucun export (écart
-§4.3 de docs/superadmin-fonctionnalites.md). Permettre à l'administration d'exporter ces
-statistiques."
+**Input**: User description: "Export of assignment statistics (/gardes/statistiques):
+today the statistics page for supervisor assignments has no export (gap
+§4.3 of docs/superadmin-fonctionnalites.md). Allow the administration to export these
+statistics."
 
 ## Clarifications
 
 ### Session 2026-10-23
 
-- Q: Chaque export réussi doit-il être journalisé dans le journal d'audit (auteur, date et heure,
-  période, regroupement) ? → A : **A**, oui ; seulement pour cet export (les exports du tableau
-  de bord et du suivi des gardes restent inchangés).
+- Q: Must each successful export be logged in the audit log (author, date and time,
+  period, grouping)? → A: **A**, yes; only for this export (the dashboard and
+  shift-tracking exports remain unchanged).
 
-## Contexte
+## Context
 
-- La page « Statistiques des affectations » (Gardes › Statistiques) affiche, pour une période
-  (« Du », « Au ») choisie dans le fuseau de l'école : les totaux (retards et absences, retards,
-  absences, classes vides, non pourvues, taux de non pourvue, durée moyenne), les éléments
-  comptés à part (annulées, doublons non tranchés) et un tableau regroupé par enseignant, par
-  classe ou par période (semaine ou mois).
-- Elle est réservée à l'admin et au super administrateur (statistiques par enseignant, spec 004
-  FR-022 et FR-023). La spec 004 l'a livrée « sans export » ; l'export des statistiques y était
-  hors périmètre. C'est le seul écart restant sur cette page (inventaire du super administrateur,
-  §4.3).
-- L'application exporte déjà au format tableur deux autres vues : le tableau de bord des demandes
-  et le suivi des gardes. Les fichiers s'ouvrent directement dans un tableur courant (séparateur,
-  accents, protection contre les formules).
-- Besoin : remettre ces statistiques à la direction ou les retravailler dans un tableur, sans les
-  recopier à la main.
+- The « Statistiques des affectations » (Assignment statistics) page (Gardes › Statistiques)
+  displays, for a period (« Du », « Au ») chosen in the school's time zone: the totals (delays and
+  absences, delays, absences, empty classes, unfilled, unfilled rate, average duration), the
+  items counted separately (cancelled, undecided duplicates) and a table grouped by teacher, by
+  class or by period (week or month).
+- It is restricted to admin and super administrator (statistics per teacher, spec 004
+  FR-022 and FR-023). Spec 004 delivered it "without export"; exporting the statistics was
+  out of scope there. This is the only remaining gap on this page (super administrator
+  inventory, §4.3).
+- The application already exports two other views in spreadsheet format: the request dashboard
+  and the shift tracking. The files open directly in a common spreadsheet (separator,
+  accents, protection against formulas).
+- Need: hand these statistics to management or rework them in a spreadsheet, without
+  copying them by hand.
 
 ## User Scenarios & Testing *(mandatory)*
 
-### User Story 1 - Exporter les statistiques affichées (Priority: P1)
+### User Story 1 - Export the displayed statistics (Priority: P1)
 
-Un admin ouvre « Statistiques des affectations », choisit la période et le regroupement, puis
-clique sur « Exporter en CSV ». Il obtient un fichier qui contient exactement ce que la page
-affiche : la période, les totaux, les éléments comptés à part et le tableau du regroupement choisi.
+An admin opens « Statistiques des affectations », chooses the period and the grouping, then
+clicks « Exporter en CSV » (Export as CSV). They get a file that contains exactly what the page
+displays: the period, the totals, the items counted separately and the table of the chosen grouping.
 
-**Why this priority**: c'est tout le besoin ; sans lui, les chiffres se recopient à la main.
+**Why this priority**: this is the whole need; without it, the figures are copied by hand.
 
-**Independent Test**: avec des affectations connues sur une période, exporter en regroupement
-« Enseignant », ouvrir le fichier dans un tableur et comparer chaque valeur à la page.
+**Independent Test**: with known assignments over a period, export with the « Enseignant »
+(Teacher) grouping, open the file in a spreadsheet and compare each value to the page.
 
 **Acceptance Scenarios**:
 
-1. **Given** un admin sur la page, période du 1er au 23 octobre, regroupement « Enseignant »,
-   **When** il clique sur « Exporter en CSV », **Then** un fichier est téléchargé et son nom
-   indique le regroupement et la période (par ex. `statistiques-affectations-enseignant-2026-10-01-au-2026-10-23.csv`).
-2. **Given** ce fichier ouvert dans un tableur, **When** on le lit, **Then** il contient la période
-   et le fuseau de l'école, une ligne par enseignant avec les mêmes colonnes et les mêmes valeurs
-   que le tableau (événements, retards, absences, classes vides, non pourvues, annulées, durée
-   moyenne), puis les totaux de la période et les éléments comptés à part, avec les mêmes valeurs
-   que la page.
-3. **Given** le regroupement « Période » par semaine (ou par mois), **When** il exporte, **Then**
-   le fichier contient une ligne par semaine (ou par mois), avec le même libellé que la page.
-4. **Given** le regroupement « Classe », **When** il exporte, **Then** le fichier contient une
-   ligne par classe.
-5. **Given** un enseignant anonymisé (au bout d'une année scolaire, spec 004 FR-023a), **When** il
-   exporte, **Then** la ligne porte le même libellé anonyme que la page, jamais le nom.
-6. **Given** des accents, des apostrophes ou un nom commençant par « = », « + », « - » ou « @ »,
-   **When** le fichier est ouvert dans un tableur, **Then** le texte s'affiche à l'identique et
-   aucune formule ne s'exécute.
+1. **Given** an admin on the page, period from 1 to 23 October, « Enseignant » grouping,
+   **When** they click « Exporter en CSV », **Then** a file is downloaded and its name
+   indicates the grouping and the period (e.g. `statistiques-affectations-enseignant-2026-10-01-au-2026-10-23.csv`).
+2. **Given** this file opened in a spreadsheet, **When** it is read, **Then** it contains the period
+   and the school's time zone, one row per teacher with the same columns and the same values
+   as the table (events, delays, absences, empty classes, unfilled, cancelled, average
+   duration), then the totals for the period and the items counted separately, with the same values
+   as the page.
+3. **Given** the « Période » (Period) grouping by week (or by month), **When** they export, **Then**
+   the file contains one row per week (or per month), with the same label as the page.
+4. **Given** the « Classe » (Class) grouping, **When** they export, **Then** the file contains one
+   row per class.
+5. **Given** an anonymized teacher (after one school year, spec 004 FR-023a), **When** they
+   export, **Then** the row carries the same anonymous label as the page, never the name.
+6. **Given** accents, apostrophes or a name starting with "=", "+", "-" or "@",
+   **When** the file is opened in a spreadsheet, **Then** the text is displayed identically and
+   no formula runs.
 
 ---
 
-### User Story 2 - Accès réservé et état de la page (Priority: P1)
+### User Story 2 - Restricted access and page state (Priority: P1)
 
-L'export suit les mêmes règles que la page : seuls l'admin et le super administrateur peuvent
-l'obtenir, et seulement pour une période valide.
+The export follows the same rules as the page: only admin and super administrator can
+get it, and only for a valid period.
 
-**Why this priority**: les statistiques par enseignant sont des données personnelles réservées
-(spec 004 FR-023) ; un export ouvert à d'autres rôles serait une fuite.
+**Why this priority**: per-teacher statistics are restricted personal data
+(spec 004 FR-023); an export open to other roles would be a leak.
 
-**Independent Test**: demander l'export avec un compte surveillant ou enseignant, puis avec une
-période invalide.
+**Independent Test**: request the export with a supervisor or teacher account, then with an
+invalid period.
 
 **Acceptance Scenarios**:
 
-1. **Given** un utilisateur qui n'est ni admin ni super administrateur, **When** il demande
-   l'export, même directement par son adresse, **Then** il est refusé de la même façon que la page
-   des statistiques (réponse « introuvable »), et le refus est journalisé.
-2. **Given** une période dont « Du » est après « Au », ou plus longue que la limite de la page,
-   **When** l'export est demandé, **Then** il est refusé avec le même message que la page et aucun
-   fichier n'est produit.
-3. **Given** une date incomplète ou en cours de saisie, ou un calcul en cours ou en erreur,
-   **When** la page s'affiche, **Then** « Exporter en CSV » n'est pas proposé.
-4. **Given** une période sans aucune affectation, **When** il exporte, **Then** le fichier contient
-   l'en-tête, la période et des totaux à zéro, sans ligne de détail.
-5. **Given** un export réussi, **When** le super administrateur ouvre le journal d'audit, **Then**
-   il y trouve une entrée « Export des statistiques des affectations » avec l'auteur, la date et
-   l'heure, la période et le regroupement, sans valeur statistique ni nom d'enseignant.
+1. **Given** a user who is neither admin nor super administrator, **When** they request
+   the export, even directly by its address, **Then** they are refused in the same way as the
+   statistics page ("not found" response), and the denial is logged.
+2. **Given** a period whose « Du » is after « Au », or longer than the page's limit,
+   **When** the export is requested, **Then** it is refused with the same message as the page and no
+   file is produced.
+3. **Given** an incomplete date or one being typed, or a computation in progress or in error,
+   **When** the page is displayed, **Then** « Exporter en CSV » is not offered.
+4. **Given** a period without any assignment, **When** they export, **Then** the file contains
+   the header, the period and totals at zero, with no detail row.
+5. **Given** a successful export, **When** the super administrator opens the audit log, **Then**
+   they find an entry « Export des statistiques des affectations » (Assignment statistics export)
+   with the author, the date and time, the period and the grouping, without any statistical value
+   or teacher name.
 
 ---
 
 ### Edge Cases
 
-- Durée moyenne non calculable (aucune affectation terminée) : cellule vide, comme le « — » de la
+- Average duration not computable (no completed assignment): empty cell, like the "—" on the
   page.
-- Taux de non pourvue : exporté en pourcentage entier, comme sur la page (par ex. « 12 % »).
-- Filtres modifiés après le dernier calcul : l'export porte toujours sur les filtres affichés,
-  jamais sur un résultat précédent (pas d'export pendant le recalcul).
-- Données modifiées entre l'affichage et l'export (une affectation terminée entre-temps) : le
-  fichier reflète l'état au moment de l'export, comme un rechargement de la page.
-- Écran de 320 px : le bouton reste visible et atteignable au clavier, sans défilement horizontal
-  de la page.
+- Unfilled rate: exported as a whole-number percentage, like on the page (e.g. "12 %").
+- Filters changed after the last computation: the export always covers the displayed filters,
+  never a previous result (no export during recomputation).
+- Data modified between display and export (an assignment completed in the meantime): the
+  file reflects the state at the time of the export, like reloading the page.
+- 320 px screen: the button stays visible and reachable by keyboard, without horizontal scrolling
+  of the page.
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
-- **FR-001**: La page « Statistiques des affectations » DOIT proposer une action « Exporter
-  (CSV) » qui télécharge un fichier des statistiques pour la période et le regroupement affichés
-  (et, pour « Période », la granularité semaine ou mois).
-- **FR-002**: Le fichier DOIT contenir : la période (« Du », « Au ») et le fuseau de l'école ; une
-  ligne par élément du regroupement, avec les colonnes du tableau de la page dans le même ordre et
-  avec les mêmes libellés ; les totaux de la période (les sept indicateurs de la page) ; les
-  éléments comptés à part (annulées, doublons non tranchés).
-- **FR-003**: Chaque valeur exportée DOIT être identique à celle affichée par la page pour les
-  mêmes filtres au même moment (mêmes règles de calcul, même fuseau, mêmes libellés, y compris le
-  libellé des enseignants anonymisés et des affectations sans enseignant).
-- **FR-004**: Le fichier DOIT suivre le format des exports existants de l'application : ouverture
-  directe dans un tableur courant, accents conservés, et neutralisation des valeurs qui pourraient
-  être interprétées comme des formules.
-- **FR-005**: Le nom du fichier DOIT indiquer le regroupement et la période.
-- **FR-006**: L'export DOIT être réservé à l'admin et au super administrateur, avec la même
-  vérification côté serveur que la page des statistiques ; tout autre utilisateur DOIT recevoir la
-  même réponse que pour la page (« introuvable ») et le refus DOIT être journalisé.
-- **FR-007**: L'export DOIT appliquer les mêmes contrôles de période que la page (« Du » au plus
-  tard « Au », durée maximale) et refuser une demande invalide avec le même message.
-- **FR-008**: L'action d'export NE DOIT être proposée que lorsque les statistiques des filtres
-  affichés sont calculées et affichées (ni pendant la saisie d'une date incomplète, ni pendant un
-  calcul, ni après une erreur).
-- **FR-009**: Chaque export réussi DOIT être tracé dans le journal d'audit non modifiable : auteur,
-  date et heure, période (« Du », « Au »), regroupement et, pour « Période », la granularité ;
-  sans aucune valeur statistique ni nom d'enseignant. L'entrée DOIT être consultable dans le
-  journal d'audit de l'administration avec un libellé explicite (par ex. « Export des
-  statistiques des affectations »). Un export refusé (FR-006, FR-007) n'est pas tracé comme
-  export réussi. Les exports du tableau de bord et du suivi des gardes ne changent pas.
-- **FR-010**: L'action DOIT respecter les règles d'accessibilité du projet (libellé explicite,
-  atteignable et activable au clavier, focus visible) et rester utilisable à 320 px.
+- **FR-001**: The « Statistiques des affectations » page MUST offer an « Exporter (CSV) » action
+  that downloads a statistics file for the displayed period and grouping
+  (and, for « Période », the week or month granularity).
+- **FR-002**: The file MUST contain: the period (« Du », « Au ») and the school's time zone; one
+  row per element of the grouping, with the page table's columns in the same order and
+  with the same labels; the totals for the period (the page's seven indicators); the
+  items counted separately (cancelled, undecided duplicates).
+- **FR-003**: Each exported value MUST be identical to the one displayed by the page for the
+  same filters at the same time (same computation rules, same time zone, same labels, including the
+  label of anonymized teachers and of assignments without a teacher).
+- **FR-004**: The file MUST follow the format of the application's existing exports: direct
+  opening in a common spreadsheet, accents preserved, and neutralization of values that could
+  be interpreted as formulas.
+- **FR-005**: The file name MUST indicate the grouping and the period.
+- **FR-006**: The export MUST be restricted to admin and super administrator, with the same
+  server-side check as the statistics page; any other user MUST receive the
+  same response as for the page ("not found") and the denial MUST be logged.
+- **FR-007**: The export MUST apply the same period checks as the page (« Du » no later
+  than « Au », maximum length) and refuse an invalid request with the same message.
+- **FR-008**: The export action MUST be offered only when the statistics for the displayed
+  filters are computed and displayed (not while an incomplete date is being typed, nor during a
+  computation, nor after an error).
+- **FR-009**: Each successful export MUST be recorded in the non-modifiable audit log: author,
+  date and time, period (« Du », « Au »), grouping and, for « Période », the granularity;
+  without any statistical value or teacher name. The entry MUST be viewable in the
+  administration's audit log with an explicit label (e.g. « Export des
+  statistiques des affectations »). A refused export (FR-006, FR-007) is not recorded as a
+  successful export. The dashboard and shift-tracking exports do not change.
+- **FR-010**: The action MUST respect the project's accessibility rules (explicit label,
+  reachable and activable by keyboard, visible focus) and remain usable at 320 px.
 
 ### Key Entities *(include if feature involves data)*
 
-- **Export des statistiques**: fichier produit à la demande, non conservé par l'application ;
-  contient la période, le regroupement, les lignes du tableau, les totaux et les éléments comptés
-  à part. Aucune donnée nouvelle : il reprend les statistiques de la page (spec 004, FR-022).
-- **Entrée d'audit « export des statistiques »**: nouvelle action du journal d'audit existant ;
-  auteur, date et heure, période, regroupement (et granularité) ; aucune donnée statistique.
+- **Statistics export**: file produced on demand, not kept by the application;
+  contains the period, the grouping, the table rows, the totals and the items counted
+  separately. No new data: it reuses the page's statistics (spec 004, FR-022).
+- **"Statistics export" audit entry**: new action of the existing audit log;
+  author, date and time, period, grouping (and granularity); no statistical data.
 
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
 
-- **SC-001**: Un admin obtient le fichier des statistiques affichées en 1 action depuis la page.
-- **SC-002**: 100 % des valeurs du fichier (lignes, totaux, comptés à part) sont identiques à
-  celles de la page pour les mêmes filtres, pour chacun des trois regroupements et les deux
-  granularités de période.
-- **SC-003**: Le fichier s'ouvre dans un tableur courant sans manipulation (colonnes séparées,
-  accents corrects) et aucune valeur ne s'y exécute comme formule.
-- **SC-004**: 0 export obtenu par un utilisateur qui n'est ni admin ni super administrateur ; 100 %
-  des tentatives refusées et 100 % des exports réussis sont journalisés.
-- **SC-005**: Aucune violation d'accessibilité détectée par l'audit automatique sur la page des
-  statistiques avec l'action d'export, à 320 px et sur desktop.
+- **SC-001**: An admin gets the file of the displayed statistics in 1 action from the page.
+- **SC-002**: 100% of the file's values (rows, totals, items counted separately) are identical to
+  those of the page for the same filters, for each of the three groupings and the two
+  period granularities.
+- **SC-003**: The file opens in a common spreadsheet without manipulation (columns separated,
+  accents correct) and no value runs there as a formula.
+- **SC-004**: 0 exports obtained by a user who is neither admin nor super administrator; 100%
+  of refused attempts and 100% of successful exports are logged.
+- **SC-005**: No accessibility violation detected by the automated audit on the statistics
+  page with the export action, at 320 px and on desktop.
 
 ## Assumptions
 
-- Même public que la page : l'admin et le super administrateur (spec 004 FR-022, FR-023) ; aucun
-  nouveau rôle ni réglage. Le journal d'audit reste consultable par le super administrateur
-  seulement, comme aujourd'hui.
-- Format CSV seul, comme les deux exports existants ; pas de PDF ni de classeur tableur natif.
-  L'impression de la page reste celle du navigateur.
-- Un fichier exporte la vue affichée (un regroupement) ; pas d'export groupé des trois
-  regroupements ni de liste détaillée des affectations (le suivi des gardes l'exporte déjà).
-- Aucune règle de calcul nouvelle : l'export réutilise les statistiques de la page telles quelles.
-- Le fichier n'est pas conservé par l'application ; sa conservation relève de celui qui le
-  télécharge. Les données exportées sont celles déjà visibles par ce même utilisateur
-  (minimisation : aucune colonne de plus que la page, pas de motif détaillé).
+- Same audience as the page: admin and super administrator (spec 004 FR-022, FR-023); no
+  new role or setting. The audit log remains viewable by the super administrator
+  only, as today.
+- CSV format only, like the two existing exports; no PDF or native spreadsheet workbook.
+  Printing the page remains the browser's.
+- One file exports the displayed view (one grouping); no combined export of the three
+  groupings nor detailed list of assignments (the shift tracking already exports it).
+- No new computation rule: the export reuses the page's statistics as is.
+- The file is not kept by the application; keeping it is up to whoever
+  downloads it. The exported data is what the same user can already see
+  (minimization: no more columns than the page, no detailed reason).

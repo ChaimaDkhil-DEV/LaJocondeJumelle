@@ -1,32 +1,32 @@
-# Contrat de configuration (variables d'environnement de l'API)
+# Configuration contract (API environment variables)
 
-Toutes les variables sont lues **uniquement** par `loadConfig` au démarrage (FR-004). Une valeur
-invalide empêche le démarrage avec un message `ConfigError` en français.
+All variables are read **only** by `loadConfig` at startup (FR-004). An invalid value prevents
+startup with a `ConfigError` message in French.
 
-| Variable | Obligatoire | Défaut | Valeurs acceptées | Changement |
+| Variable | Required | Default | Accepted values | Change |
 |---|---|---|---|---|
-| `DATABASE_URL` | oui | — | URL PostgreSQL | inchangé |
-| `SESSION_SECRET` | oui | — | ≥ 32 caractères | inchangé |
-| `FILES_DIR` | oui | — | chemin | inchangé |
-| `APP_ORIGIN` | oui | — | URL valide | inchangé |
-| `PORT` | non | `3002` | entier 1–65535 | n'est plus relu par `main.ts` |
-| `TRUST_PROXY` | non | `loopback` | `true`, `false`, entier ≥ 0, ou liste séparée par des virgules de : `loopback`, `linklocal`, `uniquelocal`, adresse IPv4/IPv6, plage CIDR | **désormais validée** |
-| `NODE_ENV`, `COOKIE_SECURE`, `LOGIN_RATE_LIMIT`, `JOBS_ENABLED`, `FFMPEG_PATH`, `FFPROBE_PATH` | non | inchangés | inchangés | `NODE_ENV` n'est plus relu par `app.setup.ts` |
+| `DATABASE_URL` | yes | — | PostgreSQL URL | unchanged |
+| `SESSION_SECRET` | yes | — | ≥ 32 characters | unchanged |
+| `FILES_DIR` | yes | — | path | unchanged |
+| `APP_ORIGIN` | yes | — | valid URL | unchanged |
+| `PORT` | no | `3002` | integer 1–65535 | is no longer re-read by `main.ts` |
+| `TRUST_PROXY` | no | `loopback` | `true`, `false`, integer ≥ 0, or a comma-separated list of: `loopback`, `linklocal`, `uniquelocal`, IPv4/IPv6 address, CIDR range | **now validated** |
+| `NODE_ENV`, `COOKIE_SECURE`, `LOGIN_RATE_LIMIT`, `JOBS_ENABLED`, `FFMPEG_PATH`, `FFPROBE_PATH` | no | unchanged | unchanged | `NODE_ENV` is no longer re-read by `app.setup.ts` |
 
-Message d'erreur attendu pour `TRUST_PROXY=n'importe quoi` :
-`TRUST_PROXY invalide : utilisez true, false, un nombre de proxys, ou une liste parmi loopback, linklocal, uniquelocal, adresses IP ou plages CIDR`.
+Expected error message for `TRUST_PROXY=n'importe quoi` ("anything"):
+`TRUST_PROXY invalide : utilisez true, false, un nombre de proxys, ou une liste parmi loopback, linklocal, uniquelocal, adresses IP ou plages CIDR` (TRUST_PROXY invalid: use true, false, a number of proxies, or a list from loopback, linklocal, uniquelocal, IP addresses or CIDR ranges).
 
-## Ports par environnement
+## Ports per environment
 
-| Environnement | Port de l'API | Source |
+| Environment | API port | Source |
 |---|---|---|
-| Développement (poste) | 3002 | défaut de `loadConfig`, `backend/.env.example`, proxy Vite, `deploy/Caddyfile.dev`, `start.bat` |
-| Production (conteneur) | 3000, interne au réseau Docker | `deploy/api.Dockerfile` (`ENV PORT=3000`), `docker-compose.yml` |
-| Tests de bout en bout | `API_PORT` de `e2e/playwright.config.ts` | inchangé |
+| Development (workstation) | 3002 | default of `loadConfig`, `backend/.env.example`, Vite proxy, `deploy/Caddyfile.dev`, `start.bat` |
+| Production (container) | 3000, internal to the Docker network | `deploy/api.Dockerfile` (`ENV PORT=3000`), `docker-compose.yml` |
+| End-to-end tests | `API_PORT` of `e2e/playwright.config.ts` | unchanged |
 
-## Nouvelles variables de déploiement
+## New deployment variables
 
-| Variable | Où | Défaut | Rôle |
+| Variable | Where | Default | Role |
 |---|---|---|---|
-| `PRE_MIGRATION_BACKUP_MAX_AGE_MINUTES` | conteneur `api` | `60` | Âge maximal de la dernière archive `db-*.dump` exigée avant d'appliquer une migration (research R12) |
-| `PRE_MIGRATION_BACKUP_DIR` | conteneur `api` | `/backups` | Dossier où chercher cette archive ; configurable pour le test automatisé de l'entrypoint (research R12) |
+| `PRE_MIGRATION_BACKUP_MAX_AGE_MINUTES` | `api` container | `60` | Maximum age of the latest `db-*.dump` archive required before applying a migration (research R12) |
+| `PRE_MIGRATION_BACKUP_DIR` | `api` container | `/backups` | Folder where to look for this archive; configurable for the automated entrypoint test (research R12) |

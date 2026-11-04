@@ -1,126 +1,128 @@
-# Quickstart : valider les corrections de l'audit technique
+# Quickstart: validating the technical audit fixes
 
-Guide de vérification, scénario par scénario. Les détails de conception sont dans
-[research.md](./research.md), [data-model.md](./data-model.md) et [contracts/](./contracts/).
+Verification guide, scenario by scenario. Design details are in
+[research.md](./research.md), [data-model.md](./data-model.md) and [contracts/](./contracts/).
 
-## Prérequis
+## Prerequisites
 
-- Windows 11 ou Linux, Node.js 24, ffmpeg dans le `PATH`.
-- `npm install` à la racine.
-- Pour les scénarios 5 et 6 : un serveur de préproduction avec Docker Compose et un nom de
-  domaine en HTTPS.
+- Windows 11 or Linux, Node.js 24, ffmpeg in the `PATH`.
+- `npm install` at the root.
+- For scenarios 5 and 6: a staging server with Docker Compose and a domain name over HTTPS.
 
-## Scénario 1 — Démarrage sur le port 3002 (US1, FR-001 à FR-003, SC-001, SC-003)
+## Scenario 1 — Startup on port 3002 (US1, FR-001 to FR-003, SC-001, SC-003)
 
 ```bash
-cp backend/.env.example backend/.env       # renseigner SESSION_SECRET uniquement
-npm run -w backend db:dev                  # terminal dédié
+cp backend/.env.example backend/.env       # fill in SESSION_SECRET only
+npm run -w backend db:dev                  # dedicated terminal
 npm run -w backend prisma:migrate && npm run -w backend prisma:seed
-npm run dev                                # ou start.bat sous Windows
+npm run dev                                # or start.bat on Windows
 ```
 
-Attendu : l'API répond sur `http://localhost:3002/api/health` ; l'interface sur
-`http://localhost:5173` affiche la connexion et la connexion de démonstration réussit ; une
-modification d'un fichier de `backend/src` redémarre l'API sans compilation manuelle.
-Chronométrer le parcours, de `cp` à la connexion réussie (hors téléchargements) : moins de
+Expected: the API responds on `http://localhost:3002/api/health`; the interface on
+`http://localhost:5173` shows the login and the demo login succeeds; editing a file in
+`backend/src` restarts the API without a manual build.
+Time the whole path, from `cp` to the successful login (excluding downloads): under
 10 minutes (SC-001).
 
-API arrêtée, interface lancée : une action affiche « Une erreur inattendue est survenue.
-Réessayez plus tard. » (réponse 502 du proxy Vite), sans écran blanc ; vérifié aussi par
+API stopped, interface running: an action shows « Une erreur inattendue est survenue.
+Réessayez plus tard. » (An unexpected error occurred. Try again later.) (502 response from
+the Vite proxy), with no blank screen; also verified by
 `frontend/tests/api/client.test.ts`.
 
 ```bash
 git grep -nE "localhost:3000|host\.docker\.internal:3000|^PORT=3000" -- README.md backend/.env.example deploy/Caddyfile.dev frontend/vite.config.ts
 ```
 
-Attendu : aucun résultat.
+Expected: no result.
 
-## Scénario 2 — Configuration refusée au démarrage (US2, FR-004)
+## Scenario 2 — Configuration rejected at startup (US2, FR-004)
 
 ```bash
 npm run -w backend test -- config.spec
 ```
 
-Attendu : vert, y compris les cas `TRUST_PROXY` invalide et port invalide. Vérification à la
-main : `TRUST_PROXY=nimporte npm run -w backend start:dev` s'arrête avec le message de
+Expected: green, including the invalid `TRUST_PROXY` and invalid port cases. Manual check:
+`TRUST_PROXY=nimporte npm run -w backend start:dev` stops with the message from
 [contracts/configuration.md](./contracts/configuration.md).
 
-## Scénario 3 — Réinitialisation tracée du super administrateur (US2, FR-007, FR-010, SC-004)
+## Scenario 3 — Traced reset of the super administrator (US2, FR-007, FR-010, SC-004)
 
-1. Se connecter en `superadmin` dans deux navigateurs.
+1. Log in as `superadmin` in two browsers.
 2. `npm run -w backend build && node backend/dist/cli/bootstrap.js --reset-password superadmin`
-3. Attendu : un mot de passe provisoire s'affiche une fois ; dans les deux navigateurs, la
-   session est fermée à la requête suivante (temps réel : au plus 60 s) ; la reconnexion impose
-   le changement de mot de passe ; le journal d'audit (écran Administration → Journal) montre
-   `PASSWORD_RESET`, cible `superadmin`, motif `CLI`, sans acteur.
-4. `node backend/dist/cli/bootstrap.js --reset-password inconnu` → code 1, aucune écriture.
-5. `backend/scripts/reset-superadmin-password.ts` n'existe plus.
+3. Expected: a temporary password is shown once; in both browsers, the
+   session is closed on the next request (real time: at most 60 s); logging in again requires
+   a password change; the audit log (Administration → Journal screen) shows
+   `PASSWORD_RESET`, target `superadmin`, reason `CLI`, no actor.
+4. `node backend/dist/cli/bootstrap.js --reset-password inconnu` → code 1, no write.
+5. `backend/scripts/reset-superadmin-password.ts` no longer exists.
 
-Tests automatisés : test d'intégration de `resetSuperAdminPassword` (transaction, sessions,
+Automated tests: integration test of `resetSuperAdminPassword` (transaction, sessions,
 audit).
 
-## Scénario 4 — Affectation figée à la soumission (US3, FR-008 à FR-011, SC-005)
+## Scenario 4 — Assignment frozen at submission (US3, FR-008 to FR-011, SC-005)
 
-Avec la catégorie de démonstration en circuit B, affectation automatique vers l'employé E1 :
+With the demo category in workflow B, automatic assignment to employee E1:
 
-| Étape | Attendu |
+| Step | Expected |
 |---|---|
-| Soumettre une demande D1, puis désigner E2 dans la catégorie, puis approuver D1 | D1 affectée à E1 ; historique : source `SNAPSHOT` |
-| Soumettre D2, passer la catégorie en affectation manuelle, approuver D2 sans choisir d'employé | D2 affectée à E1 (plus de blocage `ASSIGNEE_REQUIRED`, constat N1) |
-| Soumettre D3, désactiver E1, approuver D3 | refus `AUTO_ASSIGNEE_UNAVAILABLE`, le sélecteur s'affiche ; approuver avec E3 → affectée à E3, source `MANAGER_CHOICE` |
-| Soumettre D4, retirer E1 des destinataires de la catégorie (compte actif), approuver D4 | même comportement que D3 : refus puis choix du responsable (EXC-2, D8) |
-| Demande ancienne (snapshot sans `autoAssigneeId`) | affectée selon la catégorie actuelle, source `CATEGORY_CURRENT` (EXC-1, D9) |
+| Submit a request D1, then designate E2 in the category, then approve D1 | D1 assigned to E1; history: source `SNAPSHOT` |
+| Submit D2, switch the category to manual assignment, approve D2 without choosing an employee | D2 assigned to E1 (no more `ASSIGNEE_REQUIRED` block, finding N1) |
+| Submit D3, deactivate E1, approve D3 | `AUTO_ASSIGNEE_UNAVAILABLE` refusal, the selector appears; approve with E3 → assigned to E3, source `MANAGER_CHOICE` |
+| Submit D4, remove E1 from the category recipients (account active), approve D4 | same behavior as D3: refusal then choice by the manager (EXC-2, D8) |
+| Old request (snapshot without `autoAssigneeId`) | assigned according to the current category, source `CATEGORY_CURRENT` (EXC-1, D9) |
 
-Dans l'historique de chaque demande, la ligne « Affectée à <nom> » est suivie de la source :
-« (personne prévue à la soumission) », « (selon la catégorie actuelle, demande antérieure) » ou
-« (choix du responsable) ».
+In each request's history, the line « Affectée à <nom> » (Assigned to <name>) is followed by
+the source: « (personne prévue à la soumission) » (person planned at submission),
+« (selon la catégorie actuelle, demande antérieure) » (according to the current category,
+earlier request) or « (choix du responsable) » (manager's choice).
 
-Tests automatisés : test d'intégration écrit **avant** la correction (rouge sur les deux
-premières lignes), puis vert ; voir [contracts/rest-api.md](./contracts/rest-api.md). Affichage
-de la source : `frontend/tests/requests/HistoryTimeline.test.tsx`.
+Automated tests: integration test written **before** the fix (red on the first two
+rows), then green; see [contracts/rest-api.md](./contracts/rest-api.md). Display
+of the source: `frontend/tests/requests/HistoryTimeline.test.tsx`.
 
-## Scénario 5 — Dépendances et nettoyage (US4, FR-012 à FR-016, SC-006, SC-007)
+## Scenario 5 — Dependencies and cleanup (US4, FR-012 to FR-016, SC-006, SC-007)
 
 ```bash
 npm run -w backend test -- architecture-layers
 npm run -w frontend test -- enums-sync
 ```
 
-Attendu : vert. Contre-épreuve : ajouter temporairement dans `backend/src/files/` un import de
-`../requests/...`, relancer → échec nommant le fichier ; annuler. Ajouter une valeur à
-`RequestStatus` dans `schema.prisma` sans l'ajouter à l'interface → `enums-sync` échoue ;
-annuler.
+Expected: green. Counter-test: temporarily add in `backend/src/files/` an import of
+`../requests/...`, rerun → failure naming the file; undo. Add a value to
+`RequestStatus` in `schema.prisma` without adding it to the interface → `enums-sync` fails;
+undo.
 
-Non-régression : `npm test` complet, sans modification des attendus des tests d'accès aux
-fichiers et aux demandes.
+Non-regression: full `npm test`, with no change to the expectations of the file access
+and request tests.
 
-## Scénario 6 — Mise en production (US5, FR-017 à FR-021, SC-002, SC-008)
+## Scenario 6 — Going to production (US5, FR-017 to FR-021, SC-002, SC-008)
 
-Sur la préproduction :
+On staging:
 
-1. **Sauvegarde imposée** : ajouter une migration vide de test, lancer
-   `docker compose … up -d --build` **sans** `deploy/deploy.sh` → l'API refuse de démarrer
-   avec « Migration en attente sans sauvegarde récente… » ; lancer `deploy/deploy.sh` → une
-   archive datée est créée puis la migration est appliquée. Les cas sont aussi couverts
-   automatiquement par `backend/test/unit/api-entrypoint.spec.ts`.
-   Puis `docker compose … ps` : le service `api` est `healthy` (le healthcheck interroge le port
-   3000, fixé explicitement en production, FR-002).
-2. **Restauration** : sur un serveur vierge, `deploy/backup/restore.sh <horodatage>` ;
-   contrôler la connexion, une demande avec vocal et photo, le journal d'audit ; noter la durée
-   dans `docs/validation/restauration.md`.
-3. **En-têtes** : `curl -sI https://<domaine>/` et `/api/health` → présence de
-   `Content-Security-Policy` et `Strict-Transport-Security` ; envoi d'un fichier de 27 Mo →
-   refusé ; consigner dans `docs/validation/en-tetes-securite.md`.
-4. **Contrôles qualité** : la CI GitHub est verte sur la branche ; `npm run test:e2e` lancé à la
-   main, résultat consigné dans `docs/validation/`.
-5. **Vérification avant fusion** (D10) : sur la demande de fusion vers `master`, cocher les
-   quatre contrôles de `docs/procedure-fusion.md` : `gh pr checks <n°>` montre « Contrôles
-   qualité » réussi sur le dernier commit ; toutes les étapes de la CI ont tourné ; aucun test
-   ignoré sans raison consignée, branche à jour, aucune discussion ouverte ; diff relu
-   (`gh pr diff <n°>`). Procédure **manuelle** : sur le dépôt privé, GitHub laisse fusionner une
-   demande rouge ; rien ne l'empêche techniquement.
+1. **Mandatory backup**: add an empty test migration, run
+   `docker compose … up -d --build` **without** `deploy/deploy.sh` → the API refuses to start
+   with « Migration en attente sans sauvegarde récente… » (Pending migration without a
+   recent backup…); run `deploy/deploy.sh` → a dated archive is created and then the
+   migration is applied. The cases are also covered
+   automatically by `backend/test/unit/api-entrypoint.spec.ts`.
+   Then `docker compose … ps`: the `api` service is `healthy` (the healthcheck queries port
+   3000, set explicitly in production, FR-002).
+2. **Restore**: on a blank server, `deploy/backup/restore.sh <timestamp>`;
+   check the login, a request with a voice message and a photo, the audit log; note the duration
+   in `docs/validation/restauration.md`.
+3. **Headers**: `curl -sI https://<domain>/` and `/api/health` → presence of
+   `Content-Security-Policy` and `Strict-Transport-Security`; upload of a 27 MB file →
+   rejected; record in `docs/validation/en-tetes-securite.md`.
+4. **Quality checks**: the GitHub CI is green on the branch; `npm run test:e2e` run by
+   hand, result recorded in `docs/validation/`.
+5. **Pre-merge check** (D10): on the pull request into `master`, tick the
+   four checks of `docs/procedure-fusion.md`: `gh pr checks <n°>` shows « Contrôles
+   qualité » (quality checks) passed on the latest commit; all CI steps ran; no test
+   ignored without a recorded reason, branch up to date, no open discussion; diff read
+   (`gh pr diff <n°>`). **Manual** procedure: on the private repository, GitHub lets a red
+   pull request be merged; nothing technically prevents it.
 
-## Clôture (FR-024, SC-009)
+## Closure (FR-024, SC-009)
 
-`docs/ARCHITECTURE.md` : chaque constat CT marqué corrigé avec sa référence de commit ; A04,
-A11, A20, A23 à A26 re-marqués [VÉRIFIÉ] (confirmé ou infirmé) ; N1 à N3 ajoutés.
+`docs/ARCHITECTURE.md`: each CT finding marked fixed with its commit reference; A04,
+A11, A20, A23 to A26 re-marked [VERIFIED] (confirmed or refuted); N1 to N3 added.

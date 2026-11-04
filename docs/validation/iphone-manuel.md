@@ -1,40 +1,40 @@
-# Vérification manuelle sur iPhone (T119)
+# Manual check on iPhone (T119)
 
-**Statut : à réaliser.** Les tests automatisés WebKit utilisent une simulation de MediaRecorder
-(le WebKit de Playwright n'a ni micro simulé ni décodeur AAC sous Windows) : seul un vrai iPhone
-prouve l'enregistrement et la lecture des vocaux sur Safari iOS.
+**Status: to be carried out.** The automated WebKit tests use a simulated MediaRecorder
+(Playwright's WebKit has neither a simulated microphone nor an AAC decoder on Windows): only a real iPhone
+proves voice message recording and playback on Safari iOS.
 
-## Préparation
+## Preparation
 
-- iPhone sous **iOS 17 ou plus récent**, Safari.
-- Application servie en **HTTPS** : instance de recette, ou poste de développement avec
-  `docker compose -f deploy/docker-compose.dev.yml up caddy` puis `https://<ip-du-poste>:8443`
-  (accepter le certificat interne sur l'iPhone).
-- Comptes : `enseignante` (sur l'iPhone) et `reprographie` (sur un téléphone Android avec Chrome).
-- Une demande contenant un vocal **enregistré sur Chrome Android**, créée au préalable.
+- iPhone running **iOS 17 or later**, Safari.
+- Application served over **HTTPS**: acceptance instance, or development machine with
+  `docker compose -f deploy/docker-compose.dev.yml up caddy` then `https://<ip-du-poste>:8443`
+  (accept the internal certificate on the iPhone).
+- Accounts: `enseignante` (on the iPhone) and `reprographie` (on an Android phone with Chrome).
+- A request containing a voice message **recorded on Chrome Android**, created beforehand.
 
-## Contrôles
+## Checks
 
-| # | Action sur l'iPhone | Résultat attendu | Résultat | Remarques |
+| # | Action on the iPhone | Expected result | Result | Remarks |
 |---|---------------------|------------------|----------|-----------|
-| 1 | Nouvelle demande → « Enregistrer un message vocal » | Safari demande l'autorisation du micro ; l'enregistrement démarre avec un compteur | | |
-| 2 | Parler 10 s puis « Arrêter l'enregistrement » | Durée affichée ; boutons Lire, Refaire, Supprimer | | |
-| 3 | « Lire le message vocal » | Le son est audible et intelligible | | |
-| 4 | « Refaire l'enregistrement », enregistrer 5 s | Seul le nouvel enregistrement est conservé (durée 0:05) | | |
-| 5 | Choisir catégorie, destinataire, priorité, titre → « Envoyer la demande » | « Votre demande a été envoyée. », statut « Envoyée » | | |
-| 6 | Sur Android (`reprographie`), lire le vocal envoyé depuis l'iPhone | Lecture correcte | | |
-| 7 | Sur l'iPhone, ouvrir la demande au vocal enregistré sur Chrome Android et le lire | Lecture correcte (format converti `audio/mp4`) | | |
-| 8 | Dans le fil, « Prendre une photo » avec l'appareil | Appareil photo ouvert ; photo jointe, orientation correcte | | |
-| 9 | Dans le fil, joindre une photo **depuis la galerie** (photo HEIC d'origine) | Photo acceptée (convertie en JPEG par iOS) ou message clair si le format est refusé | | |
-| 10 | Refuser l'accès au micro (Réglages → Safari → Micro) puis réessayer | Message expliquant comment autoriser le micro ; l'envoi d'une description écrite reste possible | | |
+| 1 | New request → "Enregistrer un message vocal" (Record a voice message) | Safari asks for microphone permission; recording starts with a counter | | |
+| 2 | Speak for 10 s then "Arrêter l'enregistrement" (Stop recording) | Duration shown; Lire (Play), Refaire (Redo), Supprimer (Delete) buttons | | |
+| 3 | "Lire le message vocal" (Play the voice message) | Sound is audible and intelligible | | |
+| 4 | "Refaire l'enregistrement" (Redo the recording), record 5 s | Only the new recording is kept (duration 0:05) | | |
+| 5 | Choose category, recipient, priority, title → "Envoyer la demande" (Send the request) | "Votre demande a été envoyée." (Your request has been sent.), status "Envoyée" (Sent) | | |
+| 6 | On Android (`reprographie`), play the voice message sent from the iPhone | Correct playback | | |
+| 7 | On the iPhone, open the request with the voice message recorded on Chrome Android and play it | Correct playback (converted format `audio/mp4`) | | |
+| 8 | In the thread, "Prendre une photo" (Take a photo) with the camera | Camera opened; photo attached, correct orientation | | |
+| 9 | In the thread, attach a photo **from the gallery** (original HEIC photo) | Photo accepted (converted to JPEG by iOS) or a clear message if the format is refused | | |
+| 10 | Deny microphone access (Réglages → Safari → Micro, i.e. Settings → Safari → Microphone) then try again | Message explaining how to allow the microphone; sending a written description remains possible | | |
 
-## Compte rendu
+## Report
 
-- Date :
-- Modèle d'iPhone :
-- Version d'iOS :
-- Version de Safari :
-- Adresse testée (recette / poste de développement) :
-- Testeur :
-- Conclusion (conforme / anomalies) :
-- Anomalies (numéro du contrôle, description, capture) :
+- Date:
+- iPhone model:
+- iOS version:
+- Safari version:
+- Address tested (acceptance / development machine):
+- Tester:
+- Conclusion (compliant / anomalies):
+- Anomalies (check number, description, screenshot):

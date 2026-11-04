@@ -1,48 +1,47 @@
-# Data Model: Export des statistiques des affectations
+# Data Model: Export des statistiques des affectations (Assignment statistics export)
 
-Aucune table nouvelle. Un fichier produit à la demande (non stocké) et une valeur d'énumération
-d'audit.
+No new table. One file produced on demand (not stored) and one audit enumeration value.
 
-## AuditAction (énumération existante)
+## AuditAction (existing enumeration)
 
-| Valeur ajoutée | Libellé (journal d'audit) | Écrite quand |
-|----------------|---------------------------|--------------|
-| `COVERAGE_STATS_EXPORTED` | Export des statistiques des affectations | après la production d'un export réussi |
+| Added value | Label (audit log) | Written when |
+|-------------|-------------------|--------------|
+| `COVERAGE_STATS_EXPORTED` | Export des statistiques des affectations (Assignment statistics export) | after a successful export is produced |
 
-Migration `0010_audit_coverage_stats_export` : `ALTER TYPE "AuditAction" ADD VALUE
-'COVERAGE_STATS_EXPORTED';` ; `down.sql` sur le modèle de `0008` (arrêt si la valeur est
-utilisée, sinon recréation de l'énumération).
+Migration `0010_audit_coverage_stats_export`: `ALTER TYPE "AuditAction" ADD VALUE
+'COVERAGE_STATS_EXPORTED';`; `down.sql` modeled on `0008` (stops if the value is in use,
+otherwise recreates the enumeration).
 
-## AuditLog — entrée d'export (table existante)
+## AuditLog — export entry (existing table)
 
-| Champ | Valeur |
-|-------|--------|
-| `actorId` | utilisateur de la session (admin ou super administrateur) |
+| Field | Value |
+|-------|-------|
+| `actorId` | session user (admin or super administrator) |
 | `action` | `COVERAGE_STATS_EXPORTED` |
-| `targetType` / `targetId` | `Request` / `coverage-stats` (comme le refus existant) |
+| `targetType` / `targetId` | `Request` / `coverage-stats` (like the existing denial) |
 | `details` | `{ from: 'AAAA-MM-JJ', to: 'AAAA-MM-JJ', groupBy: 'teacher' \| 'class' \| 'period', period?: 'week' \| 'month' }` |
-| `ip` | adresse du client |
+| `ip` | client address |
 
-Règles : `period` seulement si `groupBy = period` ; aucune valeur statistique, aucun nom
-d'enseignant ni de classe. Clés `from`, `to`, `groupBy`, `period` ajoutées à
-`ALLOWED_DETAIL_KEYS`. Ajout seul, jamais modifiée (constitution, principe V).
+Rules: `period` only if `groupBy = period`; no statistical value, no teacher or class name.
+Keys `from`, `to`, `groupBy`, `period` added to `ALLOWED_DETAIL_KEYS`. Append-only, never
+modified (constitution, principle V).
 
-## Fichier d'export (non stocké)
+## Export file (not stored)
 
-Entrée : résultat de `CoverageStatsService.stats` (spec 004, data-model §7) :
+Input: result of `CoverageStatsService.stats` (spec 004, data-model §7):
 `{ from, to, groupBy, period, timezone, totals, rows[] }`.
 
-Disposition (research R3) :
+Layout (research R3):
 
-| Bloc | Contenu |
-|------|---------|
-| En-tête | libellé du regroupement ; Événements ; Retards ; Absences ; Classes vides ; Non pourvues ; Annulées ; Durée moyenne |
-| Lignes | une par élément de `rows`, dans l'ordre reçu |
-| Total | « Total de la période » puis les mêmes colonnes, depuis `totals` |
-| Contexte | ligne vide ; Du ; Au ; Fuseau ; Regroupement ; Période (si « Période ») ; Taux de non pourvue ; Doublons non tranchés (comptés une fois) |
+| Block | Content |
+|-------|---------|
+| Header | grouping label; Événements; Retards; Absences; Classes vides; Non pourvues; Annulées; Durée moyenne (Events; Delays; Absences; Empty classes; Unfilled; Cancelled; Average duration) |
+| Rows | one per element of `rows`, in the order received |
+| Total | « Total de la période » (Total for the period), then the same columns, from `totals` |
+| Context | empty line; Du; Au; Fuseau; Regroupement; Période (if « Période »); Taux de non pourvue; Doublons non tranchés (counted once) (From; To; Time zone; Grouping; Period; Unfilled rate; Undecided duplicates) |
 
-Mise en forme (research R2) : entiers tels quels ; durée moyenne au format de la page, vide si
-`null` ; taux `Math.round(rate × 100) %`.
+Formatting (research R2): integers as is; average duration in the page's format, empty if
+`null`; rates `Math.round(rate × 100) %`.
 
-Validation : celle de `CoverageStatsQuery` (dates `AAAA-MM-JJ`, `groupBy`, `period`) et de
-`stats` (`from ≤ to`, 400 jours au plus → `INVALID_RANGE`).
+Validation: that of `CoverageStatsQuery` (dates `AAAA-MM-JJ`, `groupBy`, `period`) and of
+`stats` (`from ≤ to`, 400 days at most → `INVALID_RANGE`).

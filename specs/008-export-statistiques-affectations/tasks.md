@@ -1,115 +1,115 @@
 ---
 
-description: "Task list for feature 008 — export des statistiques des affectations"
+description: "Task list for feature 008 — assignment statistics export"
 ---
 
-# Tasks: Export des statistiques des affectations
+# Tasks: Export des statistiques des affectations (Assignment statistics export)
 
 **Input**: Design documents from `/specs/008-export-statistiques-affectations/`
 
 **Prerequisites**: [plan.md](./plan.md), [spec.md](./spec.md), [research.md](./research.md), [data-model.md](./data-model.md), [contracts/](./contracts/), [quickstart.md](./quickstart.md)
 
-**Tests**: OBLIGATOIRES — constitution, principe I (TDD non négociable). Chaque tâche de test
-placée avant une implémentation DOIT être écrite et constatée **rouge** avant de coder. Tout
-attendu existant modifié est consigné dans `docs/validation/verification-008.md`.
+**Tests**: MANDATORY — constitution, principle I (non-negotiable TDD). Each test task
+placed before an implementation MUST be written and observed **red** before coding. Any existing
+expectation that is modified is recorded in `docs/validation/verification-008.md`.
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 
 ## Format: `[ID] [P?] [Story] Description`
 
-- **[P]**: parallélisable (fichiers différents, aucune dépendance sur une tâche non terminée)
-- **[Story]**: US1 (exporter les statistiques affichées, P1), US2 (accès réservé, état de la page et journal, P1)
+- **[P]**: parallelizable (different files, no dependency on an unfinished task)
+- **[Story]**: US1 (export the displayed statistics, P1), US2 (restricted access, page state and log, P1)
 
 ---
 
 ## Phase 1: Setup
 
-- [X] T001 Sur `008-export-statistiques-affectations`, constater l'état de départ (référence à la vérification finale de la 007 et à la CI verte de `master` sur `85ce9c5` si aucun fichier de code n'a changé depuis, hors `.github/workflows/ci.yml`) dans un nouveau `docs/validation/verification-008.md`, section « État initial »
+- [X] T001 On `008-export-statistiques-affectations`, record the starting state (reference to the final verification of 007 and to the green CI of `master` on `85ce9c5` if no code file has changed since, apart from `.github/workflows/ci.yml`) in a new `docs/validation/verification-008.md`, section « État initial » (Initial state)
 
 ---
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
-**Purpose**: action d'audit `COVERAGE_STATS_EXPORTED` (énumération, migration, détails autorisés, libellé)
+**Purpose**: audit action `COVERAGE_STATS_EXPORTED` (enumeration, migration, allowed details, label)
 
-**⚠️ CRITICAL**: aucune story ne commence avant la fin de cette phase
+**⚠️ CRITICAL**: no story starts before this phase is finished
 
-- [X] T002 Dans `backend/prisma/schema.prisma`, ajouter `COVERAGE_STATS_EXPORTED` à `enum AuditAction` (après `COVERAGE_MERGE_DECIDED`, sous un commentaire « // Statistiques des affectations (008) ») ; créer la migration **sur la base de développement uniquement**, selon `CLAUDE.md`, dans `backend/prisma/migrations/0010_audit_coverage_stats_export/migration.sql` (écrite en une fois : en-tête de commentaire sur le modèle de `0007_audit_request_actions/migration.sql`, puis `ALTER TYPE "AuditAction" ADD VALUE 'COVERAGE_STATS_EXPORTED';`) ; refuser toute proposition de « reset » ; `npm exec -w backend -- prisma migrate status` → « Database schema is up to date! » ; client Prisma régénéré
-- [X] T003 Nouveau `backend/prisma/migrations/0010_audit_coverage_stats_export/down.sql` sur le modèle de `0008_supervision_schema/down.sql` : transaction ; arrêt (`RAISE EXCEPTION`, message en français renvoyant à la restauration de la sauvegarde) si une ligne de `"AuditLog"` a `action = 'COVERAGE_STATS_EXPORTED'` ; sinon renommer `"AuditAction"` en `"AuditAction_old"`, recréer `"AuditAction"` avec toutes les valeurs de `schema.prisma` sauf `COVERAGE_STATS_EXPORTED`, convertir `"AuditLog"."action"`, supprimer l'ancien type, retirer la ligne `0010_audit_coverage_stats_export` de `"_prisma_migrations"` ; usage en commentaire (`npx prisma db execute --file … --schema prisma/schema.prisma`). Ne pas l'exécuter
-- [X] T004 [P] Dans `frontend/tests/admin/role-labels.test.tsx` (rouge), l'action `COVERAGE_STATS_EXPORTED` a le libellé « Export des statistiques des affectations » ; puis dans `frontend/src/features/admin/labels.ts`, ajouter `COVERAGE_STATS_EXPORTED` à `AUDIT_ACTION_LABELS` ; test au vert
-- [X] T005 [P] Dans `backend/src/audit/audit.service.ts`, ajouter `from`, `to`, `groupBy`, `period` à `ALLOWED_DETAIL_KEYS`, sous un commentaire « Statistiques des affectations (008) : période et regroupement exportés, jamais de valeur ni de nom » ; vérifier par un cas dans `backend/test/unit/audit-sanitize.spec.ts` (rouge puis vert : `{ from, to, groupBy, period }` conservés)
+- [X] T002 In `backend/prisma/schema.prisma`, add `COVERAGE_STATS_EXPORTED` to `enum AuditAction` (after `COVERAGE_MERGE_DECIDED`, under a comment « // Statistiques des affectations (008) »); create the migration **on the development database only**, per `CLAUDE.md`, in `backend/prisma/migrations/0010_audit_coverage_stats_export/migration.sql` (written in one go: comment header modeled on `0007_audit_request_actions/migration.sql`, then `ALTER TYPE "AuditAction" ADD VALUE 'COVERAGE_STATS_EXPORTED';`); refuse any "reset" proposal; `npm exec -w backend -- prisma migrate status` → "Database schema is up to date!"; Prisma client regenerated
+- [X] T003 New `backend/prisma/migrations/0010_audit_coverage_stats_export/down.sql` modeled on `0008_supervision_schema/down.sql`: transaction; stop (`RAISE EXCEPTION`, message in French pointing to restoring the backup) if a row of `"AuditLog"` has `action = 'COVERAGE_STATS_EXPORTED'`; otherwise rename `"AuditAction"` to `"AuditAction_old"`, recreate `"AuditAction"` with all the values of `schema.prisma` except `COVERAGE_STATS_EXPORTED`, convert `"AuditLog"."action"`, drop the old type, remove the row `0010_audit_coverage_stats_export` from `"_prisma_migrations"`; usage in a comment (`npx prisma db execute --file … --schema prisma/schema.prisma`). Do not run it
+- [X] T004 [P] In `frontend/tests/admin/role-labels.test.tsx` (red), the action `COVERAGE_STATS_EXPORTED` has the label « Export des statistiques des affectations »; then in `frontend/src/features/admin/labels.ts`, add `COVERAGE_STATS_EXPORTED` to `AUDIT_ACTION_LABELS`; test green
+- [X] T005 [P] In `backend/src/audit/audit.service.ts`, add `from`, `to`, `groupBy`, `period` to `ALLOWED_DETAIL_KEYS`, under a comment « Statistiques des affectations (008) : période et regroupement exportés, jamais de valeur ni de nom »; verify with a case in `backend/test/unit/audit-sanitize.spec.ts` (red then green: `{ from, to, groupBy, period }` kept)
 
-**Checkpoint**: l'action d'audit existe en base, côté serveur et dans le journal ; `npm run -w backend typecheck` sans erreur
+**Checkpoint**: the audit action exists in the database, server-side and in the log; `npm run -w backend typecheck` without errors
 
 ---
 
-## Phase 3: User Story 1 - Exporter les statistiques affichées (Priority: P1) 🎯 MVP
+## Phase 3: User Story 1 - Export the displayed statistics (Priority: P1) 🎯 MVP
 
-**Goal**: « Exporter en CSV » télécharge un fichier identique à la page pour la période et le regroupement affichés
+**Goal**: « Exporter en CSV » (Export as CSV) downloads a file identical to the page for the displayed period and grouping
 
-**Independent Test**: avec des affectations connues, exporter par enseignant, par classe, par semaine et par mois ; chaque valeur du fichier égale la page (SC-002)
+**Independent Test**: with known assignments, export by teacher, by class, by week and by month; each value of the file equals the page (SC-002)
 
 ### Tests for User Story 1 ⚠️
 
-- [X] T006 [P] [US1] Nouveau `backend/test/unit/coverage-stats-csv.spec.ts` (rouge), pour `statsToCsvRows(stats)` et `statsCsvFilename(stats)` de `backend/src/coverage/domain/coverage-stats-csv.ts` (research R2 à R4, data-model « Fichier d'export ») :
-  - en-tête : libellé du regroupement (« Enseignant », « Classe », « Période ») puis « Événements », « Retards », « Absences », « Classes vides », « Non pourvues », « Annulées », « Durée moyenne » ;
-  - une ligne par élément de `rows` dans l'ordre reçu, libellé repris tel quel (« Enseignant anonymisé », « Enseignant non précisé », « Semaine du 06/10/2026 », « octobre 2026 ») ;
-  - ligne « Total de la période » depuis `totals` ;
-  - ligne vide, puis « Du », « Au », « Fuseau », « Regroupement » (« Enseignant », « Classe », « Période »), « Période » (« Semaine » ou « Mois », seulement si `groupBy = period`), « Taux de non pourvue », « Doublons non tranchés (comptés une fois) » ;
-  - durée moyenne : `null` → cellule vide ; 45 → « 45 min » ; 60 → « 1 h » ; 65 → « 1 h 05 » ; 125 → « 2 h 05 » (mêmes cas que `formatDuration` de `frontend/src/features/coverage/labels.tsx`) ;
-  - taux : 0,166 → « 17 % » ; 0 → « 0 % » (comme `percent` de `CoverageStatsPage.tsx`) ;
-  - période vide (`rows = []`) : en-tête, ligne de total à zéro, bloc de contexte ;
-  - nom : `statistiques-affectations-enseignant-2026-10-01-au-2026-10-23.csv`, puis `classe`, `semaine`, `mois`
-- [X] T007 [P] [US1] Nouveau `backend/test/integration/supervision-stats-export.spec.ts` (rouge), sur le modèle des données et des aides de `backend/test/integration/supervision-stats.spec.ts` (contrat `contracts/rest-api.md`) :
-  - `admin`, septembre, `groupBy=teacher` : `200`, `Content-Type: text/csv; charset=utf-8`, `Content-Disposition` avec `statistiques-affectations-enseignant-2026-09-01-au-2026-09-30.csv`, `Cache-Control: private, no-store`, corps commençant par le BOM ;
-  - pour `teacher`, `class`, `period&period=week`, `period&period=month` : chaque ligne et la ligne de total égales à `GET /api/coverage/stats` avec les mêmes paramètres (SC-002) ;
-  - un enseignant nommé « =SOMME(A1) » sort en `'=SOMME(A1)` ; un enseignant anonymisé sort en « Enseignant anonymisé » ;
-  - `superadmin` obtient aussi le fichier
-- [X] T008 [P] [US1] Dans `frontend/tests/coverage/stats.test.tsx` (rouge) : après le calcul, lien « Exporter en CSV » (rôle `link`) avec l'attribut `download` et l'adresse `/api/coverage/stats/export.csv?` suivie des mêmes paramètres que la requête des statistiques (`from`, `to`, `groupBy`, et `period` seulement pour « Période ») ; l'adresse suit un changement de regroupement ; période vide (`rows: []`) : lien présent
+- [X] T006 [P] [US1] New `backend/test/unit/coverage-stats-csv.spec.ts` (red), for `statsToCsvRows(stats)` and `statsCsvFilename(stats)` of `backend/src/coverage/domain/coverage-stats-csv.ts` (research R2 to R4, data-model "Export file"):
+  - header: grouping label (« Enseignant », « Classe », « Période ») then « Événements », « Retards », « Absences », « Classes vides », « Non pourvues », « Annulées », « Durée moyenne »;
+  - one row per element of `rows` in the order received, label kept as is (« Enseignant anonymisé », « Enseignant non précisé », « Semaine du 06/10/2026 », « octobre 2026 »);
+  - « Total de la période » row from `totals`;
+  - empty line, then « Du », « Au », « Fuseau », « Regroupement » (« Enseignant », « Classe », « Période »), « Période » (« Semaine » or « Mois », only if `groupBy = period`), « Taux de non pourvue », « Doublons non tranchés (comptés une fois) »;
+  - average duration: `null` → empty cell; 45 → « 45 min »; 60 → « 1 h »; 65 → « 1 h 05 »; 125 → « 2 h 05 » (same cases as `formatDuration` of `frontend/src/features/coverage/labels.tsx`);
+  - rate: 0.166 → « 17 % »; 0 → « 0 % » (like `percent` in `CoverageStatsPage.tsx`);
+  - empty period (`rows = []`): header, total row at zero, context block;
+  - name: `statistiques-affectations-enseignant-2026-10-01-au-2026-10-23.csv`, then `classe`, `semaine`, `mois`
+- [X] T007 [P] [US1] New `backend/test/integration/supervision-stats-export.spec.ts` (red), modeled on the data and helpers of `backend/test/integration/supervision-stats.spec.ts` (contract `contracts/rest-api.md`):
+  - `admin`, September, `groupBy=teacher`: `200`, `Content-Type: text/csv; charset=utf-8`, `Content-Disposition` with `statistiques-affectations-enseignant-2026-09-01-au-2026-09-30.csv`, `Cache-Control: private, no-store`, body starting with the BOM;
+  - for `teacher`, `class`, `period&period=week`, `period&period=month`: each row and the total row equal to `GET /api/coverage/stats` with the same parameters (SC-002);
+  - a teacher named « =SOMME(A1) » comes out as `'=SOMME(A1)`; an anonymized teacher comes out as « Enseignant anonymisé »;
+  - `superadmin` also gets the file
+- [X] T008 [P] [US1] In `frontend/tests/coverage/stats.test.tsx` (red): after the computation, « Exporter en CSV » link (role `link`) with the `download` attribute and the address `/api/coverage/stats/export.csv?` followed by the same parameters as the statistics request (`from`, `to`, `groupBy`, and `period` only for « Période »); the address follows a change of grouping; empty period (`rows: []`): link present
 
 ### Implementation for User Story 1
 
-- [X] T009 [US1] Nouveau `backend/src/coverage/domain/coverage-stats-csv.ts` : `statsToCsvRows` et `statsCsvFilename` (fonctions pures, commentaire d'en-tête renvoyant à la spec 008 FR-002 à FR-005 et à `formatDuration` côté interface) ; T006 au vert
-- [X] T010 [US1] Dans `backend/src/coverage/coverage-stats.service.ts`, `exportCsv(user, query, ctx)` : `const stats = await this.stats(user, query, ctx)` (accès, période et calcul inchangés), puis `{ filename: statsCsvFilename(stats), body: toCsv(header, rows) }` ; dans `backend/src/coverage/coverage.controller.ts`, `@Get('stats/export.csv')` avec `@Header('Content-Type', 'text/csv; charset=utf-8')`, `@Header('Cache-Control', 'private, no-store')` et `Content-Disposition: attachment; filename="…"` posé via `@Res({ passthrough: true })` ; mettre à jour les commentaires « aucun export » du service et du contrôleur ; T007 au vert
-- [X] T011 [US1] Dans `frontend/src/features/coverage/CoverageStatsPage.tsx`, bouton-lien « Exporter en CSV » (`Button component="a" href=… download`, icône `Download` de `lucide-react` en `aria-hidden`, comme `CoverageDashboardPage.tsx:146`), au-dessus des totaux, adresse construite à partir du même `params` que la requête ; mettre à jour le commentaire « aucun export dans ce lot » (contrat `contracts/ui.md`) ; T008 au vert
-- [X] T012 [P] [US1] Nouveau `e2e/coverage-stats-export.spec.ts` (Chromium seulement, comme `e2e/drafts.spec.ts`) : `admin` ouvre `/gardes/statistiques`, clique sur « Exporter en CSV » ; `page.waitForEvent('download')` : nom `statistiques-affectations-enseignant-<1er du mois>-au-<aujourd'hui>.csv` (fuseau de l'école) ; contenu : première ligne commençant par « Enseignant;Événements;Retards » et ligne « Total de la période » présente
+- [X] T009 [US1] New `backend/src/coverage/domain/coverage-stats-csv.ts`: `statsToCsvRows` and `statsCsvFilename` (pure functions, header comment pointing to spec 008 FR-002 to FR-005 and to `formatDuration` on the UI side); T006 green
+- [X] T010 [US1] In `backend/src/coverage/coverage-stats.service.ts`, `exportCsv(user, query, ctx)`: `const stats = await this.stats(user, query, ctx)` (access, period and computation unchanged), then `{ filename: statsCsvFilename(stats), body: toCsv(header, rows) }`; in `backend/src/coverage/coverage.controller.ts`, `@Get('stats/export.csv')` with `@Header('Content-Type', 'text/csv; charset=utf-8')`, `@Header('Cache-Control', 'private, no-store')` and `Content-Disposition: attachment; filename="…"` set via `@Res({ passthrough: true })`; update the « aucun export » ("no export") comments of the service and controller; T007 green
+- [X] T011 [US1] In `frontend/src/features/coverage/CoverageStatsPage.tsx`, link-button « Exporter en CSV » (`Button component="a" href=… download`, `Download` icon from `lucide-react` with `aria-hidden`, like `CoverageDashboardPage.tsx:146`), above the totals, address built from the same `params` as the request; update the « aucun export dans ce lot » ("no export in this phase") comment (contract `contracts/ui.md`); T008 green
+- [X] T012 [P] [US1] New `e2e/coverage-stats-export.spec.ts` (Chromium only, like `e2e/drafts.spec.ts`): `admin` opens `/gardes/statistiques`, clicks « Exporter en CSV »; `page.waitForEvent('download')`: name `statistiques-affectations-enseignant-<1st of the month>-au-<today>.csv` (school time zone); content: first line starting with « Enseignant;Événements;Retards » and « Total de la période » row present
 
-**Checkpoint**: l'export fonctionne pour les trois regroupements (US1 seule livrable ; accès et période déjà protégés par le contrôle existant de `stats`)
+**Checkpoint**: the export works for the three groupings (US1 alone deliverable; access and period already protected by the existing check in `stats`)
 
 ---
 
-## Phase 4: User Story 2 - Accès réservé, état de la page et journal (Priority: P1)
+## Phase 4: User Story 2 - Restricted access, page state and log (Priority: P1)
 
-**Goal**: export refusé hors admin et super administrateur ou pour une période invalide ; bouton seulement sur des statistiques à jour ; chaque export réussi tracé
+**Goal**: export refused outside admin and super administrator or for an invalid period; button only on up-to-date statistics; each successful export recorded
 
-**Independent Test**: demander l'export en `surveillant`, en `enseignante`, avec une période inversée ; vérifier le journal après un export réussi
+**Independent Test**: request the export as `surveillant`, as `enseignante`, with a reversed period; check the log after a successful export
 
 ### Tests for User Story 2 ⚠️
 
-- [X] T013 [P] [US2] Dans `backend/test/integration/supervision-stats-export.spec.ts` (rouge pour l'audit) :
-  - `surveillant` et `enseignante` : `404` `NOT_FOUND`, une entrée `ACCESS_DENIED` de plus (motif `NOT_COVERAGE_ADMIN`, route `/api/coverage/stats/export.csv`), aucune entrée `COVERAGE_STATS_EXPORTED` ;
-  - sans session : `401` ;
-  - `admin`, `from=2026-09-30&to=2026-09-01` : `400` `INVALID_RANGE` (même code que `GET /api/coverage/stats`), aucune entrée `COVERAGE_STATS_EXPORTED` ; `groupBy=enseignant` : `400` ;
-  - export réussi `groupBy=period&period=month` : exactement une entrée `COVERAGE_STATS_EXPORTED` avec `actorId` de l'admin, `targetType: 'Request'`, `targetId: 'coverage-stats'`, `details` égal à `{ from, to, groupBy: 'period', period: 'month' }` ; pour `groupBy=teacher`, `details` sans `period` ; aucun nom d'enseignant ni valeur statistique dans `details`
-- [X] T014 [P] [US2] Dans `frontend/tests/coverage/stats.test.tsx` (rouge) : lien « Exporter en CSV » absent tant qu'une date est incomplète (champ « Au » vidé) ; absent pendant un recalcul après changement de filtre (anciennes valeurs encore affichées, requête en attente) ; absent après une erreur `INVALID_RANGE` ; présent de nouveau quand le calcul des nouveaux filtres a réussi
+- [X] T013 [P] [US2] In `backend/test/integration/supervision-stats-export.spec.ts` (red for the audit):
+  - `surveillant` and `enseignante`: `404` `NOT_FOUND`, one more `ACCESS_DENIED` entry (reason `NOT_COVERAGE_ADMIN`, route `/api/coverage/stats/export.csv`), no `COVERAGE_STATS_EXPORTED` entry;
+  - no session: `401`;
+  - `admin`, `from=2026-09-30&to=2026-09-01`: `400` `INVALID_RANGE` (same code as `GET /api/coverage/stats`), no `COVERAGE_STATS_EXPORTED` entry; `groupBy=enseignant`: `400`;
+  - successful export `groupBy=period&period=month`: exactly one `COVERAGE_STATS_EXPORTED` entry with the admin's `actorId`, `targetType: 'Request'`, `targetId: 'coverage-stats'`, `details` equal to `{ from, to, groupBy: 'period', period: 'month' }`; for `groupBy=teacher`, `details` without `period`; no teacher name or statistical value in `details`
+- [X] T014 [P] [US2] In `frontend/tests/coverage/stats.test.tsx` (red): « Exporter en CSV » link absent while a date is incomplete (« Au » field cleared); absent during a recomputation after a filter change (old values still displayed, request pending); absent after an `INVALID_RANGE` error; present again once the computation of the new filters has succeeded
 
 ### Implementation for User Story 2
 
-- [X] T015 [US2] Dans `CoverageStatsService.exportCsv` (`backend/src/coverage/coverage-stats.service.ts`), après la production du fichier : `this.audit.log('COVERAGE_STATS_EXPORTED', { actorId: user.id, targetType: 'Request', targetId: 'coverage-stats', ip: ctx.ip, details: { from, to, groupBy, ...(groupBy === 'period' ? { period } : {}) } })` avec les valeurs effectives (défauts appliqués) renvoyées par `stats` ; T013 au vert
-- [X] T016 [US2] Dans `CoverageStatsPage.tsx`, n'afficher le lien que si `complete && stats.data && !stats.isPlaceholderData && !stats.error` (research R6) ; T014 au vert, T008 toujours vert
-- [X] T017 [US2] Dans `e2e/coverage-stats-export.spec.ts`, après l'export : `superadmin` ouvre Administrateur › Journal d'audit, filtre « Export des statistiques des affectations » ; une entrée de l'admin avec la période et le regroupement
+- [X] T015 [US2] In `CoverageStatsService.exportCsv` (`backend/src/coverage/coverage-stats.service.ts`), after the file is produced: `this.audit.log('COVERAGE_STATS_EXPORTED', { actorId: user.id, targetType: 'Request', targetId: 'coverage-stats', ip: ctx.ip, details: { from, to, groupBy, ...(groupBy === 'period' ? { period } : {}) } })` with the effective values (defaults applied) returned by `stats`; T013 green
+- [X] T016 [US2] In `CoverageStatsPage.tsx`, show the link only if `complete && stats.data && !stats.isPlaceholderData && !stats.error` (research R6); T014 green, T008 still green
+- [X] T017 [US2] In `e2e/coverage-stats-export.spec.ts`, after the export: `superadmin` opens Administrateur › Journal d'audit, filter « Export des statistiques des affectations »; an entry from the admin with the period and the grouping
 
-**Checkpoint**: US1 et US2 complètes (export, refus, états, journal)
+**Checkpoint**: US1 and US2 complete (export, denial, states, log)
 
 ---
 
 ## Phase 5: Polish & Cross-Cutting Concerns
 
-- [X] T018 [P] Dans `backend/test/integration/supervision-stats.spec.ts`, retirer « aucun export » du titre du test « période par défaut ; paramètres invalides refusés ; aucun export » **sans changer ses attendus** (`format=csv` → `400`, `/api/coverage/stats/export` → `404`, toujours vrais) ; consigner ce changement de titre dans `docs/validation/verification-008.md`
-- [X] T019 [P] Dans `e2e/a11y-responsive.spec.ts`, test V18 (`mobile-320`) de l'écran statistiques : lien « Exporter en CSV » visible, sans défilement horizontal, atteint au clavier, audit axe sans violation (FR-010, SC-005)
-- [X] T020 [P] Mettre à jour `docs/superadmin-fonctionnalites.md` : §2.2 (statistiques détaillées : « export CSV » au lieu de « sans export », route `GET /api/coverage/stats/export.csv`, journalisé) ; §4.3 retirer « Statistiques des affectations (`/gardes/statistiques`) : sans export » ; §2.7 (journal d'audit) : nouvelle action si les actions y sont listées
-- [X] T021 Dérouler les scénarios 1 à 7 de `specs/008-export-statistiques-affectations/quickstart.md` (couverture automatique et reste à faire à la main) et consigner dans `docs/validation/verification-008.md`
-- [X] T022 Vérification finale : `npm run verify`, typecheck backend et frontend, `npm run test:e2e` (tous les profils) avec sorties conservées ; consigner les compteurs dans `docs/validation/verification-008.md` ; CI verte sur le dernier commit ; demande de fusion selon `docs/procedure-fusion.md`
+- [X] T018 [P] In `backend/test/integration/supervision-stats.spec.ts`, remove « aucun export » from the title of the test « période par défaut ; paramètres invalides refusés ; aucun export » **without changing its expectations** (`format=csv` → `400`, `/api/coverage/stats/export` → `404`, still true); record this title change in `docs/validation/verification-008.md`
+- [X] T019 [P] In `e2e/a11y-responsive.spec.ts`, V18 test (`mobile-320`) of the statistics screen: « Exporter en CSV » link visible, no horizontal scrolling, reached by keyboard, axe audit without violations (FR-010, SC-005)
+- [X] T020 [P] Update `docs/superadmin-fonctionnalites.md`: §2.2 (detailed statistics: "CSV export" instead of "without export", route `GET /api/coverage/stats/export.csv`, logged); §4.3 remove « Statistiques des affectations (`/gardes/statistiques`) : sans export »; §2.7 (audit log): new action if the actions are listed there
+- [X] T021 Run scenarios 1 to 7 of `specs/008-export-statistiques-affectations/quickstart.md` (automatic coverage and what remains to be done by hand) and record in `docs/validation/verification-008.md`
+- [X] T022 Final verification: `npm run verify`, backend and frontend typecheck, `npm run test:e2e` (all profiles) with outputs kept; record the counts in `docs/validation/verification-008.md`; CI green on the last commit; pull request per `docs/procedure-fusion.md`
 
 ---
 
@@ -118,24 +118,24 @@ attendu existant modifié est consigné dans `docs/validation/verification-008.m
 ### Phase Dependencies
 
 - **Setup (Phase 1)** → **Foundational (Phase 2)** → **US1 (Phase 3)** → **US2 (Phase 4)** → **Polish (Phase 5)**
-- Phase 2 bloque les stories : `COVERAGE_STATS_EXPORTED` doit exister (client Prisma, typecheck) avant `exportCsv`.
+- Phase 2 blocks the stories: `COVERAGE_STATS_EXPORTED` must exist (Prisma client, typecheck) before `exportCsv`.
 
 ### User Story Dependencies
 
-- **US1** : après la phase 2.
-- **US2** : étend `exportCsv` (T015 après T010) et le bouton d'US1 (T016 après T011) ; partage `supervision-stats-export.spec.ts`, `stats.test.tsx` et `coverage-stats-export.spec.ts` : faire US1 d'abord.
+- **US1**: after phase 2.
+- **US2**: extends `exportCsv` (T015 after T010) and US1's button (T016 after T011); shares `supervision-stats-export.spec.ts`, `stats.test.tsx` and `coverage-stats-export.spec.ts`: do US1 first.
 
 ### Within Each User Story
 
-- Tests rouges avant l'implémentation (T006–T008 avant T009–T011 ; T013–T014 avant T015–T016).
-- T013 : les cas de refus et de période invalide passent dès T010 (contrôle existant de `stats`) ; seuls les cas d'audit d'export sont rouges jusqu'à T015.
+- Red tests before implementation (T006–T008 before T009–T011; T013–T014 before T015–T016).
+- T013: the denial and invalid-period cases pass as of T010 (existing check in `stats`); only the export audit cases are red until T015.
 
 ### Parallel Opportunities
 
-- Phase 2 : T004 et T005 en parallèle de T002–T003.
-- US1 : T006, T007, T008 en parallèle ; T012 en parallèle de T011.
-- US2 : T013 et T014 en parallèle.
-- Polish : T018, T019, T020 en parallèle.
+- Phase 2: T004 and T005 in parallel with T002–T003.
+- US1: T006, T007, T008 in parallel; T012 in parallel with T011.
+- US2: T013 and T014 in parallel.
+- Polish: T018, T019, T020 in parallel.
 
 ---
 
@@ -153,14 +153,14 @@ T008 frontend/tests/coverage/stats.test.tsx
 
 ### MVP First
 
-1. Phases 1 et 2 (T001–T005)
-2. US1 (T006–T012) : export fonctionnel, déjà réservé à l'admin et au super administrateur
-3. US2 (T013–T017) : journal et états du bouton — exigés par la clarification A, à livrer avec US1
-4. **Arrêt et validation** : scénarios 1 à 6 du quickstart
+1. Phases 1 and 2 (T001–T005)
+2. US1 (T006–T012): working export, already restricted to admin and super administrator
+3. US2 (T013–T017): log and button states — required by clarification A, to be delivered with US1
+4. **Stop and validate**: scenarios 1 to 6 of the quickstart
 
 ### Incremental Delivery
 
-1. Socle → action d'audit en base et dans le journal
-2. US1 → export identique à la page
-3. US2 → refus vérifiés, bouton seulement sur des données à jour, export tracé
-4. Polish → titre du test existant, 320 px, documentation, vérification finale
+1. Foundation → audit action in the database and in the log
+2. US1 → export identical to the page
+3. US2 → verified denials, button only on up-to-date data, export recorded
+4. Polish → existing test title, 320 px, documentation, final verification

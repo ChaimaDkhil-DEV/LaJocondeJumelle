@@ -1,45 +1,45 @@
-# Contrat d'interface — 005 Page « Mon profil »
+# UI Contract — 005 Page « Mon profil » (My profile page)
 
-## Lien du bloc profil (FR-001)
+## Profile block link (FR-001)
 
-- Emplacement : bas de la barre latérale (desktop) et bas du tiroir du menu (mobile) — même
-  élément.
-- Rôle : lien vers `/profil`. Nom accessible : « Mon profil : <nom>, <rôle> » (textes masqués
-  visuellement « Mon profil : » et la virgule, autour du contenu visible : nom et rôle sont deux
-  éléments en ligne qui seraient sinon lus d'un seul mot).
-- Focus visible ; actif (style « page courante », `aria-current="page"`) quand `/profil` est
-  affichée ; sur mobile, l'activer ferme le tiroir.
+- Location: bottom of the sidebar (desktop) and bottom of the menu drawer (mobile) — same
+  element.
+- Role: link to `/profil`. Accessible name: « Mon profil : <nom>, <rôle> » ("My profile: <name>, <role>") (visually hidden texts
+  « Mon profil : » and the comma, around the visible content: name and role are two inline
+  elements that would otherwise be read as a single word).
+- Visible focus; active ("current page" style, `aria-current="page"`) when `/profil` is
+  displayed; on mobile, activating it closes the drawer.
 
-## Page `/profil` (FR-002 à FR-006, FR-011, FR-012)
+## Page `/profil` (FR-002 to FR-006, FR-011, FR-012)
 
-- Gabarit de l'application (menu présent) ; inatteignable tant que le changement de mot de passe
-  est imposé (redirection existante vers `/mot-de-passe`).
-- Titre de page (`h1`) : « Mon profil ».
-- Informations, en liste de termes et définitions, lecture seule :
+- Application layout (menu present); unreachable while the password change
+  is forced (existing redirect to `/mot-de-passe`).
+- Page title (`h1`): « Mon profil ».
+- Information, as a read-only description list (terms and definitions):
 
-  | Terme | Valeur |
-  |-------|--------|
-  | Nom | nom affiché |
-  | Identifiant de connexion | identifiant |
-  | Fonction | fonction, ou « Non renseignée » |
-  | Rôle | « Employé », « Admin » ou « Super administrateur » |
-  | Groupes d'affectation | « Surveillants », « Enseignants », les deux, ou « Aucun » |
+  | Term | Value |
+  |------|-------|
+  | Nom (Name) | display name |
+  | Identifiant de connexion (Login identifier) | identifier |
+  | Fonction (Job title) | job title, or « Non renseignée » (Not provided) |
+  | Rôle (Role) | « Employé », « Admin » or « Super administrateur » |
+  | Groupes d'affectation (Assignment groups) | « Surveillants » (Supervisors), « Enseignants » (Teachers), both, or « Aucun » (None) |
 
-- Mention : « Pour modifier ces informations, adressez-vous à l'administration. »
-- Action : lien-bouton « Changer mon mot de passe » → `/mot-de-passe`.
-- Confirmation après un changement volontaire : message de succès en zone de statut
-  (`role="status"`) : « Mot de passe modifié. Vos autres sessions ont été fermées. »
-- États : chargement et erreur de chargement assurés par `RequireAuth` (« Chargement de votre espace », message et « Réessayer ») avant le rendu de la page, comme pour toutes les pages protégées ; la page n'a pas d'état propre.
-- 320 px : aucune ligne ne déborde (identifiant long : retour à la ligne).
+- Notice: « Pour modifier ces informations, adressez-vous à l'administration. » (To change this information, contact the administration.)
+- Action: link-button « Changer mon mot de passe » (Change my password) → `/mot-de-passe`.
+- Confirmation after a voluntary change: success message in a status region
+  (`role="status"`): « Mot de passe modifié. Vos autres sessions ont été fermées. » (Password changed. Your other sessions have been closed.)
+- States: loading and loading error are handled by `RequireAuth` (« Chargement de votre espace » (Loading your space), message and « Réessayer » (Retry)) before the page renders, as for all protected pages; the page has no state of its own.
+- 320 px: no line overflows (long identifier: line wrap).
 
-## Page `/mot-de-passe` — deux modes (FR-007 à FR-010)
+## Page `/mot-de-passe` — two modes (FR-007 to FR-010)
 
-Le mode est déterminé par `mustChangePassword` du compte (état serveur), jamais par l'URL.
+The mode is determined by the account's `mustChangePassword` (server state), never by the URL.
 
-| | Imposé (`true`) — inchangé | Volontaire (`false`) |
+| | Forced (`true`) — unchanged | Voluntary (`false`) |
 |---|---|---|
-| Titre | « Changer votre mot de passe » | idem |
-| Texte d'explication | « Pour sécuriser votre compte, choisissez… » | aucun |
-| Champs, règles, messages d'erreur | actuels | actuels |
-| « Annuler » | absent | présent → `/profil`, rien n'est changé |
-| Après succès | `/` (accueil) | `/profil` avec la confirmation ci-dessus |
+| Title | « Changer votre mot de passe » (Change your password) | same |
+| Explanatory text | « Pour sécuriser votre compte, choisissez… » (To secure your account, choose…) | none |
+| Fields, rules, error messages | current | current |
+| « Annuler » (Cancel) | absent | present → `/profil`, nothing is changed |
+| After success | `/` (home) | `/profil` with the confirmation above |

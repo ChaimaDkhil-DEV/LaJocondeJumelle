@@ -1,54 +1,54 @@
-# Fusions faites hors procédure
+# Merges made outside the procedure
 
-Registre demandé par `docs/procedure-fusion.md` (« Fusion faite malgré un échec ») : chaque
-fusion vers `master` faite sans que les quatre contrôles soient satisfaits, avec sa correction.
+Register required by `docs/procedure-fusion.md` ("Fusion faite malgré un échec", i.e. merge made despite a failure): every
+merge into `master` made without the four checks being satisfied, with its fix.
 
-## 23/10/2026 — demandes #28 et #29
+## 23/10/2026 — pull requests #28 and #29
 
-| Demande | Contenu | Fusionnée à (UTC) | Contrôle non satisfait au moment de la fusion |
+| Pull request | Content | Merged at (UTC) | Check not satisfied at merge time |
 |---------|---------|-------------------|-----------------------------------------------|
-| #28 (`docs-007-cocher-t021`) | `specs/007-brouillons-demandes/tasks.md` : T021 cochée, une ligne | 10:31:48 | **1. CI** : run `pull_request` 39937940094 en échec (deux tentatives) ; le run `push` 39937933975 sur le même commit `e874877` était vert |
-| #29 (`ci-timeout-ffmpeg-10min`) | `.github/workflows/ci.yml` : plafond de l'étape ffmpeg passé de 5 à 10 min | 10:32:03 | **1. CI** : les deux runs sur `0d9392c` étaient encore en cours (39939434856 vert à 10:32:09, 39939429091 vert à 10:33:34) |
+| #28 (`docs-007-cocher-t021`) | `specs/007-brouillons-demandes/tasks.md`: T021 ticked, one line | 10:31:48 | **1. CI**: `pull_request` run 39937940094 failed (two attempts); the `push` run 39937933975 on the same commit `e874877` was green |
+| #29 (`ci-timeout-ffmpeg-10min`) | `.github/workflows/ci.yml`: ffmpeg step limit raised from 5 to 10 min | 10:32:03 | **1. CI**: both runs on `0d9392c` were still in progress (39939434856 green at 10:32:09, 39939429091 green at 10:33:34) |
 
-Cases de la procédure non cochées dans la description des deux demandes.
+Procedure checkboxes were not ticked in the description of either pull request.
 
-### Cause de l'échec sur #28
+### Cause of the failure on #28
 
-L'étape « Installer ffmpeg (conversion des vocaux) » a dépassé son plafond de 5 minutes aux
-deux tentatives du run 39937940094 (miroir apt lent : environ 3 minutes pour un seul paquet).
-Toutes les étapes suivantes ont été sautées ; aucun lint, typecheck ni test n'a échoué. La
-demande #29 relève ce plafond à 10 minutes.
+The step "Installer ffmpeg (conversion des vocaux)" (Install ffmpeg (voice message conversion)) exceeded its 5-minute limit on both
+attempts of run 39937940094 (slow apt mirror: about 3 minutes for a single package).
+All following steps were skipped; no lint, typecheck or test failed. Pull request #29
+raises this limit to 10 minutes.
 
-### Constat après coup
+### Findings after the fact
 
-- #28 : modification de documentation seule, sans code ; le run `push` sur le même commit a
-  exécuté toutes les étapes avec succès.
-- #29 : les deux runs ont fini verts, toutes étapes exécutées.
-- `master` vert après les deux fusions : run 39939755186 sur `3e569e3` (fusion de #28) et run
-  39939785006 sur `59a9b85` (fusion de #29).
+- #28: documentation-only change, no code; the `push` run on the same commit ran
+  all steps successfully.
+- #29: both runs finished green, all steps executed.
+- `master` green after both merges: run 39939755186 on `3e569e3` (merge of #28) and run
+  39939785006 on `59a9b85` (merge of #29).
 
-Aucun correctif ni `git revert` nécessaire.
+No fix or `git revert` needed.
 
-### Rappel
+### Reminder
 
-Attendre la fin de **tous** les runs « Contrôles qualité » du dernier commit (`gh pr checks <n°>`,
-ni « pending » ni « fail ») et cocher les quatre cases avant de fusionner. Un run en échec pour
-une cause d'infrastructure se relance (`gh run rerun <id> --failed`) ; il ne s'ignore pas.
+Wait for **all** "Contrôles qualité" (quality checks) runs of the latest commit to finish (`gh pr checks <n°>`,
+neither "pending" nor "fail") and tick the four checkboxes before merging. A run that failed for
+an infrastructure reason is re-run (`gh run rerun <id> --failed`); it is not ignored.
 
-## 23/10/2026 — demande #33
+## 23/10/2026 — pull request #33
 
-| Demande | Contenu | Fusionnée à (UTC) | Contrôle non satisfait au moment de la fusion |
+| Pull request | Content | Merged at (UTC) | Check not satisfied at merge time |
 |---------|---------|-------------------|-----------------------------------------------|
-| #33 (`008-export-statistiques-affectations`) | fonctionnalité 008 : export CSV des statistiques des affectations, migration `0010` | 13:04:45 | **1. CI** : les deux runs sur `1835469` étaient encore en cours (39958166585 vert à 13:08:36, 39958174752 vert à 13:08:47) |
+| #33 (`008-export-statistiques-affectations`) | feature 008: CSV export of assignment statistics, migration `0010` | 13:04:45 | **1. CI**: both runs on `1835469` were still in progress (39958166585 green at 13:08:36, 39958174752 green at 13:08:47) |
 
-Cases de la procédure non cochées dans la description de la demande.
+Procedure checkboxes were not ticked in the description of the pull request.
 
-### Constat après coup
+### Findings after the fact
 
-- Les deux runs ont fini verts, toutes étapes exécutées (lint, types, tests unitaires,
-  d'intégration et frontend, audit). Bout en bout lancé à la main avant la demande et consigné :
-  150 réussis, 0 échec (`docs/validation/verification-008.md`).
-- `master` vert après la fusion : run 39958260371 sur `62694de`.
+- Both runs finished green, all steps executed (lint, types, unit tests,
+  integration and frontend tests, audit). End-to-end tests run by hand before the pull request and recorded:
+  150 passed, 0 failed (`docs/validation/verification-008.md`).
+- `master` green after the merge: run 39958260371 on `62694de`.
 
-Aucun correctif ni `git revert` nécessaire. Deuxième fusion anticipée de la journée : voir le
-rappel ci-dessus.
+No fix or `git revert` needed. Second early merge of the day: see the
+reminder above.

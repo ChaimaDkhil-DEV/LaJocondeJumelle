@@ -1,114 +1,114 @@
-# Contrat REST — 004 (module affectations)
+# REST contract — 004 (assignments module)
 
-Préfixe `/api`, session cookie `sid` (inchangé), JSON, erreurs au format existant
-`{ code, message, details? }`. Toutes les règles sont vérifiées **côté serveur** ; tout refus est
-journalisé (`ACCESS_DENIED`) et répond `404` quand la ressource n'est pas visible de l'appelant
-(principe V : ne pas révéler l'existence). Les écritures portent `version` (verrouillage
-optimiste, `409 STATE_CHANGED`) et les créations un `clientId` (idempotence, inchangé).
+Prefix `/api`, `sid` session cookie (unchanged), JSON, errors in the existing format
+`{ code, message, details? }`. All rules are checked **server side**; every refusal is logged
+(`ACCESS_DENIED`) and answers `404` when the resource is not visible to the caller (principle V:
+do not reveal existence). Writes carry `version` (optimistic locking, `409 STATE_CHANGED`) and
+creations carry a `clientId` (idempotency, unchanged).
 
-Rôles : **SA** super administrateur · **AD** admin (ex-responsable) · **SV** membre du groupe
-`SUPERVISORS` · **EN** membre du groupe `TEACHERS`. SA passe tous les contrôles de rôle du module
-(FR-004b). Les autres employés reçoivent `404` sur tout le module (FR-023b).
+Roles: **SA** super administrator · **AD** admin (formerly "responsable", manager) · **SV** member
+of the `SUPERVISORS` group · **EN** member of the `TEACHERS` group. SA passes all role checks of
+the module (FR-004b). Other employees get `404` on the whole module (FR-023b).
 
-## Affectations
+## Assignments
 
 ### `POST /coverage/teacher-requests` — EN (FR-012, FR-013)
 
 ```json
 { "clientId": "uuid", "type": "LATENESS|ABSENCE", "classId": "uuid",
   "date": "YYYY-MM-DD", "startTime": "HH:MM", "endTime": "HH:MM", "durationMinutes": 55,
-  "reason": "texte facultatif ≤ 1000" }
+  "reason": "optional text ≤ 1000" }
 ```
 
-`endTime` **ou** `durationMinutes`. Date = aujourd'hui ou demain (fuseau de l'école) ; plage non
-entièrement passée ; fin > début. `201` → `CoverageDetail` (vue enseignant). Erreurs `400
+`endTime` **or** `durationMinutes`. Date = today or tomorrow (school time zone); time range not
+entirely in the past; end > start. `201` → `CoverageDetail` (teacher view). Errors `400
 INVALID_DATE`, `INVALID_RANGE`, `CLASS_INACTIVE`.
 
-### `PATCH /coverage/:id/teacher-request` — EN auteur, statut `PENDING` (FR-008g)
+### `PATCH /coverage/:id/teacher-request` — EN author, status `PENDING` (FR-008g)
 
-Mêmes champs (partiels) + `version`. `409 NOT_PENDING` si déjà assignée.
+Same fields (partial) + `version`. `409 NOT_PENDING` if already assigned.
 
-### `POST /coverage/empty-class` — SV (FR-015 à FR-015j)
+### `POST /coverage/empty-class` — SV (FR-015 to FR-015j)
 
 ```json
-{ "clientId": "uuid", "classId": "uuid", "teacherId": "uuid|null", "qrToken": "facultatif" }
+{ "clientId": "uuid", "classId": "uuid", "teacherId": "uuid|null", "qrToken": "optional" }
 ```
 
 `201` →
 
 ```json
 { "outcome": "CREATED|ATTACHED|ALREADY_ASSIGNED|SUPPORT|MERGE_PROPOSED",
-  "coverage": { "...": "vue surveillant" },
+  "coverage": { "...": "supervisor view" },
   "assignedTo": { "id": "uuid", "displayName": "..." },
   "doubleAssignment": false }
 ```
 
-Jamais bloquée par `teacherId` absent. `teacherId` doit désigner un membre de `TEACHERS`.
+Never blocked by a missing `teacherId`. `teacherId` must designate a member of `TEACHERS`.
 
-### `POST /coverage` — AD (affectation directe, FR-019) — **modifié**
+### `POST /coverage` — AD (direct assignment, FR-019) — **modified**
 
 ```json
 { "clientId": "uuid", "classId": "uuid", "type": "LATENESS|ABSENCE|EMPTY_CLASS",
   "teacherId": "uuid|null", "startAt": "ISO", "endAt": "ISO", "assigneeId": "uuid",
-  "reason": "facultatif", "note": "facultatif", "voiceFileId": "facultatif" }
+  "reason": "optional", "note": "optional", "voiceFileId": "optional" }
 ```
 
-Naît `ACCEPTED`, source `ADMIN_DIRECT`. `assigneeId` doit être disponible (`409
-NOT_AVAILABLE`, sans forçage). **Retirés** : `groupIds`, `categoryId` (catégorie de garde
-résolue côté serveur), `estimatedMinutes`, `absentTeacher`.
+Born `ACCEPTED`, source `ADMIN_DIRECT`. `assigneeId` must be available (`409
+NOT_AVAILABLE`, no override). **Removed**: `groupIds`, `categoryId` (guard category resolved
+server side), `estimatedMinutes`, `absentTeacher`.
 
 ### `GET /coverage` — AD · `GET /coverage/mine` — SV · `GET /coverage/my-requests` — EN
 
-Filtres : `mainStatus` (`PENDING|ASSIGNED|IN_PROGRESS|DONE|CANCELLED|UNFILLED`, multiples),
-`source`, `type`, `floorId`, `classId`, `teacherId` (AD), `from`, `to`. Tri AD : `PENDING` dont le
-délai a expiré d'abord (« affichée en priorité », FR-011e), puis par `startAt`. Chaque élément
-porte `status` (technique), `mainStatus`, `subState`, `source`, `type`, `floor`, `class`,
-`teacher` (AD/SA ; SV : nom seulement), `assignee`, `supports[]`, `alerts[]`.
+Filters: `mainStatus` (`PENDING|ASSIGNED|IN_PROGRESS|DONE|CANCELLED|UNFILLED`, multiple),
+`source`, `type`, `floorId`, `classId`, `teacherId` (AD), `from`, `to`. AD sort: `PENDING` whose
+deadline has expired first ("affichée en priorité" (shown first), FR-011e), then by `startAt`.
+Each item carries `status` (technical), `mainStatus`, `subState`, `source`, `type`, `floor`,
+`class`, `teacher` (AD/SA; SV: name only), `assignee`, `supports[]`, `alerts[]`.
 
 ### `GET /coverage/:id`
 
-Vue selon l'acteur : **AD/SA** complète (dont `reason`) ; **SV affecté ou en renfort** : classe,
-étage, créneau, type, statut — jamais `reason` (FR-023c) ; **EN auteur** : sa demande, sans
-historique des autres acteurs au-delà du statut et du nom du surveillant.
+View depends on the actor: **AD/SA** full (including `reason`); **SV assigned or on backup**:
+class, floor, time slot, type, status — never `reason` (FR-023c); **EN author**: their request,
+without the history of other actors beyond the status and the supervisor's name.
 
-### `GET /coverage/:id/candidates` — AD — **modifié**
+### `GET /coverage/:id/candidates` — AD — **modified**
 
-Membres actifs de `SUPERVISORS`, triés : étage de la classe d'abord, puis disponibles. Chaque
-candidat : `available` et `reason` (`INACTIVE|ABSENT|UNAVAILABLE|ON_GUARD|SUPPORT`). Les
-indisponibles sont listés pour information mais refusés à l'assignation (FR-010).
+Active members of `SUPERVISORS`, sorted: the class's floor first, then available ones. Each
+candidate: `available` and `reason` (`INACTIVE|ABSENT|UNAVAILABLE|ON_GUARD|SUPPORT`). Unavailable
+ones are listed for information but refused at assignment (FR-010).
 
-### `POST /coverage/:id/actions` — **modifié**
+### `POST /coverage/:id/actions` — **modified**
 
-`{ "action": "...", "version": 3, ...paramètres }`
+`{ "action": "...", "version": 3, ...parameters }`
 
-| Action | Acteur | Paramètres |
+| Action | Actor | Parameters |
 | --- | --- | --- |
 | `ASSIGN`, `REASSIGN` | AD | `assigneeId` |
 | `CANCEL` | AD | `reason?` |
-| `WITHDRAW` | EN auteur | `reason?` |
+| `WITHDRAW` | EN author | `reason?` |
 | `SET_TEACHER` | AD | `teacherId \| null` |
 | `RELEASE_SUPPORT` | AD | `supportId` |
-| `DEPART`, `CONFIRM_PRESENCE` | SV affecté | `photoFileId?`, `qrToken?` (inchangé) |
-| `REQUEST_RELIEF` | SV affecté | `reason` (inchangé) |
-| `RELIEVE` (« Terminer ») | SV affecté | — |
-| `RELEASE_BY_MANAGER`, `VALIDATE` | AD | inchangé |
-| `EXTEND` | AD, SV affecté | `minutes` (inchangé) |
+| `DEPART`, `CONFIRM_PRESENCE` | SV assigned | `photoFileId?`, `qrToken?` (unchanged) |
+| `REQUEST_RELIEF` | SV assigned | `reason` (unchanged) |
+| `RELIEVE` ("Terminer", Finish) | SV assigned | — |
+| `RELEASE_BY_MANAGER`, `VALIDATE` | AD | unchanged |
+| `EXTEND` | AD, SV assigned | `minutes` (unchanged) |
 
-**Retirées** : `ACCEPT`, `WIDEN`, `RELEASE` → `400 UNKNOWN_ACTION`. Le paramètre `force` est
-retiré.
+**Removed**: `ACCEPT`, `WIDEN`, `RELEASE` → `400 UNKNOWN_ACTION`. The `force` parameter is
+removed.
 
-### Retiré
+### Removed
 
-`GET /coverage/open` (onglet « À prendre ») → `404`.
+`GET /coverage/open` ("À prendre" (To take) tab) → `404`.
 
-## Doublons
+## Duplicates
 
-- `GET /coverage/merge-proposals?status=PENDING` — AD. Paires avec les deux affectations
-  résumées et `unresolved` (« non tranché »).
+- `GET /coverage/merge-proposals?status=PENDING` — AD. Pairs with both assignments
+  summarized and `unresolved` ("non tranché", undecided).
 - `POST /coverage/merge-proposals/:id/decision` — AD — `{ "decision": "CONFIRM|REJECT" }`.
-  Possible à tout moment, y compris après coup (FR-015h) ; `200` avec les deux affectations à jour.
+  Possible at any time, including after the fact (FR-015h); `200` with both assignments up to date.
 
-## Statistiques — AD/SA (FR-022)
+## Statistics — AD/SA (FR-022)
 
 `GET /coverage/stats?from=YYYY-MM-DD&to=YYYY-MM-DD&groupBy=teacher|class|period&period=week|month`
 
@@ -119,18 +119,18 @@ retiré.
   "rows": [ { "key": "...", "label": "Enseignant non précisé", "events": 0, "...": 0 } ] }
 ```
 
-Aucun export (hors périmètre).
+No export (out of scope).
 
-## Administration — SA uniquement
+## Administration — SA only
 
-- `GET|POST /admin/floors`, `PATCH /admin/floors/:id` (nom, position, actif) — audit
-  `FLOOR_CHANGED`. Réponse avec `supervisorCount` et `warning: "NO_SUPERVISOR"` si 0 (FR-006a).
-- `POST|PATCH /admin/coverage/classes` — **modifié** : `floorId` obligatoire.
-- `POST|PATCH /admin/users` — **modifié** : `floorId` facultatif (surveillant).
-- `GET|PATCH /admin/settings` — nouvelles clés `coverage*` (data-model §3).
-- Groupes : un groupe à `systemKey` ne peut être ni supprimé ni désactivé (`409 SYSTEM_GROUP`).
+- `GET|POST /admin/floors`, `PATCH /admin/floors/:id` (name, position, active) — audit
+  `FLOOR_CHANGED`. Response with `supervisorCount` and `warning: "NO_SUPERVISOR"` if 0 (FR-006a).
+- `POST|PATCH /admin/coverage/classes` — **modified**: `floorId` required.
+- `POST|PATCH /admin/users` — **modified**: `floorId` optional (supervisor).
+- `GET|PATCH /admin/settings` — new `coverage*` keys (data-model §3).
+- Groups: a group with a `systemKey` can be neither deleted nor deactivated (`409 SYSTEM_GROUP`).
 
-## Rôle
+## Role
 
-Les réponses exposant un rôle emploient `ADMIN` au lieu de `MANAGER`. `GET /settings/client` et
-les DTO d'utilisateurs suivent (enum synchronisé avec l'interface).
+Responses that expose a role use `ADMIN` instead of `MANAGER`. `GET /settings/client` and
+the user DTOs follow (enum synchronized with the interface).

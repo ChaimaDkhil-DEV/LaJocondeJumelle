@@ -1,32 +1,32 @@
-# Data Model — 007 Brouillons de demande de travail
+# Data Model — 007 Brouillons de demande de travail (Work request drafts)
 
-**Aucune modification de schéma, aucune migration.**
+**No schema change, no migration.**
 
-## Demande de travail au statut `DRAFT` (existante)
+## Work request with status `DRAFT` (existing)
 
-| Champ | Brouillon | Envoi (`SUBMIT`) |
-|-------|-----------|------------------|
-| `categoryId` | obligatoire, catégorie de demande de travail active permise à l'auteur | idem |
-| `title` | obligatoire, 1 à 120 caractères | idem |
-| `priority` | « Normale » par défaut si non choisie | obligatoire |
-| `description` | facultative, 4000 caractères max | description **ou** message vocal |
-| `voiceFileId` | facultatif ; remplaçable ; `null` pour le retirer | |
-| `assigneeId` (destinataire) | facultatif | obligatoire en mode direct ou entre enseignants (règles de la catégorie) |
-| `status` | `DRAFT` | `SENT` (mode direct) ou `PENDING_ADMIN_VALIDATION` (via l'administration) |
+| Field | Draft | Submission (`SUBMIT`) |
+|-------|-------|-----------------------|
+| `categoryId` | required, active work request category allowed to the author | same |
+| `title` | required, 1 to 120 characters | same |
+| `priority` | « Normale » (Normal) by default if not chosen | required |
+| `description` | optional, 4000 characters max | description **or** voice message |
+| `voiceFileId` | optional; replaceable; `null` to remove it | |
+| `assigneeId` (recipient) | optional | required in direct mode or between teachers (category rules) |
+| `status` | `DRAFT` | `SENT` (direct mode) or `PENDING_ADMIN_VALIDATION` (through the administration) |
 
-Règles existantes réutilisées : visible de son seul auteur ; aucun événement d'historique ni
-notification tant qu'il est brouillon ; supprimable par son auteur seul (`DELETE`, message vocal
-supprimé avec) ; version optimiste.
+Existing rules reused: visible only to its author; no history event or
+notification while it is a draft; deletable by its author alone (`DELETE`, voice message
+deleted with it); optimistic version.
 
-## Réglage `draftsEnabled` (existant)
+## `draftsEnabled` setting (existing)
 
-Bloque la **création** d'un brouillon (`asDraft`) ; n'affecte ni la modification, ni l'envoi, ni la
-suppression d'un brouillon existant.
+Blocks the **creation** of a draft (`asDraft`); affects neither the editing, nor the submission, nor the
+deletion of an existing draft.
 
-## Périmètres de liste (`GET /api/requests?scope=`)
+## List scopes (`GET /api/requests?scope=`)
 
-| Périmètre | Avant | Après |
-|-----------|-------|-------|
-| `mine` (« Envoyées ») | demandes de l'utilisateur, brouillons compris | demandes de l'utilisateur **sauf** brouillons |
-| `drafts` (« Brouillons », nouveau) | — | brouillons de l'utilisateur seulement |
-| `assigned`, `managed`, `all` | inchangés | inchangés |
+| Scope | Before | After |
+|-------|--------|-------|
+| `mine` (« Envoyées » (Sent)) | the user's requests, drafts included | the user's requests **except** drafts |
+| `drafts` (« Brouillons » (Drafts), new) | — | the user's drafts only |
+| `assigned`, `managed`, `all` | unchanged | unchanged |

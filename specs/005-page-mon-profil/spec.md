@@ -1,4 +1,4 @@
-# Feature Specification: Page « Mon profil » et accès au changement de mot de passe
+# Feature Specification: Page « Mon profil » (My profile page) and access to the password change
 
 **Feature Branch**: `005-page-mon-profil`
 
@@ -6,181 +6,181 @@
 
 **Status**: Draft
 
-**Input**: User description: "Page « Mon profil » pour tout utilisateur connecté (employé, admin,
-super administrateur). Aujourd'hui le bloc profil du menu latéral affiche seulement le nom et le
-rôle, sans lien ni page ; le changement de mot de passe existe (imposé à la première connexion,
-ferme les autres sessions) mais aucun lien n'y mène, alors que le serveur y renvoie dans son
-message de refus (« Utilisez « Changer mon mot de passe » pour votre propre compte »). Besoin :
-le bloc profil devient un lien vers une page « Mon profil » qui affiche les informations du compte
-en lecture seule (nom, identifiant, fonction, rôle, appartenance aux groupes
-Surveillants/Enseignants le cas échéant) et propose « Changer mon mot de passe ». Accessible au
-clavier, WCAG 2.2 AA, mobile (320 px) et desktop. Hors périmètre : modification du nom ou de la
-fonction par l'utilisateur lui-même (reste à l'administration), photo de profil."
+**Input**: User description: "« Mon profil » page for any signed-in user (employee, admin,
+super administrator). Today the side menu's profile block displays only the name and
+role, with no link or page; the password change exists (forced at first sign-in,
+closes the other sessions) but no link leads to it, even though the server refers to it in its
+refusal message (« Utilisez « Changer mon mot de passe » pour votre propre compte » (Use "Change my password" for your own account)). Need:
+the profile block becomes a link to a « Mon profil » page that displays the account information
+read-only (name, identifier, job title, role, membership of the
+Surveillants/Enseignants (Supervisors/Teachers) groups where applicable) and offers « Changer mon mot de passe ». Keyboard
+accessible, WCAG 2.2 AA, mobile (320 px) and desktop. Out of scope: changing the name or
+job title by the user themselves (stays with the administration), profile picture."
 
-## Contexte
+## Contexte (Context)
 
-- Le bloc profil du menu (nom et rôle) n'est ni un lien ni un bouton ; aucune page de profil
-  n'existe (`docs/superadmin-fonctionnalites.md` §4.2).
-- Le changement de mot de passe existe déjà : page dédiée, mot de passe actuel puis nouveau mot de
-  passe (12 caractères au moins) et confirmation ; il ferme les autres sessions du compte. Il
-  n'est atteint qu'à la première connexion (imposé) : aucun lien n'y mène ensuite.
-- Le serveur renvoie un super administrateur qui tente de réinitialiser son propre mot de passe
-  vers « Changer mon mot de passe », introuvable dans l'interface.
-- Cette fonctionnalité **ne crée rien de nouveau côté règles** : elle rend visibles des
-  informations existantes du compte et rend accessible un parcours existant.
+- The menu's profile block (name and role) is neither a link nor a button; no profile page
+  exists (`docs/superadmin-fonctionnalites.md` §4.2).
+- The password change already exists: dedicated page, current password then new password (at least
+  12 characters) and confirmation; it closes the account's other sessions. It
+  is reached only at first sign-in (forced): no link leads to it afterwards.
+- The server sends a super administrator who tries to reset their own password
+  to « Changer mon mot de passe », which cannot be found in the interface.
+- This feature **creates nothing new on the rules side**: it makes existing account
+  information visible and makes an existing flow accessible.
 
 ## User Scenarios & Testing *(mandatory)*
 
-### User Story 1 - Changer son mot de passe quand on le souhaite (Priority: P1)
+### User Story 1 - Change your password when you want to (Priority: P1)
 
-Un utilisateur connecté (employé, admin ou super administrateur) veut changer son mot de passe,
-par exemple parce qu'il pense qu'il a été vu. Depuis le menu, il ouvre son profil, choisit
-« Changer mon mot de passe », saisit l'actuel puis le nouveau, et revient à son profil avec la
-confirmation que le changement est fait et que ses autres sessions ont été fermées.
+A signed-in user (employee, admin or super administrator) wants to change their password,
+for example because they think it was seen. From the menu, they open their profile, choose
+« Changer mon mot de passe », enter the current one then the new one, and return to their profile with
+confirmation that the change is done and that their other sessions have been closed.
 
-**Why this priority**: c'est le manque qui a une conséquence de sécurité : aujourd'hui, un
-utilisateur ne peut changer son mot de passe que si l'administration le réinitialise. Le message
-du serveur renvoie vers un lien qui n'existe pas.
+**Why this priority**: this is the gap with a security consequence: today, a
+user can change their password only if the administration resets it. The server's message
+points to a link that does not exist.
 
-**Independent Test**: se connecter, ouvrir le profil depuis le menu, changer le mot de passe,
-se déconnecter puis se reconnecter avec le nouveau mot de passe ; une session ouverte dans un
-autre navigateur est fermée.
+**Independent Test**: sign in, open the profile from the menu, change the password,
+sign out then sign in again with the new password; a session open in another
+browser is closed.
 
 **Acceptance Scenarios**:
 
-1. **Given** un utilisateur connecté, **When** il active le bloc profil du menu, **Then** la page
-   « Mon profil » s'ouvre et propose « Changer mon mot de passe ».
-2. **Given** la page « Mon profil », **When** il choisit « Changer mon mot de passe », saisit son
-   mot de passe actuel et un nouveau mot de passe valide confirmé, **Then** le mot de passe est
-   changé, il revient sur « Mon profil » avec un message de confirmation qui indique que ses
-   autres sessions ont été fermées, et il reste connecté dans le navigateur courant.
-3. **Given** le formulaire de changement ouvert depuis le profil, **When** il choisit
-   « Annuler » (ou revient en arrière), **Then** il retrouve « Mon profil » sans changement.
-4. **Given** le formulaire, **When** le mot de passe actuel est faux, ou le nouveau trop court, ou
-   la confirmation différente, **Then** un message clair, associé au champ concerné, l'indique et
-   rien n'est changé.
-5. **Given** un utilisateur dont le changement est **imposé** (première connexion ou mot de passe
-   réinitialisé), **When** il se connecte, **Then** le parcours actuel est inchangé : la page de
-   changement s'impose, sans possibilité de l'éviter, et mène à l'accueil une fois le changement
-   fait.
+1. **Given** a signed-in user, **When** they activate the menu's profile block, **Then** the
+   « Mon profil » page opens and offers « Changer mon mot de passe ».
+2. **Given** the « Mon profil » page, **When** they choose « Changer mon mot de passe », enter their
+   current password and a valid, confirmed new password, **Then** the password is
+   changed, they return to « Mon profil » with a confirmation message stating that their
+   other sessions have been closed, and they stay signed in in the current browser.
+3. **Given** the change form opened from the profile, **When** they choose
+   « Annuler » (or go back), **Then** they return to « Mon profil » with no change.
+4. **Given** the form, **When** the current password is wrong, or the new one too short, or
+   the confirmation different, **Then** a clear message, tied to the relevant field, says so and
+   nothing is changed.
+5. **Given** a user whose change is **forced** (first sign-in or reset password),
+   **When** they sign in, **Then** the current flow is unchanged: the change page
+   is imposed, with no way to avoid it, and leads to the home page once the change is
+   done.
 
 ---
 
-### User Story 2 - Consulter les informations de son compte (Priority: P2)
+### User Story 2 - View your account information (Priority: P2)
 
-Un utilisateur veut vérifier sous quel identifiant il se connecte, quel rôle et quelle fonction
-lui ont été attribués, et s'il fait partie des surveillants ou des enseignants (ce qui conditionne
-ce qu'il voit dans « Gardes »). Il ouvre « Mon profil » et lit ces informations, sans pouvoir les
-modifier ; la page lui indique que les modifications passent par l'administration.
+A user wants to check which identifier they sign in with, which role and job title
+were assigned to them, and whether they are among the supervisors or teachers (which determines
+what they see in « Gardes » (Duty shifts)). They open « Mon profil » and read this information, without being able to
+change it; the page tells them that changes go through the administration.
 
-**Why this priority**: utile et attendu, mais sans conséquence de sécurité ; les informations
-existent déjà ailleurs (administration) pour le super administrateur.
+**Why this priority**: useful and expected, but with no security consequence; the information
+already exists elsewhere (administration) for the super administrator.
 
-**Independent Test**: se connecter avec un compte de chaque rôle et un compte membre de chaque
-groupe ; la page affiche les bonnes valeurs, aucune n'est modifiable.
+**Independent Test**: sign in with an account of each role and an account that is a member of each
+group; the page displays the right values, none of them editable.
 
 **Acceptance Scenarios**:
 
-1. **Given** un utilisateur connecté, **When** il ouvre « Mon profil », **Then** il voit son nom,
-   son identifiant de connexion, sa fonction, son rôle (Employé, Admin ou Super administrateur),
-   et ses groupes d'affectation (Surveillants, Enseignants) s'il en fait partie.
-2. **Given** un compte sans fonction renseignée ou membre d'aucun groupe d'affectation, **When**
-   il ouvre son profil, **Then** la page l'indique explicitement (par exemple « Non renseignée »,
-   « Aucun »), sans champ vide ni erreur.
-3. **Given** la page « Mon profil », **When** il cherche à modifier son nom ou sa fonction,
-   **Then** aucune modification n'est possible et la page indique qu'elles se demandent à
-   l'administration.
-4. **Given** un compte dont l'administration vient de modifier le rôle, la fonction ou les
-   groupes, **When** l'utilisateur ouvre ou recharge son profil, **Then** il voit les valeurs à
-   jour.
+1. **Given** a signed-in user, **When** they open « Mon profil », **Then** they see their name,
+   their login identifier, their job title, their role (Employé, Admin or Super administrateur),
+   and their assignment groups (Surveillants, Enseignants) if they belong to any.
+2. **Given** an account with no job title set or that is a member of no assignment group, **When**
+   they open their profile, **Then** the page says so explicitly (for example « Non renseignée »,
+   « Aucun »), with no empty field or error.
+3. **Given** the « Mon profil » page, **When** they try to change their name or job title,
+   **Then** no change is possible and the page says these are requested from the
+   administration.
+4. **Given** an account whose role, job title or groups the administration has just changed,
+   **When** the user opens or reloads their profile, **Then** they see the
+   up-to-date values.
 
 ---
 
 ### Edge Cases
 
-- **Changement imposé en cours** : tant que le changement est imposé, le profil n'est pas
-  atteignable (le parcours imposé prime, comme aujourd'hui pour toute page).
-- **Session expirée** pendant la saisie : le comportement actuel s'applique (retour à la
-  connexion), aucun mot de passe n'est changé.
-- **Autres sessions ouvertes** (autre navigateur, téléphone) : fermées par le changement, comme
-  aujourd'hui ; l'utilisateur en est informé dans la confirmation.
-- **Nouveau mot de passe identique à l'actuel** : même règle qu'aujourd'hui (aucune nouvelle
-  règle introduite par cette fonctionnalité).
-- **Mobile** : le bloc profil est dans le tiroir du menu ; il doit y mener au profil de la même
-  façon, et la page tient en 320 px sans défilement horizontal.
-- **Compte désactivé pendant la consultation** : comportement actuel (session fermée, retour à
-  la connexion).
+- **Forced change in progress**: while the change is forced, the profile is not
+  reachable (the forced flow takes precedence, as today for any page).
+- **Expired session** during input: the current behavior applies (return to
+  sign-in), no password is changed.
+- **Other open sessions** (other browser, phone): closed by the change, as
+  today; the user is told so in the confirmation.
+- **New password identical to the current one**: same rule as today (no new
+  rule introduced by this feature).
+- **Mobile**: the profile block is in the menu drawer; it must lead to the profile in the same
+  way, and the page fits in 320 px with no horizontal scrolling.
+- **Account disabled while viewing**: current behavior (session closed, return to
+  sign-in).
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
-- **FR-001**: Le bloc profil du menu (desktop et tiroir mobile) DOIT être un lien vers la page
-  « Mon profil », annoncé comme tel aux technologies d'assistance (nom accessible explicite, par
-  exemple « Mon profil, <nom> »).
-- **FR-002**: La page « Mon profil » DOIT être accessible à tout utilisateur connecté, quel que
-  soit son rôle, et à lui seul : elle n'affiche que les informations du compte connecté.
-- **FR-003**: La page DOIT afficher, en lecture seule : nom, identifiant de connexion, fonction,
-  rôle, et groupes d'affectation (Surveillants, Enseignants) dont le compte est membre.
-- **FR-004**: Une valeur absente (fonction non renseignée, aucun groupe) DOIT être affichée par
-  un libellé explicite, jamais par un champ vide.
-- **FR-005**: La page DOIT indiquer que le nom, la fonction, le rôle et les groupes se modifient
-  par l'administration, et NE DOIT offrir aucun moyen de les modifier.
-- **FR-006**: La page DOIT proposer l'action « Changer mon mot de passe », qui ouvre le parcours
-  de changement existant (mêmes règles et mêmes messages qu'aujourd'hui).
-- **FR-007**: Ouvert depuis le profil, le parcours de changement DOIT permettre d'annuler et de
-  revenir au profil sans rien changer.
-- **FR-008**: Après un changement réussi depuis le profil, l'utilisateur DOIT revenir sur
-  « Mon profil » avec un message de confirmation, annoncé aux technologies d'assistance, qui
-  précise que ses autres sessions ont été fermées ; il reste connecté dans le navigateur courant.
-- **FR-009**: Le parcours de changement **imposé** (première connexion, mot de passe réinitialisé)
-  DOIT rester inchangé : obligatoire, sans annulation possible, puis accueil.
-- **FR-010**: Le changement de mot de passe DOIT conserver ses garanties actuelles : vérification
-  du mot de passe actuel, longueur minimale, fermeture des autres sessions, journalisation dans le
-  journal d'audit.
-- **FR-011**: La page et le parcours DOIVENT respecter les WCAG 2.2 AA : utilisables entièrement
-  au clavier, titres et ordre de lecture cohérents, focus visible, erreurs reliées aux champs,
-  aucune violation détectée par l'outil d'audit automatique du projet.
-- **FR-012**: La page DOIT tenir en 320 px de large sans défilement horizontal, et rester lisible
-  sur desktop.
-- **FR-013**: Le message de refus qui renvoie vers « Changer mon mot de passe » DOIT désigner une
-  action réellement présente dans l'interface, avec le même libellé.
+- **FR-001**: The menu's profile block (desktop and mobile drawer) MUST be a link to the
+  « Mon profil » page, announced as such to assistive technologies (explicit accessible name, for
+  example « Mon profil, <nom> »).
+- **FR-002**: The « Mon profil » page MUST be accessible to any signed-in user, whatever their
+  role, and to them alone: it displays only the signed-in account's information.
+- **FR-003**: The page MUST display, read-only: name, login identifier, job title,
+  role, and assignment groups (Surveillants, Enseignants) the account is a member of.
+- **FR-004**: A missing value (job title not set, no group) MUST be displayed with
+  an explicit label, never as an empty field.
+- **FR-005**: The page MUST state that the name, job title, role and groups are changed
+  by the administration, and MUST NOT offer any way to change them.
+- **FR-006**: The page MUST offer the « Changer mon mot de passe » action, which opens the existing
+  change flow (same rules and same messages as today).
+- **FR-007**: When opened from the profile, the change flow MUST allow cancelling and
+  returning to the profile without changing anything.
+- **FR-008**: After a successful change from the profile, the user MUST return to
+  « Mon profil » with a confirmation message, announced to assistive technologies, that
+  states that their other sessions have been closed; they stay signed in in the current browser.
+- **FR-009**: The **forced** change flow (first sign-in, reset password)
+  MUST remain unchanged: mandatory, with no possible cancel, then home page.
+- **FR-010**: The password change MUST keep its current guarantees: verification
+  of the current password, minimum length, closing of other sessions, logging in the
+  audit log.
+- **FR-011**: The page and the flow MUST comply with WCAG 2.2 AA: fully usable
+  by keyboard, consistent headings and reading order, visible focus, errors tied to fields,
+  no violation detected by the project's automated audit tool.
+- **FR-012**: The page MUST fit in 320 px width with no horizontal scrolling, and remain readable
+  on desktop.
+- **FR-013**: The refusal message that points to « Changer mon mot de passe » MUST designate an
+  action actually present in the interface, with the same label.
 
 ### Key Entities *(include if feature involves data)*
 
-- **Compte utilisateur** (existant) : nom, identifiant de connexion, fonction, rôle, état « mot de
-  passe à changer ». Lu, jamais modifié par cette fonctionnalité, hormis le mot de passe par le
-  parcours existant.
-- **Groupe d'affectation** (existant) : groupes à clé système Surveillants et Enseignants ; seule
-  l'appartenance du compte connecté est affichée.
+- **User account** (existing): name, login identifier, job title, role, "password
+  to change" state. Read, never modified by this feature, except the password through the
+  existing flow.
+- **Assignment group** (existing): groups with the system keys Surveillants and Enseignants; only
+  the signed-in account's membership is displayed.
 
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
 
-- **SC-001**: Depuis n'importe quelle page de l'application, un utilisateur atteint le formulaire
-  de changement de mot de passe en 2 actions au plus (ouvrir le profil, puis « Changer mon mot de
-  passe »), au clavier comme à la souris, sur mobile comme sur desktop.
-- **SC-002**: 100 % des comptes de démonstration (un par rôle, plus un membre de chaque groupe)
-  voient sur leur profil des informations identiques à celles de l'administration.
-- **SC-003**: Après un changement réussi depuis le profil, 100 % des autres sessions du compte sont
-  fermées et la connexion avec le nouveau mot de passe réussit.
-- **SC-004**: Aucune violation d'accessibilité détectée par l'audit automatique sur la page
-  « Mon profil » et sur le parcours de changement, à 320 px et sur desktop.
-- **SC-005**: Le parcours imposé à la première connexion reste couvert par ses tests existants,
-  sans changement de leurs attendus.
+- **SC-001**: From any page of the application, a user reaches the password change
+  form in 2 actions at most (open the profile, then « Changer mon mot de
+  passe »), by keyboard as well as by mouse, on mobile as well as desktop.
+- **SC-002**: 100% of the demo accounts (one per role, plus a member of each group)
+  see on their profile information identical to that of the administration.
+- **SC-003**: After a successful change from the profile, 100% of the account's other sessions are
+  closed and sign-in with the new password succeeds.
+- **SC-004**: No accessibility violation detected by the automated audit on the
+  « Mon profil » page and on the change flow, at 320 px and on desktop.
+- **SC-005**: The flow forced at first sign-in stays covered by its existing tests,
+  with no change to their expectations.
 
 ## Assumptions
 
-- Les informations affichées existent déjà dans le compte ; aucune nouvelle donnée n'est créée.
-  Le compte connecté peut lire ses propres informations, et elles seules.
-- L'étage de rattachement d'un surveillant, les catégories dont l'utilisateur est destinataire ou
-  admin, et les permissions détaillées par rôle ne sont **pas** affichés dans cette première
-  version (affichage minimal demandé) ; ils restent consultables par le super administrateur dans
-  l'administration.
-- La page de changement de mot de passe existante est réutilisée ; seuls l'accès, l'annulation et
-  le retour au profil sont ajoutés pour le parcours volontaire.
-- Les règles de mot de passe (12 caractères au moins) et la fermeture des autres sessions ne
-  changent pas.
-- Hors périmètre (confirmé) : modification du nom ou de la fonction par l'utilisateur, photo de
-  profil, préférences (notifications, langue), historique de connexion personnel.
+- The information displayed already exists in the account; no new data is created.
+  The signed-in account can read its own information, and only that.
+- The floor a supervisor is attached to, the categories the user is a recipient or
+  admin of, and the detailed permissions per role are **not** displayed in this first
+  version (minimal display requested); they remain viewable by the super administrator in
+  the administration.
+- The existing password change page is reused; only access, cancel and
+  return to the profile are added for the voluntary flow.
+- The password rules (at least 12 characters) and the closing of other sessions do not
+  change.
+- Out of scope (confirmed): changing the name or job title by the user, profile
+  picture, preferences (notifications, language), personal sign-in history.

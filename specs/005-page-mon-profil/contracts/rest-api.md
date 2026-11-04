@@ -1,18 +1,17 @@
-# Contrat REST — 005 Page « Mon profil »
+# REST Contract — 005 Page « Mon profil » (My profile page)
 
-Aucune route nouvelle. Une réponse existante gagne deux champs ; une route est réutilisée telle
-quelle.
+No new route. One existing response gains two fields; one route is reused as is.
 
-## `GET /api/auth/me` (et réponse de `POST /api/auth/login`) — champs ajoutés
+## `GET /api/auth/me` (and `POST /api/auth/login` response) — added fields
 
-Session requise (`SessionGuard` global) ; renvoie **uniquement** le compte de la session.
+Session required (global `SessionGuard`); returns **only** the session's account.
 
 ```jsonc
 {
   "id": "uuid",
-  "username": "enseignante",          // AJOUTÉ : identifiant de connexion
+  "username": "enseignante",          // ADDED: login identifier
   "displayName": "Enseignante",
-  "jobTitle": "Professeure des écoles", // AJOUTÉ : fonction, ou null si non renseignée
+  "jobTitle": "Professeure des écoles", // ADDED: job title, or null if not provided
   "role": "EMPLOYEE",                   // EMPLOYEE | ADMIN | SUPER_ADMIN
   "permissions": ["REQUEST_CREATE"],
   "mustChangePassword": false,
@@ -21,19 +20,19 @@ Session requise (`SessionGuard` global) ; renvoie **uniquement** le compte de la
 }
 ```
 
-| Code | Cas |
-|------|-----|
-| 200 | session valide |
-| 401 | pas de session ou session expirée (inchangé) |
+| Code | Case |
+|------|------|
+| 200 | valid session |
+| 401 | no session or expired session (unchanged) |
 
-Compatibilité : ajout de champs seulement ; aucun champ retiré ou renommé.
+Compatibility: fields added only; no field removed or renamed.
 
-## `POST /api/auth/password` — inchangé
+## `POST /api/auth/password` — unchanged
 
-Corps : `{ "currentPassword": string, "newPassword": string (12 caractères au moins) }`.
+Body: `{ "currentPassword": string, "newPassword": string (at least 12 characters) }`.
 
-| Code | Cas |
-|------|-----|
-| 204 | mot de passe changé ; `mustChangePassword` → `false` ; **autres sessions supprimées**, session courante conservée ; audit `PASSWORD_CHANGED` |
-| 400 `VALIDATION_ERROR` | `currentPassword` : « Mot de passe actuel incorrect. » ; `newPassword` : « Le nouveau mot de passe doit contenir au moins 12 caractères. » |
-| 401 | pas de session |
+| Code | Case |
+|------|------|
+| 204 | password changed; `mustChangePassword` → `false`; **other sessions deleted**, current session kept; audit `PASSWORD_CHANGED` |
+| 400 `VALIDATION_ERROR` | `currentPassword`: « Mot de passe actuel incorrect. » (Current password incorrect.); `newPassword`: « Le nouveau mot de passe doit contenir au moins 12 caractères. » (The new password must contain at least 12 characters.) |
+| 401 | no session |

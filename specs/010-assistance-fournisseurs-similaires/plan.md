@@ -1,4 +1,4 @@
-# Implementation Plan: Assistance aux demandes — fournisseurs réels et demandes similaires
+# Implementation Plan: Assistance aux demandes — fournisseurs réels et demandes similaires (Request assistance — real providers and similar requests)
 
 **Branch**: `010-assistance-fournisseurs-et-similaires` | **Date**: 2026-10-28 | **Spec**: [spec.md](./spec.md)
 
@@ -6,59 +6,59 @@
 
 ## Summary
 
-Suite de 009 (module `assist`) :
+Follow-up to 009 (`assist` module):
 
-- **Demandes similaires** : `AssistService.suggest` recherche jusqu'à 3 demandes de travail proches
-  (plein texte PostgreSQL en français sur titre et description, hors brouillons et gardes), filtrées
-  par la règle de visibilité de la liste (`visibleRequestsWhere`). Elles sont renvoyées dans la
-  réponse (`similar`) et transmises au fournisseur réduites à titre, catégorie et priorité.
-- **Connecteur Whisper** (`whisper`) : serveur de transcription de l'établissement, interface
-  compatible OpenAI (`/v1/audio/transcriptions`), `fetch` natif.
-- **Connecteur Claude** (`claude`) : SDK officiel `@anthropic-ai/sdk`, sortie structurée par schéma
-  JSON, puis le contrôle existant `sanitizeSuggestion`.
-- Configuration : désactivé par défaut ; démarrage refusé si un connecteur réel est incomplet.
-- Frontend : section « Demandes similaires » du panneau ; test du remplacement de la transcription.
+- **Similar requests**: `AssistService.suggest` searches for up to 3 close work requests
+  (PostgreSQL French full-text on title and description, excluding drafts and shifts), filtered
+  by the list's visibility rule (`visibleRequestsWhere`). They are returned in the
+  response (`similar`) and sent to the provider reduced to title, category and priority.
+- **Whisper connector** (`whisper`): the school's transcription server, OpenAI-compatible
+  interface (`/v1/audio/transcriptions`), native `fetch`.
+- **Claude connector** (`claude`): official SDK `@anthropic-ai/sdk`, structured output by JSON
+  schema, then the existing check `sanitizeSuggestion`.
+- Configuration: disabled by default; startup refused if a real connector is incomplete.
+- Frontend: « Demandes similaires » section of the panel; test of the transcription replacement.
 
-Détails : [research.md](./research.md).
+Details: [research.md](./research.md).
 
 ## Technical Context
 
 **Language/Version**: TypeScript 5.9, Node.js 24
 
-**Primary Dependencies**: pile existante (NestJS 11, Prisma 6, React 19, MUI 7) ; **ajout backend :
-`@anthropic-ai/sdk`** (voir Complexity Tracking) ; `fetch` et `FormData` natifs de Node pour Whisper
+**Primary Dependencies**: existing stack (NestJS 11, Prisma 6, React 19, MUI 7); **backend addition:
+`@anthropic-ai/sdk`** (see Complexity Tracking); native Node `fetch` and `FormData` for Whisper
 
-**Storage**: PostgreSQL 17, **aucune migration** : recherche `to_tsvector('french', …)` à la volée
-sur `Request` (pas d'index GIN dans ce lot, R2)
+**Storage**: PostgreSQL 17, **no migration**: `to_tsvector('french', …)` search on the fly
+over `Request` (no GIN index in this phase, R2)
 
-**Testing**: Jest (unitaires : connecteurs avec `fetch` et SDK simulés, configuration ; intégration :
-demandes similaires et droits sur PostgreSQL embarqué), Vitest + Testing Library, Playwright + axe
+**Testing**: Jest (unit: connectors with simulated `fetch` and SDK, configuration; integration:
+similar requests and rights on embedded PostgreSQL), Vitest + Testing Library, Playwright + axe
 
-**Target Platform**: navigateurs récents ; serveur Linux (Docker, une instance d'API)
+**Target Platform**: recent browsers; Linux server (Docker, one API instance)
 
-**Project Type**: application web (monorepo `backend/` + `frontend/`)
+**Project Type**: web application (monorepo `backend/` + `frontend/`)
 
-**Performance Goals**: propositions avec demandes similaires en moins de 2 s avec `demo` (SC-002) ;
-délai des connecteurs réels borné par `ASSIST_TIMEOUT_MS` (15 s par défaut)
+**Performance Goals**: suggestions with similar requests in under 2 s with `demo` (SC-002);
+real connector timeout bounded by `ASSIST_TIMEOUT_MS` (15 s by default)
 
-**Constraints**: aucun appel réseau dans les tests ni avec la configuration par défaut ; aucune
-donnée d'une demande non visible transmise ou affichée ; clé et adresse jamais journalisées ;
-HTTPS obligatoire en production pour le serveur Whisper ; WCAG 2.2 AA, 320 px
+**Constraints**: no network call in tests or with the default configuration; no
+data from a non-visible request sent or displayed; key and address never logged;
+HTTPS mandatory in production for the Whisper server; WCAG 2.2 AA, 320 px
 
-**Scale/Scope**: 2 connecteurs, 1 recherche, 1 champ de réponse, 1 section d'interface, 6 variables
-d'environnement
+**Scale/Scope**: 2 connectors, 1 search, 1 response field, 1 UI section, 6 environment
+variables
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-| Principe | Avant conception | Après conception |
+| Principle | Before design | After design |
 | --- | --- | --- |
-| **I. Tests d'abord** | Chaque comportement a son test rouge : droits des demandes similaires, requêtes des connecteurs, erreurs, configuration. | ✅ Intégration (visibilité, brouillons, gardes, caractères spéciaux), unitaires (connecteurs simulés, configuration), interface (section, transcription remplacée), e2e. |
-| **II. Simplicité / YAGNI** | Recherche existante réutilisée ; pas de pgvector ; pas de nouvelle table. | ✅ Une dépendance justifiée (SDK Anthropic, R3) ; Whisper par `fetch` natif (pas de SDK) ; pas d'index ni de migration. |
-| **III. Accessibilité et UX** | Section facultative, jamais bloquante ; liens dans un nouvel onglet pour garder le formulaire. | ✅ Liste nommée, liens avec mention « nouvel onglet » ; mêmes messages d'erreur ; 320 px. |
-| **IV. Sécurité et données** | Clés côté serveur ; minimisation (titre, catégorie, priorité des similaires seulement) ; HTTPS en production. | ✅ Filtre de visibilité réutilisé (R1) ; texte délimité et sortie contrainte puis filtrée (R4) ; erreurs sans clé ni adresse ; activation conditionnée à la décision de l'établissement. |
-| **V. Intégrité et audit** | Aucune écriture par l'assistance ; création inchangée. | ✅ Inchangé depuis 009 ; refus et limite toujours journalisés. |
+| **I. Tests first** | Each behavior has its red test: rights of similar requests, connector requests, errors, configuration. | ✅ Integration (visibility, drafts, shifts, special characters), unit (simulated connectors, configuration), UI (section, transcription replaced), e2e. |
+| **II. Simplicity / YAGNI** | Existing search reused; no pgvector; no new table. | ✅ One justified dependency (Anthropic SDK, R3); Whisper by native `fetch` (no SDK); no index or migration. |
+| **III. Accessibility and UX** | Optional section, never blocking; links in a new tab to keep the form. | ✅ Named list, links with « nouvel onglet » mention; same error messages; 320 px. |
+| **IV. Security and data** | Keys server-side; minimization (title, category, priority of similar requests only); HTTPS in production. | ✅ Visibility filter reused (R1); delimited text and constrained output then filtered (R4); errors without key or address; activation conditional on the school's decision. |
+| **V. Integrity and audit** | No write by the assistance; creation unchanged. | ✅ Unchanged since 009; denials and limit still logged. |
 
 ## Project Structure
 
@@ -71,8 +71,8 @@ specs/010-assistance-fournisseurs-similaires/
 ├── data-model.md
 ├── quickstart.md
 ├── contracts/
-│   ├── rest-api.md      # champ similar ; requêtes sortantes Whisper et Claude
-│   └── ui.md            # section « Demandes similaires »
+│   ├── rest-api.md      # similar field; outgoing Whisper and Claude requests
+│   └── ui.md            # « Demandes similaires » section
 ├── checklists/requirements.md
 └── tasks.md             # /speckit-tasks
 ```
@@ -82,15 +82,15 @@ specs/010-assistance-fournisseurs-similaires/
 ```text
 backend/
 ├── package.json                                   # + @anthropic-ai/sdk
-├── .env.example                                   # variables ASSIST_* et ANTHROPIC_API_KEY
-├── src/config/config.ts                           # whisper / claude, contrôles de complétude
+├── .env.example                                   # ASSIST_* and ANTHROPIC_API_KEY variables
+├── src/config/config.ts                           # whisper / claude, completeness checks
 ├── src/assist/
-│   ├── similar-requests.service.ts                # nouveau : recherche + visibilité
-│   ├── assist.service.ts                          # similar dans suggest
+│   ├── similar-requests.service.ts                # new: search + visibility
+│   ├── assist.service.ts                          # similar in suggest
 │   └── providers/
-│       ├── assist-providers.ts                    # fabrique étendue, SuggestionInput.similar
-│       ├── whisper-transcription.ts               # nouveau
-│       └── claude-suggestion.ts                   # nouveau
+│       ├── assist-providers.ts                    # extended factory, SuggestionInput.similar
+│       ├── whisper-transcription.ts               # new
+│       └── claude-suggestion.ts                   # new
 └── test/
     ├── unit/assist-whisper.spec.ts, assist-claude.spec.ts, config.spec.ts
     └── integration/assist-similar.spec.ts
@@ -100,12 +100,12 @@ frontend/
 └── tests/assist/assist-panel.test.tsx
 ```
 
-**Structure Decision**: tout reste dans le module `assist` (couche après `requests`, qui fournit
-`visibleRequestsWhere`) ; un fichier par connecteur derrière les interfaces existantes.
+**Structure Decision**: everything stays in the `assist` module (layer after `requests`, which provides
+`visibleRequestsWhere`); one file per connector behind the existing interfaces.
 
 ## Complexity Tracking
 
 | Violation | Why Needed | Simpler Alternative Rejected Because |
 | --- | --- | --- |
-| Nouvelle dépendance `@anthropic-ai/sdk` | Référence officielle de l'API : SDK obligatoire dans un projet TypeScript ; erreurs typées, annulation, en-têtes et versions gérés par Anthropic. | `fetch` brut : en-têtes, versions d'API et formes de requête à maintenir à la main, déconseillé par la référence. |
-| Nouveau service `SimilarRequestsService` | Requête SQL et filtre d'accès isolés et testables séparément de `AssistService`. | Intégrer dans `AssistService` : mélange recherche, droits et appel au fournisseur dans une méthode déjà longue. |
+| New dependency `@anthropic-ai/sdk` | Official API reference: SDK mandatory in a TypeScript project; typed errors, cancellation, headers and versions handled by Anthropic. | Raw `fetch`: headers, API versions and request shapes to maintain by hand, discouraged by the reference. |
+| New service `SimilarRequestsService` | SQL query and access filter isolated and testable separately from `AssistService`. | Integrating into `AssistService`: mixes search, rights and provider call in an already long method. |

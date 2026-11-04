@@ -1,49 +1,51 @@
-# Quickstart : vérifier l'export des statistiques des affectations
+# Quickstart: verify the assignment statistics export
 
-Prérequis : base de développement locale (`localhost:5433`) migrée jusqu'à
-`0010_audit_coverage_stats_export` (`npm exec -w backend -- prisma migrate status` : « Database
-schema is up to date! ») ; données de démonstration avec des affectations sur le mois en cours ;
-application lancée (`start.bat` ou `npm run dev`).
+Prerequisites: local development database (`localhost:5433`) migrated up to
+`0010_audit_coverage_stats_export` (`npm exec -w backend -- prisma migrate status`: "Database
+schema is up to date!"); demo data with assignments over the current month; application running
+(`start.bat` or `npm run dev`).
 
-Automatique : `npm run -w backend test` (unitaires), `npm run -w backend test:integration`,
+Automated: `npm run -w backend test` (unit), `npm run -w backend test:integration`,
 `npm run -w frontend test`, `npx playwright test e2e/a11y-responsive.spec.ts e2e/coverage-stats-export.spec.ts`.
 
-## Scénario 1 — Export par enseignant (US1, FR-001 à FR-005, SC-001 à SC-003)
+## Scenario 1 — Export by teacher (US1, FR-001 to FR-005, SC-001 to SC-003)
 
-1. Connecté en `admin`, ouvrir Gardes › Statistiques ; garder la période par défaut.
-2. Cliquer sur « Exporter en CSV ».
-3. Attendu : fichier `statistiques-affectations-enseignant-<du>-au-<au>.csv` ; ouvert dans un
-   tableur, colonnes séparées, accents corrects ; chaque ligne, la ligne « Total de la période »,
-   le taux et les doublons égaux à la page.
+1. Logged in as `admin`, open Gardes › Statistiques; keep the default period.
+2. Click « Exporter en CSV » (Export as CSV).
+3. Expected: file `statistiques-affectations-enseignant-<du>-au-<au>.csv`; opened in a
+   spreadsheet, columns separated, accents correct; every row, the « Total de la période » row
+   (Total for the period), the rate and the duplicates equal the page.
 
-## Scénario 2 — Classe, semaine, mois (US1 scénarios 3 et 4)
+## Scenario 2 — Class, week, month (US1 scenarios 3 and 4)
 
-Refaire le scénario 1 avec « Classe », puis « Période › Semaine », puis « Période › Mois » :
-nom du fichier et lignes conformes à la page.
+Repeat scenario 1 with « Classe », then « Période › Semaine », then « Période › Mois »:
+file name and rows match the page.
 
-## Scénario 3 — Enseignant anonymisé et formule (US1 scénarios 5 et 6)
+## Scenario 3 — Anonymized teacher and formula (US1 scenarios 5 and 6)
 
-Avec une affectation anonymisée et un enseignant dont le nom commence par « = » : le fichier
-porte « Enseignant anonymisé » et le nom s'affiche en texte, sans formule exécutée.
+With an anonymized assignment and a teacher whose name starts with "=": the file contains
+« Enseignant anonymisé » (Anonymized teacher) and the name is shown as text, with no formula
+executed.
 
-## Scénario 4 — Accès et période invalide (US2 scénarios 1 et 2)
+## Scenario 4 — Access and invalid period (US2 scenarios 1 and 2)
 
-1. En `surveillant`, ouvrir `/api/coverage/stats/export.csv` : réponse « introuvable » ; entrée
-   « Accès refusé » au journal d'audit.
-2. En `admin`, ouvrir `/api/coverage/stats/export.csv?from=2026-10-23&to=2026-10-01` : erreur
-   « période invalide », aucun fichier, aucune entrée d'export.
+1. As `surveillant`, open `/api/coverage/stats/export.csv`: "not found" response; « Accès refusé »
+   (Access denied) entry in the audit log.
+2. As `admin`, open `/api/coverage/stats/export.csv?from=2026-10-23&to=2026-10-01`: "invalid
+   period" error, no file, no export entry.
 
-## Scénario 5 — États de la page (US2 scénarios 3 et 4)
+## Scenario 5 — Page states (US2 scenarios 3 and 4)
 
-1. Effacer la date « Au » : le bouton disparaît ; la remettre : il revient après le calcul.
-2. Choisir une période sans affectation : bouton présent ; fichier avec totaux à zéro.
+1. Clear the « Au » date: the button disappears; put it back: it returns after the computation.
+2. Choose a period without assignments: button present; file with totals at zero.
 
-## Scénario 6 — Journal d'audit (US2 scénario 5, FR-009)
+## Scenario 6 — Audit log (US2 scenario 5, FR-009)
 
-En `superadmin`, Administrateur › Journal d'audit, filtre « Export des statistiques des
-affectations » : une entrée par export des scénarios précédents, avec l'auteur, la date, la
-période et le regroupement, sans valeur ni nom.
+As `superadmin`, Administrateur › Journal d'audit, filter « Export des statistiques des
+affectations »: one entry per export from the previous scenarios, with the author, date, period
+and grouping, without any value or name.
 
-## Scénario 7 — Accessibilité (FR-010, SC-005)
+## Scenario 7 — Accessibility (FR-010, SC-005)
 
-À 320 px : bouton visible sans défilement horizontal, atteint et activé au clavier, focus visible.
+At 320 px: button visible without horizontal scrolling, reached and activated by keyboard, focus
+visible.

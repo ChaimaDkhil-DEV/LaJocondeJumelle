@@ -1,125 +1,125 @@
-# Migration 0002_coverage : couverture de classe
+# Migration 0002_coverage: class coverage
 
-> **Document daté, antérieur à la fonctionnalité 004** : le rôle « Responsable » (`MANAGER`) y est
-> devenu « Admin » (`ADMIN`) et la diffusion des gardes a été remplacée par l'assignation par l'admin.
-> Voir `specs/004-retards-affectation-surveillants/` (migration : `contracts/migration.md`).
+> **Dated document, predating feature 004**: the "Responsable" (manager) role (`MANAGER`) became
+> "Admin" (`ADMIN`) there, and the broadcasting of duties was replaced by assignment by the admin.
+> See `specs/004-retards-affectation-surveillants/` (migration: `contracts/migration.md`).
 
 ## Migration 004 (`0008_supervision_schema`, `0009_supervision_data`)
 
-Référence : `specs/004-retards-affectation-surveillants/contracts/migration.md`. Résumé de la
-procédure :
+Reference: `specs/004-retards-affectation-surveillants/contracts/migration.md`. Summary of the
+procedure:
 
-1. **Pré-contrôle** (lecture seule, sur la base cible) :
-   `npm run preflight:supervision -w backend` produit `supervision-preflight-<date>.md`.
-   Trois validations humaines y sont consignées avant tout déploiement :
-   - V1 : membres actuels du groupe des surveillants (les non-surveillants restent membres,
-     retrait éventuel ensuite dans l'administration) ;
-   - V2 : décision pour chaque garde sans statut cible évident (`0009` refuse de s'exécuter s'il
-     en reste) ;
-   - V3 : durée de conservation (`coverageRetentionMonths`, 12 mois proposés).
-2. **Déploiement** : `deploy/deploy.sh` (sauvegarde, puis `0008` additive et `0009` données ;
-   l'entrée de l'API refuse de migrer sans sauvegarde de moins de 60 min).
-3. **Juste après** : saisir la durée validée (V3), rattacher les classes et les surveillants à
-   leur étage dans l'administration.
-4. **Contrôles** : gardes diffusées devenues « en attente » chez l'admin ; aucun événement
-   d'historique disparu (décompte `RequestEvent` avant / après : seulement des ajouts, marqués
+1. **Pre-check** (read-only, on the target database):
+   `npm run preflight:supervision -w backend` produces `supervision-preflight-<date>.md`.
+   Three human validations are recorded there before any deployment:
+   - V1: current members of the supervisors group (non-supervisors remain members,
+     with possible removal afterwards in the administration);
+   - V2: decision for each duty with no obvious target status (`0009` refuses to run if
+     any remain);
+   - V3: retention period (`coverageRetentionMonths`, 12 months proposed).
+2. **Deployment**: `deploy/deploy.sh` (backup, then additive `0008` and data migration `0009`;
+   the API entrypoint refuses to migrate without a backup less than 60 min old).
+3. **Right afterwards**: enter the validated period (V3), attach the classes and the supervisors to
+   their floor in the administration.
+4. **Checks**: broadcast duties that became "en attente" (pending) for the admin; no history
+   event gone missing (`RequestEvent` count before / after: only additions, marked
    `migration-0009`).
 
-**Retour arrière** : redéployer le code précédent, puis `0009/down.sql`, puis
-`0008/down.sql`. Si les garde-fous refusent (données nouvelles déjà saisies), restaurer la
-sauvegarde prise au déploiement (`deploy/backup/restore.sh`).
+**Rollback**: redeploy the previous code, then `0009/down.sql`, then
+`0008/down.sql`. If the safeguards refuse (new data already entered), restore the
+backup taken at deployment (`deploy/backup/restore.sh`).
 
-La suite de ce document décrit la migration `0002_coverage` (lot 2), inchangée.
+The rest of this document describes the `0002_coverage` migration (phase 2), unchanged.
 
-Cette migration ajoute le module de couverture de classe (garde ou remplacement).
+This migration adds the class coverage module (duty or substitution).
 
-## Contenu
+## Contents
 
-Elle est **additive** : aucune table ni colonne existante n'est supprimée ou renommée.
+It is **additive**: no existing table or column is dropped or renamed.
 
-- **Énumérations existantes** : de nouvelles valeurs sont ajoutées.
-  - `RequestStatus` : `BROADCAST`, `UNFILLED`, `EN_ROUTE`, `LATE`, `ON_DUTY`, `RELIEF_PENDING`.
-  - `DeadlineStage` : `ARRIVAL`.
-  - `RequestEventType`, `AuditAction` et `NotificationType` : valeurs propres au module.
-- **Nouvelles colonnes**, avec une valeur par défaut pour les données existantes :
-  - `Request.kind` (`WORK` par défaut) ;
-  - `Category.kind` (`WORK`) et `Category.proofMode` (`PHOTO`) ;
-  - `DeadlineRule.arrivalMinutes` (vide) ;
+- **Existing enumerations**: new values are added.
+  - `RequestStatus`: `BROADCAST`, `UNFILLED`, `EN_ROUTE`, `LATE`, `ON_DUTY`, `RELIEF_PENDING`.
+  - `DeadlineStage`: `ARRIVAL`.
+  - `RequestEventType`, `AuditAction` and `NotificationType`: values specific to the module.
+- **New columns**, with a default value for existing data:
+  - `Request.kind` (`WORK` by default);
+  - `Category.kind` (`WORK`) and `Category.proofMode` (`PHOTO`);
+  - `DeadlineRule.arrivalMinutes` (empty);
   - `User.availability` (`AVAILABLE`).
-- **Nouvelles tables** : `SchoolClass`, `EmployeeGroup`, `EmployeeGroupMember`, `CoverageDetail`, `CoverageTarget`, `CoveragePresence`.
-- **Données par défaut**, toutes modifiables ensuite depuis l'administration :
-  - catégorie « Garde de classe » :
-    - preuve exigée : QR code et photo ;
-    - délais : prise en charge 2 min, arrivée en classe 5 min ;
-    - pas de validation finale ;
-    - créée par les responsables ;
-    - responsables : les comptes MANAGER actifs au moment de la migration ;
-  - groupe « Surveillants/Remplaçants », vide.
+- **New tables**: `SchoolClass`, `EmployeeGroup`, `EmployeeGroupMember`, `CoverageDetail`, `CoverageTarget`, `CoveragePresence`.
+- **Default data**, all editable afterwards from the administration:
+  - category "Garde de classe" (class duty):
+    - required proof: QR code and photo;
+    - deadlines: acceptance 2 min, arrival in class 5 min;
+    - no final validation;
+    - created by the managers;
+    - managers: the MANAGER accounts active at the time of the migration;
+  - group "Surveillants/Remplaçants" (Supervisors/Substitutes), empty.
 
-Aucune demande de travail existante n'est modifiée : toutes prennent `kind = WORK`.
+No existing work request is modified: all take `kind = WORK`.
 
-## Sauvegarde et exécution
+## Backup and execution
 
-En production, lancez la mise à jour depuis la racine du dépôt :
+In production, run the update from the repository root:
 
 ```bash
 deploy/deploy.sh
 ```
 
-Le script sauvegarde la base **et** les fichiers, puis reconstruit et redémarre les conteneurs ; au démarrage, l'API applique `prisma migrate deploy` (`deploy/api-entrypoint.sh`). Si la sauvegarde échoue, rien n'est mis à jour.
+The script backs up the database **and** the files, then rebuilds and restarts the containers; at startup, the API applies `prisma migrate deploy` (`deploy/api-entrypoint.sh`). If the backup fails, nothing is updated.
 
-Notez l'horodatage affiché par la sauvegarde (par exemple `[backup] terminé : db-20261013T173000Z.dump files-20261013T173000Z.tar.gz`), puis vérifiez que les deux fichiers sont bien présents dans le dossier des sauvegardes : c'est elle qu'il faudra restaurer en cas de problème.
+Note the timestamp displayed by the backup (for example `[backup] terminé : db-20261013T173000Z.dump files-20261013T173000Z.tar.gz`, where "terminé" means "done"), then check that both files are present in the backups folder: this is the backup to restore in case of a problem.
 
-L'API refuse d'appliquer une migration sans sauvegarde de moins de `PRE_MIGRATION_BACKUP_MAX_AGE_MINUTES` minutes (60 par défaut) : un `docker compose … up` lancé sans le script s'arrête avec « Migration en attente sans sauvegarde récente : lancez deploy/deploy.sh. », sans toucher la base.
+The API refuses to apply a migration without a backup less than `PRE_MIGRATION_BACKUP_MAX_AGE_MINUTES` minutes old (60 by default): a `docker compose … up` run without the script stops with "Migration en attente sans sauvegarde récente : lancez deploy/deploy.sh." (pending migration without a recent backup: run deploy/deploy.sh), without touching the database.
 
-En développement, ou pour appliquer explicitement :
+In development, or to apply explicitly:
 
 ```bash
 npm run -w backend prisma:deploy     # = prisma migrate deploy
-npm run -w backend prisma:generate   # client Prisma à jour
+npm run -w backend prisma:generate   # up-to-date Prisma client
 ```
 
-Pour vérifier que la base correspond exactement au schéma :
+To check that the database matches the schema exactly:
 
 ```bash
 cd backend && npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel prisma/schema.prisma --exit-code
 ```
 
-La commande doit répondre « No difference detected ».
+The command must answer "No difference detected".
 
-Cas particulier d'une base neuve : la migration s'exécute avant que les comptes existent, et la catégorie « Garde de classe » n'a donc aucun responsable. Ajoutez-les dans Administration › Catégories. Le super administrateur a toujours tous les droits.
+Special case of a new database: the migration runs before the accounts exist, so the "Garde de classe" category has no manager. Add them in Administration › Catégories (categories). The super administrator always has all rights.
 
-## Retour arrière
+## Rollback
 
-### Cas général : restaurer la sauvegarde
+### General case: restore the backup
 
-C'est la méthode recommandée dès que le module a servi :
+This is the recommended method as soon as the module has been used:
 
 ```bash
-deploy/backup/restore.sh <horodatage de la sauvegarde prise avant la migration>
+deploy/backup/restore.sh <timestamp of the backup taken before the migration>
 ```
 
-Redéployez ensuite la version précédente de l'application.
+Then redeploy the previous version of the application.
 
-### Base où le module n'a jamais servi : script inverse
+### Database where the module was never used: reverse script
 
-Utilisez `prisma/migrations/0002_coverage/down.sql` :
+Use `prisma/migrations/0002_coverage/down.sql`:
 
 ```bash
 cd backend
 npx prisma db execute --file prisma/migrations/0002_coverage/down.sql --schema prisma/schema.prisma
 ```
 
-Redéployez ensuite la version précédente de l'application. Le script :
+Then redeploy the previous version of the application. The script:
 
-- **s'arrête sans rien modifier** si une donnée du module existe, que ce soit une demande de couverture, un historique, une notification ou une entrée du journal d'audit. L'historique et le journal sont en ajout seul et ne doivent jamais être réécrits : dans ce cas, restaurez la sauvegarde ;
-- sinon :
-  - supprime les tables et colonnes ajoutées ;
-  - recrée les énumérations avec leurs valeurs d'origine ;
-  - retire la ligne `0002_coverage` de `_prisma_migrations`, ce qui permet de réappliquer la migration plus tard avec `prisma migrate deploy`.
+- **stops without changing anything** if any data of the module exists, whether a coverage request, a history, a notification or an audit log entry. The history and the log are append-only and must never be rewritten: in that case, restore the backup;
+- otherwise:
+  - drops the added tables and columns;
+  - recreates the enumerations with their original values;
+  - removes the `0002_coverage` row from `_prisma_migrations`, which allows the migration to be applied again later with `prisma migrate deploy`.
 
-L'enchaînement up → down → up a été vérifié sur une base jetable : après chaque étape, `prisma migrate diff` ne détecte aucune différence avec le schéma attendu.
+The up → down → up sequence was verified on a disposable database: after each step, `prisma migrate diff` detects no difference with the expected schema.
 
-## Clé des QR codes
+## QR code key
 
-Les QR codes des classes sont signés avec une clé dérivée de `SESSION_SECRET`. Changer `SESSION_SECRET` invalide tous les QR imprimés : il faut alors les réimprimer depuis Administration › Classes.
+The classes' QR codes are signed with a key derived from `SESSION_SECRET`. Changing `SESSION_SECRET` invalidates all printed QR codes: they must then be reprinted from Administration › Classes.

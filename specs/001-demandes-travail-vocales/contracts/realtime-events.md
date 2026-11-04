@@ -1,63 +1,63 @@
-# Contrat temps réel (Socket.IO) – Lot 1
+# Real-time contract (Socket.IO) – Phase 1
 
-**Chemin** : `/socket.io` (même origine). **Transport** : WebSocket, repli long-polling
-autorisé. Notifications **dans l'application uniquement** : ni push, ni e-mail, ni service
+**Path**: `/socket.io` (same origin). **Transport**: WebSocket, long-polling fallback
+allowed. Notifications are **in-app only**: no push, no email, no service
 worker.
 
-## Connexion
+## Connection
 
-- Authentification à la poignée de main par le cookie de session `sid` et contrôle de
-  l'en-tête `Origin`. Session absente ou expirée → `connect_error` avec
-  `{ code: "UNAUTHENTICATED" }` ; le client renvoie vers la page de connexion.
-- Le serveur place le socket dans la salle `user:{userId}` et, pour un super administrateur
-  actif, dans la salle de supervision `role:super-admin` (mise à jour à chaud lors d'un
-  changement de rôle). Le client ne peut rejoindre aucune salle lui-même et n'émet aucun
-  événement métier : toutes les écritures passent par REST.
-- Déconnexion, expiration de session ou désactivation du compte → le serveur envoie
-  `session:ended` puis ferme les sockets concernés. Les sessions des connexions ouvertes sont
-  revérifiées chaque minute (expiration, inactivité, compte désactivé).
-- Un utilisateur qui doit encore changer son mot de passe ne peut pas se connecter au temps réel.
-- À chaque `connect` (y compris reconnexion), le client appelle
-  `GET /notifications?unread=true` et invalide ses requêtes en cache, ce qui rattrape tout
-  événement manqué.
+- Authentication at handshake through the `sid` session cookie and a check of the
+  `Origin` header. Missing or expired session → `connect_error` with
+  `{ code: "UNAUTHENTICATED" }`; the client redirects to the login page.
+- The server puts the socket in the `user:{userId}` room and, for an active super administrator,
+  in the `role:super-admin` supervision room (updated live when a role
+  changes). The client cannot join any room itself and emits no
+  business event: all writes go through REST.
+- Logout, session expiry or account deactivation → the server sends
+  `session:ended` then closes the sockets concerned. The sessions of open connections are
+  rechecked every minute (expiry, inactivity, deactivated account).
+- A user who still has to change their password cannot connect to the real-time channel.
+- On every `connect` (including reconnection), the client calls
+  `GET /notifications?unread=true` and invalidates its cached queries, which catches up on any
+  missed event.
 
-## Événements serveur → client
+## Server → client events
 
-Tous les événements sont émis **après** validation de la transaction en base et ne
-contiennent que des identifiants et des métadonnées ; le client relit les données par REST
-(même contrôle d'accès).
+All events are emitted **after** the database transaction is committed and contain
+only identifiers and metadata; the client rereads the data through REST
+(same access control).
 
-| Événement | Charge utile | Émis vers | Effet côté client |
-|-----------|--------------|-----------|-------------------|
-| `notification:new` | `{ id, type, priority, requestId, reference, title, createdAt }` | destinataire de la notification | badge et liste mis à jour ; annonce `aria-live` ; style distinct si `priority = URGENT` |
-| `request:updated` | `{ requestId, status, version, overdueStage }` | demandeur, affecté, responsables de la catégorie ; super administrateurs (hors brouillon, y compris à la soumission) | invalide la liste, le détail de la demande et le tableau de bord |
-| `message:new` | `{ requestId, messageId }` | participants autorisés sauf l'auteur | invalide le fil ; nouveau message affiché sans rechargement |
-| `session:ended` | `{ reason: "LOGOUT" \| "EXPIRED" \| "DEACTIVATED" \| "PASSWORD_RESET" }` | sockets de l'utilisateur | retour à la page de connexion |
+| Event | Payload | Emitted to | Client-side effect |
+|-------|---------|------------|--------------------|
+| `notification:new` | `{ id, type, priority, requestId, reference, title, createdAt }` | notification recipient | badge and list updated; `aria-live` announcement; distinct style if `priority = URGENT` |
+| `request:updated` | `{ requestId, status, version, overdueStage }` | requester, assignee, category managers; super administrators (except drafts, including at submission) | invalidates the list, the request detail and the dashboard |
+| `message:new` | `{ requestId, messageId }` | authorized participants except the author | invalidates the thread; new message displayed without reloading |
+| `session:ended` | `{ reason: "LOGOUT" \| "EXPIRED" \| "DEACTIVATED" \| "PASSWORD_RESET" }` | the user's sockets | back to the login page |
 
-Types de notification (`type`) : `REQUEST_NEW`, `MESSAGE_NEW`, `ASSIGNED`, `STATUS_CHANGED`,
+Notification types (`type`): `REQUEST_NEW`, `MESSAGE_NEW`, `ASSIGNED`, `STATUS_CHANGED`,
 `URGENT`, `TO_CORRECT`, `REJECTED`, `CANCELLED`, `OVERDUE`, `CLOSED`.
 
-## Qui est notifié
+## Who is notified
 
-| Événement métier | Notifiés |
-|------------------|----------|
-| Demande envoyée (circuit A) | affecté (`REQUEST_NEW`, ou `URGENT` si urgente) |
-| Demande soumise (circuit B) | responsables de la catégorie |
-| Approbation / affectation / réaffectation | demandeur (`STATUS_CHANGED`), nouvel affecté (`ASSIGNED` ou `URGENT`) |
-| Refus (T4, T7) | demandeur (`REJECTED`, avec motif dans la demande) |
-| Annulation | affecté ou responsables (`CANCELLED`) |
-| Acceptée, En cours, Terminée, En attente de validation finale | demandeur (`STATUS_CHANGED`) ; responsables si validation finale |
-| À corriger | affecté (`TO_CORRECT`) |
-| Clôture | demandeur et affecté (`CLOSED`) |
-| Nouveau message | autres participants directs : demandeur et employé affecté ; tant qu'aucun employé n'est affecté, les responsables de la catégorie (`MESSAGE_NEW`) |
-| Retard | responsables de la catégorie et affecté (`OVERDUE`, étape précisée) |
+| Business event | Notified |
+|----------------|----------|
+| Request sent (workflow A) | assignee (`REQUEST_NEW`, or `URGENT` if urgent) |
+| Request submitted (workflow B) | category managers |
+| Approval / assignment / reassignment | requester (`STATUS_CHANGED`), new assignee (`ASSIGNED` or `URGENT`) |
+| Rejection (T4, T7) | requester (`REJECTED`, with the reason in the request) |
+| Cancellation | assignee or managers (`CANCELLED`) |
+| Acceptée, En cours, Terminée, En attente de validation finale (Accepted, In progress, Completed, Awaiting final validation) | requester (`STATUS_CHANGED`); managers if final validation |
+| À corriger (To correct) | assignee (`TO_CORRECT`) |
+| Closure | requester and assignee (`CLOSED`) |
+| New message | other direct participants: requester and assigned employee; while no employee is assigned, the category managers (`MESSAGE_NEW`) |
+| Delay | category managers and assignee (`OVERDUE`, stage specified) |
 
-L'auteur d'une action n'est jamais notifié de sa propre action.
+The author of an action is never notified of their own action.
 
-## Garanties
+## Guarantees
 
-- Ordre : par utilisateur, dans l'ordre de validation des transactions (un seul processus).
-- Persistance : chaque notification existe en base avant émission ; aucune perte si
-  l'utilisateur est hors ligne (FR-033).
-- Délai cible : < 5 s entre l'action et l'affichage (SC-003), < 30 s pour les retards
+- Order: per user, in the order the transactions are committed (a single process).
+- Persistence: each notification exists in the database before emission; nothing is lost if
+  the user is offline (FR-033).
+- Target latency: < 5 s between the action and the display (SC-003), < 30 s for delays
   (SC-006).

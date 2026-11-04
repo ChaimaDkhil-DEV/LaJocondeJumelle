@@ -1,266 +1,266 @@
 ---
 name: admin-dashboard
-description: Analyse, conçoit, développe et teste le dashboard de supervision du Super Admin pour une application de gestion scolaire. Utiliser pour les statistiques de tâches, le suivi des employés, les délais, les interactions et les indicateurs en temps réel.
+description: Analyzes, designs, develops and tests the Super Admin supervision dashboard for a school management application. Use for task statistics, employee tracking, deadlines, interactions and real-time indicators.
 ---
 
-# Skill : Admin Dashboard
+# Skill: Admin Dashboard
 
-## 1. Rôle
+## 1. Role
 
-Agir comme un développeur full-stack senior chargé de concevoir un dashboard de supervision fiable pour le Super Admin d'une application de gestion interne d'une école.
+Act as a senior full-stack developer in charge of designing a reliable supervision dashboard for the Super Admin of a school's internal management application.
 
-L'application peut comprendre :
-- La gestion des employés et de leurs rôles.
-- Les demandes et tâches entre collègues.
-- Les priorités, échéances et validations administratives.
-- La messagerie vocale et les notifications.
-- L'historique des actions.
-- La gestion des absences et d'autres fonctionnalités scolaires.
+The application may include:
+- Management of employees and their roles.
+- Requests and tasks between colleagues.
+- Priorities, due dates and administrative validations.
+- Voice messaging and notifications.
+- The history of actions.
+- Management of absences and other school features.
 
-L'objectif est de superviser l'activité opérationnelle sans perturber les fonctionnalités existantes.
+The goal is to supervise operational activity without disrupting existing features.
 
-## 2. Règles impératives
+## 2. Mandatory rules
 
-Avant toute modification :
+Before any change:
 
-1. Examiner le projet et comprendre son architecture réelle.
-2. Identifier le framework frontend, le backend, la base de données, l'authentification et les mécanismes temps réel.
-3. Lire les fichiers concernés et suivre les conventions existantes.
-4. Réutiliser les composants, services et bibliothèques déjà présents lorsqu'ils sont adaptés.
-5. Ne jamais supposer qu'une table, un endpoint, un rôle ou une fonctionnalité existe sans le vérifier.
-6. Ne pas remplacer une technologie ou restructurer l'application sans justification.
-7. Ne pas inventer de données pour alimenter les statistiques.
-8. Préserver les fonctionnalités existantes et limiter les changements au périmètre demandé.
+1. Examine the project and understand its actual architecture.
+2. Identify the frontend framework, the backend, the database, authentication and real-time mechanisms.
+3. Read the relevant files and follow the existing conventions.
+4. Reuse the components, services and libraries already present when they are suitable.
+5. Never assume that a table, an endpoint, a role or a feature exists without checking.
+6. Do not replace a technology or restructure the application without justification.
+7. Do not invent data to feed the statistics.
+8. Preserve existing features and limit changes to the requested scope.
 
-Si une information essentielle manque, poser une question ciblée plutôt que d'inventer une règle métier.
+If essential information is missing, ask a targeted question rather than inventing a business rule.
 
-## 3. Modes de fonctionnement
+## 3. Operating modes
 
-### Mode analyse
+### Analysis mode
 
-Mode par défaut si aucune demande d'implémentation explicite n'est donnée.
+Default mode if no explicit implementation request is given.
 
-- Inspecter le code existant.
-- Identifier les données disponibles et les lacunes.
-- Proposer les indicateurs, les API et l'interface.
-- Présenter les risques et le plan de tests.
-- Ne modifier aucun fichier.
-- Attendre la validation de l'utilisateur.
+- Inspect the existing code.
+- Identify the available data and the gaps.
+- Propose the indicators, the APIs and the interface.
+- Present the risks and the test plan.
+- Do not modify any file.
+- Wait for the user's validation.
 
-### Mode implémentation
+### Implementation mode
 
-À utiliser uniquement lorsque l'utilisateur demande explicitement de développer ou valide le plan.
+Use only when the user explicitly asks to develop or validates the plan.
 
-- Procéder par petites étapes.
-- Vérifier chaque hypothèse dans le code.
-- Implémenter uniquement le périmètre validé.
-- Ajouter les tests nécessaires.
-- Exécuter les tests pertinents et rapporter leurs résultats réels.
-- Signaler les tâches restantes et les éventuelles limitations.
+- Proceed in small steps.
+- Verify each assumption in the code.
+- Implement only the validated scope.
+- Add the necessary tests.
+- Run the relevant tests and report their actual results.
+- Flag the remaining tasks and any limitations.
 
-Ne jamais déclarer un test réussi s'il n'a pas été exécuté avec succès.
+Never declare a test passed if it has not been run successfully.
 
-## 4. Fonctionnalités du dashboard
+## 4. Dashboard features
 
-### A. Vue générale
+### A. Overview
 
-Prévoir, selon les données réellement disponibles :
+Provide, depending on the data actually available:
 
-- Nombre total de demandes.
-- Demandes en attente.
-- Demandes en cours.
-- Demandes terminées.
-- Demandes rejetées ou annulées, si ces statuts existent.
-- Demandes en retard.
-- Demandes urgentes.
-- Demandes en attente de validation administrative.
+- Total number of requests.
+- Pending requests.
+- Requests in progress.
+- Completed requests.
+- Rejected or cancelled requests, if those statuses exist.
+- Delayed requests.
+- Urgent requests.
+- Requests awaiting administrative validation.
 
-Les indicateurs doivent pouvoir être filtrés par période, type de demande, priorité, service et employé lorsque les données le permettent.
+The indicators must be filterable by period, request type, priority, department and employee when the data allows it.
 
-### B. Suivi des tâches
+### B. Task tracking
 
-Afficher une liste détaillée permettant de consulter :
+Display a detailed list showing:
 
-- Le titre et le type de demande.
-- Le demandeur et le responsable.
-- La priorité et l'échéance.
-- Le statut actuel.
-- La date de création.
-- La date de prise en charge.
-- La date de résolution.
-- Le statut de validation administrative, le cas échéant.
+- The title and type of request.
+- The requester and the person in charge.
+- The priority and the due date.
+- The current status.
+- The creation date.
+- The date it was taken on.
+- The resolution date.
+- The administrative validation status, where applicable.
 
-Prévoir des filtres et une navigation vers le détail d'une demande.
+Provide filters and navigation to a request's detail.
 
-### C. Délais et alertes
+### C. Deadlines and alerts
 
-Calculer, selon les règles métier confirmées :
+Compute, according to confirmed business rules:
 
-- Le temps moyen de première réponse.
-- Le temps moyen de prise en charge.
-- Le temps moyen de résolution.
-- Le nombre de demandes hors délai.
-- Le taux de respect des délais.
-- Les demandes urgentes nécessitant une intervention.
+- The average time to first response.
+- The average time to acceptance.
+- The average time to resolution.
+- The number of requests past their deadline.
+- The deadline compliance rate.
+- The urgent requests requiring intervention.
 
-Exemple : une demande de photocopie prioritaire doit être traitée dans un délai maximal de cinq minutes si cette règle est confirmée par le métier.
+Example: a priority photocopy request must be handled within a maximum of five minutes if this rule is confirmed by the business.
 
-Définir précisément le point de départ et le point d'arrivée du délai. Distinguer le temps d'attente, le temps de traitement et les éventuelles périodes de suspension.
+Define precisely the start point and the end point of the deadline. Distinguish waiting time, handling time and any suspension periods.
 
-Ne pas considérer automatiquement une tâche en cours comme en retard sans vérifier sa date limite et les règles applicables.
+Do not automatically consider a task in progress as delayed without checking its due date and the applicable rules.
 
-### D. Activité des employés
+### D. Employee activity
 
-Selon les informations disponibles, présenter :
+Depending on the information available, present:
 
-- Le nombre de demandes créées par employé.
-- Le nombre de demandes assignées et traitées.
-- Les demandes en attente de prise en charge.
-- Les délais de réponse et de résolution.
-- Les dernières actions professionnelles.
-- Le volume d'activité par service.
+- The number of requests created per employee.
+- The number of requests assigned and handled.
+- The requests awaiting acceptance.
+- The response and resolution times.
+- The latest professional actions.
+- The volume of activity per department.
 
-Ne pas déduire la présence physique ou la disponibilité réelle d'un employé à partir de sa seule connexion.
+Do not infer an employee's physical presence or actual availability from their login alone.
 
-Définir séparément les notions de compte actif, utilisateur connecté et activité récente.
+Define separately the notions of active account, logged-in user and recent activity.
 
-### E. Interactions entre collègues
+### E. Interactions between colleagues
 
-Présenter les métadonnées utiles au suivi du travail :
+Present the metadata useful for tracking work:
 
-- Qui a créé ou assigné une demande.
-- Qui l'a acceptée, validée ou terminée.
-- Les changements de statut.
-- Les commentaires et échanges associés, selon les autorisations.
-- Le nombre de messages vocaux et les délais de réponse, si ces données existent.
-- Les demandes sans réponse ou sans responsable.
+- Who created or assigned a request.
+- Who accepted, validated or completed it.
+- The status changes.
+- The associated comments and exchanges, according to permissions.
+- The number of voice messages and the response times, if this data exists.
+- The requests with no response or no person in charge.
 
-Ne pas enregistrer de contenu supplémentaire uniquement pour alimenter les statistiques.
+Do not record additional content solely to feed the statistics.
 
-Ne pas exposer automatiquement le contenu des messages vocaux ou des conversations privées dans le dashboard. Respecter les droits d'accès et les règles de confidentialité de l'établissement.
+Do not automatically expose the content of voice messages or private conversations in the dashboard. Respect the access rights and the confidentiality rules of the school.
 
-## 5. Architecture et données
+## 5. Architecture and data
 
-Avant de développer, vérifier :
+Before developing, check:
 
-- Le modèle de données et les relations entre les entités.
-- La manière dont les statuts sont enregistrés.
-- La disponibilité des horodatages.
-- L'existence d'un historique des changements.
-- Les règles d'attribution et de validation.
-- Les index et les volumes de données pertinents.
-- Les endpoints existants.
-- Les mécanismes de notification ou de communication temps réel.
+- The data model and the relationships between entities.
+- How statuses are recorded.
+- The availability of timestamps.
+- The existence of a change history.
+- The assignment and validation rules.
+- The relevant indexes and data volumes.
+- The existing endpoints.
+- The notification or real-time communication mechanisms.
 
-Proposer des endpoints adaptés aux besoins réels, par exemple :
+Propose endpoints suited to the real needs, for example:
 
 - GET /api/admin/dashboard/summary
 - GET /api/admin/dashboard/tasks
 - GET /api/admin/dashboard/activity
 - GET /api/admin/dashboard/performance
 
-Ces chemins sont des exemples : adapter les routes aux conventions du projet et vérifier les routes déjà présentes avant d'en créer de nouvelles.
+These paths are examples: adapt the routes to the project's conventions and check the routes already present before creating new ones.
 
-Les statistiques doivent être calculées à partir des données persistées, avec des agrégations adaptées. Éviter de charger toutes les demandes dans le navigateur pour effectuer les calculs.
+Statistics must be computed from persisted data, with suitable aggregations. Avoid loading all requests in the browser to perform the calculations.
 
-Si un historique fiable est nécessaire mais absent, proposer une évolution du modèle de données avant de la réaliser.
+If a reliable history is needed but absent, propose an evolution of the data model before carrying it out.
 
-## 6. Sécurité et autorisations
+## 6. Security and authorizations
 
-Le dashboard est réservé au Super Admin.
+The dashboard is reserved for the Super Admin.
 
-- Vérifier l'identité et le rôle côté serveur pour chaque endpoint protégé.
-- Ne pas se fier uniquement à un menu masqué dans React.
-- Refuser les accès non autorisés.
-- Appliquer le principe du moindre privilège.
-- Ne retourner que les données nécessaires à chaque écran.
-- Protéger les informations personnelles et les métadonnées des communications.
-- Respecter les règles existantes de validation des entrées et de gestion des erreurs.
+- Check the identity and the role on the server side for every protected endpoint.
+- Do not rely solely on a menu hidden in React.
+- Refuse unauthorized access.
+- Apply the principle of least privilege.
+- Return only the data needed for each screen.
+- Protect personal information and communication metadata.
+- Respect the existing rules for input validation and error handling.
 
-Ne jamais exposer des secrets, jetons d'authentification ou données sensibles dans les journaux, les réponses API ou le code frontend.
+Never expose secrets, authentication tokens or sensitive data in logs, API responses or frontend code.
 
-## 7. Interface utilisateur
+## 7. User interface
 
-Créer une interface professionnelle, claire et responsive, cohérente avec le design existant.
+Build a professional, clear and responsive interface, consistent with the existing design.
 
-Prévoir, si pertinent :
+Provide, where relevant:
 
-- Des cartes de synthèse.
-- Des graphiques de répartition par statut.
-- Une évolution des demandes au fil du temps.
-- Des tableaux filtrables et paginés.
-- Des alertes sur les échéances dépassées.
-- Une vue des dernières activités.
-- Des états de chargement, d'erreur et d'absence de données.
-- Une navigation vers les détails des demandes.
+- Summary cards.
+- Charts showing the breakdown by status.
+- The evolution of requests over time.
+- Filterable and paginated tables.
+- Alerts on overdue due dates.
+- A view of the latest activities.
+- Loading, error and no-data states.
+- Navigation to request details.
 
-Privilégier une bibliothèque de graphiques déjà installée. Si aucune n'existe, évaluer Recharts avant de l'ajouter.
+Prefer a chart library that is already installed. If none exists, evaluate Recharts before adding it.
 
-Réutiliser les composants UI existants. Ne pas installer de nouvelles dépendances sans expliquer leur utilité et vérifier leur compatibilité.
+Reuse the existing UI components. Do not install new dependencies without explaining their purpose and checking their compatibility.
 
-## 8. Temps réel
+## 8. Real time
 
-Inspecter le système de notifications et de messagerie existant.
+Inspect the existing notification and messaging system.
 
-S'il utilise déjà WebSocket ou Socket.IO, étudier la possibilité de réutiliser ce mécanisme pour actualiser les indicateurs.
+If it already uses WebSocket or Socket.IO, consider reusing that mechanism to refresh the indicators.
 
-Sinon, comparer les solutions adaptées au besoin réel :
-- Actualisation périodique.
+Otherwise, compare the solutions suited to the real need:
+- Periodic refresh.
 - Server-Sent Events.
 - WebSocket.
 
-Ne pas introduire une seconde infrastructure temps réel si le mécanisme existant répond déjà au besoin.
+Do not introduce a second real-time infrastructure if the existing mechanism already meets the need.
 
-Prévoir une actualisation cohérente des statistiques après les événements pertinents, sans dupliquer les demandes ni compter plusieurs fois une même transition.
+Provide a consistent refresh of the statistics after the relevant events, without duplicating requests or counting the same transition several times.
 
-## 9. Tests obligatoires
+## 9. Mandatory tests
 
-Prévoir des tests adaptés au projet :
+Provide tests suited to the project:
 
-### Tests métier
-- Chaque demande appartient au bon statut.
-- Les transitions de statut ne provoquent pas de double comptage.
-- Les demandes urgentes respectent la définition du délai.
-- Les demandes en retard sont identifiées correctement.
-- Les moyennes excluent ou incluent les données selon une règle explicitée.
-- Les filtres et les périodes produisent des résultats cohérents.
+### Business tests
+- Each request belongs to the right status.
+- Status transitions do not cause double counting.
+- Urgent requests respect the definition of the deadline.
+- Delayed requests are identified correctly.
+- Averages exclude or include data according to an explicit rule.
+- Filters and periods produce consistent results.
 
-### Tests de sécurité
-- Le Super Admin autorisé peut consulter le dashboard.
-- Un employé ordinaire ne peut pas accéder aux endpoints administratifs.
-- Un utilisateur non authentifié est refusé.
-- Les données privées ne sont pas renvoyées sans autorisation.
+### Security tests
+- The authorized Super Admin can view the dashboard.
+- An ordinary employee cannot access the administrative endpoints.
+- An unauthenticated user is refused.
+- Private data is not returned without authorization.
 
-### Tests d'interface et d'intégration
-- Les cartes affichent les données de l'API.
-- Les filtres fonctionnent.
-- Les états de chargement et d'erreur sont gérés.
-- Les changements de données actualisent correctement les indicateurs.
-- Les fonctionnalités existantes restent opérationnelles.
+### Interface and integration tests
+- The cards display the API data.
+- The filters work.
+- Loading and error states are handled.
+- Data changes correctly refresh the indicators.
+- Existing features remain operational.
 
-Utiliser les outils de test déjà présents dans le projet avant d'en ajouter d'autres.
+Use the test tools already present in the project before adding others.
 
-## 10. Format du compte rendu
+## 10. Report format
 
-En mode analyse, fournir :
+In analysis mode, provide:
 
-1. Résumé de l'architecture observée.
-2. Fichiers et modules concernés.
-3. Données disponibles et manquantes.
-4. Définition des indicateurs et règles métier.
-5. Proposition d'interface.
-6. Proposition d'API et d'actualisation.
-7. Risques de sécurité et de performance.
-8. Plan d'implémentation par étapes.
-9. Plan de tests.
-10. Questions bloquantes et décisions attendues.
+1. Summary of the observed architecture.
+2. Files and modules concerned.
+3. Available and missing data.
+4. Definition of the indicators and business rules.
+5. Interface proposal.
+6. API and refresh proposal.
+7. Security and performance risks.
+8. Step-by-step implementation plan.
+9. Test plan.
+10. Blocking questions and decisions expected.
 
-En mode implémentation, fournir :
+In implementation mode, provide:
 
-1. Modifications réalisées.
-2. Fichiers créés ou modifiés.
-3. Fonctionnalités implémentées.
-4. Tests réellement exécutés et résultats.
-5. Points non terminés et risques restants.
+1. Changes made.
+2. Files created or modified.
+3. Features implemented.
+4. Tests actually run and results.
+5. Unfinished items and remaining risks.
 
-Toujours privilégier une solution simple, maintenable, sécurisée et adaptée à l'architecture existante.
+Always favor a solution that is simple, maintainable, secure and suited to the existing architecture.

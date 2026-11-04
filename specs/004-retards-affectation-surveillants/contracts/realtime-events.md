@@ -1,37 +1,38 @@
-# Contrat temps réel et notifications — 004
+# Real-time and notifications contract — 004
 
-Mécanisme inchangé : notification écrite dans la transaction (`notifyInTx`), publiée après commit
-sur Socket.IO (`notification:new`, salle par utilisateur) ; l'auteur d'une action n'est jamais
-notifié. Aucun canal externe. Événements de rafraîchissement : `coverage:updated` (inchangé) ;
-`coverage:taken` n'est plus émis (plus de diffusion).
+Mechanism unchanged: notification written inside the transaction (`notifyInTx`), published after
+commit over Socket.IO (`notification:new`, per-user room); the author of an action is never
+notified. No external channel. Refresh events: `coverage:updated` (unchanged);
+`coverage:taken` is no longer emitted (no more broadcast).
 
-« Admins » = utilisateurs actifs de rôle `ADMIN` ; à défaut d'admin actif, les super
-administrateurs. « SA » = super administrateurs actifs.
+"Admins" = active users with the `ADMIN` role; if no admin is active, the super
+administrators. "SA" = active super administrators.
 
-| Événement métier | Type | Priorité | Destinataires |
+| Business event | Type | Priority | Recipients |
 | --- | --- | --- | --- |
-| Demande d'enseignant créée | `COVERAGE_REQUESTED` | demande | admins |
-| Demande modifiée (en attente) | `COVERAGE_UPDATED` | demande | admins |
-| Demande retirée par l'enseignant | `CANCELLED` | demande | admins |
-| Classe vide déclarée | `COVERAGE_EMPTY_CLASS` | **URGENT** | admins |
-| Assignation / réassignation | `ASSIGNED` | demande | surveillant assigné ; enseignant auteur |
-| Affectation levée (annulation, réassignation) | `COVERAGE_LIFTED` | demande | ancien surveillant |
-| Annulation par l'admin | `CANCELLED` | demande | enseignant auteur, surveillant |
-| Délai de prise en charge expiré | `COVERAGE_TAKEOVER_EXPIRED` | **URGENT** | admins |
-| Escalade (prise en charge, renfort, clôture) | `COVERAGE_ESCALATED` | **URGENT** | SA |
-| Rappel de 7 h 00 | `COVERAGE_MORNING_REMINDER` | demande | admins |
-| Rappel de clôture | `COVERAGE_CLOSE_REMINDER` | demande | surveillant, puis admins |
-| Doublon (déjà assignée, rattachement, proposition) | `COVERAGE_DUPLICATE` | demande | admins ; le déclarant reçoit la réponse synchrone |
-| Rappel de décision sur un renfort | `COVERAGE_SUPPORT_REMINDER` | **URGENT** | admins |
-| Surveillant avec deux affectations actives | `COVERAGE_DOUBLE_ASSIGNMENT` | **URGENT** | admins |
-| Présence confirmée, relève, retard d'arrivée, prolongation, relevé | types existants | inchangé | admins à la place des responsables de catégorie |
-| Non pourvue | `COVERAGE_UNFILLED` (existant) | demande | admins, enseignant auteur |
+| Teacher request created | `COVERAGE_REQUESTED` | request | admins |
+| Request modified (pending) | `COVERAGE_UPDATED` | request | admins |
+| Request withdrawn by the teacher | `CANCELLED` | request | admins |
+| Empty class reported | `COVERAGE_EMPTY_CLASS` | **URGENT** | admins |
+| Assignment / reassignment | `ASSIGNED` | request | assigned supervisor; teacher author |
+| Assignment lifted (cancellation, reassignment) | `COVERAGE_LIFTED` | request | former supervisor |
+| Cancellation by the admin | `CANCELLED` | request | teacher author, supervisor |
+| Pick-up deadline expired | `COVERAGE_TAKEOVER_EXPIRED` | **URGENT** | admins |
+| Escalation (pick-up, backup, closing) | `COVERAGE_ESCALATED` | **URGENT** | SA |
+| 7:00 reminder | `COVERAGE_MORNING_REMINDER` | request | admins |
+| Closing reminder | `COVERAGE_CLOSE_REMINDER` | request | supervisor, then admins |
+| Duplicate (already assigned, attachment, proposal) | `COVERAGE_DUPLICATE` | request | admins; the reporter gets the synchronous response |
+| Decision reminder on a backup | `COVERAGE_SUPPORT_REMINDER` | **URGENT** | admins |
+| Supervisor with two active assignments | `COVERAGE_DOUBLE_ASSIGNMENT` | **URGENT** | admins |
+| Presence confirmed, handover, late arrival, extension, release | existing types | unchanged | admins instead of category managers |
+| Unfilled | `COVERAGE_UNFILLED` (existing) | request | admins, teacher author |
 
-Note : l'enseignant auteur est notifié de l'assignation et de la réassignation (FR-017a) : classe, créneau, nom du surveillant.
+Note: the teacher author is notified of the assignment and the reassignment (FR-017a): class, time
+slot, supervisor name.
 
-## Mise en évidence (FR-024a)
+## Highlighting (FR-024a)
 
-`priority = URGENT` déclenche dans `NotificationCenter` (existant) : fond et libellé « Urgent »,
-région `aria-live="assertive"`, Snackbar persistant `role="alert"`. Ajout : signal sonore court
-(Web Audio API), **facultatif** (préférence locale, désactivable), joué seulement après une
-interaction de l'utilisateur ; jamais seul porteur de l'information.
+`priority = URGENT` triggers in `NotificationCenter` (existing): background and "Urgent" label,
+`aria-live="assertive"` region, persistent `role="alert"` Snackbar. Addition: a short sound signal
+(Web Audio API), **optional** (local preference, can be turned off), played only after a user
+interaction; never the sole carrier of the information.
