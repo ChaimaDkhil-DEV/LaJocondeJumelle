@@ -18,6 +18,7 @@ import { UserAvatar } from '../../components/UserAvatar';
 import { font, fontSize, icon, tokensOf } from '../../design/tokens';
 import { resetAvatar, uploadAvatar } from './avatarApi';
 import { centeredCrop, clampCrop, MAX_ZOOM, MIN_ZOOM, renderCrop, renderUri, validateFile, zoomCrop, type Crop } from './cropImage';
+import { t } from '../../i18n';
 
 /** Côté de la zone de recadrage affichée, en px. */
 const VIEW = 240;
@@ -90,7 +91,7 @@ export function AvatarDialog({ open, user, onClose }: AvatarDialogProps) {
       setPending({ kind: 'file', url, image, crop: centeredCrop(image.naturalWidth, image.naturalHeight, VIEW) });
     } catch {
       URL.revokeObjectURL(url);
-      setError('Cette image est illisible ou endommagée. Choisissez une autre photo.');
+      setError(t('Cette image est illisible ou endommagée. Choisissez une autre photo.'));
     }
   }
 
@@ -138,16 +139,16 @@ export function AvatarDialog({ open, user, onClose }: AvatarDialogProps) {
     try {
       if (pending.kind === 'reset') {
         await resetAvatar(user.id);
-        toast.success('Avatar par défaut rétabli.');
+        toast.success(t('Avatar par défaut rétabli.'));
       } else if (pending.kind === 'file' || pending.kind === 'preset') {
         const image = pending.kind === 'file' ? await renderCrop(pending.image, pending.crop, VIEW) : await renderUri(illustrationUri(pending.seed));
         await uploadAvatar(user.id, image);
-        toast.success('Photo mise à jour.');
+        toast.success(t('Photo mise à jour.'));
       }
       setPending({ kind: 'none' });
       onClose();
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : caught instanceof Error && caught.message.startsWith('Votre navigateur') ? caught.message : 'La photo n’a pas pu être enregistrée. Réessayez.');
+      setError(caught instanceof ApiError ? caught.message : caught instanceof Error && caught.message === t('Votre navigateur ne permet pas de préparer l’image.') ? caught.message : t('La photo n’a pas pu être enregistrée. Réessayez.'));
     } finally {
       setSaving(false);
     }
@@ -159,7 +160,7 @@ export function AvatarDialog({ open, user, onClose }: AvatarDialogProps) {
 
   return (
     <Dialog open={open} onClose={close} aria-labelledby={titleId} fullWidth maxWidth="sm">
-      <DialogTitle id={titleId}>Changer la photo</DialogTitle>
+      <DialogTitle id={titleId}>{t('Changer la photo')}</DialogTitle>
       <DialogContent sx={{ display: 'grid', gap: 2.5 }}>
         {error && (
           <Alert severity="error" role="alert">
@@ -172,7 +173,7 @@ export function AvatarDialog({ open, user, onClose }: AvatarDialogProps) {
             {/* Zone de recadrage : glisser (souris, toucher) ou flèches ; cercle = partie conservée. */}
             <Box
               role="group"
-              aria-label="Recadrage de la photo : glissez ou utilisez les flèches pour déplacer, + et − pour zoomer"
+              aria-label={t('Recadrage de la photo : glissez ou utilisez les flèches pour déplacer, + et − pour zoomer')}
               tabIndex={0}
               onPointerDown={onPointerDown}
               onPointerMove={onPointerMove}
@@ -217,13 +218,13 @@ export function AvatarDialog({ open, user, onClose }: AvatarDialogProps) {
                 max={MAX_ZOOM}
                 step={0.05}
                 value={pending.crop.zoom}
-                aria-label="Zoom"
-                getAriaValueText={(v) => `${Math.round(v * 100)} %`}
+                aria-label={t('Zoom')}
+                getAriaValueText={(v) => t('{percent} %', { percent: Math.round(v * 100) })}
                 onChange={(_e, value) => updateCrop((crop, image) => zoomCrop(crop, value as number, image.naturalWidth, image.naturalHeight, VIEW))}
               />
             </Box>
             <Button size="small" onClick={() => inputRef.current?.click()}>
-              Choisir une autre photo
+              {t('Choisir une autre photo')}
             </Button>
           </Box>
         ) : (
@@ -252,10 +253,10 @@ export function AvatarDialog({ open, user, onClose }: AvatarDialogProps) {
               }}
             >
               <Button variant="outlined" startIcon={<ImageUp size={icon.sm} aria-hidden="true" />} onClick={() => inputRef.current?.click()}>
-                Téléverser une photo
+                {t('Téléverser une photo')}
               </Button>
               <Typography variant="body2" color="text.secondary">
-                ou glissez-la ici. JPG, PNG ou WebP, 2 Mo maximum.
+                {t('ou glissez-la ici. JPG, PNG ou WebP, 2 Mo maximum.')}
               </Typography>
             </Box>
           </Box>
@@ -265,7 +266,7 @@ export function AvatarDialog({ open, user, onClose }: AvatarDialogProps) {
           type="file"
           accept="image/jpeg,image/png,image/webp"
           hidden
-          aria-label="Photo de profil"
+          aria-label={t('Photo de profil')}
           onChange={(e) => {
             void choose(e.target.files?.[0]);
             e.target.value = '';
@@ -274,7 +275,7 @@ export function AvatarDialog({ open, user, onClose }: AvatarDialogProps) {
 
         <Box component="fieldset" sx={{ border: 0, m: 0, p: 0, minWidth: 0 }}>
           <Typography component="legend" sx={{ fontSize: fontSize.sm, fontWeight: font.medium, mb: 1 }}>
-            Ou choisissez un avatar
+            {t('Ou choisissez un avatar')}
           </Typography>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
             {PRESETS.map((seed) => {
@@ -283,7 +284,7 @@ export function AvatarDialog({ open, user, onClose }: AvatarDialogProps) {
                 <ButtonBase
                   key={seed}
                   aria-pressed={selected}
-                  aria-label={`Avatar « ${seed} »`}
+                  aria-label={t('Avatar « {seed} »', { seed })}
                   onClick={() => {
                     setError(null);
                     setPending(selected ? { kind: 'none' } : { kind: 'preset', seed });
@@ -316,17 +317,17 @@ export function AvatarDialog({ open, user, onClose }: AvatarDialogProps) {
               }}
               sx={(theme) => ({ color: tokensOf(theme).textSecondary })}
             >
-              Rétablir l’avatar par défaut
+              {t('Rétablir l’avatar par défaut')}
             </Button>
           </Box>
         )}
       </DialogContent>
       <DialogActions>
         <Button onClick={close} disabled={saving}>
-          Annuler
+          {t('Annuler')}
         </Button>
         <Button variant="contained" loading={saving} disabled={pending.kind === 'none'} onClick={() => void save()}>
-          Enregistrer
+          {t('Enregistrer')}
         </Button>
       </DialogActions>
     </Dialog>

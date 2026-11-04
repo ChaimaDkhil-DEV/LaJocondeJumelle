@@ -14,6 +14,7 @@ import { LoadingState } from '../../components/LoadingState';
 import { SectionHeader } from '../../components/SectionHeader';
 import { UserAvatar } from '../../components/UserAvatar';
 import { font, fontSize, tokensOf } from '../../design/tokens';
+import { t } from '../../i18n';
 import { useAdminUsers, useAuditLog, type AuditEntry, type AuditFilters } from './api';
 import { AUDIT_ACTION_LABELS, auditEntryLabel } from './labels';
 
@@ -28,8 +29,8 @@ function formatValue(value: unknown): string {
 /** Détails techniques (liste blanche côté serveur : aucun secret ni contenu de message). */
 function DetailsSummary({ entry }: { entry: AuditEntry }) {
   const parts = Object.entries(entry.details ?? {}).map(([key, value]) => `${key} : ${formatValue(value)}`);
-  if (entry.targetType) parts.unshift(`cible : ${entry.targetType}${entry.targetId ? ` ${entry.targetId}` : ''}`);
-  if (entry.ip) parts.push(`IP : ${entry.ip}`);
+  if (entry.targetType) parts.unshift(t('cible : {target}', { target: `${entry.targetType}${entry.targetId ? ` ${entry.targetId}` : ''}` }));
+  if (entry.ip) parts.push(t('IP : {ip}', { ip: entry.ip }));
   if (parts.length === 0) return null;
   return (
     <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5, overflowWrap: 'anywhere', fontFamily: 'ui-monospace, SFMono-Regular, Consolas, monospace', fontSize: fontSize.xs }}>
@@ -50,8 +51,8 @@ export function AuditLogPage() {
     <Box component="section" aria-labelledby="titre-journal">
       <SectionHeader
         id="titre-journal"
-        title="Journal d’audit"
-        description="Consultation seule : les entrées ne peuvent être ni modifiées ni supprimées."
+        title={t('Journal d’audit')}
+        description={t('Consultation seule : les entrées ne peuvent être ni modifiées ni supprimées.')}
       />
 
       <Paper
@@ -61,21 +62,21 @@ export function AuditLogPage() {
         <TextField
           select
           id="journal-auteur"
-          label="Auteur"
+          label={t('Auteur')}
           size="small"
           value={filters.actorId}
           onChange={(e) => set({ actorId: e.target.value })}
           slotProps={{ input: fieldIcon(UserRound) }}
         >
-          <MenuItem value="">Tous</MenuItem>
+          <MenuItem value="">{t('Tous')}</MenuItem>
           {(users.data ?? []).map((u) => (
             <MenuItem key={u.id} value={u.id}>
               {u.displayName}
             </MenuItem>
           ))}
         </TextField>
-        <TextField select id="journal-action" label="Action" size="small" value={filters.action} onChange={(e) => set({ action: e.target.value })}>
-          <MenuItem value="">Toutes</MenuItem>
+        <TextField select id="journal-action" label={t('Action')} size="small" value={filters.action} onChange={(e) => set({ action: e.target.value })}>
+          <MenuItem value="">{t('Toutes')}</MenuItem>
           {Object.entries(AUDIT_ACTION_LABELS).map(([action, label]) => (
             <MenuItem key={action} value={action}>
               {label}
@@ -84,7 +85,7 @@ export function AuditLogPage() {
         </TextField>
         <TextField
           id="journal-du"
-          label="Du"
+          label={t('Du')}
           type="date"
           size="small"
           value={filters.from}
@@ -92,7 +93,7 @@ export function AuditLogPage() {
         />
         <TextField
           id="journal-au"
-          label="Au"
+          label={t('Au')}
           type="date"
           size="small"
           value={filters.to}
@@ -101,19 +102,19 @@ export function AuditLogPage() {
       </Paper>
 
       {audit.isPending ? (
-        <LoadingState label="Chargement du journal" />
+        <LoadingState label={t('Chargement du journal')} />
       ) : audit.error ? (
-        <ErrorState message="Impossible de charger le journal d’audit." actionLabel="Réessayer" onAction={() => void audit.refetch()} />
+        <ErrorState message={t('Impossible de charger le journal d’audit.')} actionLabel={t('Réessayer')} onAction={() => void audit.refetch()} />
       ) : entries.length === 0 ? (
         <Paper variant="outlined">
-          <EmptyState icon={SearchX} title="Aucune entrée" description="Aucune entrée ne correspond à ces filtres." />
+          <EmptyState icon={SearchX} title={t('Aucune entrée')} description={t('Aucune entrée ne correspond à ces filtres.')} />
         </Paper>
       ) : (
         <>
           <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
             <Box
               component="ul"
-              aria-label="Entrées du journal"
+              aria-label={t('Entrées du journal')}
               sx={{ listStyle: 'none', m: 0, p: 0, '& > li + li': { borderTop: 1, borderColor: 'divider' } }}
             >
               {entries.map((entry) => (
@@ -143,7 +144,7 @@ export function AuditLogPage() {
                       {auditEntryLabel(entry.action, entry.details)}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      {entry.actor ? entry.actor.displayName : 'Anonyme'} · <time dateTime={entry.createdAt}>{formatDateTime(entry.createdAt)}</time>
+                      {entry.actor ? entry.actor.displayName : t('Anonyme')} · <time dateTime={entry.createdAt}>{formatDateTime(entry.createdAt)}</time>
                     </Typography>
                     <DetailsSummary entry={entry} />
                   </Box>
@@ -154,7 +155,7 @@ export function AuditLogPage() {
           {audit.hasNextPage && (
             <Box sx={{ mt: 2, textAlign: 'center' }}>
               <Button variant="outlined" loading={audit.isFetchingNextPage} onClick={() => void audit.fetchNextPage()}>
-                Afficher plus d’entrées
+                {t('Afficher plus d’entrées')}
               </Button>
             </Box>
           )}

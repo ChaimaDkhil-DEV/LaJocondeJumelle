@@ -25,6 +25,7 @@ import { useCoverageProfile, useCreateCoverage, useFormOptions } from './api';
 import { TYPE_LABELS, UNAVAILABLE_REASONS } from './labels';
 import { schoolDateTime } from './schoolTime';
 import type { Candidate, CoverageType } from './types';
+import { t } from '../../i18n';
 
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -54,14 +55,14 @@ function slotOf(v: Values, timeZone: string): { startAt: string; endAt: string }
 
 function validate(v: Values, candidates: Candidate[] | undefined): Record<string, string> {
   const errors: Record<string, string> = {};
-  if (!v.classId) errors.classId = 'Choisissez la classe.';
-  if (!DATE.test(v.date)) errors.date = 'Indiquez la date.';
-  if (!TIME.test(v.startTime.trim())) errors.startAt = 'Indiquez l’heure de début.';
-  if (!TIME.test(v.endTime.trim())) errors.endAt = 'Indiquez l’heure de fin.';
+  if (!v.classId) errors.classId = t('Choisissez la classe.');
+  if (!DATE.test(v.date)) errors.date = t('Indiquez la date.');
+  if (!TIME.test(v.startTime.trim())) errors.startAt = t('Indiquez l’heure de début.');
+  if (!TIME.test(v.endTime.trim())) errors.endAt = t('Indiquez l’heure de fin.');
   else if (!errors.startAt && v.endTime.trim() <= v.startTime.trim())
-    errors.endAt = 'L’heure de fin doit suivre l’heure de début.';
+    errors.endAt = t('L’heure de fin doit suivre l’heure de début.');
   if (!candidates?.some((c) => c.id === v.assigneeId && c.available))
-    errors.assigneeId = 'Choisissez un surveillant disponible.';
+    errors.assigneeId = t('Choisissez un surveillant disponible.');
   return errors;
 }
 
@@ -74,12 +75,12 @@ export function CreateCoveragePage() {
   const options = useFormOptions();
   const profile = useCoverageProfile();
   if (options.isPending || profile.isPending)
-    return <LoadingState label="Chargement du formulaire" variant="detail" />;
+    return <LoadingState label={t('Chargement du formulaire')} variant="detail" />;
   if (options.error || profile.error) {
     return (
       <ErrorState
-        message="Impossible de charger le formulaire."
-        actionLabel="Réessayer"
+        message={t('Impossible de charger le formulaire.')}
+        actionLabel={t('Réessayer')}
         onAction={() => void options.refetch()}
       />
     );
@@ -144,7 +145,7 @@ function CreateForm({
       },
       {
         onSuccess: (detail) => {
-          toast.success('Affectation créée : le surveillant est prévenu.');
+          toast.success(t('Affectation créée : le surveillant est prévenu.'));
           navigate(`/gardes/${detail.id}`);
         },
         onError: (error) => setErrors(fieldErrors(error)),
@@ -156,21 +157,21 @@ function CreateForm({
     create.error && !(create.error instanceof ApiError && create.error.code === 'VALIDATION_ERROR')
       ? create.error instanceof ApiError
         ? create.error.message
-        : 'Création impossible. Réessayez.'
+        : t('Création impossible. Réessayez.')
       : null;
 
   return (
     <>
       <PageHeader
-        title="Nouvelle affectation"
-        description="Pour un retard ou une absence connus hors application : l’affectation est créée « assignée » et le surveillant est prévenu."
-        back={{ to: '/gardes', label: 'Gardes' }}
+        title={t('Nouvelle affectation')}
+        description={t('Pour un retard ou une absence connus hors application : l’affectation est créée « assignée » et le surveillant est prévenu.')}
+        back={{ to: '/gardes', label: t('Gardes') }}
       />
       <SectionCard component="form" noValidate onSubmit={submit} contentGap={2.5}>
         <TextField
           select
           id="affectation-classe"
-          label="Classe"
+          label={t('Classe')}
           required
           value={values.classId}
           onChange={(e) => set({ classId: e.target.value, assigneeId: '' })}
@@ -186,7 +187,7 @@ function CreateForm({
 
         <FormControl component="fieldset">
           <FormLabel component="legend" id={ids.type}>
-            Type
+            {t('Type')}
           </FormLabel>
           <RadioGroup
             row
@@ -203,13 +204,13 @@ function CreateForm({
         <TextField
           select
           id="affectation-enseignant"
-          label="Enseignant (facultatif)"
+          label={t('Enseignant (facultatif)')}
           value={values.teacherId}
           onChange={(e) => set({ teacherId: e.target.value })}
           error={Boolean(errors.teacherId)}
           helperText={errors.teacherId ?? ' '}
         >
-          <MenuItem value={NO_TEACHER}>Non précisé</MenuItem>
+          <MenuItem value={NO_TEACHER}>{t('Non précisé')}</MenuItem>
           {options.teachers.map((t) => (
             <MenuItem key={t.id} value={t.id}>
               {t.displayName}
@@ -226,7 +227,7 @@ function CreateForm({
         >
           <TextField
             id="affectation-date"
-            label="Date"
+            label={t('Date')}
             type="date"
             required
             value={values.date}
@@ -237,7 +238,7 @@ function CreateForm({
           />
           <TextField
             id="affectation-debut"
-            label="Heure de début (HH:MM)"
+            label={t('Heure de début (HH:MM)')}
             required
             value={values.startTime}
             onChange={(e) => set({ startTime: e.target.value, assigneeId: '' })}
@@ -247,7 +248,7 @@ function CreateForm({
           />
           <TextField
             id="affectation-fin"
-            label="Heure de fin (HH:MM)"
+            label={t('Heure de fin (HH:MM)')}
             required
             value={values.endTime}
             onChange={(e) => set({ endTime: e.target.value, assigneeId: '' })}
@@ -259,18 +260,18 @@ function CreateForm({
 
         <FormControl component="fieldset" error={Boolean(errors.assigneeId)} required>
           <FormLabel component="legend" id={ids.assignee}>
-            Surveillant
+            {t('Surveillant')}
           </FormLabel>
           {!values.classId || !slot ? (
             <Typography variant="body2" color="text.secondary">
-              Choisissez la classe et le créneau pour voir les surveillants disponibles.
+              {t('Choisissez la classe et le créneau pour voir les surveillants disponibles.')}
             </Typography>
           ) : candidates.isPending ? (
-            <LoadingState label="Chargement des surveillants" variant="inline" />
+            <LoadingState label={t('Chargement des surveillants')} variant="inline" />
           ) : candidates.error ? (
-            <Alert severity="error">Impossible de charger les surveillants.</Alert>
+            <Alert severity="error">{t('Impossible de charger les surveillants.')}</Alert>
           ) : candidates.data.length === 0 ? (
-            <Alert severity="info">Aucun surveillant dans le groupe Surveillants.</Alert>
+            <Alert severity="info">{t('Aucun surveillant dans le groupe Surveillants.')}</Alert>
           ) : (
             <RadioGroup
               aria-labelledby={ids.assignee}
@@ -287,8 +288,8 @@ function CreateForm({
                   control={<Radio />}
                   label={[
                     c.displayName,
-                    c.floor?.name ?? 'sans étage',
-                    c.available ? 'Disponible' : UNAVAILABLE_REASONS[c.reason ?? 'UNAVAILABLE'],
+                    c.floor?.name ?? t('sans étage'),
+                    c.available ? t('Disponible') : UNAVAILABLE_REASONS[c.reason ?? 'UNAVAILABLE'],
                   ].join(' · ')}
                   sx={{ minHeight: 40 }}
                 />
@@ -302,20 +303,20 @@ function CreateForm({
 
         <TextField
           id="affectation-motif"
-          label="Motif (facultatif)"
+          label={t('Motif (facultatif)')}
           multiline
           minRows={2}
           value={values.reason}
           onChange={(e) => set({ reason: e.target.value })}
           error={Boolean(errors.reason)}
           helperText={
-            errors.reason ?? 'Visible des admins seulement. Le surveillant ne le voit pas.'
+            errors.reason ?? t('Visible des admins seulement. Le surveillant ne le voit pas.')
           }
           slotProps={{ htmlInput: { maxLength: 1000 } }}
         />
         <TextField
           id="affectation-consigne"
-          label="Consigne pour le surveillant (facultatif)"
+          label={t('Consigne pour le surveillant (facultatif)')}
           multiline
           minRows={2}
           value={values.note}
@@ -338,7 +339,7 @@ function CreateForm({
             loading={create.isPending}
             startIcon={<UserPlus size={icon.md} aria-hidden="true" />}
           >
-            Créer l’affectation
+            {t('Créer l’affectation')}
           </Button>
         </Box>
       </SectionCard>

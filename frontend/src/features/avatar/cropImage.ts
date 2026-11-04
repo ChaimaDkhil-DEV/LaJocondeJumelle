@@ -1,3 +1,5 @@
+import { t } from '../../i18n';
+
 /**
  * Recadrage carré d'une photo de profil, sans bibliothèque : géométrie pure (testable) et rendu
  * sur un canvas. L'image couvre toujours toute la zone de recadrage (aucun bord vide).
@@ -21,8 +23,8 @@ export interface Crop {
 
 /** Message d'erreur d'un fichier refusé avant tout envoi ; null s'il est acceptable. */
 export function validateFile(file: { type: string; size: number }): string | null {
-  if (!(ACCEPTED_TYPES as readonly string[]).includes(file.type)) return 'Formats acceptés : JPG, PNG ou WebP.';
-  if (file.size > MAX_BYTES) return 'La photo ne doit pas dépasser 2 Mo.';
+  if (!(ACCEPTED_TYPES as readonly string[]).includes(file.type)) return t('Formats acceptés : JPG, PNG ou WebP.');
+  if (file.size > MAX_BYTES) return t('La photo ne doit pas dépasser 2 Mo.');
   return null;
 }
 
@@ -71,7 +73,7 @@ function canvas(): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D } 
   element.width = OUTPUT_SIZE;
   element.height = OUTPUT_SIZE;
   const ctx = element.getContext('2d');
-  if (!ctx) throw new Error('Votre navigateur ne permet pas de préparer l’image.');
+  if (!ctx) throw new Error(t('Votre navigateur ne permet pas de préparer l’image.'));
   ctx.imageSmoothingQuality = 'high';
   return { canvas: element, ctx };
 }

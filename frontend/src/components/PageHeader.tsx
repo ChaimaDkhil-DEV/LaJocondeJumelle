@@ -5,6 +5,7 @@ import { ArrowLeft, ChevronRight, House } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Link as RouterLink } from 'react-router';
 import { font, fontSize, icon, tokensOf } from '../design/tokens';
+import { t } from '../i18n';
 
 export interface Crumb {
   label: string;
@@ -40,7 +41,7 @@ interface PageHeaderProps {
 /** Fil d'Ariane (WAI-ARIA « breadcrumb ») : liens, puis la page courante (`aria-current`). */
 function Breadcrumb({ items }: { items: Crumb[] }) {
   return (
-    <Box component="nav" aria-label="Fil d’Ariane" sx={{ display: { xs: 'none', sm: 'block' }, minWidth: 0 }}>
+    <Box component="nav" aria-label={t('Fil d’Ariane')} sx={{ display: { xs: 'none', sm: 'block' }, minWidth: 0 }}>
       <Box
         component="ol"
         sx={(theme) => ({
@@ -92,7 +93,7 @@ function Breadcrumb({ items }: { items: Crumb[] }) {
 
 /** En-tête de page : grand titre (h1), sous-titre discret, fil d'Ariane et action principale à droite. */
 export function PageHeader({ title, description, eyebrow, actions, back, breadcrumb, children, titleId, compact = false }: PageHeaderProps) {
-  const crumbs = breadcrumb ?? (typeof title === 'string' ? [{ label: 'Accueil', to: '/' }, { label: title }] : false);
+  const crumbs = breadcrumb ?? (typeof title === 'string' ? [{ label: t('Accueil'), to: '/' }, { label: title }] : false);
   if (compact) {
     return (
       <Box component="header" sx={{ mb: 2.5 }}>

@@ -4,6 +4,7 @@ import Typography from '@mui/material/Typography';
 import type { Priority } from '../../api/types';
 import { PRIORITY_LABELS, PRIORITY_STYLE } from '../../components/PriorityBadge';
 import { font, icon } from '../../design/tokens';
+import { t } from '../../i18n';
 import type { CategoryKind, Circuit, DeadlineRule } from './api';
 import { formatMinutes } from './labels';
 
@@ -16,10 +17,10 @@ export type DeadlineDraft = Record<Priority, Record<Field, string>>;
 export type DeadlineErrors = Partial<Record<`${Priority}.${Field}`, string>>;
 
 const FIELD_LABELS: Record<Field, string> = {
-  validationMinutes: 'Validation administrative (minutes)',
-  takeoverMinutes: 'Prise en charge (minutes)',
-  completionMinutes: 'Réalisation (minutes)',
-  arrivalMinutes: 'Arrivée en classe après acceptation (minutes)',
+  validationMinutes: t('Validation administrative (minutes)'),
+  takeoverMinutes: t('Prise en charge (minutes)'),
+  completionMinutes: t('Réalisation (minutes)'),
+  arrivalMinutes: t('Arrivée en classe après acceptation (minutes)'),
 };
 
 /** Délais saisis selon le type de catégorie et le circuit. */
@@ -29,7 +30,7 @@ function fieldsFor(circuit: Circuit, kind: CategoryKind): Field[] {
 }
 
 const MAX_MINUTES = 525_600;
-const INVALID = 'Au moins 1 minute, ou vide pour aucun délai.';
+const INVALID = t('Au moins 1 minute, ou vide pour aucun délai.');
 
 export function toDraft(rules: DeadlineRule[]): DeadlineDraft {
   const draft = {} as DeadlineDraft;
@@ -122,7 +123,7 @@ export function DeadlineRulesTable({ circuit, kind = 'WORK', value, errors, onCh
                     inputMode="numeric"
                     onChange={(e) => onChange({ ...value, [priority]: { ...value[priority], [field]: e.target.value } })}
                     error={Boolean(error)}
-                    helperText={error ?? (parsed === null ? 'Aucun délai' : parsed !== undefined ? formatMinutes(parsed) : ' ')}
+                    helperText={error ?? (parsed === null ? t('Aucun délai') : parsed !== undefined ? formatMinutes(parsed) : ' ')}
                     slotProps={{ htmlInput: { inputMode: 'numeric', pattern: '[0-9]*' } }}
                   />
                 );

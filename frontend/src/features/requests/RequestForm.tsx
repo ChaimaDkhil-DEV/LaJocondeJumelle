@@ -21,6 +21,7 @@ import { Badge } from '../../components/Badge';
 import { fieldIcon } from '../../components/fieldIcon';
 import { PRIORITY_LABELS, PRIORITY_STYLE } from '../../components/PriorityBadge';
 import { font, fontSize, icon, tokensOf } from '../../design/tokens';
+import { t } from '../../i18n';
 import { VoiceHero } from '../voice/VoiceHero';
 import type { VoiceRecording } from '../voice/VoiceRecorder';
 import { useRecipients } from './api';
@@ -28,7 +29,7 @@ import type { CategoryOption } from './types';
 
 const PRIORITIES: Priority[] = ['NORMAL', 'MEDIUM', 'HIGH', 'URGENT'];
 /** Phrase unique, sous le vocal, pour les champs remplis par les propositions (badge « Suggéré »). */
-export const SUGGESTED_HINT = 'Champs préremplis d’après votre message : vérifiez-les.';
+export const SUGGESTED_HINT = t('Champs préremplis d’après votre message : vérifiez-les.');
 
 type Field = 'categoryId' | 'recipientId' | 'priority' | 'title' | 'content';
 export type RequestFormErrors = Partial<Record<Field, string>>;
@@ -172,17 +173,17 @@ export function useRequestForm(categories: CategoryOption[], initial: RequestFor
     const next: RequestFormErrors =
       kind === 'draft'
         ? {
-            categoryId: categoryId ? undefined : 'Choisissez une catégorie.',
-            title: title.trim() ? undefined : 'Saisissez un titre.',
+            categoryId: categoryId ? undefined : t('Choisissez une catégorie.'),
+            title: title.trim() ? undefined : t('Saisissez un titre.'),
           }
         : {
-            categoryId: categoryId ? undefined : 'Choisissez une catégorie.',
-            recipientId: isCircuitA && !recipientId ? 'Choisissez un destinataire.' : undefined,
-            priority: priority ? undefined : 'Choisissez une priorité.',
-            title: title.trim() ? undefined : 'Saisissez un titre.',
+            categoryId: categoryId ? undefined : t('Choisissez une catégorie.'),
+            recipientId: isCircuitA && !recipientId ? t('Choisissez un destinataire.') : undefined,
+            priority: priority ? undefined : t('Choisissez une priorité.'),
+            title: title.trim() ? undefined : t('Saisissez un titre.'),
             content: hasContent
               ? undefined
-              : 'Enregistrez un message vocal ou écrivez une description.',
+              : t('Enregistrez un message vocal ou écrivez une description.'),
           };
     setErrors(next);
     return !Object.values(next).some(Boolean);
@@ -282,7 +283,7 @@ function SuggestedBadge({ on }: { on: boolean }) {
       aria-hidden="true"
       sx={{ position: 'absolute', top: 0, right: 0, display: 'inline-flex', pointerEvents: 'none' }}
     >
-      <Badge tone="accent">Suggéré</Badge>
+      <Badge tone="accent">{t('Suggéré')}</Badge>
     </Box>
   );
 }
@@ -309,7 +310,8 @@ function recipientLabel(r: {
   jobTitle: string | null;
   availability: string;
 }): string {
-  return `${r.jobTitle ? `${r.displayName} — ${r.jobTitle}` : r.displayName}${r.availability === 'ABSENT' ? ' (absent)' : ''}`;
+  const name = r.jobTitle ? `${r.displayName} — ${r.jobTitle}` : r.displayName;
+  return r.availability === 'ABSENT' ? t('{name} (absent)', { name }) : name;
 }
 
 /**
@@ -367,7 +369,7 @@ export function RequestFields({
         sx={{ display: 'grid', gap: 1, minWidth: 0 }}
       >
         <FormLabel component="legend" sx={visuallyHidden}>
-          Message vocal
+          {t('Message vocal')}
         </FormLabel>
         {voiceSlot ?? (
           <VoiceHero maxSeconds={voiceMaxSeconds} value={form.voice} onChange={form.setVoice} />
@@ -380,13 +382,13 @@ export function RequestFields({
         <SuggestedBadge on={on('title')} />
         <TextField
           id="request-title"
-          label="Titre"
+          label={t('Titre')}
           fullWidth
           value={form.title}
           onChange={(e) => form.setTitle(e.target.value)}
           error={Boolean(errors.title)}
           helperText={errors.title}
-          placeholder="Par exemple : « Photocopies du contrôle de maths »"
+          placeholder={t('Par exemple : « Photocopies du contrôle de maths »')}
           slotProps={{ htmlInput: { maxLength: 120 } }}
           sx={(theme) => suggestedStyle(theme, on('title'))}
         />
@@ -406,7 +408,7 @@ export function RequestFields({
             select
             fullWidth
             id="request-category"
-            label="Catégorie"
+            label={t('Catégorie')}
             value={form.categoryId}
             onChange={(e) => form.setCategoryId(e.target.value)}
             error={Boolean(errors.categoryId)}
@@ -437,8 +439,7 @@ export function RequestFields({
             })}
           >
             <Info size={icon.sm} aria-hidden="true" style={{ flex: 'none', marginTop: 2 }} />
-            Cette demande sera d’abord validée par un admin, qui choisira la personne chargée de la
-            réaliser.
+            {t('Cette demande sera d’abord validée par un admin, qui choisira la personne chargée de la réaliser.')}
           </Box>
         ) : (
           <Box sx={{ position: 'relative' }}>
@@ -449,10 +450,10 @@ export function RequestFields({
               id="request-recipient"
               label={
                 mode === 'PEER'
-                  ? 'Enseignant destinataire'
+                  ? t('Enseignant destinataire')
                   : mode === 'DIRECT'
-                    ? 'Destinataire (service)'
-                    : 'Destinataire'
+                    ? t('Destinataire (service)')
+                    : t('Destinataire')
               }
               // Seules les personnes de la liste autorisée peuvent être affichées et choisies.
               value={form.recipients.some((r) => r.id === form.recipientId) ? form.recipientId : ''}
@@ -460,7 +461,7 @@ export function RequestFields({
               onChange={(e) => form.setRecipientId(e.target.value)}
               error={Boolean(errors.recipientId)}
               helperText={
-                errors.recipientId ?? (!category ? 'Choisissez d’abord une catégorie.' : undefined)
+                errors.recipientId ?? (!category ? t('Choisissez d’abord une catégorie.') : undefined)
               }
               slotProps={{
                 input: fieldIcon(UserRound),
@@ -480,7 +481,7 @@ export function RequestFields({
                               fontWeight: font.medium,
                             })}
                           >
-                            À confirmer
+                            {t('À confirmer')}
                           </Box>
                         );
                       },
@@ -503,8 +504,7 @@ export function RequestFields({
       </Box>
       {form.recipientAbsent && (
         <Alert severity="warning" variant="outlined">
-          Ce collègue est signalé absent : votre demande lui sera bien envoyée, il la lira à son
-          retour.
+          {t('Ce collègue est signalé absent : votre demande lui sera bien envoyée, il la lira à son retour.')}
         </Alert>
       )}
 
@@ -514,7 +514,7 @@ export function RequestFields({
         sx={{ minWidth: 0, position: 'relative' }}
       >
         <FormLabel component="legend" sx={{ mb: 1 }}>
-          Priorité
+          {t('Priorité')}
         </FormLabel>
         <SuggestedBadge on={on('priority')} />
         {/* Boutons segmentés : des boutons radio, pour la navigation au clavier et les lecteurs d'écran. */}
@@ -634,7 +634,7 @@ export function RequestFields({
             }}
             sx={toggleSx}
           >
-            Ajouter une description (facultatif)
+            {t('Ajouter une description (facultatif)')}
           </Button>
           {assist.similar && (
             <Button
@@ -670,7 +670,7 @@ export function RequestFields({
         >
           <TextField
             id="request-description"
-            label="Description (facultative)"
+            label={t('Description (facultative)')}
             fullWidth
             value={form.description}
             onChange={(e) => form.setDescription(e.target.value)}

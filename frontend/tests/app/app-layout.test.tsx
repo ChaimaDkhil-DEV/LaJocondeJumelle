@@ -99,6 +99,19 @@ describe('AppLayout — lien du bloc profil (spec 005, FR-001)', () => {
     expect(await screen.findByRole('heading', { name: 'Page profil' })).toBeVisible();
   });
 
+  it('desktop : le choix de la langue est visible dans la barre latérale', async () => {
+    renderLayout('/', true);
+    await profileLink();
+    expect(screen.getByRole('group', { name: 'Langue' })).toBeVisible();
+  });
+
+  it('mobile : le choix de la langue est dans le tiroir du menu', async () => {
+    renderLayout('/', false);
+    await userEvent.click(await screen.findByRole('button', { name: 'Ouvrir le menu' }));
+    const drawer = await screen.findByRole('presentation');
+    expect(within(drawer).getByRole('group', { name: 'Langue' })).toBeVisible();
+  });
+
   it('marque le lien comme page courante sur /profil', async () => {
     renderLayout('/profil', true);
     expect(await profileLink()).toHaveAttribute('aria-current', 'page');

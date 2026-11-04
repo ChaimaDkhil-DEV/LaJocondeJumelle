@@ -12,6 +12,7 @@ import { LoadingState } from '../../components/LoadingState';
 import { PageHeader } from '../../components/PageHeader';
 import { useToast } from '../../components/Toast';
 import { tokensOf } from '../../design/tokens';
+import { t } from '../../i18n';
 import { AssistNote, similarRequestsSlot, useAssist } from '../assist/AssistPanel';
 import { saveToOutbox } from '../outbox/outbox';
 import { useClientSettings } from '../../api/settings';
@@ -35,21 +36,21 @@ const SEND_BAR_SPACE = 88;
 const header = (
   <PageHeader
     compact
-    title="Nouvelle demande"
-    description="Parlez, on remplit le reste."
-    back={{ to: '/demandes', label: 'Retour aux demandes' }}
+    title={t('Nouvelle demande')}
+    description={t('Parlez, on remplit le reste.')}
+    back={{ to: '/demandes', label: t('Retour aux demandes') }}
   />
 );
 
 export function CreateRequestPage() {
   const categories = useCategories();
 
-  if (categories.isPending) return <LoadingState label="Chargement du formulaire" variant="form" />;
+  if (categories.isPending) return <LoadingState label={t('Chargement du formulaire')} variant="form" />;
   if (categories.error) {
     return (
       <ErrorState
-        message="Impossible de charger les catégories."
-        actionLabel="Réessayer"
+        message={t('Impossible de charger les catégories.')}
+        actionLabel={t('Réessayer')}
         onAction={() => void categories.refetch()}
       />
     );
@@ -90,7 +91,7 @@ function CreateRequestForm({ categories }: { categories: CategoryOption[] }) {
     try {
       const created = await submitRequest(input);
       await queryClient.invalidateQueries({ queryKey: requestKeys.all });
-      toast.success('Votre demande a été envoyée.');
+      toast.success(t('Votre demande a été envoyée.'));
       navigate(`/demandes/${created.id}`);
     } catch (error) {
       if (isRetryableError(error)) {
@@ -99,16 +100,17 @@ function CreateRequestForm({ categories }: { categories: CategoryOption[] }) {
           savedAt: new Date().toISOString(),
           payload: input,
           categoryName: category.name,
-          lastError: error instanceof ApiError ? error.message : 'Envoi impossible.',
+          lastError: error instanceof ApiError ? error.message : t('Envoi impossible.'),
         });
         await queryClient.invalidateQueries({ queryKey: OUTBOX_KEY });
         setSubmitError(
-          'Votre demande n’a pas pu être envoyée (connexion impossible). Elle est conservée dans la boîte d’envoi : ' +
-            'vous pourrez la renvoyer sans la ressaisir depuis la liste des demandes.',
+          t(
+            'Votre demande n’a pas pu être envoyée (connexion impossible). Elle est conservée dans la boîte d’envoi : vous pourrez la renvoyer sans la ressaisir depuis la liste des demandes.',
+          ),
         );
       } else {
         form.applyServerErrors(error);
-        setSubmitError(error instanceof ApiError ? error.message : 'Envoi impossible.');
+        setSubmitError(error instanceof ApiError ? error.message : t('Envoi impossible.'));
       }
     } finally {
       setSubmitting(null);
@@ -138,14 +140,14 @@ function CreateRequestForm({ categories }: { categories: CategoryOption[] }) {
     try {
       const draft = await saveDraft(input);
       await queryClient.invalidateQueries({ queryKey: requestKeys.all });
-      toast.success('Brouillon enregistré.');
+      toast.success(t('Brouillon enregistré.'));
       navigate(`/demandes/${draft.id}/brouillon`);
     } catch (error) {
       form.applyServerErrors(error);
       setSubmitError(
         error instanceof ApiError && !isRetryableError(error)
           ? error.message
-          : 'Le brouillon n’a pas pu être enregistré (connexion impossible). Vos saisies sont conservées : réessayez.',
+          : t('Le brouillon n’a pas pu être enregistré (connexion impossible). Vos saisies sont conservées : réessayez.'),
       );
     } finally {
       setSubmitting(null);
@@ -198,7 +200,7 @@ function CreateRequestForm({ categories }: { categories: CategoryOption[] }) {
                   startIcon={<Send aria-hidden="true" />}
                   sx={{ minHeight: 52 }}
                 >
-                  Envoyer la demande
+                  {t('Envoyer la demande')}
                 </Button>
               </Box>
               {draftsEnabled && (
@@ -211,7 +213,7 @@ function CreateRequestForm({ categories }: { categories: CategoryOption[] }) {
                   onClick={() => void handleSaveDraft()}
                   sx={(theme) => ({ justifySelf: 'center', minHeight: 44, color: tokensOf(theme).textSecondary })}
                 >
-                  Enregistrer en brouillon
+                  {t('Enregistrer en brouillon')}
                 </Button>
               )}
             </Box>

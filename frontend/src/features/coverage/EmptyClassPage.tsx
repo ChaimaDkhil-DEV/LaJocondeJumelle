@@ -20,24 +20,25 @@ import { SectionCard } from '../../components/SectionCard';
 import { icon } from '../../design/tokens';
 import { useCoverageClasses, useCoverageTeachers, useDeclareEmptyClass } from './api';
 import type { EmptyClassResult } from './types';
+import { t } from '../../i18n';
 
 /** « Non précisé » : l'enseignant n'est jamais exigé (FR-015a). */
 const NO_TEACHER = 'none';
 
 /** Message selon l'issue de la déclaration (contracts/rest-api.md, FR-015d à FR-015g). */
 function outcomeMessage(result: EmptyClassResult, className: string): string {
-  const responsible = result.assignedTo?.displayName ?? 'Un surveillant';
+  const responsible = result.assignedTo?.displayName ?? t('Un surveillant');
   switch (result.outcome) {
     case 'CREATED':
-      return `Classe ${className} déclarée vide. L’affectation est à votre nom, en cours : l’admin est prévenue. Restez avec les élèves.`;
+      return t('Classe {className} déclarée vide. L’affectation est à votre nom, en cours : l’admin est prévenue. Restez avec les élèves.', { className });
     case 'ATTACHED':
-      return 'La demande de l’enseignant pour cette classe vous est affectée, en cours. L’admin est prévenue.';
+      return t('La demande de l’enseignant pour cette classe vous est affectée, en cours. L’admin est prévenue.');
     case 'SUPPORT':
-      return `Cette classe est déjà prise en charge par ${responsible}. Vous êtes en renfort jusqu’à la décision de l’admin.`;
+      return t('Cette classe est déjà prise en charge par {responsible}. Vous êtes en renfort jusqu’à la décision de l’admin.', { responsible });
     case 'ALREADY_ASSIGNED':
-      return `${responsible} est déjà assigné(e) à cette classe. L’admin est prévenue et décidera ; vous pouvez reprendre votre tour.`;
+      return t('{responsible} est déjà assigné(e) à cette classe. L’admin est prévenue et décidera ; vous pouvez reprendre votre tour.', { responsible });
     case 'MERGE_PROPOSED':
-      return `Classe ${className} déclarée vide : l’affectation est à votre nom, en cours. Une demande existe déjà pour cette classe : l’admin vérifiera s’il s’agit du même cas.`;
+      return t('Classe {className} déclarée vide : l’affectation est à votre nom, en cours. Une demande existe déjà pour cette classe : l’admin vérifiera s’il s’agit du même cas.', { className });
   }
 }
 
@@ -58,15 +59,15 @@ export function EmptyClassPage() {
   const [teacherId, setTeacherId] = useState(NO_TEACHER);
   const [classError, setClassError] = useState<string | null>(null);
   const [result, setResult] = useState<{ value: EmptyClassResult; className: string } | null>(null);
-  const back = { to: '/gardes?onglet=mes-affectations', label: 'Mes affectations' };
+  const back = { to: '/gardes?onglet=mes-affectations', label: t('Mes affectations') };
 
-  if (classes.isPending) return <LoadingState label="Chargement des classes" variant="detail" />;
-  if (classes.error) return <ErrorState message="Impossible de charger les classes." actionLabel="Réessayer" onAction={() => void classes.refetch()} />;
+  if (classes.isPending) return <LoadingState label={t('Chargement des classes')} variant="detail" />;
+  if (classes.error) return <ErrorState message={t('Impossible de charger les classes.')} actionLabel={t('Réessayer')} onAction={() => void classes.refetch()} />;
 
   function submit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
     if (!classId) {
-      setClassError('Choisissez la classe.');
+      setClassError(t('Choisissez la classe.'));
       return;
     }
     setClassError(null);
@@ -89,41 +90,41 @@ export function EmptyClassPage() {
     const { value, className } = result;
     return (
       <>
-        <PageHeader title="Déclarer une classe vide" back={back} />
+        <PageHeader title={t('Déclarer une classe vide')} back={back} />
         <SectionCard contentGap={2}>
           <Alert severity={value.outcome === 'ALREADY_ASSIGNED' || value.outcome === 'SUPPORT' ? 'info' : 'success'} role="status">
             {outcomeMessage(value, className)}
           </Alert>
           {value.doubleAssignment && (
             <Alert severity="warning">
-              Vous aviez déjà une affectation en cours : l’admin est alertée et réassignera l’une des deux.
+              {t('Vous aviez déjà une affectation en cours : l’admin est alertée et réassignera l’une des deux.')}
             </Alert>
           )}
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
             {value.coverage && (
               <Button component={RouterLink} to={`/gardes/${value.coverage.id}`} variant="contained">
-                Voir l’affectation
+                {t('Voir l’affectation')}
               </Button>
             )}
-            <Button onClick={again}>Déclarer une autre classe</Button>
+            <Button onClick={again}>{t('Déclarer une autre classe')}</Button>
           </Box>
         </SectionCard>
       </>
     );
   }
 
-  const error = declare.error instanceof ApiError ? declare.error.message : declare.error ? 'Déclaration impossible. Réessayez.' : null;
+  const error = declare.error instanceof ApiError ? declare.error.message : declare.error ? t('Déclaration impossible. Réessayez.') : null;
   return (
     <>
       <PageHeader
-        title="Déclarer une classe vide"
-        description="Choisissez la classe sans enseignant, puis déclarez-la : l’affectation est à votre nom et l’admin est prévenue tout de suite."
+        title={t('Déclarer une classe vide')}
+        description={t('Choisissez la classe sans enseignant, puis déclarez-la : l’affectation est à votre nom et l’admin est prévenue tout de suite.')}
         back={back}
       />
       <SectionCard component="form" noValidate onSubmit={submit} contentGap={2.5}>
         <FormControl component="fieldset" error={Boolean(classError)} required>
           <FormLabel component="legend" id={ids.classes}>
-            Classe
+            {t('Classe')}
           </FormLabel>
           <RadioGroup
             aria-labelledby={ids.classes}
@@ -147,12 +148,12 @@ export function EmptyClassPage() {
         <TextField
           select
           id="classe-vide-enseignant"
-          label="Enseignant (facultatif)"
+          label={t('Enseignant (facultatif)')}
           value={teacherId}
           onChange={(e) => setTeacherId(e.target.value)}
-          helperText="Laissez « Non précisé » si vous ne savez pas : cela ne bloque pas la déclaration."
+          helperText={t('Laissez « Non précisé » si vous ne savez pas : cela ne bloque pas la déclaration.')}
         >
-          <MenuItem value={NO_TEACHER}>Non précisé</MenuItem>
+          <MenuItem value={NO_TEACHER}>{t('Non précisé')}</MenuItem>
           {(teachers.data ?? []).map((t) => (
             <MenuItem key={t.id} value={t.id}>
               {t.displayName}
@@ -174,7 +175,7 @@ export function EmptyClassPage() {
             startIcon={<DoorOpen size={icon.md} aria-hidden="true" />}
             sx={{ minHeight: 48 }}
           >
-            Déclarer la classe vide
+            {t('Déclarer la classe vide')}
           </Button>
         </Box>
       </SectionCard>

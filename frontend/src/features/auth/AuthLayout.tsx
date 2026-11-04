@@ -3,6 +3,7 @@ import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import type { ReactNode } from 'react';
 import { AppLogo } from '../../components/AppLogo';
+import { LanguageSwitcher } from '../../components/LanguageSwitcher';
 
 interface AuthLayoutProps {
   title: string;
@@ -44,6 +45,7 @@ export function AuthLayout({ title, description, children }: AuthLayoutProps) {
         )}
         <Box sx={{ mt: 3 }}>{children}</Box>
       </Paper>
+      <LanguageSwitcher />
     </Box>
   );
 }

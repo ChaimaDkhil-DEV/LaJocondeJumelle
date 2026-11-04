@@ -15,6 +15,7 @@ import { OUTBOX_KEY } from '../outbox/useOutbox';
 import { isRetryableError } from '../requests/api';
 import { useClientSettings } from '../../api/settings';
 import { icon } from '../../design/tokens';
+import { t } from '../../i18n';
 import { VoiceRecorder, type VoiceRecording } from '../voice/VoiceRecorder';
 import { messageKeys, submitMessage, type NewMessageInput } from './api';
 import { FilePickerButton } from './FilePickerButton';
@@ -32,7 +33,7 @@ interface UploadedDocument {
   name: string;
 }
 
-const EMPTY_MESSAGE = 'Écrivez un message, enregistrez un vocal ou joignez un fichier.';
+const EMPTY_MESSAGE = t('Écrivez un message, enregistrez un vocal ou joignez un fichier.');
 
 /** Réponse dans le fil : texte, vocal, photos et documents PDF. */
 export function MessageComposer({ requestId, requestTitle, disabled = false }: ComposerProps) {
@@ -69,7 +70,7 @@ export function MessageComposer({ requestId, requestTitle, disabled = false }: C
       const uploaded = await uploadFile('DOCUMENT', file, file.name, requestId);
       setDocuments((docs) => [...docs, { id: uploaded.id, name: file.name }]);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Le fichier n’a pas pu être envoyé. Réessayez.');
+      setError(e instanceof ApiError ? e.message : t('Le fichier n’a pas pu être envoyé. Réessayez.'));
     } finally {
       setUploadingDocument(false);
     }
@@ -108,17 +109,16 @@ export function MessageComposer({ requestId, requestTitle, disabled = false }: C
           savedAt: new Date().toISOString(),
           payload: input,
           requestTitle,
-          lastError: e instanceof ApiError ? e.message : 'Envoi impossible.',
+          lastError: e instanceof ApiError ? e.message : t('Envoi impossible.'),
         });
         await queryClient.invalidateQueries({ queryKey: OUTBOX_KEY });
         reset();
         setError(
-          'Votre message n’a pas pu être envoyé (connexion impossible). Il est conservé dans la boîte d’envoi : ' +
-            'vous pourrez le renvoyer depuis la liste des demandes.',
+          t('Votre message n’a pas pu être envoyé (connexion impossible). Il est conservé dans la boîte d’envoi : vous pourrez le renvoyer depuis la liste des demandes.'),
         );
       } else {
         const fields = fieldErrors(e);
-        setError(Object.values(fields)[0] ?? (e instanceof ApiError ? e.message : 'Envoi impossible.'));
+        setError(Object.values(fields)[0] ?? (e instanceof ApiError ? e.message : t('Envoi impossible.')));
       }
     } finally {
       setSending(false);
@@ -129,12 +129,12 @@ export function MessageComposer({ requestId, requestTitle, disabled = false }: C
     <Box component="form" noValidate onSubmit={(e: FormEvent<HTMLFormElement>) => void handleSubmit(e)}>
       <Stack spacing={2}>
         <Typography component="h3" variant="subtitle2">
-          Répondre
+          {t('Répondre')}
         </Typography>
         {error && <Alert severity="error">{error}</Alert>}
         <TextField
           id={`message-${requestId}`}
-          label="Votre message"
+          label={t('Votre message')}
           value={text}
           onChange={(e) => setText(e.target.value)}
           multiline
@@ -145,10 +145,10 @@ export function MessageComposer({ requestId, requestTitle, disabled = false }: C
           slotProps={{ htmlInput: { maxLength: 4000 } }}
         />
         <VoiceRecorder key={voiceKey} maxSeconds={voiceMaxSeconds} value={voice} onChange={setVoice} disabled={disabled} />
-        <PhotoCapture value={photos} onChange={setPhotos} requestId={requestId} altPrefix="Photo à joindre" disabled={disabled} />
+        <PhotoCapture value={photos} onChange={setPhotos} requestId={requestId} altPrefix={t('Photo à joindre')} disabled={disabled} />
         <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
           <FilePickerButton
-            label="Joindre un PDF"
+            label={t('Joindre un PDF')}
             icon={<Paperclip size={icon.md} aria-hidden="true" />}
             accept="application/pdf"
             disabled={disabled || uploadingDocument}
@@ -166,7 +166,7 @@ export function MessageComposer({ requestId, requestTitle, disabled = false }: C
         </Box>
         <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
           <Button type="submit" variant="contained" disabled={disabled} loading={sending} startIcon={<Send size={icon.sm} aria-hidden="true" />}>
-            Envoyer le message
+            {t('Envoyer le message')}
           </Button>
         </Box>
       </Stack>

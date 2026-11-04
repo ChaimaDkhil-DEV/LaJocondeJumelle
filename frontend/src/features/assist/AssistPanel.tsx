@@ -15,6 +15,7 @@ import { font, tokensOf } from '../../design/tokens';
 import { SUGGESTED_HINT, type FormChange, type RequestFormState, type SuggestedValues } from '../requests/RequestForm';
 import type { VoiceRecording } from '../voice/VoiceRecorder';
 import { requestSuggestions, requestTranscription, type Suggestion, type SuggestionResult } from './api';
+import { t } from '../../i18n';
 
 function subscribeOnline(onChange: () => void): () => void {
   window.addEventListener('online', onChange);
@@ -43,7 +44,7 @@ interface Basis {
   categoryId: string | undefined;
 }
 
-const VOICE_KEPT = 'Votre message vocal est conservé : remplissez les champs vous-même ou relancez l’analyse.';
+const VOICE_KEPT = t('Votre message vocal est conservé : remplissez les champs vous-même ou relancez l’analyse.');
 
 /**
  * Propositions automatiques (spec 009, US1, US4) du formulaire « Nouvelle demande ». Dès qu'un vocal
@@ -103,7 +104,7 @@ export function useAssist(form: RequestFormState, onToken: (token: string | null
           heard = (await requestTranscription(voice)).text;
         } catch (error) {
           if (call !== lastCall.current) return;
-          const reason = error instanceof ApiError ? error.message : 'La transcription du message vocal n’a pas abouti.';
+          const reason = error instanceof ApiError ? error.message : t('La transcription du message vocal n’a pas abouti.');
           setState({ kind: 'error', message: `${reason} ${VOICE_KEPT}` });
           return;
         }
@@ -124,7 +125,7 @@ export function useAssist(form: RequestFormState, onToken: (token: string | null
       applyResult(result.suggestion);
     } catch (error) {
       if (call !== lastCall.current) return;
-      const reason = error instanceof ApiError ? error.message : 'Les propositions ne sont pas disponibles pour le moment.';
+      const reason = error instanceof ApiError ? error.message : t('Les propositions ne sont pas disponibles pour le moment.');
       setState({ kind: 'error', message: voice ? `${reason} ${VOICE_KEPT}` : reason });
     }
   }
@@ -195,14 +196,14 @@ export function AssistNote({ assist }: { assist: Assist }) {
 
   const suggestion = result?.suggestion ?? null;
   let sentence: string | null = null;
-  if (state.kind === 'transcribing') sentence = 'Transcription du message vocal…';
-  else if (state.kind === 'analysing') sentence = 'Recherche de propositions…';
+  if (state.kind === 'transcribing') sentence = t('Transcription du message vocal…');
+  else if (state.kind === 'analysing') sentence = t('Recherche de propositions…');
   else if (state.kind === 'error') sentence = state.message;
-  else if (result && !suggestion) sentence = 'Aucune suggestion fiable : remplissez les champs vous-même.';
+  else if (result && !suggestion) sentence = t('Aucune suggestion fiable : remplissez les champs vous-même.');
   else if (suggestion && form.suggested.size > 0) sentence = SUGGESTED_HINT;
-  const why = [suggestion?.reason, suggestion?.recipientReason && `Destinataire : ${suggestion.recipientReason}`].filter(Boolean);
+  const why = [suggestion?.reason, suggestion?.recipientReason && t('Destinataire : {reason}', { reason: suggestion.recipientReason })].filter(Boolean);
   // Description seule, sans vocal : rien ne se déclenche tout seul, l'analyse se demande ici.
-  const action = assist.hasBasis || state.kind === 'error' ? 'Relancer l’analyse' : 'Proposer une catégorie et une priorité';
+  const action = assist.hasBasis || state.kind === 'error' ? t('Relancer l’analyse') : t('Proposer une catégorie et une priorité');
   if (!sentence && !assist.canPropose && !assist.hasBasis) return null;
 
   return (
@@ -225,7 +226,7 @@ export function AssistNote({ assist }: { assist: Assist }) {
         )}
         {state.kind === 'done' && why.length > 0 && (
           <Button size="small" variant="text" aria-expanded={showWhy} aria-controls={whyId} onClick={() => setShowWhy((v) => !v)} sx={linkSx}>
-            Voir pourquoi
+            {t('Voir pourquoi')}
           </Button>
         )}
         {/* Reste actif pendant le chargement : une nouvelle demande remplace la précédente. */}
@@ -259,9 +260,9 @@ export function similarRequestsSlot(assist: Assist): { label: string; list: Reac
   const similar = assist.result?.similar ?? [];
   if (similar.length === 0) return null;
   return {
-    label: similar.length === 1 ? '1 demande similaire' : `${similar.length} demandes similaires`,
+    label: similar.length === 1 ? t('1 demande similaire') : t('{n} demandes similaires', { n: similar.length }),
     list: (
-      <Box component="ul" aria-label="Demandes similaires" sx={{ m: 0, p: 0, listStyle: 'none' }}>
+      <Box component="ul" aria-label={t('Demandes similaires')} sx={{ m: 0, p: 0, listStyle: 'none' }}>
         {similar.map((r) => (
           <Box
             component="li"
@@ -279,7 +280,7 @@ export function similarRequestsSlot(assist: Assist): { label: string; list: Reac
               {r.reference} · {r.title}
               <Box component="span" sx={visuallyHidden}>
                 {' '}
-                (nouvel onglet)
+                {t('(nouvel onglet)')}
               </Box>
             </Link>
             <StatusBadge status={r.status} />

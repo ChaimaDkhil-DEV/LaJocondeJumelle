@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { formatDuration, isRecordingSupported, pickRecorderFormat } from './recorderFormat';
+import { t } from '../../i18n';
 
 export interface VoiceRecording {
   blob: Blob;
@@ -65,7 +66,7 @@ export function useVoiceRecorder({ maxSeconds, onRecorded }: Options) {
         setState('idle');
         setElapsedMs(0);
         if (durationSeconds < MIN_SECONDS) {
-          setError('Le message est trop court (1 seconde minimum). Réessayez.');
+          setError(t('Le message est trop court (1 seconde minimum). Réessayez.'));
           setNotice('');
           return;
         }
@@ -73,8 +74,8 @@ export function useVoiceRecorder({ maxSeconds, onRecorded }: Options) {
         const blob = new Blob(chunks, { type: mimeType });
         setNotice(
           reason === 'max'
-            ? `Durée maximale atteinte : enregistrement arrêté (durée ${formatDuration(durationSeconds)}).`
-            : `Enregistrement terminé (durée ${formatDuration(durationSeconds)}). Vous pouvez l’écouter avant l’envoi.`,
+            ? t('Durée maximale atteinte : enregistrement arrêté (durée {duration}).', { duration: formatDuration(durationSeconds) })
+            : t('Enregistrement terminé (durée {duration}). Vous pouvez l’écouter avant l’envoi.', { duration: formatDuration(durationSeconds) }),
         );
         onRecordedRef.current({ blob, url: URL.createObjectURL(blob), mimeType, durationSeconds });
       };
@@ -104,7 +105,7 @@ export function useVoiceRecorder({ maxSeconds, onRecorded }: Options) {
     recorderRef.current = recorder;
     startedAtRef.current = Date.now();
     setElapsedMs(0);
-    setNotice('Enregistrement en cours…');
+    setNotice(t('Enregistrement en cours…'));
     setState('recording');
     recorder.start();
     timerRef.current = setInterval(() => {

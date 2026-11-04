@@ -37,6 +37,7 @@ import { useCandidates, useCoverageAction } from './api';
 import { CameraCapture, type CapturedPhoto } from './CameraCapture';
 import { ACTION_LABELS, PROOF_LABELS, UNAVAILABLE_REASONS } from './labels';
 import type { ActionInput, CoverageAction, CoverageDetail } from './types';
+import { t } from '../../i18n';
 
 type Kind = 'primary' | 'secondary' | 'danger';
 
@@ -87,41 +88,41 @@ interface ReasonConfig {
 
 const REASON_DIALOGS: Partial<Record<CoverageAction, ReasonConfig>> = {
   REQUEST_RELIEF: {
-    title: 'Demander une relève',
-    label: 'Motif de la demande de relève',
-    confirm: 'Demander une relève',
-    success: 'Relève demandée. Restez en classe jusqu’à l’arrivée de votre remplaçant.',
+    title: t('Demander une relève'),
+    label: t('Motif de la demande de relève'),
+    confirm: t('Demander une relève'),
+    success: t('Relève demandée. Restez en classe jusqu’à l’arrivée de votre remplaçant.'),
   },
   CANCEL: {
-    title: 'Annuler l’affectation',
-    label: 'Motif de l’annulation (facultatif)',
-    confirm: 'Annuler l’affectation',
-    success: 'Affectation annulée. Les personnes concernées sont prévenues.',
+    title: t('Annuler l’affectation'),
+    label: t('Motif de l’annulation (facultatif)'),
+    confirm: t('Annuler l’affectation'),
+    success: t('Affectation annulée. Les personnes concernées sont prévenues.'),
     optional: true,
   },
   WITHDRAW: {
-    title: 'Retirer la demande',
-    label: 'Motif du retrait (facultatif)',
-    confirm: 'Retirer la demande',
-    success: 'Demande retirée.',
+    title: t('Retirer la demande'),
+    label: t('Motif du retrait (facultatif)'),
+    confirm: t('Retirer la demande'),
+    success: t('Demande retirée.'),
     optional: true,
   },
   RELEASE_BY_MANAGER: {
-    title: 'Libérer le surveillant',
-    label: 'Motif de la libération',
-    confirm: 'Libérer le surveillant',
-    success: 'Surveillant libéré de son affectation.',
+    title: t('Libérer le surveillant'),
+    label: t('Motif de la libération'),
+    confirm: t('Libérer le surveillant'),
+    success: t('Surveillant libéré de son affectation.'),
   },
 };
 
 const SUCCESS: Partial<Record<CoverageAction, string>> = {
-  DEPART: 'C’est noté : vous êtes en route.',
-  CONFIRM_PRESENCE: 'Présence confirmée.',
-  RELIEVE: 'Affectation terminée.',
-  VALIDATE: 'Affectation validée et clôturée.',
-  ASSIGN: 'Surveillant assigné.',
-  REASSIGN: 'Affectation réassignée.',
-  EXTEND: 'Affectation prolongée.',
+  DEPART: t('C’est noté : vous êtes en route.'),
+  CONFIRM_PRESENCE: t('Présence confirmée.'),
+  RELIEVE: t('Affectation terminée.'),
+  VALIDATE: t('Affectation validée et clôturée.'),
+  ASSIGN: t('Surveillant assigné.'),
+  REASSIGN: t('Affectation réassignée.'),
+  EXTEND: t('Affectation prolongée.'),
 };
 
 const EXTEND_OPTIONS = [15, 30, 45, 60, 90, 120];
@@ -146,12 +147,12 @@ export function CoverageActions({
     onSuccess: (_detail, input) => {
       setOpen(null);
       toast.success(
-        REASON_DIALOGS[input.action]?.success ?? SUCCESS[input.action] ?? 'Action enregistrée.',
+        REASON_DIALOGS[input.action]?.success ?? SUCCESS[input.action] ?? t('Action enregistrée.'),
       );
     },
     onError: (e) => {
       const message =
-        e instanceof ApiError ? e.message : 'L’action n’a pas pu être enregistrée. Réessayez.';
+        e instanceof ApiError ? e.message : t('L’action n’a pas pu être enregistrée. Réessayez.');
       // Dialogues avec zone d'erreur : message sur place ; sinon (motif, action directe) : toast d'erreur.
       if (open && !REASON_DIALOGS[open]) setError(message);
       else toast.error(message);
@@ -218,17 +219,17 @@ export function CoverageActions({
       <ConfirmDialog
         open={open === 'RELIEVE' || open === 'VALIDATE'}
         title={
-          open === 'VALIDATE' ? 'Valider et clôturer l’affectation ?' : 'Terminer l’affectation ?'
+          open === 'VALIDATE' ? t('Valider et clôturer l’affectation ?') : t('Terminer l’affectation ?')
         }
-        confirmLabel={open === 'VALIDATE' ? 'Valider et clôturer' : 'Terminer'}
+        confirmLabel={open === 'VALIDATE' ? t('Valider et clôturer') : t('Terminer')}
         pending={mutation.isPending}
         error={error}
         onConfirm={() => run({ action: open! })}
         onClose={() => setOpen(null)}
       >
         {open === 'VALIDATE'
-          ? 'L’affectation sera clôturée et conservée dans l’historique.'
-          : 'À confirmer quand l’enseignant est arrivé en classe. L’heure de fin et la durée sont calculées automatiquement.'}
+          ? t('L’affectation sera clôturée et conservée dans l’historique.')
+          : t('À confirmer quand l’enseignant est arrivé en classe. L’heure de fin et la durée sont calculées automatiquement.')}
       </ConfirmDialog>
 
       <ExtendDialog
@@ -280,30 +281,32 @@ function ExtendDialog({
   const [minutes, setMinutes] = useState(30);
   return (
     <Dialog open={open} onClose={onClose} aria-labelledby={titleId} fullWidth maxWidth="xs">
-      <DialogTitle id={titleId}>Prolonger l’affectation</DialogTitle>
+      <DialogTitle id={titleId}>{t('Prolonger l’affectation')}</DialogTitle>
       <DialogContent sx={{ display: 'grid', gap: 2 }}>
         <TextField
           select
-          label="Durée supplémentaire"
+          label={t('Durée supplémentaire')}
           value={minutes}
           onChange={(e) => setMinutes(Number(e.target.value))}
           sx={{ mt: 1 }}
         >
           {EXTEND_OPTIONS.map((m) => (
             <MenuItem key={m} value={m}>
-              {m < 60 ? `${m} min` : `${m / 60} h${m % 60 ? ` ${m % 60}` : ''}`}
+              {m < 60
+                ? t('{m} min', { m })
+                : t('{h} h{rest}', { h: m / 60, rest: m % 60 ? ` ${m % 60}` : '' })}
             </MenuItem>
           ))}
         </TextField>
         <Typography variant="body2" color="text.secondary">
-          La prolongation est journalisée et l’admin en est informé.
+          {t('La prolongation est journalisée et l’admin en est informé.')}
         </Typography>
         {error && <Alert severity="error">{error}</Alert>}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Retour</Button>
+        <Button onClick={onClose}>{t('Retour')}</Button>
         <Button variant="contained" loading={pending} onClick={() => onConfirm(minutes)}>
-          Prolonger
+          {t('Prolonger')}
         </Button>
       </DialogActions>
     </Dialog>
@@ -331,7 +334,7 @@ function AssignDialog({
   const [selected, setSelected] = useState('');
   const [touched, setTouched] = useState(false);
   const chosen = candidates.data?.find((c) => c.id === selected && c.available);
-  const title = action === 'ASSIGN' ? 'Assigner un surveillant' : 'Réassigner l’affectation';
+  const title = action === 'ASSIGN' ? t('Assigner un surveillant') : t('Réassigner l’affectation');
 
   function confirm(): void {
     setTouched(true);
@@ -345,16 +348,17 @@ function AssignDialog({
         {action === 'REASSIGN' &&
           (detail.status === 'ON_DUTY' || detail.status === 'RELIEF_PENDING') && (
             <Alert severity="info">
-              {detail.assignee?.displayName ?? 'Le surveillant actuel'} reste en classe jusqu’à ce
-              que le nouveau surveillant confirme sa présence.
+              {t('{name} reste en classe jusqu’à ce que le nouveau surveillant confirme sa présence.', {
+                name: detail.assignee?.displayName ?? t('Le surveillant actuel'),
+              })}
             </Alert>
           )}
         {candidates.isPending ? (
-          <LoadingState label="Chargement des surveillants" variant="inline" />
+          <LoadingState label={t('Chargement des surveillants')} variant="inline" />
         ) : candidates.error ? (
-          <Alert severity="error">Impossible de charger les surveillants.</Alert>
+          <Alert severity="error">{t('Impossible de charger les surveillants.')}</Alert>
         ) : candidates.data.length === 0 ? (
-          <Alert severity="info">Aucun surveillant dans le groupe Surveillants.</Alert>
+          <Alert severity="info">{t('Aucun surveillant dans le groupe Surveillants.')}</Alert>
         ) : (
           <RadioGroup
             aria-labelledby={titleId}
@@ -369,8 +373,8 @@ function AssignDialog({
                 control={<Radio />}
                 label={[
                   c.displayName,
-                  c.floor?.name ?? 'sans étage',
-                  c.available ? 'Disponible' : UNAVAILABLE_REASONS[c.reason ?? 'UNAVAILABLE'],
+                  c.floor?.name ?? t('sans étage'),
+                  c.available ? t('Disponible') : UNAVAILABLE_REASONS[c.reason ?? 'UNAVAILABLE'],
                 ].join(' · ')}
                 sx={{ py: 0.5 }}
               />
@@ -378,14 +382,14 @@ function AssignDialog({
           </RadioGroup>
         )}
         {touched && !chosen && (
-          <Alert severity="error">Choisissez un surveillant disponible.</Alert>
+          <Alert severity="error">{t('Choisissez un surveillant disponible.')}</Alert>
         )}
         {error && <Alert severity="error">{error}</Alert>}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Retour</Button>
+        <Button onClick={onClose}>{t('Retour')}</Button>
         <Button variant="contained" loading={pending} onClick={confirm}>
-          {action === 'ASSIGN' ? 'Assigner' : 'Réassigner'}
+          {action === 'ASSIGN' ? t('Assigner') : t('Réassigner')}
         </Button>
       </DialogActions>
     </Dialog>
@@ -409,20 +413,28 @@ function PresenceDialog({
   const needsQr = detail.proofMode !== 'PHOTO';
   return (
     <Dialog open onClose={onClose} aria-labelledby={titleId} fullWidth maxWidth="sm">
-      <DialogTitle id={titleId}>Confirmer ma présence en classe {detail.class.name}</DialogTitle>
+      <DialogTitle id={titleId}>
+        {t('Confirmer ma présence en classe {name}', { name: detail.class.name })}
+      </DialogTitle>
       <DialogContent sx={{ display: 'grid', gap: 2 }}>
         <Typography variant="body2" color="text.secondary">
-          Preuve demandée : {PROOF_LABELS[detail.proofMode]}. L’heure enregistrée est celle du
-          serveur.
+          {t('Preuve demandée : {proof}. L’heure enregistrée est celle du serveur.', {
+            proof: PROOF_LABELS[detail.proofMode],
+          })}
         </Typography>
         {needsQr ? (
           <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start' }}>
             <QrCode size={icon.lg} aria-hidden="true" style={{ flex: 'none', marginTop: 2 }} />
             <Typography variant="body2">
-              Ouvrez l’appareil photo de votre téléphone et scannez le QR code affiché dans la
-              classe
-              {detail.class.room ? ` (${detail.class.room})` : ''}. Une page s’ouvrira pour
-              {detail.proofMode === 'BOTH' ? ' prendre la photo et' : ''} confirmer votre présence.
+              {detail.proofMode === 'BOTH'
+                ? t(
+                    'Ouvrez l’appareil photo de votre téléphone et scannez le QR code affiché dans la classe{room}. Une page s’ouvrira pour prendre la photo et confirmer votre présence.',
+                    { room: detail.class.room ? ` (${detail.class.room})` : '' },
+                  )
+                : t(
+                    'Ouvrez l’appareil photo de votre téléphone et scannez le QR code affiché dans la classe{room}. Une page s’ouvrira pour confirmer votre présence.',
+                    { room: detail.class.room ? ` (${detail.class.room})` : '' },
+                  )}
             </Typography>
           </Box>
         ) : (
@@ -431,7 +443,7 @@ function PresenceDialog({
         {error && <Alert severity="error">{error}</Alert>}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>{needsQr ? 'Fermer' : 'Retour'}</Button>
+        <Button onClick={onClose}>{needsQr ? t('Fermer') : t('Retour')}</Button>
         {!needsQr && (
           <Button
             variant="contained"
@@ -439,7 +451,7 @@ function PresenceDialog({
             loading={pending}
             onClick={() => photo && onConfirm(photo.id)}
           >
-            Confirmer ma présence
+            {t('Confirmer ma présence')}
           </Button>
         )}
       </DialogActions>

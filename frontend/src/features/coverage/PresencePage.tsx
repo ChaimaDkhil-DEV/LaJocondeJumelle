@@ -17,6 +17,7 @@ import { resolveQr, useCoverage, useCoverageAction } from './api';
 import { CameraCapture, type CapturedPhoto } from './CameraCapture';
 import { CoverageStatusBadge } from './labels';
 import type { CoverageDetail } from './types';
+import { t } from '../../i18n';
 
 /**
  * Page ouverte par le QR code de la classe (appareil photo natif du téléphone). L'ouverture ne valide
@@ -34,15 +35,15 @@ export function PresencePage() {
     retry: false,
     staleTime: 0,
   });
-  const header = <PageHeader title="Confirmer ma présence" back={{ to: '/gardes?onglet=mes-affectations', label: 'Mes affectations' }} />;
+  const header = <PageHeader title={t('Confirmer ma présence')} back={{ to: '/gardes?onglet=mes-affectations', label: t('Mes affectations') }} />;
 
-  if (!token) return (<>{header}<ErrorState message="Lien de QR code incomplet. Scannez de nouveau le QR code de la classe." /></>);
-  if (resolution.isPending) return (<>{header}<LoadingState label="Vérification du QR code" variant="detail" /></>);
+  if (!token) return (<>{header}<ErrorState message={t('Lien de QR code incomplet. Scannez de nouveau le QR code de la classe.')} /></>);
+  if (resolution.isPending) return (<>{header}<LoadingState label={t('Vérification du QR code')} variant="detail" /></>);
   if (resolution.error) {
     return (
       <>
         {header}
-        <ErrorState message={resolution.error instanceof ApiError ? resolution.error.message : 'QR code illisible.'} />
+        <ErrorState message={resolution.error instanceof ApiError ? resolution.error.message : t('QR code illisible.')} />
       </>
     );
   }
@@ -53,8 +54,8 @@ export function PresencePage() {
         {header}
         <Alert severity="warning" sx={{ maxWidth: layout.readable }}>
           {otherClassGuard
-            ? `Ce QR code correspond à la classe ${schoolClass.name}, qui n’est pas celle de votre garde.`
-            : `Vous n’avez pas de garde en cours pour la classe ${schoolClass.name}.`}
+            ? t('Ce QR code correspond à la classe {name}, qui n’est pas celle de votre garde.', { name: schoolClass.name })
+            : t('Vous n’avez pas de garde en cours pour la classe {name}.', { name: schoolClass.name })}
         </Alert>
         {/* Classe trouvée vide pendant le tour : déclaration directe, classe et QR repris (FR-015, R10). */}
         <Box sx={{ mt: 2 }}>
@@ -64,7 +65,7 @@ export function PresencePage() {
             variant="contained"
             startIcon={<DoorOpen size={icon.md} aria-hidden="true" />}
           >
-            Déclarer cette classe vide
+            {t('Déclarer cette classe vide')}
           </Button>
         </Box>
       </>
@@ -86,8 +87,8 @@ function ConfirmPresence({ coverageId, token }: { coverageId: string; token: str
   const [photo, setPhoto] = useState<CapturedPhoto | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  if (detail.isPending) return <LoadingState label="Chargement de votre garde" variant="detail" />;
-  if (detail.error) return <ErrorState message="Impossible de charger votre garde." />;
+  if (detail.isPending) return <LoadingState label={t('Chargement de votre garde')} variant="detail" />;
+  if (detail.error) return <ErrorState message={t('Impossible de charger votre garde.')} />;
   const d: CoverageDetail = detail.data;
   // Avant la présence : photo exigée sauf preuve « QR seul » ; pendant la garde, le QR suffit comme preuve supplémentaire.
   const onSite = d.status === 'ON_DUTY' || d.status === 'RELIEF_PENDING';
@@ -100,10 +101,10 @@ function ConfirmPresence({ coverageId, token }: { coverageId: string; token: str
       { action: 'CONFIRM_PRESENCE', version: d.version, qrToken: token, ...(photo ? { photoFileId: photo.id } : {}) },
       {
         onSuccess: () => {
-          toast.success(`Présence confirmée en classe ${d.class.name}.`);
+          toast.success(t('Présence confirmée en classe {name}.', { name: d.class.name }));
           navigate('/gardes?onglet=mes-affectations', { replace: true });
         },
-        onError: (e) => setError(e instanceof ApiError ? e.message : 'La présence n’a pas pu être confirmée. Réessayez.'),
+        onError: (e) => setError(e instanceof ApiError ? e.message : t('La présence n’a pas pu être confirmée. Réessayez.')),
       },
     );
   }
@@ -112,7 +113,7 @@ function ConfirmPresence({ coverageId, token }: { coverageId: string; token: str
     <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 }, display: 'grid', gap: 2.5, maxWidth: layout.readable }}>
       <Box sx={{ display: 'grid', gap: 1 }}>
         <Typography component="h2" variant="h6">
-          Confirmer ma présence en classe {d.class.name}
+          {t('Confirmer ma présence en classe {name}', { name: d.class.name })}
         </Typography>
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
           {d.class.room && (
@@ -124,7 +125,7 @@ function ConfirmPresence({ coverageId, token }: { coverageId: string; token: str
         </Box>
       </Box>
       {!canConfirm ? (
-        <Alert severity="info">La présence ne peut plus être confirmée pour cette garde.</Alert>
+        <Alert severity="info">{t('La présence ne peut plus être confirmée pour cette garde.')}</Alert>
       ) : (
         <>
           {needsPhoto && <CameraCapture value={photo} onChange={setPhoto} />}
@@ -138,16 +139,16 @@ function ConfirmPresence({ coverageId, token }: { coverageId: string; token: str
             onClick={confirm}
             sx={{ minHeight: 48 }}
           >
-            Confirmer ma présence
+            {t('Confirmer ma présence')}
           </Button>
           <Typography variant="caption" color="text.secondary">
-            L’heure enregistrée est celle du serveur au moment de la confirmation.
+            {t('L’heure enregistrée est celle du serveur au moment de la confirmation.')}
           </Typography>
         </>
       )}
       <Box>
         <Button component={RouterLink} to={`/gardes/${d.id}`} size="small">
-          Voir la garde
+          {t('Voir la garde')}
         </Button>
       </Box>
     </Paper>

@@ -16,6 +16,7 @@ import { LoadingState } from '../../components/LoadingState';
 import { SectionHeader } from '../../components/SectionHeader';
 import { useToast } from '../../components/Toast';
 import { font, icon } from '../../design/tokens';
+import { t } from '../../i18n';
 import { adminKeys, deleteGuideline, saveGuideline, useAdminGuidelines, type AdminGuideline } from './api';
 import { GuidelineFormDialog } from './GuidelineFormDialog';
 
@@ -31,9 +32,9 @@ export function GuidelinesAdminPage() {
     mutationFn: (g: AdminGuideline) => saveGuideline(g.id, { active: !g.active }),
     onSuccess: async (saved) => {
       await queryClient.invalidateQueries({ queryKey: adminKeys.guidelines });
-      toast.success(saved.active ? 'Consigne activée.' : 'Consigne désactivée.');
+      toast.success(saved.active ? t('Consigne activée.') : t('Consigne désactivée.'));
     },
-    onError: (error) => toast.error(error instanceof ApiError ? error.message : 'Enregistrement impossible.'),
+    onError: (error) => toast.error(error instanceof ApiError ? error.message : t('Enregistrement impossible.')),
   });
 
   const remove = useMutation({
@@ -41,7 +42,7 @@ export function GuidelinesAdminPage() {
     onSuccess: async () => {
       setToDelete(null);
       await queryClient.invalidateQueries({ queryKey: adminKeys.guidelines });
-      toast.success('Consigne supprimée.');
+      toast.success(t('Consigne supprimée.'));
     },
   });
 
@@ -49,26 +50,26 @@ export function GuidelinesAdminPage() {
     <Box component="section" aria-labelledby="titre-consignes">
       <SectionHeader
         id="titre-consignes"
-        title="Consignes"
-        description="Règles de classement, critères de priorité et procédures utilisés pour les propositions automatiques."
+        title={t('Consignes')}
+        description={t('Règles de classement, critères de priorité et procédures utilisés pour les propositions automatiques.')}
         action={
           <Button variant="contained" startIcon={<BookOpen size={icon.sm} aria-hidden="true" />} onClick={() => setForm({ guideline: null })}>
-            Nouvelle consigne
+            {t('Nouvelle consigne')}
           </Button>
         }
       />
 
       {guidelines.isPending ? (
-        <LoadingState label="Chargement des consignes" />
+        <LoadingState label={t('Chargement des consignes')} />
       ) : guidelines.error ? (
-        <ErrorState message="Impossible de charger les consignes." actionLabel="Réessayer" onAction={() => void guidelines.refetch()} />
+        <ErrorState message={t('Impossible de charger les consignes.')} actionLabel={t('Réessayer')} onAction={() => void guidelines.refetch()} />
       ) : guidelines.data.length === 0 ? (
         <Paper variant="outlined">
-          <EmptyState title="Aucune consigne." description="Créez une consigne, par exemple « Panne de photocopieuse : Priorité : Haute »." />
+          <EmptyState title={t('Aucune consigne.')} description={t('Créez une consigne, par exemple « Panne de photocopieuse : Priorité : Haute ».')} />
         </Paper>
       ) : (
         <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
-          <Box component="ul" aria-label="Consignes" sx={{ listStyle: 'none', m: 0, p: 0, '& > li + li': { borderTop: 1, borderColor: 'divider' } }}>
+          <Box component="ul" aria-label={t('Consignes')} sx={{ listStyle: 'none', m: 0, p: 0, '& > li + li': { borderTop: 1, borderColor: 'divider' } }}>
             {guidelines.data.map((guideline) => (
               <Box
                 component="li"
@@ -80,31 +81,36 @@ export function GuidelinesAdminPage() {
                     <Typography sx={{ fontWeight: font.medium, overflowWrap: 'anywhere' }}>{guideline.title}</Typography>
                     {guideline.active ? (
                       <Badge tone="success" icon={CircleCheck}>
-                        Active
+                        {t('Active')}
                       </Badge>
                     ) : (
                       <Badge tone="neutral" icon={CircleOff}>
-                        Inactive
+                        {t('Inactive')}
                       </Badge>
                     )}
                   </Box>
                   <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, overflowWrap: 'anywhere' }}>
-                    Portée : <span>{guideline.categoryName ?? 'Générale'}</span>
+                    {t('Portée :')} <span>{guideline.categoryName ?? t('Générale')}</span>
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Modifiée le <time dateTime={guideline.updatedAt}>{formatDateTime(guideline.updatedAt)}</time> par {guideline.updatedBy.displayName}
+                    {t('Modifiée le')} <time dateTime={guideline.updatedAt}>{formatDateTime(guideline.updatedAt)}</time>{' '}
+                    {t('par {name}', { name: guideline.updatedBy.displayName })}
                   </Typography>
                 </Box>
                 <Box sx={{ display: 'flex', gap: 0.5, flex: 'none', ml: 'auto' }}>
-                  <IconAction icon={Pencil} label={`Modifier la consigne ${guideline.title}`} tooltip="Modifier" onClick={() => setForm({ guideline })} />
+                  <IconAction icon={Pencil} label={t('Modifier la consigne {title}', { title: guideline.title })} tooltip={t('Modifier')} onClick={() => setForm({ guideline })} />
                   <IconAction
                     icon={guideline.active ? PowerOff : Power}
-                    label={`${guideline.active ? 'Désactiver' : 'Activer'} la consigne ${guideline.title}`}
-                    tooltip={guideline.active ? 'Désactiver' : 'Activer'}
+                    label={
+                      guideline.active
+                        ? t('Désactiver la consigne {title}', { title: guideline.title })
+                        : t('Activer la consigne {title}', { title: guideline.title })
+                    }
+                    tooltip={guideline.active ? t('Désactiver') : t('Activer')}
                     disabled={toggle.isPending}
                     onClick={() => toggle.mutate(guideline)}
                   />
-                  <IconAction icon={Trash2} label={`Supprimer la consigne ${guideline.title}`} tooltip="Supprimer" onClick={() => setToDelete(guideline)} />
+                  <IconAction icon={Trash2} label={t('Supprimer la consigne {title}', { title: guideline.title })} tooltip={t('Supprimer')} onClick={() => setToDelete(guideline)} />
                 </Box>
               </Box>
             ))}
@@ -123,17 +129,17 @@ export function GuidelinesAdminPage() {
       />
       <ConfirmDialog
         open={toDelete !== null}
-        title="Supprimer cette consigne ?"
-        confirmLabel="Supprimer la consigne"
+        title={t('Supprimer cette consigne ?')}
+        confirmLabel={t('Supprimer la consigne')}
         pending={remove.isPending}
-        error={remove.error instanceof ApiError ? remove.error.message : remove.error ? 'Suppression impossible.' : null}
+        error={remove.error instanceof ApiError ? remove.error.message : remove.error ? t('Suppression impossible.') : null}
         onConfirm={() => toDelete && remove.mutate(toDelete)}
         onClose={() => {
           setToDelete(null);
           remove.reset();
         }}
       >
-        « {toDelete?.title} » ne sera plus utilisée pour les propositions automatiques. Les demandes déjà envoyées ne changent pas.
+        {t('« {title} » ne sera plus utilisée pour les propositions automatiques. Les demandes déjà envoyées ne changent pas.', { title: toDelete?.title ?? '' })}
       </ConfirmDialog>
     </Box>
   );

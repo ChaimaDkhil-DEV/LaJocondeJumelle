@@ -17,6 +17,7 @@ import { SectionHeader } from '../../components/SectionHeader';
 import { useToast } from '../../components/Toast';
 import { Person } from '../../components/UserAvatar';
 import { font, fontSize, icon, tokensOf } from '../../design/tokens';
+import { t } from '../../i18n';
 import { useCurrentUser } from '../auth/useCurrentUser';
 import { adminKeys, useAdminUsers, type AdminUser } from './api';
 import { ROLE_LABELS } from './labels';
@@ -32,20 +33,20 @@ function AccountState({ user }: { user: AdminUser }) {
   if (!user.active) {
     return (
       <Badge tone="neutral" icon={Ban}>
-        Désactivé
+        {t('Désactivé')}
       </Badge>
     );
   }
   if (user.mustChangePassword) {
     return (
       <Badge tone="warning" icon={KeyRound}>
-        Mot de passe à changer
+        {t('Mot de passe à changer')}
       </Badge>
     );
   }
   return (
     <Badge tone="success" icon={CircleCheck}>
-      Actif
+      {t('Actif')}
     </Badge>
   );
 }
@@ -69,20 +70,20 @@ export function UsersAdminPage() {
       setConfirm(null);
       await queryClient.invalidateQueries({ queryKey: adminKeys.users });
       if (kind === 'reset') setPassword({ password: (result as { temporaryPassword: string }).temporaryPassword, displayName: user.displayName });
-      else toast.success(kind === 'deactivate' ? `Compte de ${user.displayName} désactivé.` : `Compte de ${user.displayName} réactivé.`);
+      else toast.success(kind === 'deactivate' ? t('Compte de {name} désactivé.', { name: user.displayName }) : t('Compte de {name} réactivé.', { name: user.displayName }));
     },
   });
-  const actionError = action.error instanceof ApiError ? action.error.message : action.error ? 'Action impossible.' : null;
+  const actionError = action.error instanceof ApiError ? action.error.message : action.error ? t('Action impossible.') : null;
 
   return (
     <Box component="section" aria-labelledby="titre-comptes">
       <SectionHeader
         id="titre-comptes"
-        title="Comptes"
-        description="Créez les comptes du personnel et rattachez-les aux catégories dont ils reçoivent les demandes."
+        title={t('Comptes')}
+        description={t('Créez les comptes du personnel et rattachez-les aux catégories dont ils reçoivent les demandes.')}
         action={
           <Button variant="contained" startIcon={<UserPlus size={icon.sm} aria-hidden="true" />} onClick={() => setForm({ user: null })}>
-            Nouveau compte
+            {t('Nouveau compte')}
           </Button>
         }
       />
@@ -94,12 +95,12 @@ export function UsersAdminPage() {
       )}
 
       {users.isPending ? (
-        <LoadingState label="Chargement des comptes" />
+        <LoadingState label={t('Chargement des comptes')} />
       ) : users.error ? (
-        <ErrorState message="Impossible de charger les comptes." actionLabel="Réessayer" onAction={() => void users.refetch()} />
+        <ErrorState message={t('Impossible de charger les comptes.')} actionLabel={t('Réessayer')} onAction={() => void users.refetch()} />
       ) : users.data.length === 0 ? (
         <Paper variant="outlined">
-          <EmptyState title="Aucun compte" description="Créez le premier compte du personnel." />
+          <EmptyState title={t('Aucun compte')} description={t('Créez le premier compte du personnel.')} />
         </Paper>
       ) : (
         <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
@@ -119,13 +120,13 @@ export function UsersAdminPage() {
               fontWeight: font.medium,
             })}
           >
-            <span>Compte</span>
-            <span>Rôle</span>
-            <span>Catégories</span>
-            <span>État</span>
+            <span>{t('Compte')}</span>
+            <span>{t('Rôle')}</span>
+            <span>{t('Catégories')}</span>
+            <span>{t('État')}</span>
             <span />
           </Box>
-          <Box component="ul" aria-label="Comptes" sx={{ listStyle: 'none', m: 0, p: 0, '& > li + li': { borderTop: 1, borderColor: 'divider' } }}>
+          <Box component="ul" aria-label={t('Comptes')} sx={{ listStyle: 'none', m: 0, p: 0, '& > li + li': { borderTop: 1, borderColor: 'divider' } }}>
             {users.data.map((user) => {
               const self = user.id === me.data?.id;
               return (
@@ -155,7 +156,7 @@ export function UsersAdminPage() {
                   <Box sx={{ minWidth: 0, gridColumn: { xs: '1 / -1', md: 'auto' } }}>
                     {user.recipientCategories.length > 0 ? (
                       <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
-                        Destinataire : {user.recipientCategories.map((c) => c.name).join(', ')}
+                        {t('Destinataire : {categories}', { categories: user.recipientCategories.map((c) => c.name).join(', ') })}
                       </Typography>
                     ) : (
                       user.active &&
@@ -167,7 +168,7 @@ export function UsersAdminPage() {
                           <Box component="span" sx={{ display: 'flex', pt: 0.25, flex: 'none' }}>
                             <TriangleAlert size={icon.sm - 2} aria-hidden="true" />
                           </Box>
-                          <span>Destinataire d’aucune catégorie : ne peut pas être affecté.</span>
+                          <span>{t('Destinataire d’aucune catégorie : ne peut pas être affecté.')}</span>
                         </Typography>
                       )
                     )}
@@ -187,22 +188,22 @@ export function UsersAdminPage() {
                   >
                     <IconAction
                       icon={Pencil}
-                      label={`Modifier le compte de ${user.displayName}`}
-                      tooltip="Modifier"
+                      label={t('Modifier le compte de {name}', { name: user.displayName })}
+                      tooltip={t('Modifier')}
                       onClick={() => setForm({ user })}
                     />
                     {!self && user.active && (
                       <>
                         <IconAction
                           icon={KeyRound}
-                          label={`Réinitialiser le mot de passe de ${user.displayName}`}
-                          tooltip="Réinitialiser le mot de passe"
+                          label={t('Réinitialiser le mot de passe de {name}', { name: user.displayName })}
+                          tooltip={t('Réinitialiser le mot de passe')}
                           onClick={() => setConfirm({ kind: 'reset', user })}
                         />
                         <IconAction
                           icon={UserX}
-                          label={`Désactiver le compte de ${user.displayName}`}
-                          tooltip="Désactiver"
+                          label={t('Désactiver le compte de {name}', { name: user.displayName })}
+                          tooltip={t('Désactiver')}
                           onClick={() => setConfirm({ kind: 'deactivate', user })}
                           sx={(theme) => ({ '&:hover': { color: tokensOf(theme).error.text, bgcolor: tokensOf(theme).error.soft } })}
                         />
@@ -211,8 +212,8 @@ export function UsersAdminPage() {
                     {!user.active && (
                       <IconAction
                         icon={UserCheck}
-                        label={`Réactiver le compte de ${user.displayName}`}
-                        tooltip="Réactiver"
+                        label={t('Réactiver le compte de {name}', { name: user.displayName })}
+                        tooltip={t('Réactiver')}
                         loading={action.isPending && action.variables?.user.id === user.id}
                         onClick={() => action.mutate({ kind: 'reactivate', user })}
                       />
@@ -243,8 +244,8 @@ export function UsersAdminPage() {
 
       <ConfirmDialog
         open={confirm?.kind === 'deactivate'}
-        title="Désactiver ce compte ?"
-        confirmLabel="Désactiver le compte"
+        title={t('Désactiver ce compte ?')}
+        confirmLabel={t('Désactiver le compte')}
         pending={action.isPending}
         error={actionError}
         onConfirm={() => confirm && action.mutate(confirm)}
@@ -253,13 +254,14 @@ export function UsersAdminPage() {
           action.reset();
         }}
       >
-        {confirm?.user.displayName} sera déconnecté immédiatement et ne pourra plus se connecter. Ses demandes et son historique sont
-        conservés.
+        {t('{name} sera déconnecté immédiatement et ne pourra plus se connecter. Ses demandes et son historique sont conservés.', {
+          name: confirm?.user.displayName ?? '',
+        })}
       </ConfirmDialog>
       <ConfirmDialog
         open={confirm?.kind === 'reset'}
-        title="Réinitialiser le mot de passe ?"
-        confirmLabel="Réinitialiser"
+        title={t('Réinitialiser le mot de passe ?')}
+        confirmLabel={t('Réinitialiser')}
         pending={action.isPending}
         error={actionError}
         onConfirm={() => confirm && action.mutate(confirm)}
@@ -268,7 +270,7 @@ export function UsersAdminPage() {
           action.reset();
         }}
       >
-        {confirm?.user.displayName} sera déconnecté et devra se connecter avec un nouveau mot de passe provisoire.
+        {t('{name} sera déconnecté et devra se connecter avec un nouveau mot de passe provisoire.', { name: confirm?.user.displayName ?? '' })}
       </ConfirmDialog>
 
       <TemporaryPasswordDialog value={password} onClose={() => setPassword(null)} />

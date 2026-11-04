@@ -1,6 +1,7 @@
 import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { apiFetch } from '../../api/client';
 import type { Priority, RequestStatus, Role } from '../../api/types';
+import { t } from '../../i18n';
 import type { DeadlineStage } from '../requests/types';
 
 /** Les chiffres sont relus régulièrement : le super administrateur ne reçoit pas tous les événements temps réel. */
@@ -188,13 +189,13 @@ export function useDashboardActivity(qs: string, enabled = true) {
 export function formatDurationMs(ms: number | null): string {
   if (ms === null) return '—';
   const minutes = Math.round(ms / 60_000);
-  if (ms < 60_000) return `${Math.round(ms / 1000)} s`;
-  if (minutes < 60) return `${minutes} min`;
+  if (ms < 60_000) return t('{seconds} s', { seconds: Math.round(ms / 1000) });
+  if (minutes < 60) return t('{minutes} min', { minutes });
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} h ${String(minutes % 60).padStart(2, '0')}`;
-  return `${Math.floor(hours / 24)} j ${hours % 24} h`;
+  if (hours < 24) return t('{hours} h {minutes}', { hours, minutes: String(minutes % 60).padStart(2, '0') });
+  return t('{days} j {hours} h', { days: Math.floor(hours / 24), hours: hours % 24 });
 }
 
 export function formatRate(rate: number | null): string {
-  return rate === null ? '—' : `${Math.round(rate * 100)} %`;
+  return rate === null ? '—' : t('{percent} %', { percent: Math.round(rate * 100) });
 }

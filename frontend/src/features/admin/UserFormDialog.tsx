@@ -12,6 +12,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useId, useState, type FormEvent } from 'react';
 import { ApiError, apiFetch, fieldErrors } from '../../api/client';
 import type { Role } from '../../api/types';
+import { t } from '../../i18n';
 import { useAdminFloors } from '../coverage/adminApi';
 import { adminKeys, useAdminCategories, type AdminUser } from './api';
 import { ROLE_LABELS } from './labels';
@@ -48,14 +49,14 @@ function validate(values: Values, creating: boolean): Record<string, string> {
   const errors: Record<string, string> = {};
   const username = values.username.trim().toLowerCase();
   if (creating) {
-    if (!username) errors.username = 'L’identifiant est obligatoire.';
+    if (!username) errors.username = t('L’identifiant est obligatoire.');
     else if (username.length < 3)
-      errors.username = 'L’identifiant doit comporter au moins 3 caractères.';
+      errors.username = t('L’identifiant doit comporter au moins 3 caractères.');
     else if (!USERNAME_FORMAT.test(username))
       errors.username =
-        'L’identifiant ne peut contenir que des lettres sans accent, chiffres, points, tirets et soulignés.';
+        t('L’identifiant ne peut contenir que des lettres sans accent, chiffres, points, tirets et soulignés.');
   }
-  if (!values.displayName.trim()) errors.displayName = 'Le nom est obligatoire.';
+  if (!values.displayName.trim()) errors.displayName = t('Le nom est obligatoire.');
   return errors;
 }
 
@@ -121,7 +122,7 @@ export function UserFormDialog({
         queryClient.invalidateQueries({ queryKey: ['requests', 'detail'] }),
       ]);
       if (creating) onCreated(result as { user: AdminUser; temporaryPassword: string });
-      else onSaved('Compte enregistré.');
+      else onSaved(t('Compte enregistré.'));
     },
     onError: (error) => {
       const fields = fieldErrors(error);
@@ -146,7 +147,7 @@ export function UserFormDialog({
     )
       ? mutation.error instanceof ApiError
         ? mutation.error.message
-        : 'Enregistrement impossible.'
+        : t('Enregistrement impossible.')
       : null;
 
   return (
@@ -168,20 +169,20 @@ export function UserFormDialog({
     >
       <Box component="form" noValidate onSubmit={submit}>
         <DialogTitle id={titleId}>
-          {creating ? 'Nouveau compte' : `Modifier : ${user.displayName}`}
+          {creating ? t('Nouveau compte') : t('Modifier : {name}', { name: user.displayName })}
         </DialogTitle>
         <DialogContent sx={{ display: 'grid', gap: 2, pt: '8px !important' }}>
           {creating && (
             <TextField
               id="compte-identifiant"
-              label="Identifiant de connexion"
+              label={t('Identifiant de connexion')}
               required
               value={values.username}
               onChange={(e) => set({ username: e.target.value })}
               error={Boolean(errors.username)}
               helperText={
                 errors.username ??
-                'Lettres sans accent, chiffres, points ou tirets (ex. prenom.nom).'
+                t('Lettres sans accent, chiffres, points ou tirets (ex. prenom.nom).')
               }
               slotProps={{
                 htmlInput: {
@@ -195,7 +196,7 @@ export function UserFormDialog({
           )}
           <TextField
             id="compte-nom"
-            label="Nom affiché"
+            label={t('Nom affiché')}
             required
             value={values.displayName}
             onChange={(e) => set({ displayName: e.target.value })}
@@ -205,7 +206,7 @@ export function UserFormDialog({
           />
           <TextField
             id="compte-fonction"
-            label="Fonction (facultatif)"
+            label={t('Fonction (facultatif)')}
             value={values.jobTitle}
             onChange={(e) => set({ jobTitle: e.target.value })}
             error={Boolean(errors.jobTitle)}
@@ -215,11 +216,11 @@ export function UserFormDialog({
           <TextField
             select
             id="compte-role"
-            label="Rôle"
+            label={t('Rôle')}
             value={values.role}
             onChange={(e) => set({ role: e.target.value as Role })}
             disabled={isSelf}
-            helperText={isSelf ? 'Vous ne pouvez pas modifier votre propre rôle.' : errors.role}
+            helperText={isSelf ? t('Vous ne pouvez pas modifier votre propre rôle.') : errors.role}
           >
             {(Object.keys(ROLE_LABELS) as Role[]).map((role) => (
               <MenuItem key={role} value={role}>
@@ -236,17 +237,17 @@ export function UserFormDialog({
             getOptionLabel={(o) => o.name}
             isOptionEqualToValue={(a, b) => a.id === b.id}
             loading={categories.isPending}
-            noOptionsText="Aucune catégorie"
+            noOptionsText={t('Aucune catégorie')}
             renderInput={(params) => (
               <TextField
                 {...params}
-                label="Destinataire des catégories"
+                label={t('Destinataire des catégories')}
                 error={Boolean(errors.recipientCategoryIds)}
                 helperText={
                   errors.recipientCategoryIds ??
                   (values.recipientCategories.length === 0 && values.role === 'EMPLOYEE'
-                    ? 'Sans catégorie, ce compte peut créer des demandes mais ne peut ni en recevoir ni être affecté.'
-                    : 'Ce compte pourra recevoir les demandes de ces catégories et y être affecté par leurs admins.')
+                    ? t('Sans catégorie, ce compte peut créer des demandes mais ne peut ni en recevoir ni être affecté.')
+                    : t('Ce compte pourra recevoir les demandes de ces catégories et y être affecté par leurs admins.'))
                 }
               />
             )}
@@ -254,16 +255,16 @@ export function UserFormDialog({
           <TextField
             select
             id="compte-etage"
-            label="Étage (surveillant)"
+            label={t('Étage (surveillant)')}
             value={values.floorId}
             onChange={(e) => set({ floorId: e.target.value })}
             error={Boolean(errors.floorId)}
             helperText={
               errors.floorId ??
-              'Pour un membre du groupe Surveillants : il est proposé en premier pour les classes de cet étage.'
+              t('Pour un membre du groupe Surveillants : il est proposé en premier pour les classes de cet étage.')
             }
           >
-            <MenuItem value="">Aucun</MenuItem>
+            <MenuItem value="">{t('Aucun')}</MenuItem>
             {(floors.data ?? [])
               .filter((f) => f.active || f.id === values.floorId)
               .map((f) => (
@@ -279,9 +280,9 @@ export function UserFormDialog({
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={onClose}>Annuler</Button>
+          <Button onClick={onClose}>{t('Annuler')}</Button>
           <Button type="submit" variant="contained" loading={mutation.isPending}>
-            {creating ? 'Créer le compte' : 'Enregistrer'}
+            {creating ? t('Créer le compte') : t('Enregistrer')}
           </Button>
         </DialogActions>
       </Box>

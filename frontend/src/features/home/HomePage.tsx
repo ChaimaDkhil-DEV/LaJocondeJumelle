@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { LoadingState } from '../../components/LoadingState';
+import { t } from '../../i18n';
 import { useCurrentUser } from '../auth/useCurrentUser';
 import { RequestListPage } from '../requests/RequestListPage';
 
@@ -15,7 +16,7 @@ export function HomePage() {
   if (me.isPending) return <LoadingState />;
   if (me.data?.role !== 'SUPER_ADMIN') return <RequestListPage />;
   return (
-    <Suspense fallback={<LoadingState label="Chargement du tableau de bord" />}>
+    <Suspense fallback={<LoadingState label={t('Chargement du tableau de bord')} />}>
       <DashboardPage />
     </Suspense>
   );

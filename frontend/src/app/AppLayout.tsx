@@ -20,6 +20,7 @@ import { Link as RouterLink, Outlet, useLocation, useNavigate } from 'react-rout
 import type { Me } from '../api/types';
 import { AppLogo } from '../components/AppLogo';
 import { IconAction } from '../components/IconAction';
+import { LanguageSwitcher } from '../components/LanguageSwitcher';
 import { visuallyHidden } from '../components/a11y';
 import { Person } from '../components/UserAvatar';
 import { font, fontSize, icon, layout, motion, radius, tokensOf } from '../design/tokens';
@@ -27,6 +28,7 @@ import { ROLE_LABELS } from '../features/admin/labels';
 import { useCurrentUser, useLogout } from '../features/auth/useCurrentUser';
 import { NotificationCenter } from '../features/notifications/NotificationCenter';
 import { SocketProvider } from '../features/notifications/SocketProvider';
+import { t } from '../i18n';
 
 export interface NavItem {
   to: string;
@@ -41,7 +43,7 @@ export interface NavItem {
 /** Tableau de bord : page d'accueil du super administrateur (seul rôle autorisé par l'API). */
 const DASHBOARD_ITEM: NavItem = {
   to: '/',
-  label: 'Tableau de bord',
+  label: t('Tableau de bord'),
   icon: LayoutDashboard,
   matches: (p) => p === '/',
 };
@@ -54,7 +56,7 @@ function requestsItem(isHome: boolean): NavItem {
   const current = (p: string) => p === '/demandes' || (isHome && p === '/');
   return {
     to: '/demandes',
-    label: 'Mes demandes',
+    label: t('Mes demandes'),
     icon: Inbox,
     current,
     matches: (p) => current(p) || (p.startsWith('/demandes/') && p !== '/demandes/nouvelle'),
@@ -65,7 +67,7 @@ function requestsItem(isHome: boolean): NavItem {
 export const NAV_ITEMS: NavItem[] = [
   {
     to: '/demandes/nouvelle',
-    label: 'Nouvelle demande',
+    label: t('Nouvelle demande'),
     icon: SquarePen,
     matches: (p) => p === '/demandes/nouvelle',
   },
@@ -84,7 +86,7 @@ export function canSeeCoverage(me: Me | undefined): boolean {
 
 const COVERAGE_ITEM: NavItem = {
   to: '/gardes',
-  label: 'Gardes',
+  label: t('Gardes'),
   icon: School,
   matches: (p) => p.startsWith('/gardes'),
 };
@@ -92,7 +94,7 @@ const COVERAGE_ITEM: NavItem = {
 /** Entrée réservée au super administrateur (le serveur refuse aussi /api/admin aux autres rôles). */
 const ADMIN_ITEM: NavItem = {
   to: '/admin',
-  label: 'Administrateur',
+  label: t('Administrateur'),
   icon: Settings,
   matches: (p) => p.startsWith('/admin'),
 };
@@ -116,7 +118,7 @@ function SkipLink() {
         '&:focus': { top: 8 },
       }}
     >
-      Aller au contenu
+      {t('Aller au contenu')}
     </Link>
   );
 }
@@ -135,7 +137,7 @@ function Brand() {
 function NavList({ items, onNavigate }: { items: NavItem[]; onNavigate?: () => void }) {
   const { pathname } = useLocation();
   return (
-    <Box component="nav" aria-label="Navigation principale">
+    <Box component="nav" aria-label={t('Navigation principale')}>
       <Box component="ul" sx={{ listStyle: 'none', m: 0, p: 0, display: 'grid', gap: 0.5 }}>
         {items.map((item) => {
           const active = item.matches(pathname);
@@ -209,7 +211,7 @@ function ProfileLink({ me, onNavigate }: { me: Me; onNavigate?: () => void }) {
       })}
     >
       <Box component="span" sx={visuallyHidden}>
-        Mon profil :{' '}
+        {t('Mon profil :')}{' '}
       </Box>
       <Person
         name={me.displayName}
@@ -296,12 +298,13 @@ export function AppLayout() {
               }}
             >
               {me.data && <ProfileLink me={me.data} />}
+              <LanguageSwitcher />
               <Button
                 onClick={handleLogout}
                 startIcon={<LogOut size={icon.md} aria-hidden="true" />}
                 sx={{ justifyContent: 'flex-start', px: 1.25 }}
               >
-                Se déconnecter
+                {t('Se déconnecter')}
               </Button>
             </Box>
           </Box>
@@ -324,15 +327,15 @@ export function AppLayout() {
             >
               <IconAction
                 icon={Menu}
-                label="Ouvrir le menu"
-                tooltip="Menu"
+                label={t('Ouvrir le menu')}
+                tooltip={t('Menu')}
                 onClick={() => setDrawerOpen(true)}
               />
               <Box sx={{ flexGrow: 1, minWidth: 0, ml: 0.5 }}>
                 <Brand />
               </Box>
               <NotificationCenter />
-              <IconAction icon={LogOut} label="Se déconnecter" onClick={handleLogout} />
+              <IconAction icon={LogOut} label={t('Se déconnecter')} onClick={handleLogout} />
             </Box>
             <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)}>
               <Box
@@ -348,11 +351,10 @@ export function AppLayout() {
               >
                 <Brand />
                 <NavList items={navItems} onNavigate={() => setDrawerOpen(false)} />
-                {me.data && (
-                  <Box sx={{ mt: 'auto', pt: 2, borderTop: 1, borderColor: 'divider' }}>
-                    <ProfileLink me={me.data} onNavigate={() => setDrawerOpen(false)} />
-                  </Box>
-                )}
+                <Box sx={{ mt: 'auto', pt: 2, borderTop: 1, borderColor: 'divider', display: 'grid', gap: 1.5 }}>
+                  {me.data && <ProfileLink me={me.data} onNavigate={() => setDrawerOpen(false)} />}
+                  <LanguageSwitcher />
+                </Box>
               </Box>
             </Drawer>
           </>

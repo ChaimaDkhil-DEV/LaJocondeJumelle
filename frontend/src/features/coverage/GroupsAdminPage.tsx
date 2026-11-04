@@ -25,6 +25,17 @@ import { font, icon } from '../../design/tokens';
 import { useAdminUsers } from '../admin/api';
 import { useAdminGroups, useSaveGroup, type AdminGroup } from './adminApi';
 import type { Person } from './types';
+import { isPlural, t } from '../../i18n';
+
+function summaryText(g: AdminGroup): string {
+  const counts = t('{members} · {available}', {
+    members: t(isPlural(g.memberCount) ? '{count} membres' : '{count} membre', { count: g.memberCount }),
+    available: t(isPlural(g.availableCount) ? '{count} disponibles' : '{count} disponible', { count: g.availableCount }),
+  });
+  return g.members.length > 0
+    ? t('{counts} : {names}', { counts, names: g.members.map((m) => m.displayName).join(', ') })
+    : counts;
+}
 
 function GroupFormDialog({ group, onClose, onSaved }: { group: AdminGroup | null | undefined; onClose: () => void; onSaved: (message: string) => void }) {
   const titleId = useId();
@@ -40,33 +51,33 @@ function GroupFormDialog({ group, onClose, onSaved }: { group: AdminGroup | null
   function submit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
     if (!name.trim()) {
-      setNameError('Le nom est obligatoire.');
+      setNameError(t('Le nom est obligatoire.'));
       return;
     }
     setNameError(null);
     save.mutate(
       { id: group?.id, name: name.trim(), active, memberIds: members.map((m) => m.id) },
-      { onSuccess: () => onSaved(group ? 'Groupe enregistré.' : 'Groupe créé.') },
+      { onSuccess: () => onSaved(group ? t('Groupe enregistré.') : t('Groupe créé.')) },
     );
   }
 
   return (
     <Dialog open onClose={onClose} aria-labelledby={titleId} fullWidth maxWidth="sm">
       <Box component="form" noValidate onSubmit={submit}>
-        <DialogTitle id={titleId}>{group ? `Modifier : ${group.name}` : 'Nouveau groupe d’employés'}</DialogTitle>
+        <DialogTitle id={titleId}>{group ? t('Modifier : {name}', { name: group.name }) : t('Nouveau groupe d’employés')}</DialogTitle>
         <DialogContent sx={{ display: 'grid', gap: 2.5, pt: '8px !important' }}>
           <TextField
             id="groupe-nom"
-            label="Nom du groupe"
+            label={t('Nom du groupe')}
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
             error={Boolean(nameError)}
-            helperText={nameError ?? (group?.systemKey ? 'Groupe utilisé par les affectations : le nom peut changer, pas son rôle.' : 'Par exemple : Équipe de cantine.')}
+            helperText={nameError ?? (group?.systemKey ? t('Groupe utilisé par les affectations : le nom peut changer, pas son rôle.') : t('Par exemple : Équipe de cantine.'))}
             slotProps={{ htmlInput: { maxLength: 60 } }}
           />
           {group && !group.systemKey && (
-            <FormControlLabel control={<Checkbox checked={active} onChange={(e) => setActive(e.target.checked)} />} label="Groupe actif" />
+            <FormControlLabel control={<Checkbox checked={active} onChange={(e) => setActive(e.target.checked)} />} label={t('Groupe actif')} />
           )}
           <Autocomplete
             multiple
@@ -77,30 +88,30 @@ function GroupFormDialog({ group, onClose, onSaved }: { group: AdminGroup | null
             getOptionLabel={(o) => o.displayName}
             isOptionEqualToValue={(a, b) => a.id === b.id}
             loading={users.isPending}
-            noOptionsText="Aucun employé"
+            noOptionsText={t('Aucun employé')}
             renderInput={(params) => (
               <TextField
                 {...params}
-                label="Membres"
+                label={t('Membres')}
                 helperText={
                   group?.systemKey === 'SUPERVISORS'
-                    ? 'Surveillants : ils peuvent être assignés et déclarer une classe vide.'
+                    ? t('Surveillants : ils peuvent être assignés et déclarer une classe vide.')
                     : group?.systemKey === 'TEACHERS'
-                      ? 'Enseignants : ils peuvent signaler un retard ou une absence.'
-                      : 'Comptes membres du groupe.'
+                      ? t('Enseignants : ils peuvent signaler un retard ou une absence.')
+                      : t('Comptes membres du groupe.')
                 }
               />
             )}
           />
           {members.length === 0 && group?.systemKey === 'SUPERVISORS' && (
-            <Alert severity="warning">Sans surveillant, aucune affectation ne peut être assignée.</Alert>
+            <Alert severity="warning">{t('Sans surveillant, aucune affectation ne peut être assignée.')}</Alert>
           )}
-          {save.error && <Alert severity="error">{save.error instanceof ApiError ? save.error.message : 'Enregistrement impossible.'}</Alert>}
+          {save.error && <Alert severity="error">{save.error instanceof ApiError ? save.error.message : t('Enregistrement impossible.')}</Alert>}
         </DialogContent>
         <DialogActions>
-          <Button onClick={onClose}>Annuler</Button>
+          <Button onClick={onClose}>{t('Annuler')}</Button>
           <Button type="submit" variant="contained" loading={save.isPending}>
-            Enregistrer le groupe
+            {t('Enregistrer le groupe')}
           </Button>
         </DialogActions>
       </Box>
@@ -118,25 +129,25 @@ export function GroupsAdminPage() {
     <Box component="section" aria-labelledby="titre-groupes">
       <SectionHeader
         id="titre-groupes"
-        title="Groupes d’employés"
-        description="Les membres du groupe Surveillants sont assignables ; ceux du groupe Enseignants signalent leurs retards et absences."
+        title={t('Groupes d’employés')}
+        description={t('Les membres du groupe Surveillants sont assignables ; ceux du groupe Enseignants signalent leurs retards et absences.')}
         action={
           <Button variant="contained" startIcon={<UsersRound size={icon.sm} aria-hidden="true" />} onClick={() => setForm({ group: null })}>
-            Nouveau groupe
+            {t('Nouveau groupe')}
           </Button>
         }
       />
       {groups.isPending ? (
-        <LoadingState label="Chargement des groupes" />
+        <LoadingState label={t('Chargement des groupes')} />
       ) : groups.error ? (
-        <ErrorState message="Impossible de charger les groupes." actionLabel="Réessayer" onAction={() => void groups.refetch()} />
+        <ErrorState message={t('Impossible de charger les groupes.')} actionLabel={t('Réessayer')} onAction={() => void groups.refetch()} />
       ) : groups.data.length === 0 ? (
         <Paper variant="outlined">
-          <EmptyState icon={UsersRound} title="Aucun groupe" description="Les groupes Surveillants et Enseignants sont créés par la mise à jour." />
+          <EmptyState icon={UsersRound} title={t('Aucun groupe')} description={t('Les groupes Surveillants et Enseignants sont créés par la mise à jour.')} />
         </Paper>
       ) : (
         <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
-          <Box component="ul" aria-label="Groupes" sx={{ listStyle: 'none', m: 0, p: 0, '& > li + li': { borderTop: 1, borderColor: 'divider' } }}>
+          <Box component="ul" aria-label={t('Groupes')} sx={{ listStyle: 'none', m: 0, p: 0, '& > li + li': { borderTop: 1, borderColor: 'divider' } }}>
             {groups.data.map((g) => (
               <Box component="li" key={g.id} sx={{ display: 'flex', gap: 2, alignItems: 'flex-start', px: { xs: 2, md: 2.5 }, py: 2 }}>
                 <Box sx={{ minWidth: 0, flex: '1 1 auto' }}>
@@ -144,31 +155,30 @@ export function GroupsAdminPage() {
                     <Typography sx={{ fontWeight: font.medium }}>{g.name}</Typography>
                     {g.systemKey && (
                       <Badge tone="info" icon={KeyRound}>
-                        {g.systemKey === 'SUPERVISORS' ? 'Groupe des surveillants' : 'Groupe des enseignants'}
+                        {g.systemKey === 'SUPERVISORS' ? t('Groupe des surveillants') : t('Groupe des enseignants')}
                       </Badge>
                     )}
                     {!g.active && (
                       <Badge tone="neutral" icon={CircleOff}>
-                        Inactif
+                        {t('Inactif')}
                       </Badge>
                     )}
                     {g.active && g.memberCount === 0 && (
                       <Badge tone="error" icon={TriangleAlert}>
-                        Groupe vide
+                        {t('Groupe vide')}
                       </Badge>
                     )}
                     {g.active && g.memberCount > 0 && g.availableCount === 0 && (
                       <Badge tone="warning" icon={TriangleAlert}>
-                        Personne de disponible
+                        {t('Personne de disponible')}
                       </Badge>
                     )}
                   </Box>
                   <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, overflowWrap: 'anywhere' }}>
-                    {g.memberCount} membre{g.memberCount > 1 ? 's' : ''} · {g.availableCount} disponible{g.availableCount > 1 ? 's' : ''}
-                    {g.members.length > 0 && ` : ${g.members.map((m) => m.displayName).join(', ')}`}
+                    {summaryText(g)}
                   </Typography>
                 </Box>
-                <IconAction icon={Pencil} label={`Modifier le groupe ${g.name}`} tooltip="Modifier" onClick={() => setForm({ group: g })} />
+                <IconAction icon={Pencil} label={t('Modifier le groupe {name}', { name: g.name })} tooltip={t('Modifier')} onClick={() => setForm({ group: g })} />
               </Box>
             ))}
           </Box>

@@ -3,6 +3,7 @@ import { useTheme } from '@mui/material/styles';
 import type { ReactNode } from 'react';
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { font, fontSize, radius, tokensOf } from '../../design/tokens';
+import { locale, t } from '../../i18n';
 
 /*
  * Graphiques du tableau de bord (Recharts). Couleurs des séries : tokens « chart » (contraste,
@@ -10,8 +11,8 @@ import { font, fontSize, radius, tokensOf } from '../../design/tokens';
  * a sa vue tableau.
  */
 
-const shortDay = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short' });
-const longDay = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+const shortDay = new Intl.DateTimeFormat(locale(), { day: 'numeric', month: 'short' });
+const longDay = new Intl.DateTimeFormat(locale(), { weekday: 'long', day: 'numeric', month: 'long' });
 const dayOf = (day: string) => new Date(`${day}T12:00:00`);
 
 function useChartTheme() {
@@ -56,7 +57,7 @@ function DataTable({ caption, head, rows }: { caption: string; head: string[]; r
         },
       })}
     >
-      <summary>Voir les données</summary>
+      <summary>{t('Voir les données')}</summary>
       <Box tabIndex={0} role="region" aria-label={caption} sx={{ maxHeight: 240, overflow: 'auto' }}>
         <Box
           component="table"
@@ -94,7 +95,7 @@ export function DailyChart({ data }: { data: Array<{ day: string; created: numbe
   const dot = (fill: string) => (data.length <= 14 ? { r: 3, fill, strokeWidth: 0, strokeDasharray: '0' } : false);
   return (
     <Box>
-      <Box role="img" aria-label="Demandes créées et terminées par jour" sx={{ height: 260 }}>
+      <Box role="img" aria-label={t('Demandes créées et terminées par jour')} sx={{ height: 260 }}>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 8, right: 16, bottom: 4, left: -16 }}>
             <CartesianGrid vertical={false} stroke={c.grid} />
@@ -102,11 +103,11 @@ export function DailyChart({ data }: { data: Array<{ day: string; created: numbe
             <YAxis allowDecimals={false} {...c.axis} tickLine={false} axisLine={false} />
             <Tooltip {...c.tooltip} cursor={{ stroke: c.tooltip.cursor.stroke }} labelFormatter={(d) => longDay.format(dayOf(String(d)))} />
             <Legend verticalAlign="top" align="right" height={28} iconType="plainline" wrapperStyle={{ fontSize: fontSize.sm, color: c.axis.tick.fill }} />
-            <Line type="monotone" dataKey="created" name="Créées" stroke={c.series.created} strokeWidth={2} dot={dot(c.series.created)} activeDot={{ r: 4 }} />
+            <Line type="monotone" dataKey="created" name={t('Créées')} stroke={c.series.created} strokeWidth={2} dot={dot(c.series.created)} activeDot={{ r: 4 }} />
             <Line
               type="monotone"
               dataKey="completed"
-              name="Terminées"
+              name={t('Terminées')}
               stroke={c.series.completed}
               strokeWidth={2}
               strokeDasharray="6 4"
@@ -117,8 +118,8 @@ export function DailyChart({ data }: { data: Array<{ day: string; created: numbe
         </ResponsiveContainer>
       </Box>
       <DataTable
-        caption="Demandes créées et terminées par jour"
-        head={['Jour', 'Créées', 'Terminées']}
+        caption={t('Demandes créées et terminées par jour')}
+        head={[t('Jour'), t('Créées'), t('Terminées')]}
         rows={data.map((d) => [shortDay.format(dayOf(d.day)), d.created, d.completed])}
       />
     </Box>
@@ -162,7 +163,7 @@ export function StatusDonut({ data }: { data: Array<{ label: string; count: numb
     <Box>
       {/* Anneau puis légende : la carte est étroite (colonne de droite), les libellés restent entiers. */}
       <Box sx={{ display: 'grid', gap: 2 }}>
-        <Box role="img" aria-label="Répartition des demandes par état" sx={{ height: 180, width: '100%', maxWidth: 220, mx: 'auto', position: 'relative' }}>
+        <Box role="img" aria-label={t('Répartition des demandes par état')} sx={{ height: 180, width: '100%', maxWidth: 220, mx: 'auto', position: 'relative' }}>
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Tooltip {...c.tooltip} formatter={(value, name) => [value, name]} />
@@ -181,11 +182,11 @@ export function StatusDonut({ data }: { data: Array<{ label: string; count: numb
               {total}
             </Box>
             <Box component="span" sx={(theme) => ({ fontSize: fontSize.xs, color: tokensOf(theme).textSecondary })}>
-              demandes
+              {t('demandes')}
             </Box>
           </Box>
         </Box>
-        <Box component="ul" aria-label="Légende : demandes par état" sx={{ listStyle: 'none', m: 0, p: 0, display: 'grid', gap: 1 }}>
+        <Box component="ul" aria-label={t('Légende : demandes par état')} sx={{ listStyle: 'none', m: 0, p: 0, display: 'grid', gap: 1 }}>
           {data.map((d, index) => (
             <Box component="li" key={d.label} sx={{ display: 'flex', alignItems: 'center', gap: 1, fontSize: fontSize.sm, minWidth: 0 }}>
               <Box component="span" sx={{ width: 10, height: 10, borderRadius: '50%', flex: 'none', bgcolor: colorOf(index) }} />
@@ -199,7 +200,7 @@ export function StatusDonut({ data }: { data: Array<{ label: string; count: numb
           ))}
         </Box>
       </Box>
-      <DataTable caption="Demandes par état" head={['État', 'Demandes']} rows={data.map((d) => [d.label, d.count])} />
+      <DataTable caption={t('Demandes par état')} head={[t('État'), t('Demandes')]} rows={data.map((d) => [d.label, d.count])} />
     </Box>
   );
 }

@@ -20,6 +20,7 @@ import { useAdminClasses, useAdminFloors, useDashboard, type EmployeeStats } fro
 import { CoverageRows } from './ManagerViews';
 import { AVAILABILITY_LABELS, CoverageStatusBadge, Elapsed, MAIN_STATUS_LABELS, derivedStatus } from './labels';
 import type { MainStatus } from './types';
+import { isPlural, t } from '../../i18n';
 
 interface Filters {
   assigneeId: string;
@@ -75,7 +76,7 @@ function EmployeeRow({ e }: { e: EmployeeStats }) {
       }}
     >
       <Box sx={{ minWidth: 0 }}>
-        <Person name={e.displayName} id={e.id} size={28} secondary={e.available ? 'Disponible' : e.currentGuard ? 'Affecté' : AVAILABILITY_LABELS[e.availability]} />
+        <Person name={e.displayName} id={e.id} size={28} secondary={e.available ? t('Disponible') : e.currentGuard ? t('Affecté') : AVAILABILITY_LABELS[e.availability]} />
       </Box>
       <Box sx={{ minWidth: 0, display: 'grid', gap: 0.5 }}>
         {e.currentGuard ? (
@@ -86,17 +87,21 @@ function EmployeeRow({ e }: { e: EmployeeStats }) {
             </Box>
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center', fontSize: fontSize.xs, color: 'text.secondary' }}>
               <CoverageStatusBadge {...derivedStatus(e.currentGuard.status)} />
-              {e.currentGuard.since && <Elapsed since={e.currentGuard.since} prefix="depuis" />}
+              {e.currentGuard.since && <Elapsed since={e.currentGuard.since} prefix={t('depuis')} />}
             </Box>
           </>
         ) : (
           <Typography variant="body2" color="text.secondary">
-            Aucune affectation en cours{e.activeWorkTasks > 0 ? ` · ${e.activeWorkTasks} tâche${e.activeWorkTasks > 1 ? 's' : ''} en cours` : ''}
+            {e.activeWorkTasks > 0
+              ? t(isPlural(e.activeWorkTasks) ? 'Aucune affectation en cours · {n} tâches en cours' : 'Aucune affectation en cours · {n} tâche en cours', {
+                  n: e.activeWorkTasks,
+                })
+              : t('Aucune affectation en cours')}
           </Typography>
         )}
       </Box>
-      <Stat label="Affectations effectuées" value={String(e.guardsDone)} />
-      <Stat label="Retards" value={String(e.lates)} />
+      <Stat label={t('Affectations effectuées')} value={String(e.guardsDone)} />
+      <Stat label={t('Retards')} value={String(e.lates)} />
     </Box>
   );
 }
@@ -139,101 +144,108 @@ export function CoverageDashboardPage() {
       />
       <SectionHeader
         id="titre-suivi"
-        title="Suivi des affectations"
-        description="Mis à jour en direct. Les chiffres sont calculés sur les affectations correspondant aux filtres."
+        title={t('Suivi des affectations')}
+        description={t('Mis à jour en direct. Les chiffres sont calculés sur les affectations correspondant aux filtres.')}
         action={
           <Box className="no-print" sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
             <Button component="a" href={`/api/admin/coverage/export.csv${query ? `?${query}` : ''}`} download startIcon={<Download size={icon.sm} aria-hidden="true" />}>
-              Exporter en CSV
+              {t('Exporter en CSV')}
             </Button>
             <Button onClick={() => window.print()} startIcon={<Printer size={icon.sm} aria-hidden="true" />}>
-              Imprimer
+              {t('Imprimer')}
             </Button>
             <Button component={RouterLink} to="/admin/journal" startIcon={<ScrollText size={icon.sm} aria-hidden="true" />}>
-              Journal d’audit
+              {t('Journal d’audit')}
             </Button>
           </Box>
         }
       />
 
       <Box className="no-print" sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', lg: 'repeat(6, minmax(0, 1fr))' }, mb: 3 }}>
-        <TextField select size="small" label="Surveillant" value={filters.assigneeId} onChange={(e) => set({ assigneeId: e.target.value })}>
-          <MenuItem value="">Tous</MenuItem>
+        <TextField select size="small" label={t('Surveillant')} value={filters.assigneeId} onChange={(e) => set({ assigneeId: e.target.value })}>
+          <MenuItem value="">{t('Tous')}</MenuItem>
           {(dashboard.data?.employees ?? []).map((e) => (
             <MenuItem key={e.id} value={e.id}>
               {e.displayName}
             </MenuItem>
           ))}
         </TextField>
-        <TextField select size="small" label="Classe" value={filters.classId} onChange={(e) => set({ classId: e.target.value })}>
-          <MenuItem value="">Toutes</MenuItem>
+        <TextField select size="small" label={t('Classe')} value={filters.classId} onChange={(e) => set({ classId: e.target.value })}>
+          <MenuItem value="">{t('Toutes')}</MenuItem>
           {(classes.data ?? []).map((c) => (
             <MenuItem key={c.id} value={c.id}>
               {c.name}
             </MenuItem>
           ))}
         </TextField>
-        <TextField select size="small" label="Statut" value={filters.mainStatus} onChange={(e) => set({ mainStatus: e.target.value })}>
-          <MenuItem value="">Tous</MenuItem>
+        <TextField select size="small" label={t('Statut')} value={filters.mainStatus} onChange={(e) => set({ mainStatus: e.target.value })}>
+          <MenuItem value="">{t('Tous')}</MenuItem>
           {(Object.keys(MAIN_STATUS_LABELS) as MainStatus[]).map((s) => (
             <MenuItem key={s} value={s}>
               {MAIN_STATUS_LABELS[s]}
             </MenuItem>
           ))}
         </TextField>
-        <TextField select size="small" label="Étage" value={filters.floorId} onChange={(e) => set({ floorId: e.target.value })}>
-          <MenuItem value="">Tous</MenuItem>
+        <TextField select size="small" label={t('Étage')} value={filters.floorId} onChange={(e) => set({ floorId: e.target.value })}>
+          <MenuItem value="">{t('Tous')}</MenuItem>
           {(floors.data ?? []).map((f) => (
             <MenuItem key={f.id} value={f.id}>
               {f.name}
             </MenuItem>
           ))}
         </TextField>
-        <TextField size="small" type="date" label="Du" value={filters.from} onChange={(e) => set({ from: e.target.value })} />
-        <TextField size="small" type="date" label="Au" value={filters.to} onChange={(e) => set({ to: e.target.value })} />
+        <TextField size="small" type="date" label={t('Du')} value={filters.from} onChange={(e) => set({ from: e.target.value })} />
+        <TextField size="small" type="date" label={t('Au')} value={filters.to} onChange={(e) => set({ to: e.target.value })} />
       </Box>
 
       {dashboard.isPending ? (
-        <LoadingState label="Chargement du suivi" variant="detail" />
+        <LoadingState label={t('Chargement du suivi')} variant="detail" />
       ) : dashboard.error ? (
         <ErrorState
-          message={loadErrorMessage(dashboard.error, 'le suivi', 'Réinitialisez les filtres puis réessayez.')}
-          actionLabel="Réessayer"
+          message={loadErrorMessage(dashboard.error, t('le suivi'), t('Réinitialisez les filtres puis réessayez.'))}
+          actionLabel={t('Réessayer')}
           onAction={() => void dashboard.refetch()}
         />
       ) : (
         <Box sx={{ display: 'grid', gap: 3 }}>
           {dashboard.data.emptyGroups.length > 0 && (
             <Alert severity="warning" icon={<TriangleAlert size={icon.lg} aria-hidden="true" />}>
-              Groupe Surveillants sans surveillant disponible :{' '}
+              {t('Groupe Surveillants sans surveillant disponible :')}{' '}
               {dashboard.data.emptyGroups
-                .map((g) => `${g.name} (${g.memberCount === 0 ? 'vide' : `${g.memberCount} membre${g.memberCount > 1 ? 's' : ''}, aucun disponible`})`)
+                .map((g) =>
+                  g.memberCount === 0
+                    ? t('{name} (vide)', { name: g.name })
+                    : t(isPlural(g.memberCount) ? '{name} ({count} membres, aucun disponible)' : '{name} ({count} membre, aucun disponible)', {
+                        name: g.name,
+                        count: g.memberCount,
+                      }),
+                )
                 .join(', ')}
-              . <RouterLink to="/admin/groupes">Gérer le groupe</RouterLink>
+              . <RouterLink to="/admin/groupes">{t('Gérer le groupe')}</RouterLink>
             </Alert>
           )}
 
           <Box
             component="section"
-            aria-label="Chiffres clés"
+            aria-label={t('Chiffres clés')}
             sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', md: 'repeat(3, minmax(0, 1fr))', lg: 'repeat(6, minmax(0, 1fr))' } }}
           >
-            <Kpi label="En attente" value={dashboard.data.counts.open} tone="info" icon={Radio} />
-            <Kpi label="Non pourvues" value={dashboard.data.counts.unfilled} tone="error" icon={AlarmClock} />
-            <Kpi label="Assignées" value={dashboard.data.counts.taken} tone="accent" icon={UserCheck} />
-            <Kpi label="En retard" value={dashboard.data.counts.late} tone="error" icon={AlarmClock} />
-            <Kpi label="En cours" value={dashboard.data.counts.onDuty} tone="success" icon={ShieldCheck} />
-            <Kpi label="Relèves demandées" value={dashboard.data.counts.reliefPending} tone="warning" icon={LifeBuoy} />
+            <Kpi label={t('En attente')} value={dashboard.data.counts.open} tone="info" icon={Radio} />
+            <Kpi label={t('Non pourvues')} value={dashboard.data.counts.unfilled} tone="error" icon={AlarmClock} />
+            <Kpi label={t('Assignées')} value={dashboard.data.counts.taken} tone="accent" icon={UserCheck} />
+            <Kpi label={t('En retard')} value={dashboard.data.counts.late} tone="error" icon={AlarmClock} />
+            <Kpi label={t('En cours')} value={dashboard.data.counts.onDuty} tone="success" icon={ShieldCheck} />
+            <Kpi label={t('Relèves demandées')} value={dashboard.data.counts.reliefPending} tone="warning" icon={LifeBuoy} />
           </Box>
 
           <Box component="section" aria-labelledby="titre-suivi-actives" sx={{ display: 'grid', gap: 1.5 }}>
             <Typography id="titre-suivi-actives" component="h3" variant="subtitle1">
-              Affectations actives ({dashboard.data.active.length})
+              {t('Affectations actives ({count})', { count: dashboard.data.active.length })}
             </Typography>
-            <CoverageRows items={dashboard.data.active} empty="Aucune affectation active pour ces filtres." />
+            <CoverageRows items={dashboard.data.active} empty={t('Aucune affectation active pour ces filtres.')} />
           </Box>
 
-          <SectionCard title={`Par surveillant (${dashboard.data.employees.length})`} flush>
+          <SectionCard title={t('Par surveillant ({count})', { count: dashboard.data.employees.length })} flush>
             <Box
               aria-hidden="true"
               sx={(theme) => ({
@@ -248,10 +260,10 @@ export function CoverageDashboardPage() {
                 borderColor: 'divider',
               })}
             >
-              <span>Surveillant</span>
-              <span>Affectation en cours</span>
-              <span>Affectations effectuées</span>
-              <span>Retards</span>
+              <span>{t('Surveillant')}</span>
+              <span>{t('Affectation en cours')}</span>
+              <span>{t('Affectations effectuées')}</span>
+              <span>{t('Retards')}</span>
             </Box>
             <Box component="ul" sx={{ listStyle: 'none', m: 0, p: 0 }}>
               {dashboard.data.employees.map((e) => (
@@ -260,7 +272,7 @@ export function CoverageDashboardPage() {
             </Box>
           </SectionCard>
           <Typography variant="caption" color="text.secondary">
-            Export PDF : utilisez « Imprimer » puis « Enregistrer au format PDF » (export PDF natif prévu en évolution).
+            {t('Export PDF : utilisez « Imprimer » puis « Enregistrer au format PDF » (export PDF natif prévu en évolution).')}
           </Typography>
         </Box>
       )}

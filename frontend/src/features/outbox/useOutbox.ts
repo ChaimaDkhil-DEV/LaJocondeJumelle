@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiError } from '../../api/client';
+import { t } from '../../i18n';
 import { isRetryableError, requestKeys, submitRequest } from '../requests/api';
 import { submitMessage } from '../thread/api';
 import { listOutbox, removeFromOutbox, saveToOutbox, type OutboxEntry } from './outbox';
@@ -20,7 +21,7 @@ export function useOutbox() {
         await removeFromOutbox(entry.id);
         return created;
       } catch (error) {
-        const message = error instanceof ApiError ? error.message : 'Envoi impossible.';
+        const message = error instanceof ApiError ? error.message : t('Envoi impossible.');
         if (isRetryableError(error)) {
           await saveToOutbox({ ...entry, lastError: message });
         }

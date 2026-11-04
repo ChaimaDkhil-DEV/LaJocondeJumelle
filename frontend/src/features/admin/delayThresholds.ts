@@ -1,3 +1,5 @@
+import { t } from '../../i18n';
+
 /**
  * Onglet « Délais » : seuils de présentation (aucun calcul d'indicateur ici, ils viennent de
  * l'API). À ajuster si l'établissement fixe d'autres objectifs.
@@ -32,5 +34,5 @@ export function isLowSample(count: number): boolean {
 
 /** « 80 % » : taux entier, pour les libellés d'objectif. */
 export function percent(rate: number): string {
-  return `${Math.round(rate * 100)} %`;
+  return t('{percent} %', { percent: Math.round(rate * 100) });
 }

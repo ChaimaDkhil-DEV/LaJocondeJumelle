@@ -5,6 +5,7 @@ import { ApiError } from '../../api/client';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
 import { useCurrentUser } from './useCurrentUser';
+import { t } from '../../i18n';
 
 /**
  * Protège une route : sans session (401) → connexion ;
@@ -17,7 +18,7 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   if (me.isPending) {
     return (
       <Box sx={{ maxWidth: 1120, mx: 'auto', p: { xs: 2, md: 4 } }}>
-        <LoadingState label="Chargement de votre espace" variant="detail" />
+        <LoadingState label={t('Chargement de votre espace')} variant="detail" />
       </Box>
     );
   }
@@ -33,8 +34,8 @@ export function RequireAuth({ children }: { children: ReactNode }) {
     return (
       <Box sx={{ maxWidth: 640, mx: 'auto', p: 2 }}>
         <ErrorState
-        message={me.error instanceof ApiError ? me.error.message : 'Impossible de charger votre profil.'}
-        actionLabel="Réessayer"
+        message={me.error instanceof ApiError ? me.error.message : t('Impossible de charger votre profil.')}
+        actionLabel={t('Réessayer')}
           onAction={() => void me.refetch()}
         />
       </Box>

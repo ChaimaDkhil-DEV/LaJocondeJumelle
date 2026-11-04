@@ -15,6 +15,7 @@ import { useToast } from '../../components/Toast';
 import { icon } from '../../design/tokens';
 import { useCoverageProfile, useFormOptions, useUpdateCoverage, type UpdateCoverageInput } from './api';
 import type { CoverageDetail, ModifiableField } from './types';
+import { locale, t } from '../../i18n';
 
 type Values = { classId: string; date: string; startTime: string; endTime: string };
 type Errors = Partial<Record<ModifiableField, string>>;
@@ -23,7 +24,7 @@ type Errors = Partial<Record<ModifiableField, string>>;
 function schoolValues(startAt: string, plannedEndAt: string | null, timeZone: string): Omit<Values, 'classId'> {
   const date = new Intl.DateTimeFormat('en-CA', { timeZone }).format(new Date(startAt));
   const time = (value: string) =>
-    new Intl.DateTimeFormat('fr-FR', { timeZone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(
+    new Intl.DateTimeFormat(locale(), { timeZone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(
       new Date(value),
     );
   return { date, startTime: time(startAt), endTime: plannedEndAt ? time(plannedEndAt) : '' };
@@ -39,7 +40,7 @@ export function EditCoverageButton({ detail }: { detail: CoverageDetail }) {
   return (
     <>
       <Button variant="outlined" startIcon={<Pencil size={icon.sm} aria-hidden="true" />} onClick={() => setOpen(true)}>
-        Modifier
+        {t('Modifier')}
       </Button>
       {open && <EditCoverageDialog detail={detail} onClose={() => setOpen(false)} />}
     </>
@@ -64,14 +65,14 @@ function EditCoverageDialog({ detail, onClose }: { detail: CoverageDetail; onClo
   // Retours au niveau de la mutation : appelés même si le dialogue est démonté avant la réponse.
   const update = useUpdateCoverage(detail.id, {
     onSuccess: () => {
-      toast.success('Affectation modifiée.');
+      toast.success(t('Affectation modifiée.'));
       onClose();
     },
     onError: (error) => {
       const byField = fieldErrors(error) as Errors;
       if (Object.keys(byField).length > 0) setErrors(byField);
       else if (error instanceof ApiError && error.code === 'INVALID_RANGE') setErrors({ endTime: error.message });
-      else setGeneral(error instanceof ApiError ? error.message : 'La modification n’a pas pu être enregistrée. Réessayez.');
+      else setGeneral(error instanceof ApiError ? error.message : t('La modification n’a pas pu être enregistrée. Réessayez.'));
     },
   });
 
@@ -105,17 +106,17 @@ function EditCoverageDialog({ detail, onClose }: { detail: CoverageDetail; onClo
   return (
     <Dialog open onClose={onClose} aria-labelledby={titleId} fullWidth maxWidth="sm">
       <Box component="form" noValidate onSubmit={submit}>
-        <DialogTitle id={titleId}>Modifier l’affectation</DialogTitle>
+        <DialogTitle id={titleId}>{t('Modifier l’affectation')}</DialogTitle>
         <DialogContent sx={{ display: 'grid', gap: 2 }}>
           {onSiteOnly && (
             <Typography variant="body2" color="text.secondary">
-              Le surveillant est en classe : seule l’heure de fin peut changer.
+              {t('Le surveillant est en classe : seule l’heure de fin peut changer.')}
             </Typography>
           )}
           {general && <Alert severity="error">{general}</Alert>}
           <TextField
             select
-            label="Classe"
+            label={t('Classe')}
             value={classes.length > 0 ? values.classId : ''}
             onChange={(e) => setValues((v) => ({ ...v, classId: e.target.value }))}
             disabled={!editable('classId')}
@@ -130,7 +131,7 @@ function EditCoverageDialog({ detail, onClose }: { detail: CoverageDetail; onClo
           </TextField>
           <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr 1fr' } }}>
             <TextField
-              label="Date"
+              label={t('Date')}
               type="date"
               value={values.date}
               onChange={(e) => setValues((v) => ({ ...v, date: e.target.value }))}
@@ -139,14 +140,14 @@ function EditCoverageDialog({ detail, onClose }: { detail: CoverageDetail; onClo
               helperText={errors.date ?? ' '}
               slotProps={{ inputLabel: { shrink: true } }}
             />
-            {field('startTime', 'Heure de début (HH:MM)')}
-            {field('endTime', 'Heure de fin (HH:MM)')}
+            {field('startTime', t('Heure de début (HH:MM)'))}
+            {field('endTime', t('Heure de fin (HH:MM)'))}
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={onClose}>Annuler</Button>
+          <Button onClick={onClose}>{t('Annuler')}</Button>
           <Button type="submit" variant="contained" loading={update.isPending}>
-            Enregistrer
+            {t('Enregistrer')}
           </Button>
         </DialogActions>
       </Box>

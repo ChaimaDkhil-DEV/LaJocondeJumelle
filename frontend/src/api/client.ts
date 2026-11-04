@@ -3,6 +3,8 @@
  * Format d'erreur de l'API : { "error": { "code", "message", "details" } } (contracts/rest-api.md).
  */
 
+import { t } from '../i18n';
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,
@@ -10,13 +12,14 @@ export class ApiError extends Error {
     message: string,
     readonly details?: Record<string, unknown>,
   ) {
-    super(message);
+    // The API answers in French; its messages are keys of the English dictionary.
+    super(t(message));
     this.name = 'ApiError';
   }
 }
 
-const NETWORK_MESSAGE = 'Connexion impossible. Vérifiez votre connexion internet puis réessayez.';
-const UNEXPECTED_MESSAGE = 'Une erreur inattendue est survenue. Réessayez plus tard.';
+const NETWORK_MESSAGE = t('Connexion impossible. Vérifiez votre connexion internet puis réessayez.');
+const UNEXPECTED_MESSAGE = t('Une erreur inattendue est survenue. Réessayez plus tard.');
 
 let clockOffsetMs = 0;
 
@@ -86,23 +89,23 @@ export async function apiFetch<T = unknown>(path: string, init: ApiRequestInit =
  * `subject` : ce qui n'a pas pu être chargé (« le suivi ») ; `invalidHint` : action proposée
  * quand la requête est refusée comme invalide (ex. « Réinitialisez les filtres. »).
  */
-export function loadErrorMessage(error: unknown, subject: string, invalidHint = 'Vérifiez les critères saisis.'): string {
-  if (!(error instanceof ApiError)) return `Impossible de charger ${subject}. Réessayez dans quelques instants.`;
+export function loadErrorMessage(error: unknown, subject: string, invalidHint = t('Vérifiez les critères saisis.')): string {
+  if (!(error instanceof ApiError)) return t('Impossible de charger {subject}. Réessayez dans quelques instants.', { subject });
   if (error.status === 0) return NETWORK_MESSAGE;
-  if (error.status === 403 || error.status === 404) return `Vous n’avez pas accès à ${subject}.`;
-  if (error.code === 'VALIDATION_ERROR') return `Impossible de charger ${subject} : la demande n’est pas valide. ${invalidHint}`;
+  if (error.status === 403 || error.status === 404) return t('Vous n’avez pas accès à {subject}.', { subject });
+  if (error.code === 'VALIDATION_ERROR') return t('Impossible de charger {subject} : la demande n’est pas valide. {hint}', { subject, hint: invalidHint });
   if (error.status >= 500) {
     const reference = typeof error.details?.reference === 'string' ? error.details.reference : null;
     return reference
-      ? `Le serveur n’a pas pu charger ${subject}. Réessayez ; si le problème persiste, transmettez la référence ${reference} à l’administrateur technique.`
-      : `Le serveur n’a pas pu charger ${subject}. Réessayez dans quelques instants.`;
+      ? t('Le serveur n’a pas pu charger {subject}. Réessayez ; si le problème persiste, transmettez la référence {reference} à l’administrateur technique.', { subject, reference })
+      : t('Le serveur n’a pas pu charger {subject}. Réessayez dans quelques instants.', { subject });
   }
-  return `Impossible de charger ${subject}. ${error.message}`;
+  return t('Impossible de charger {subject}. {message}', { subject, message: error.message });
 }
 
 /** Erreurs par champ renvoyées par l'API (VALIDATION_ERROR). */
 export function fieldErrors(error: unknown): Record<string, string> {
   if (!(error instanceof ApiError) || error.code !== 'VALIDATION_ERROR') return {};
   const fields = (error.details?.fields ?? []) as Array<{ field: string; messages: string[] }>;
-  return Object.fromEntries(fields.map((f) => [f.field, f.messages[0] ?? 'Valeur invalide']));
+  return Object.fromEntries(fields.map((f) => [f.field, t(f.messages[0] ?? 'Valeur invalide')]));
 }

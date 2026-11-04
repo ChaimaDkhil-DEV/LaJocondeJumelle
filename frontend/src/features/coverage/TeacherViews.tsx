@@ -8,21 +8,22 @@ import { LoadingState } from '../../components/LoadingState';
 import { formatDateTime } from '../../components/format';
 import { useMyRequests } from './api';
 import { CoverageStatusBadge, TYPE_LABELS, formatTime } from './labels';
+import { t } from '../../i18n';
 
 /** Onglet « Mes signalements » de l'enseignant : ses demandes, leur statut et le surveillant assigné (FR-014). */
 export function MyRequestsTab() {
   const requests = useMyRequests();
-  if (requests.isPending) return <LoadingState label="Chargement de vos signalements" />;
+  if (requests.isPending) return <LoadingState label={t('Chargement de vos signalements')} />;
   if (requests.error) {
-    return <ErrorState message="Impossible de charger vos signalements." actionLabel="Réessayer" onAction={() => void requests.refetch()} />;
+    return <ErrorState message={t('Impossible de charger vos signalements.')} actionLabel={t('Réessayer')} onAction={() => void requests.refetch()} />;
   }
   if (requests.data.length === 0) {
     return (
       <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1.5, bgcolor: 'background.paper' }}>
         <EmptyState
           icon={CalendarClock}
-          title="Aucun signalement"
-          description="Signalez un retard ou une absence pour aujourd’hui ou demain : l’admin assignera un surveillant à votre classe."
+          title={t('Aucun signalement')}
+          description={t('Signalez un retard ou une absence pour aujourd’hui ou demain : l’admin assignera un surveillant à votre classe.')}
         />
       </Box>
     );
@@ -30,7 +31,7 @@ export function MyRequestsTab() {
   return (
     <Box
       component="ul"
-      aria-label="Mes signalements"
+      aria-label={t('Mes signalements')}
       sx={{ listStyle: 'none', m: 0, p: 0, border: 1, borderColor: 'divider', borderRadius: 1.5, bgcolor: 'background.paper', overflow: 'hidden' }}
     >
       {requests.data.map((r) => (
@@ -52,13 +53,12 @@ export function MyRequestsTab() {
           >
             <Box sx={{ display: 'grid', gap: 0.25 }}>
               <Typography variant="subtitle2">
-                {r.type ? `${TYPE_LABELS[r.type]} — ` : ''}
-                {r.class.name}
+                {r.type ? t('{type} — {name}', { type: TYPE_LABELS[r.type], name: r.class.name }) : r.class.name}
               </Typography>
               <Typography variant="caption" color="text.secondary">
                 {formatDateTime(r.startAt)}
                 {r.plannedEndAt && ` – ${formatTime(r.plannedEndAt)}`}
-                {r.assignee && ` · Surveillant : ${r.assignee.displayName}`}
+                {r.assignee && ` · ${t('Surveillant : {name}', { name: r.assignee.displayName })}`}
               </Typography>
             </Box>
             <CoverageStatusBadge mainStatus={r.mainStatus} subState={r.subState} />

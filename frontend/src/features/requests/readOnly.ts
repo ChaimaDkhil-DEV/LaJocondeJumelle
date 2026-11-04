@@ -1,4 +1,5 @@
 import type { RequestStatus } from '../../api/types';
+import { t } from '../../i18n';
 
 /**
  * Demande en lecture seule : travail terminé (en attente de clôture ou de validation finale) ou
@@ -13,7 +14,7 @@ export function isReadOnlyStatus(status: RequestStatus): boolean {
 
 /** Bandeau affiché sur une demande en lecture seule. */
 export function readOnlyNotice(status: RequestStatus): string {
-  if (status === 'REJECTED') return 'Demande refusée, consultation uniquement.';
-  if (status === 'CANCELLED') return 'Demande annulée, consultation uniquement.';
-  return 'Demande terminée, consultation uniquement.';
+  if (status === 'REJECTED') return t('Demande refusée, consultation uniquement.');
+  if (status === 'CANCELLED') return t('Demande annulée, consultation uniquement.');
+  return t('Demande terminée, consultation uniquement.');
 }

@@ -10,6 +10,7 @@ import { LoadingState } from '../../components/LoadingState';
 import { icon, tokensOf } from '../../design/tokens';
 import { FilePickerButton } from '../thread/FilePickerButton';
 import { compressImage } from './compressImage';
+import { t } from '../../i18n';
 
 export interface CapturedPhoto {
   id: string;
@@ -33,7 +34,7 @@ export function ChildProtectionNotice() {
     >
       <ShieldAlert size={icon.md} aria-hidden="true" style={{ flex: 'none', marginTop: 2 }} />
       <Typography variant="body2" sx={{ color: 'inherit' }}>
-        Photographiez la porte ou l’intérieur de la classe, évitez de cadrer les visages des enfants.
+        {t('Photographiez la porte ou l’intérieur de la classe, évitez de cadrer les visages des enfants.')}
       </Typography>
     </Box>
   );
@@ -63,7 +64,7 @@ export function CameraCapture({ value, onChange }: { value: CapturedPhoto | null
       const uploaded = await uploadFile('PHOTO', blob, name);
       onChange({ id: uploaded.id, previewUrl: URL.createObjectURL(blob) });
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'La photo n’a pas pu être envoyée. Réessayez.');
+      setError(e instanceof ApiError ? e.message : t('La photo n’a pas pu être envoyée. Réessayez.'));
     } finally {
       setUploading(false);
     }
@@ -76,13 +77,13 @@ export function CameraCapture({ value, onChange }: { value: CapturedPhoto | null
         <Box
           component="img"
           src={value.previewUrl}
-          alt="Photo de présence en classe"
+          alt={t('Photo de présence en classe')}
           sx={{ width: '100%', maxWidth: 320, aspectRatio: '4 / 3', objectFit: 'cover', borderRadius: 1, border: 1, borderColor: 'divider' }}
         />
       )}
       <Box>
         <FilePickerButton
-          label={value ? 'Reprendre la photo' : 'Prendre la photo'}
+          label={value ? t('Reprendre la photo') : t('Prendre la photo')}
           icon={value ? <RotateCcw size={icon.md} aria-hidden="true" /> : <Camera size={icon.md} aria-hidden="true" />}
           accept="image/*"
           capture="environment"
@@ -90,7 +91,7 @@ export function CameraCapture({ value, onChange }: { value: CapturedPhoto | null
           onChange={(e) => void handleFile(e)}
         />
       </Box>
-      {uploading && <LoadingState label="Envoi de la photo…" variant="inline" />}
+      {uploading && <LoadingState label={t('Envoi de la photo…')} variant="inline" />}
       {error && <Alert severity="error">{error}</Alert>}
     </Stack>
   );

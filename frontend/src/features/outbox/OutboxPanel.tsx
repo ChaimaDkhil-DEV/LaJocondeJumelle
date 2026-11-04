@@ -5,6 +5,7 @@ import { CloudOff, RefreshCw } from 'lucide-react';
 import { ApiError } from '../../api/client';
 import { formatDateTime } from '../../components/format';
 import { font, icon, tokensOf } from '../../design/tokens';
+import { isPlural, t } from '../../i18n';
 import { useOutbox } from './useOutbox';
 
 /** Demandes non envoyées, conservées sur l'appareil : « Réessayer » ou « Abandonner ». */
@@ -17,7 +18,7 @@ export function OutboxPanel() {
   return (
     <Box
       role="region"
-      aria-label="Boîte d’envoi"
+      aria-label={t('Boîte d’envoi')}
       sx={(theme) => ({
         mb: 3,
         p: 2,
@@ -32,7 +33,7 @@ export function OutboxPanel() {
           <CloudOff size={icon.md} aria-hidden="true" />
         </Box>
         <Typography component="h2" variant="subtitle2" sx={{ color: 'inherit' }}>
-          Boîte d’envoi : {entries.length} envoi{entries.length > 1 ? 's' : ''} en attente
+          {t(isPlural(entries.length) ? 'Boîte d’envoi : {n} envois en attente' : 'Boîte d’envoi : {n} envoi en attente', { n: entries.length })}
         </Typography>
       </Box>
       {retryError && (
@@ -59,10 +60,13 @@ export function OutboxPanel() {
           >
             <Box sx={{ minWidth: 0, flex: '1 1 180px' }}>
               <Typography variant="body2" sx={{ fontWeight: font.medium, color: 'text.primary', overflowWrap: 'anywhere' }}>
-                {entry.type === 'message' ? `Message : ${entry.payload.text ?? 'message vocal'}` : entry.payload.title}
+                {entry.type === 'message'
+                  ? t('Message : {text}', { text: entry.payload.text ?? t('message vocal') })
+                  : entry.payload.title}
               </Typography>
               <Typography variant="caption" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
-                {entry.type === 'message' ? `Demande « ${entry.requestTitle} »` : entry.categoryName} · enregistré le {formatDateTime(entry.savedAt)}
+                {entry.type === 'message' ? t('Demande « {title} »', { title: entry.requestTitle }) : entry.categoryName} ·{' '}
+                {t('enregistré le {date}', { date: formatDateTime(entry.savedAt) })}
               </Typography>
             </Box>
             <Box sx={{ display: 'flex', gap: 1 }}>
@@ -73,10 +77,10 @@ export function OutboxPanel() {
                 onClick={() => retry.mutate(entry)}
                 loading={retry.isPending && retry.variables?.id === entry.id}
               >
-                Réessayer
+                {t('Réessayer')}
               </Button>
               <Button size="small" onClick={() => abandon.mutate(entry)}>
-                Abandonner
+                {t('Abandonner')}
               </Button>
             </Box>
           </Box>

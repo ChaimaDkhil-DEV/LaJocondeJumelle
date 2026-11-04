@@ -4,6 +4,7 @@ import { useState, type ReactNode } from 'react';
 import { useAvatarUrl } from '../api/avatars';
 import { avatarColors, font, fontSize, tokensOf } from '../design/tokens';
 import { illustrationUri } from './avatarIllustration';
+import { t } from '../i18n';
 
 /**
  * Avatar par défaut d'un compte sans photo : « initials » (option A : initiales sur une couleur
@@ -61,7 +62,7 @@ export function UserAvatar({ user, name: nameProp, id: idProp, size = 28, neutra
   const photo = src === undefined ? stored : src;
   // Adresse qui n'a pas pu se charger : on n'insiste pas, l'avatar par défaut la remplace.
   const [failed, setFailed] = useState<string | null>(null);
-  const a11y = labelled ? { role: 'img', 'aria-label': `Photo de ${name}` } : { 'aria-hidden': true };
+  const a11y = labelled ? { role: 'img', 'aria-label': t('Photo de {name}', { name }) } : { 'aria-hidden': true };
   const round = { width: px, height: px, flex: 'none', borderRadius: '50%', display: 'block' } as const;
 
   if (photo && photo !== failed) {
@@ -69,7 +70,7 @@ export function UserAvatar({ user, name: nameProp, id: idProp, size = 28, neutra
       <Box
         component="img"
         src={photo}
-        alt={labelled ? `Photo de ${name}` : ''}
+        alt={labelled ? t('Photo de {name}', { name }) : ''}
         aria-hidden={labelled ? undefined : true}
         width={px}
         height={px}
@@ -85,7 +86,7 @@ export function UserAvatar({ user, name: nameProp, id: idProp, size = 28, neutra
       <Box
         component="img"
         src={illustrationUri(id ?? name)}
-        alt={labelled ? `Photo de ${name}` : ''}
+        alt={labelled ? t('Photo de {name}', { name }) : ''}
         aria-hidden={labelled ? undefined : true}
         width={px}
         height={px}

@@ -14,6 +14,7 @@ import { fieldIcon } from '../../components/fieldIcon';
 import { PRIORITY_LABELS } from '../../components/PriorityBadge';
 import { STATUS_LABELS } from '../../components/StatusBadge';
 import { icon } from '../../design/tokens';
+import { isPlural, t } from '../../i18n';
 import { useCategories, useRecipients } from './api';
 import { activeFilterCount, type RequestFilters as Filters } from './filters';
 
@@ -39,7 +40,8 @@ export function RequestFilters({ value, onChange }: RequestFiltersProps) {
     set({ q: search.trim() });
   }
 
-  const summary = active > 0 ? `Filtres (${active} actif${active > 1 ? 's' : ''})` : 'Filtres';
+  const summary =
+    active > 0 ? t(isPlural(active) ? 'Filtres ({n} actifs)' : 'Filtres ({n} actif)', { n: active }) : t('Filtres');
 
   return (
     <Box sx={{ mb: 2, display: 'grid', gap: 1.5 }}>
@@ -47,17 +49,17 @@ export function RequestFilters({ value, onChange }: RequestFiltersProps) {
         <Box component="form" role="search" onSubmit={submitSearch} sx={{ flex: '1 1 240px', minWidth: 0 }}>
           <TextField
             id="filtre-recherche"
-            placeholder="Rechercher dans les titres…"
+            placeholder={t('Rechercher dans les titres…')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             size="small"
             slotProps={{
-              htmlInput: { maxLength: 120, 'aria-label': 'Rechercher dans les titres', 'aria-describedby': hintId },
+              htmlInput: { maxLength: 120, 'aria-label': t('Rechercher dans les titres'), 'aria-describedby': hintId },
               input: fieldIcon(Search),
             }}
           />
           <Box component="span" id={hintId} sx={visuallyHidden}>
-            Validez avec la touche Entrée.
+            {t('Validez avec la touche Entrée.')}
           </Box>
         </Box>
         <Button
@@ -78,7 +80,7 @@ export function RequestFilters({ value, onChange }: RequestFiltersProps) {
               onChange(EMPTY);
             }}
           >
-            Réinitialiser les filtres
+            {t('Réinitialiser les filtres')}
           </Button>
         )}
       </Box>
@@ -95,7 +97,7 @@ export function RequestFilters({ value, onChange }: RequestFiltersProps) {
             <TextField
               select
               id="filtre-statut"
-              label="Statut"
+              label={t('Statut')}
               size="small"
               value={value.statuses}
               onChange={(e) => set({ statuses: e.target.value as unknown as string[] })}
@@ -115,7 +117,7 @@ export function RequestFilters({ value, onChange }: RequestFiltersProps) {
             <TextField
               select
               id="filtre-priorite"
-              label="Priorité"
+              label={t('Priorité')}
               size="small"
               value={value.priorities}
               onChange={(e) => set({ priorities: e.target.value as unknown as string[] })}
@@ -135,13 +137,13 @@ export function RequestFilters({ value, onChange }: RequestFiltersProps) {
             <TextField
               select
               id="filtre-categorie"
-              label="Catégorie"
+              label={t('Catégorie')}
               size="small"
               value={value.categoryId}
               onChange={(e) => set({ categoryId: e.target.value, assigneeId: '' })}
               slotProps={{ input: fieldIcon(Tag) }}
             >
-              <MenuItem value="">Toutes</MenuItem>
+              <MenuItem value="">{t('Toutes')}</MenuItem>
               {(categories.data ?? []).map((c) => (
                 <MenuItem key={c.id} value={c.id}>
                   {c.name}
@@ -152,13 +154,13 @@ export function RequestFilters({ value, onChange }: RequestFiltersProps) {
               <TextField
                 select
                 id="filtre-destinataire"
-                label="Destinataire"
+                label={t('Destinataire')}
                 size="small"
                 value={value.assigneeId}
                 onChange={(e) => set({ assigneeId: e.target.value })}
                 slotProps={{ input: fieldIcon(UserRound) }}
               >
-                <MenuItem value="">Tous</MenuItem>
+                <MenuItem value="">{t('Tous')}</MenuItem>
                 {(recipients.data ?? []).map((r) => (
                   <MenuItem key={r.id} value={r.id}>
                     {r.displayName}
@@ -168,7 +170,7 @@ export function RequestFilters({ value, onChange }: RequestFiltersProps) {
             )}
             <TextField
               id="filtre-du"
-              label="Du"
+              label={t('Du')}
               type="date"
               size="small"
               value={value.from}
@@ -176,7 +178,7 @@ export function RequestFilters({ value, onChange }: RequestFiltersProps) {
             />
             <TextField
               id="filtre-au"
-              label="Au"
+              label={t('Au')}
               type="date"
               size="small"
               value={value.to}
@@ -185,7 +187,7 @@ export function RequestFilters({ value, onChange }: RequestFiltersProps) {
             <FormControlLabel
               sx={{ alignSelf: 'end', minHeight: 40 }}
               control={<Checkbox checked={value.overdue} onChange={(e) => set({ overdue: e.target.checked })} />}
-              label="En retard uniquement"
+              label={t('En retard uniquement')}
             />
           </Box>
         </Paper>

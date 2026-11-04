@@ -9,6 +9,7 @@ import DialogTitle from '@mui/material/DialogTitle';
 import { TriangleAlert } from 'lucide-react';
 import { useId, type ReactNode } from 'react';
 import { icon, tokensOf } from '../design/tokens';
+import { t } from '../i18n';
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -28,7 +29,7 @@ export function ConfirmDialog({
   title,
   children,
   confirmLabel,
-  cancelLabel = 'Annuler',
+  cancelLabel = t('Annuler'),
   pending,
   error,
   onConfirm,

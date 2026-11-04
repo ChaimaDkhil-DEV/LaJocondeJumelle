@@ -1,7 +1,9 @@
-const dateTime = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
-const shortDate = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short' });
-const shortDateWithYear = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
-const relative = new Intl.RelativeTimeFormat('fr-FR', { numeric: 'auto' });
+import { locale, t } from '../i18n';
+
+const dateTime = new Intl.DateTimeFormat(locale(), { dateStyle: 'medium', timeStyle: 'short' });
+const shortDate = new Intl.DateTimeFormat(locale(), { day: 'numeric', month: 'short' });
+const shortDateWithYear = new Intl.DateTimeFormat(locale(), { day: 'numeric', month: 'short', year: 'numeric' });
+const relative = new Intl.RelativeTimeFormat(locale(), { numeric: 'auto' });
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
@@ -23,9 +25,9 @@ export function formatDateTime(value: string | Date): string {
 export function formatRelative(value: string | Date, now: Date = new Date()): string {
   const date = toDate(value);
   const diff = now.getTime() - date.getTime();
-  if (diff < MINUTE) return 'à l’instant';
+  if (diff < MINUTE) return t('à l’instant');
   if (diff < HOUR) return relative.format(-Math.floor(diff / MINUTE), 'minute').replace('minutes', 'min').replace('minute', 'min');
-  if (diff < DAY) return relative.format(-Math.floor(diff / HOUR), 'hour').replace('heures', 'h').replace('heure', 'h');
+  if (diff < DAY) return relative.format(-Math.floor(diff / HOUR), 'hour').replace('heures', 'h').replace('heure', 'h').replace('hours', 'h').replace('hour', 'h');
   if (diff < 7 * DAY) return relative.format(-Math.floor(diff / DAY), 'day');
   return (date.getFullYear() === now.getFullYear() ? shortDate : shortDateWithYear).format(date);
 }
@@ -37,7 +39,7 @@ export function formatRelative(value: string | Date, now: Date = new Date()): st
 export function formatLateness(dueAt: string | Date, now: Date = new Date()): string | null {
   const late = now.getTime() - toDate(dueAt).getTime();
   if (late <= 0) return null;
-  if (late < HOUR) return `${Math.max(1, Math.floor(late / MINUTE))} min de retard`;
-  if (late < DAY) return `${Math.floor(late / HOUR)} h de retard`;
-  return `${Math.floor(late / DAY)} j de retard`;
+  if (late < HOUR) return t('{count} min de retard', { count: Math.max(1, Math.floor(late / MINUTE)) });
+  if (late < DAY) return t('{count} h de retard', { count: Math.floor(late / HOUR) });
+  return t('{count} j de retard', { count: Math.floor(late / DAY) });
 }

@@ -10,6 +10,7 @@ import { fieldIcon } from '../../components/fieldIcon';
 import { LoadingState } from '../../components/LoadingState';
 import { AuthLayout } from './AuthLayout';
 import { useChangePassword, useCurrentUser } from './useCurrentUser';
+import { t } from '../../i18n';
 
 const MIN_LENGTH = 12;
 
@@ -37,10 +38,10 @@ export function ChangePasswordPage() {
   function handleSubmit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
     const next: Errors = {
-      currentPassword: currentPassword ? undefined : 'Saisissez votre mot de passe actuel.',
-      newPassword: newPassword.length >= MIN_LENGTH ? undefined : `Au moins ${MIN_LENGTH} caractères.`,
+      currentPassword: currentPassword ? undefined : t('Saisissez votre mot de passe actuel.'),
+      newPassword: newPassword.length >= MIN_LENGTH ? undefined : t('Au moins {count} caractères.', { count: MIN_LENGTH }),
       confirmation:
-        confirmation === newPassword ? undefined : 'Les deux mots de passe ne correspondent pas.',
+        confirmation === newPassword ? undefined : t('Les deux mots de passe ne correspondent pas.'),
     };
     setErrors(next);
     if (next.currentPassword || next.newPassword || next.confirmation) return;
@@ -65,10 +66,10 @@ export function ChangePasswordPage() {
 
   return (
     <AuthLayout
-      title="Changer votre mot de passe"
+      title={t('Changer votre mot de passe')}
       description={
         forced
-          ? `Pour sécuriser votre compte, choisissez un nouveau mot de passe d’au moins ${MIN_LENGTH} caractères.`
+          ? t('Pour sécuriser votre compte, choisissez un nouveau mot de passe d’au moins {count} caractères.', { count: MIN_LENGTH })
           : undefined
       }
     >
@@ -77,7 +78,7 @@ export function ChangePasswordPage() {
           {generalMessage && <Alert severity="error">{generalMessage}</Alert>}
           <TextField
             id="current-password"
-            label="Mot de passe actuel"
+            label={t('Mot de passe actuel')}
             type="password"
             autoComplete="current-password"
             value={currentPassword}
@@ -88,18 +89,18 @@ export function ChangePasswordPage() {
           />
           <TextField
             id="new-password"
-            label="Nouveau mot de passe"
+            label={t('Nouveau mot de passe')}
             type="password"
             autoComplete="new-password"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
             error={Boolean(errors.newPassword)}
-            helperText={errors.newPassword ?? `Au moins ${MIN_LENGTH} caractères.`}
+            helperText={errors.newPassword ?? t('Au moins {count} caractères.', { count: MIN_LENGTH })}
             slotProps={{ input: fieldIcon(LockKeyhole) }}
           />
           <TextField
             id="confirm-password"
-            label="Confirmer le nouveau mot de passe"
+            label={t('Confirmer le nouveau mot de passe')}
             type="password"
             autoComplete="new-password"
             value={confirmation}
@@ -109,11 +110,11 @@ export function ChangePasswordPage() {
             slotProps={{ input: fieldIcon(LockKeyhole) }}
           />
           <Button type="submit" variant="contained" size="large" fullWidth loading={changePassword.isPending}>
-            Enregistrer le mot de passe
+            {t('Enregistrer le mot de passe')}
           </Button>
           {!forced && (
             <Button variant="text" size="large" fullWidth onClick={() => navigate('/profil')}>
-              Annuler
+              {t('Annuler')}
             </Button>
           )}
         </Stack>

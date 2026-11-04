@@ -5,6 +5,7 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import TextField from '@mui/material/TextField';
 import { useId, useState } from 'react';
+import { t } from '../../i18n';
 
 interface ReasonDialogProps {
   open: boolean;
@@ -25,7 +26,7 @@ export function ReasonDialog({
   open,
   title,
   label,
-  requiredMessage = 'Le motif est obligatoire.',
+  requiredMessage = t('Le motif est obligatoire.'),
   optional = false,
   confirmLabel,
   pending,
@@ -69,7 +70,7 @@ export function ReasonDialog({
         />
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Retour</Button>
+        <Button onClick={onClose}>{t('Retour')}</Button>
         <Button variant="contained" onClick={confirm} loading={pending}>
           {confirmLabel}
         </Button>
