@@ -4,13 +4,15 @@
  * d'utiliser le micro sur téléphone et tablette. Le poste doit rester allumé ; l'adresse change à
  * chaque lancement. Usage : npm run -w backend demo:en-ligne   (Ctrl+C pour tout arrêter)
  *
- * Étapes : base locale (port 5433, démarrée si besoin), migrations, construction de l'API et de
- * l'interface, tunnel, API avec APP_ORIGIN = adresse du tunnel, `vite preview` (port 4173).
+ * Étapes : base locale (port 5433, démarrée si besoin), migrations, Whisper (Docker, si la
+ * transcription est configurée), construction de l'API et de l'interface, tunnel, API avec
+ * APP_ORIGIN = adresse du tunnel, `vite preview` (port 4173). Whisper reste démarré après Ctrl+C.
  */
 import { spawn, spawnSync, type ChildProcess, type SpawnOptions } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { connect } from 'node:net';
 import { join } from 'node:path';
+import { parseEnv } from 'node:util';
 import QRCode from 'qrcode';
 
 const backendDir = join(__dirname, '..');
@@ -18,6 +20,7 @@ const rootDir = join(backendDir, '..');
 const DB_PORT = 5433;
 const API_PORT = 3002;
 const PREVIEW_PORT = 4173;
+const WHISPER_TIMEOUT_MS = 120_000;
 const isWindows = process.platform === 'win32';
 
 const children: ChildProcess[] = [];
@@ -105,6 +108,51 @@ async function waitFor(
   fail(`${what} ne répond pas après ${timeoutMs / 1000} s`);
 }
 
+async function whisperAnswers(url: string): Promise<boolean> {
+  try {
+    return (await fetch(`${url}/health`, { signal: AbortSignal.timeout(2000) })).ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Démarre Whisper s'il est configuré dans backend/.env et ne répond pas. Un échec n'arrête pas la
+ * démonstration : seule la transcription manque. Renvoie null si elle n'est pas configurée.
+ */
+async function startWhisper(): Promise<boolean | null> {
+  const envFile = join(backendDir, '.env');
+  const env = {
+    ...(existsSync(envFile) ? parseEnv(readFileSync(envFile, 'utf8')) : {}),
+    ...process.env,
+  };
+  if (env.ASSIST_TRANSCRIPTION_PROVIDER !== 'whisper') {
+    log('transcription non configurée');
+    return null;
+  }
+  const url = (env.ASSIST_WHISPER_URL ?? '').replace(/\/+$/, '');
+  if (await whisperAnswers(url)) {
+    log('Whisper répond déjà');
+    return true;
+  }
+  const command = 'docker compose -f deploy/docker-compose.dev.yml --profile whisper up -d whisper';
+  log(`> ${command}`);
+  if (spawnSync(command, { cwd: rootDir, stdio: 'inherit', shell: true }).status !== 0) {
+    console.warn('[demo-en-ligne] ATTENTION : Whisper non démarré. Ouvrez Docker Desktop, puis relancez.');
+    return false;
+  }
+  const deadline = Date.now() + WHISPER_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    if (await whisperAnswers(url)) {
+      log('Whisper répond');
+      return true;
+    }
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  console.warn(`[demo-en-ligne] ATTENTION : Whisper ne répond pas après ${WHISPER_TIMEOUT_MS / 1000} s.`);
+  return false;
+}
+
 function findCloudflared(): string {
   const candidates = [
     'C:\\Program Files (x86)\\cloudflared\\cloudflared.exe',
@@ -150,7 +198,7 @@ async function main(): Promise<void> {
     fail(`le port ${API_PORT} est déjà utilisé : arrêtez l'API (start.bat) avant la démonstration`);
   if (await portOpen(PREVIEW_PORT)) fail(`le port ${PREVIEW_PORT} est déjà utilisé`);
 
-  log('1/5 base de données locale');
+  log('1/6 base de données locale');
   if (await portOpen(DB_PORT)) log(`PostgreSQL répond déjà sur le port ${DB_PORT}`);
   else {
     start('postgres', 'npm', ['run', '-w', 'backend', 'db:dev'], {
@@ -161,15 +209,18 @@ async function main(): Promise<void> {
   }
   await run('npm run -w backend prisma:deploy', 5);
 
-  log("2/5 construction de l'API et de l'interface");
+  log('2/6 transcription vocale');
+  const whisper = await startWhisper();
+
+  log("3/6 construction de l'API et de l'interface");
   await run('npm run -w backend build');
   await run('npm run -w frontend build');
 
-  log('3/5 tunnel Cloudflare');
+  log('4/6 tunnel Cloudflare');
   const url = await startTunnel(cloudflared);
   log(`adresse publique : ${url}`);
 
-  log('4/5 API (origine autorisée = adresse du tunnel)');
+  log('5/6 API (origine autorisée = adresse du tunnel)');
   start('api', process.execPath, ['dist/main.js'], {
     cwd: backendDir,
     env: { APP_ORIGIN: url, PORT: String(API_PORT), COOKIE_SECURE: 'true' },
@@ -186,7 +237,7 @@ async function main(): Promise<void> {
     60_000,
   );
 
-  log('5/5 interface (vite preview)');
+  log('6/6 interface (vite preview)');
   start(
     'web',
     'npm',
@@ -213,6 +264,9 @@ async function main(): Promise<void> {
     `\n  Application en ligne : ${url}\n  À scanner avec le téléphone ou la tablette :\n`,
   );
   console.log(await QRCode.toString(url, { type: 'terminal', small: true }));
+  if (whisper === false) {
+    console.log('  ATTENTION : transcription vocale indisponible (voir ci-dessus).');
+  }
   console.log('  Ctrl+C pour tout arrêter.\n');
 }
 

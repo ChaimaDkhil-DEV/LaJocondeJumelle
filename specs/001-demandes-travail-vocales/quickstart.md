@@ -69,22 +69,55 @@ Résultat attendu : tout au vert, aucune violation axe de niveau A ou AA.
 
 ## Déploiement (VPS)
 
-Depuis la racine du dépôt, sur le VPS (Docker et Docker Compose installés, DNS du domaine
-pointant vers le VPS, ports 80 et 443 ouverts) :
+Prérequis sur le VPS : Docker et Docker Compose installés, DNS du domaine pointant vers le VPS,
+ports 80 et 443 ouverts, accès en lecture au dépôt GitHub privé (clé de déploiement, par exemple),
+nécessaire au clonage et à chaque mise à jour.
+
+### Premier déploiement
+
+Depuis la racine du dépôt cloné :
 
 ```bash
 cp deploy/.env.example deploy/.env     # domaine, e-mail ACME, secrets, sauvegardes
-docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build
+deploy/deploy.sh                       # code à jour, sauvegarde, construction et démarrage
 docker compose -f deploy/docker-compose.yml --env-file deploy/.env logs -f api   # migrations appliquées au démarrage
 # Premier super administrateur (mot de passe provisoire affiché une seule fois) :
 docker compose -f deploy/docker-compose.yml --env-file deploy/.env exec api node dist/cli/bootstrap.js admin "Direction"
 ```
 
+Passer par `deploy/deploy.sh`, y compris la première fois : sur une base neuve, un
+`docker compose … up` lancé seul s'arrête avec « Migration en attente sans sauvegarde récente :
+lancez deploy/deploy.sh. », car aucune sauvegarde n'existe encore.
+
 `bootstrap.js` est idempotent : il crée les réglages et permissions par défaut sans écraser
 les valeurs existantes, et le super administrateur seulement s'il n'en existe aucun. Aucune
 donnée de démonstration n'est créée en production.
 
-Contrôles : certificat HTTPS valide ; en-têtes `Strict-Transport-Security`,
+### Mise à jour
+
+```bash
+deploy/deploy.sh
+```
+
+Le script récupère le code (`git pull --ff-only`), sauvegarde la base et les fichiers, puis
+reconstruit et redémarre les conteneurs. Il s'arrête sans rien redémarrer si le pull ou la
+sauvegarde échoue, par exemple si l'historique local a divergé ou si le serveur n'est sur aucune
+branche.
+
+### Déployer un commit précis
+
+```bash
+git checkout <commit>
+deploy/deploy.sh --no-pull
+```
+
+`--no-pull` conserve le code présent sur le serveur. Il ne défait aucune migration : pour revenir
+avant une migration déjà appliquée, appliquer son `down.sql` à la main ou restaurer une sauvegarde
+(voir le test de restauration ci-dessous).
+
+### Contrôles
+
+Certificat HTTPS valide ; en-têtes `Strict-Transport-Security`,
 `Content-Security-Policy` et `Permissions-Policy` présents (`curl -I https://<domaine>`) ;
 `https://<domaine>/api/files/<id>` sans cookie → `401` ; aucun port PostgreSQL ni API exposé
 (`docker compose ps`) ; journaux de l'API au format JSON sans secret
