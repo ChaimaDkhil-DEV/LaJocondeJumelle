@@ -1,4 +1,4 @@
-# Specification Quality Checklist: Assistance IA à la création des demandes (socle)
+# Specification Quality Checklist: Assistance IA à la création des demandes (socle) (AI assistance when creating requests (foundation))
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
 **Created**: 2026-10-27
@@ -31,12 +31,11 @@
 
 ## Notes
 
-- Itération 1 (2026-10-27) : les quatre décisions de cadrage (fournisseur, source des
-  connaissances, moment du parcours, méthode) ont été prises avant la rédaction et sont
-  consignées dans « Clarifications » ; aucun marqueur restant.
-- « Côté serveur », « fournisseur » et « configuration » décrivent des garanties visibles
-  (sécurité, confidentialité), pas une technologie ; aucun produit, langage ni stockage n'est
-  nommé.
-- Choix par défaut non questionnés (voir « Assumptions ») : limite de 10 propositions par
-  5 minutes, délai de 20 s, 5 consignes au plus, titre proposé comme résumé, pas de score de
-  confiance, brouillons et gardes hors périmètre, recherche par mots en français.
+- Iteration 1 (2026-10-27): the four framing decisions (provider, knowledge source, point in
+  the flow, method) were made before writing and are recorded in "Clarifications"; no marker
+  remaining.
+- "Server-side", "provider" and "configuration" describe visible guarantees (security,
+  confidentiality), not a technology; no product, language or storage is named.
+- Default choices not questioned (see "Assumptions"): limit of 10 suggestions per
+  5 minutes, 20 s timeout, at most 5 guidelines, title suggested as a summary, no confidence
+  score, drafts and shifts out of scope, word search in French.

@@ -1,69 +1,69 @@
-# Vérification — assistance sans abonnement (règles, Whisper local)
+# Verification — assistance without a subscription (rules, local Whisper)
 
-Branche `011-assistance-regles-whisper-local`, créée depuis `master` (`cac29f1`, fusion de #42).
-Spécification : `specs/010-assistance-fournisseurs-similaires/` (US5, US6, FR-013 à FR-017,
-research R9 à R11, tâches T020 à T027).
+Branch `011-assistance-regles-whisper-local`, created from `master` (`cac29f1`, merge of #42).
+Specification: `specs/010-assistance-fournisseurs-similaires/` (US5, US6, FR-013 to FR-017,
+research R9 to R11, tasks T020 to T027).
 
-## Résultats du 29/10/2026 (exécutés)
+## Results of 29/10/2026 (executed)
 
-| Étape | Commande | Résultat |
+| Step | Command | Result |
 |-------|----------|----------|
-| Lint | `npm run lint` | sans erreur |
-| Typages | `npm run -w backend typecheck`, `npm run -w frontend typecheck` | sans erreur |
-| Unitaires backend | `npm test -w backend` | 688 / 688 (39 suites) |
-| Intégration backend | `npm run -w backend test:integration` | 694 réussis, 1 ignoré (test réel Whisper, sans `ASSIST_WHISPER_TEST_URL`) |
+| Lint | `npm run lint` | no errors |
+| Types | `npm run -w backend typecheck`, `npm run -w frontend typecheck` | no errors |
+| Backend unit | `npm test -w backend` | 688 / 688 (39 suites) |
+| Backend integration | `npm run -w backend test:integration` | 694 passed, 1 skipped (real Whisper test, without `ASSIST_WHISPER_TEST_URL`) |
 | Frontend | `npm test -w frontend` | 328 / 328 |
-| E2E assistance | `assist.spec.ts` (chromium, mobile-320) | 6 / 6 |
-| Dépendances | `npm audit --audit-level=high` | 16 vulnérabilités, 4 « high » antérieures (`multer`, `body-parser`, `undici`), aucune nouvelle |
-| Compose (syntaxe) | analyse YAML (Node) | valide ; `whisper` sans port publié en production, `127.0.0.1:8000` en développement ; ports publiés de Caddy inchangés (80, 443) |
+| Assistance E2E | `assist.spec.ts` (chromium, mobile-320) | 6 / 6 |
+| Dependencies | `npm audit --audit-level=high` | 16 vulnerabilities, 4 "high" pre-existing (`multer`, `body-parser`, `undici`), none new |
+| Compose (syntax) | YAML parsing (Node) | valid; `whisper` with no published port in production, `127.0.0.1:8000` in development; Caddy's published ports unchanged (80, 443) |
 
-## Image Whisper retenue
+## Whisper image chosen
 
 `ghcr.io/speaches-ai/speaches:0.8.3-cpu@sha256:21e3df06d842fb7802ab470dd77c25f0e8c0d22950e8d8c6ae886e851af53ef8`
-(dernière version stable publiée ; étiquette et empreinte lues sur le registre GHCR le 29/10/2026).
+(latest stable version published; tag and digest read from the GHCR registry on 29/10/2026).
 
-## Limites existantes documentées
+## Existing limits documented
 
-- Durée d'un vocal : `voiceMaxSeconds` 180 s par défaut (10 à 600 s, réglage), tolérance de 2 s ;
-  taille `voiceMaxBytes` ; plafond technique d'envoi 25 Mo. Non modifiés.
-- Délais : propositions `ASSIST_TIMEOUT_MS` (15 s, 20 s au plus) ; transcription
-  `ASSIST_TRANSCRIPTION_TIMEOUT_MS` (120 s par défaut, **provisoire**, 300 s au plus) ; Node
-  `requestTimeout` 300 s (réception de la requête) ; aucun délai côté navigateur ni Caddy.
-- Limite d'appels : 10 par 5 minutes et par utilisateur (transcription et propositions réunies).
+- Voice message length: `voiceMaxSeconds` 180 s by default (10 to 600 s, setting), 2 s tolerance;
+  size `voiceMaxBytes`; technical upload limit 25 MB. Unchanged.
+- Timeouts: suggestions `ASSIST_TIMEOUT_MS` (15 s, 20 s at most); transcription
+  `ASSIST_TRANSCRIPTION_TIMEOUT_MS` (120 s by default, **provisional**, 300 s at most); Node
+  `requestTimeout` 300 s (request reception); no timeout on the browser or Caddy side.
+- Call limit: 10 per 5 minutes per user (transcription and suggestions combined).
 
-## Docker et Caddy (exécutés le 29/10/2026)
+## Docker and Caddy (executed on 29/10/2026)
 
-Docker 29.9.2, Compose v5.6.1 ; machine virtuelle Docker : 4 processeurs, 5,7 Go.
+Docker 29.9.2, Compose v5.6.1; Docker virtual machine: 4 processors, 5.7 GB.
 
-| Vérification | Résultat |
+| Check | Result |
 |--------------|----------|
-| `docker compose -f deploy/docker-compose.dev.yml config` | valide |
-| `docker compose -f deploy/docker-compose.yml --profile whisper config` (secrets fictifs) | valide ; seuls 80 et 443 publiés, `whisper` sans port publié, API vers `https://caddy:8444` |
-| `caddy validate` sur `deploy/Caddyfile` (image `caddy:2`) | « Valid configuration » |
-| Téléchargement du modèle : `POST /v1/models/Systran/faster-whisper-small` | confirmé : HTTP 200 en 331 s, 464 Mo dans le volume des modèles |
+| `docker compose -f deploy/docker-compose.dev.yml config` | valid |
+| `docker compose -f deploy/docker-compose.yml --profile whisper config` (dummy secrets) | valid; only 80 and 443 published, `whisper` with no published port, API to `https://caddy:8444` |
+| `caddy validate` on `deploy/Caddyfile` (image `caddy:2`) | "Valid configuration" |
+| Model download: `POST /v1/models/Systran/faster-whisper-small` | confirmed: HTTP 200 in 331 s, 464 MB in the models volume |
 
-## T026 — mesure réelle (exécutée le 29/10/2026)
+## T026 — real measurement (executed on 29/10/2026)
 
-Serveur `whisper` de `docker-compose.dev.yml` (`127.0.0.1:8000`), modèle
-`Systran/faster-whisper-small`, processeur seul (Intel N95), mêmes champs que le connecteur
-(`language=fr`, `response_format=json`). Audio de synthèse vocale Windows (voix Hortense), textes
-fictifs, sans donnée personnelle.
+`whisper` server from `docker-compose.dev.yml` (`127.0.0.1:8000`), model
+`Systran/faster-whisper-small`, CPU only (Intel N95), same fields as the connector
+(`language=fr`, `response_format=json`). Audio from Windows speech synthesis (Hortense voice), fictitious
+texts, no personal data.
 
-| Audio | Durée de transcription |
+| Audio | Transcription time |
 |-------|------------------------|
-| Phrase de 4,5 s, premier appel (test `assist-whisper-live.spec.ts`, par l'API) | 43,1 s (chargement du modèle compris) |
-| Phrase de 4,5 s, modèle chargé (3 essais) | 7,5 à 8,7 s |
-| Vocal de 179,5 s, modèle chargé (2 essais) | 136,8 et 159,5 s |
+| 4.5 s sentence, first call (test `assist-whisper-live.spec.ts`, through the API) | 43.1 s (model loading included) |
+| 4.5 s sentence, model loaded (3 attempts) | 7.5 to 8.7 s |
+| 179.5 s voice message, model loaded (2 attempts) | 136.8 and 159.5 s |
 
-- Test réel `assist-whisper-live.spec.ts` : réussi, texte exact (« La photocopieuse du premier
-  étage est en panne depuis ce matin. »), aucun fichier conservé.
-- Qualité sur le vocal de 179,5 s : environ 4 % d'erreurs sur les mots (379 mots), surtout des
-  homophones (« raid chaussée », « salle douce », « late »).
-- Le vocal de 179,5 s (texte et audio) reste hors dépôt.
-- **Conséquence** : un vocal de 180 s dépasse le délai par défaut de 120 s
-  (`ASSIST_TRANSCRIPTION_TIMEOUT_MS`) sur ce poste ; la valeur par défaut est à relever.
+- Real test `assist-whisper-live.spec.ts`: passed, exact text ("La photocopieuse du premier
+  étage est en panne depuis ce matin." — The photocopier on the first floor has been out of order since this morning.), no file kept.
+- Quality on the 179.5 s voice message: about 4% word errors (379 words), mostly
+  homophones ("raid chaussée", "salle douce", "late").
+- The 179.5 s voice message (text and audio) stays outside the repository.
+- **Consequence**: a 180 s voice message exceeds the default timeout of 120 s
+  (`ASSIST_TRANSCRIPTION_TIMEOUT_MS`) on this machine; the default value needs to be raised.
 
-## En attente
+## Pending
 
-- Relais HTTPS interne et certificat de l'autorité interne, pile de production complète.
-- Valeur par défaut d'`ASSIST_TRANSCRIPTION_TIMEOUT_MS` à fixer d'après la mesure ci-dessus.
+- Internal HTTPS relay and internal authority certificate, full production stack.
+- Default value of `ASSIST_TRANSCRIPTION_TIMEOUT_MS` to be set based on the measurement above.

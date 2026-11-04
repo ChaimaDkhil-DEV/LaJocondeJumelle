@@ -1,326 +1,326 @@
-# Fonctionnalités du super administrateur — inventaire
+# Super administrator features — inventory
 
-> Établi le 2026-10-16 à partir de `258df07`, mis à jour le 2026-10-21 à partir du code de `master`
-> (`186f7f2`, après la fonctionnalité 004, PR #18). Les références `fichier:ligne` pointent vers ce
-> commit. « Serveur » = contrôle effectué par l'API, indépendamment de l'interface. Aucun fichier de
-> l'application n'a été modifié pour cet inventaire. Bloc profil et « Mon profil » (§1.1, §4) mis à
-> jour pour la spec 005 (2026-10-22) ; les références `AppLayout.tsx` pointent vers ce code.
-> Modification d'une affectation par l'admin (§2.7, §3, §4.2) mise à jour pour la spec 006.
-> Export des statistiques des affectations (§2.2, §2.7, §4.3) mis à jour pour la spec 008.
+> Drawn up on 2026-10-16 from `258df07`, updated on 2026-10-21 from the code of `master`
+> (`186f7f2`, after feature 004, PR #18). The `file:line` references point to this
+> commit. "Server" = check performed by the API, independently of the interface. No file of the
+> application was modified for this inventory. Profile block and "Mon profil" (My profile) (§1.1, §4) updated
+> for spec 005 (2026-10-22); the `AppLayout.tsx` references point to this code.
+> Modification of an assignment by the admin (§2.7, §3, §4.2) updated for spec 006.
+> Export of assignment statistics (§2.2, §2.7, §4.3) updated for spec 008.
 >
-> Depuis la 004 : le rôle « Responsable » (`MANAGER`) est devenu « Admin » (`ADMIN`, migration
-> 0009) ; la diffusion des gardes est remplacée par l'assignation d'un surveillant par un admin
-> (§3). Voir `specs/004-retards-affectation-surveillants/`.
+> Since 004: the "Responsable" (Manager) role (`MANAGER`) has become "Admin" (`ADMIN`, migration
+> 0009); broadcasting of shifts is replaced by the assignment of a supervisor by an admin
+> (§3). See `specs/004-retards-affectation-surveillants/`.
 
-## Données de démonstration déjà présentes
+## Demonstration data already present
 
-Le seed de démonstration crée des catégories marquées « démo » : « Intervention technique (démo
-circuit B) » et « Petits travaux (démo photo) ». Elles sont présentes dans la base de
-développement, avec la garde « Garde de classe » renommée « Garde surveillance » et la catégorie de
-travail « Surveillance » créées le 2026-10-16. Elles sont signalées ici et n'ont pas été supprimées.
+The demonstration seed creates categories marked "démo" (demo): "Intervention technique (démo
+circuit B)" and "Petits travaux (démo photo)". They are present in the development
+database, along with the shift category "Garde de classe" renamed "Garde surveillance" and the work
+category "Surveillance" created on 2026-10-16. They are flagged here and have not been deleted.
 
-Depuis la 004, le seed crée aussi les groupes à clé système « Surveillants » et « Enseignants »,
-deux étages (« 1er étage », « 2e étage ») avec leurs classes et surveillants, et les comptes
-`admin` (« Admin — surveillante générale »), `surveillant`, `remplacant`, `surveillant2`.
+Since 004, the seed also creates the system-key groups "Surveillants" (Supervisors) and "Enseignants" (Teachers),
+two floors ("1er étage", "2e étage") with their classes and supervisors, and the accounts
+`admin` ("Admin — surveillante générale", i.e. head supervisor), `surveillant`, `remplacant`, `surveillant2`.
 
-## 1. Menu latéral
+## 1. Side menu
 
-### 1.1 Entrées du menu
+### 1.1 Menu entries
 
-Rôles : Employé (`EMPLOYEE`), Admin (`ADMIN`), Super administrateur (`SUPER_ADMIN`). Toutes les
-routes de l'API exigent une session valide (garde globale `SessionGuard`,
+Roles: Employee (`EMPLOYEE`), Admin (`ADMIN`), Super administrator (`SUPER_ADMIN`). All
+API routes require a valid session (global guard `SessionGuard`,
 `backend/src/auth/auth.module.ts:27`).
 
-| Entrée | Route | Rôles autorisés | Actions disponibles (super administrateur) | État |
+| Entry | Route | Roles allowed | Actions available (super administrator) | Status |
 | --- | --- | --- | --- | --- |
-| Cloche de notifications | panneau (pas de route) | tous | liste, badge du nombre de non lues, clic qui ouvre la demande et la marque lue, « Tout marquer comme lu » | Complète |
-| Mes demandes | `/` (onglets `?onglet=`) | tous | onglets Reçues, Envoyées, Brouillons (s'il y en a), À valider, Suivi ; recherche ; filtres ; détail | Complète |
-| Nouvelle demande | `/demandes/nouvelle`, `/demandes/:id/brouillon` | tous (selon les catégories) | création dans toute catégorie de demande de travail active ; enregistrement en brouillon, reprise, envoi et suppression d'un brouillon | Complète (brouillons : spec 007) |
-| Gardes | `/gardes`, `/gardes/nouvelle`, `/gardes/signaler`, `/gardes/classe-vide`, `/gardes/statistiques`, `/gardes/:id`, `/gardes/presence` | admins, super administrateur, membres des groupes Surveillants ou Enseignants | onglets En attente, En cours, Doublons, Équipe, Terminées ; nouvelle affectation ; statistiques ; actions sur une affectation | Complète (voir §3) |
-| Administrateur | `/admin/*` | super administrateur | 9 onglets (§2) | Complète |
-| Bloc profil (« Mon profil ») | `/profil` | tous | nom et rôle, lien vers « Mon profil » : informations du compte en lecture seule, « Changer mon mot de passe » | Complète (spec 005) |
-| Se déconnecter | `POST /api/auth/logout` | tous | fin de session | Complète |
+| Notification bell | panel (no route) | all | list, unread count badge, click that opens the request and marks it read, "Tout marquer comme lu" (Mark all as read) | Complete |
+| Mes demandes (My requests) | `/` (tabs `?onglet=`) | all | tabs Reçues (Received), Envoyées (Sent), Brouillons (Drafts) (if any), À valider (To validate), Suivi (Tracking); search; filters; detail | Complete |
+| Nouvelle demande (New request) | `/demandes/nouvelle`, `/demandes/:id/brouillon` | all (depending on categories) | creation in any active work request category; saving as a draft, resuming, sending and deleting a draft | Complete (drafts: spec 007) |
+| Gardes (Shifts) | `/gardes`, `/gardes/nouvelle`, `/gardes/signaler`, `/gardes/classe-vide`, `/gardes/statistiques`, `/gardes/:id`, `/gardes/presence` | admins, super administrator, members of the Surveillants or Enseignants groups | tabs En attente (Pending), En cours (In progress), Doublons (Duplicates), Équipe (Team), Terminées (Completed); new assignment; statistics; actions on an assignment | Complete (see §3) |
+| Administrateur (Administrator) | `/admin/*` | super administrator | 9 tabs (§2) | Complete |
+| Profile block ("Mon profil") | `/profil` | all | name and role, link to "Mon profil": read-only account information, "Changer mon mot de passe" (Change my password) | Complete (spec 005) |
+| Se déconnecter (Log out) | `POST /api/auth/logout` | all | end of session | Complete |
 
-Détail par entrée :
+Detail per entry:
 
-- **Cloche** — composant `frontend/src/features/notifications/NotificationCenter.tsx` ; API
-  `GET /api/notifications` et `POST /api/notifications/read`
-  (`backend/src/notifications/notifications.controller.ts:42` et `:75`), limitées aux
-  notifications de l'utilisateur connecté. Filtrage du super administrateur côté serveur, à la
-  création de chaque notification (`backend/src/notifications/super-admin-policy.ts:41`,
-  appliqué dans `notifications.service.ts`) : sur une demande de travail dont il n'est ni
-  demandeur ni destinataire, il ne reçoit que les alertes « Demande urgente », « Demande sans
-  employé affecté » (délai bientôt dépassé, type `UNASSIGNED`) et « Demande en retard », une fois
-  par demande et par type, plus les messages d'une demande urgente ou en retard ; rien sur une
-  demande terminée, refusée ou annulée. Les alertes « sans employé affecté » et « en retard » sont
-  posées par une tâche planifiée (`backend/src/scheduler/super-admin-alerts.job.ts`, toutes les
-  15 s au plus). Les affectations ne sont pas filtrées ; le super administrateur reçoit aussi
-  l'escalade d'une affectation urgente non assignée (réglage `coverageEscalationMinutes`, §2.6).
-  Le panneau affiche la référence de la demande (`D-AAAA-NNNNNN`, `NotificationCenter.tsx:145`),
-  masquée ailleurs (§4).
+- **Bell** — component `frontend/src/features/notifications/NotificationCenter.tsx`; API
+  `GET /api/notifications` and `POST /api/notifications/read`
+  (`backend/src/notifications/notifications.controller.ts:42` and `:75`), limited to the
+  notifications of the logged-in user. Server-side filtering for the super administrator, when
+  each notification is created (`backend/src/notifications/super-admin-policy.ts:41`,
+  applied in `notifications.service.ts`): on a work request of which they are neither the
+  requester nor a recipient, they only receive the alerts "Demande urgente" (Urgent request), "Demande sans
+  employé affecté" (Request with no assigned employee) (deadline soon exceeded, type `UNASSIGNED`) and "Demande en retard" (Request overdue), once
+  per request and per type, plus the messages of an urgent or overdue request; nothing on a
+  completed, refused or cancelled request. The "no assigned employee" and "overdue" alerts are
+  raised by a scheduled task (`backend/src/scheduler/super-admin-alerts.job.ts`, every
+  15 s at most). Assignments are not filtered; the super administrator also receives
+  the escalation of an urgent unassigned assignment (setting `coverageEscalationMinutes`, §2.6).
+  The panel shows the request reference (`D-AAAA-NNNNNN`, `NotificationCenter.tsx:145`),
+  hidden elsewhere (§4).
 - **Mes demandes** — `frontend/src/features/requests/RequestListPage.tsx`, API
-  `GET /api/requests?scope=` (`backend/src/requests/requests.controller.ts:36`). Visibilité du super
-  administrateur : toutes les demandes de travail sauf les brouillons des autres
+  `GET /api/requests?scope=` (`backend/src/requests/requests.controller.ts:36`). Super
+  administrator visibility: all work requests except other people's drafts
   (`backend/src/requests/domain/visibility.ts:19`).
-  - « Reçues » (`scope=assigned`) : **seulement les demandes dont il est la personne affectée**,
-    pas toutes les demandes.
-  - « Envoyées » (`scope=mine`) : ses propres demandes, **sans** ses brouillons.
-  - « Brouillons » (`scope=drafts`, spec 007) : ses propres brouillons ; l'onglet n'apparaît que
-    s'il en existe au moins un. Un brouillon s'ouvre sur sa page de reprise.
-  - « À valider » (admins et super administrateur, `RequestListPage.tsx:163`) : demandes en
-    attente de validation administrative ou de validation finale, toutes catégories pour le super
-    administrateur.
-  - « Suivi » (admins et super administrateur, `scope=all`) : toutes les demandes visibles.
-  - Recherche dans les titres ; filtres Statut, Priorité, Catégorie, Destinataire, Du/Au, « En
-    retard uniquement » (`RequestFilters.tsx`), conservés dans l'URL.
-  - Détail (`RequestDetailPage.tsx`, actions calculées par le serveur dans
-    `backend/src/requests/domain/access-policy.ts`) : selon le mode de routage de la catégorie.
-    Via l'administration : approuver ou refuser (motif), réaffecter, changer la priorité, valider
-    ou renvoyer à corriger en validation finale, écrire dans la discussion. Direct et entre
-    enseignants : **lecture seule** (aucune action, aucune écriture). Annuler : seulement sur ses
-    propres demandes, avant acceptation. Discussion (texte, message vocal, photo, PDF) : si
-    l'écriture est permise. Demande terminée : lecture seule, sans compte à rebours.
+  - "Reçues" (`scope=assigned`): **only the requests of which they are the assigned person**,
+    not all requests.
+  - "Envoyées" (`scope=mine`): their own requests, **without** their drafts.
+  - "Brouillons" (`scope=drafts`, spec 007): their own drafts; the tab only appears
+    if at least one exists. A draft opens on its resume page.
+  - "À valider" (admins and super administrator, `RequestListPage.tsx:163`): requests
+    awaiting administrative validation or final validation, all categories for the super
+    administrator.
+  - "Suivi" (admins and super administrator, `scope=all`): all visible requests.
+  - Search in titles; filters Statut (Status), Priorité (Priority), Catégorie (Category), Destinataire (Recipient), Du/Au (From/To), "En
+    retard uniquement" (Overdue only) (`RequestFilters.tsx`), kept in the URL.
+  - Detail (`RequestDetailPage.tsx`, actions computed by the server in
+    `backend/src/requests/domain/access-policy.ts`): depending on the category's routing mode.
+    Via administration: approve or refuse (reason), reassign, change priority, validate
+    or send back for correction at final validation, write in the discussion. Direct and between
+    teachers: **read-only** (no action, no writing). Cancel: only on their
+    own requests, before acceptance. Discussion (text, voice message, photo, PDF): if
+    writing is allowed. Completed request: read-only, with no countdown.
 - **Nouvelle demande** — `frontend/src/features/requests/CreateRequestPage.tsx`, API
-  `GET /api/categories` puis `POST /api/requests`. Catégories proposées au super administrateur :
-  toutes les catégories **de demande de travail** actives, quels que soient leurs rôles autorisés
-  (`access-policy.ts`, `canCreateInCategory`). Les catégories de garde n'y figurent jamais (les
-  affectations se créent depuis Gardes). Champs : catégorie, destinataire (mode direct : service
-  présélectionné s'il est seul ; entre enseignants : collègue à choisir ; via l'administration :
-  aucun), priorité, titre, message vocal, description (l'un des deux suffit). Pas de pièce jointe
-  à la création.
-  - **Brouillons** (spec 007, si le réglage « Brouillons de demande autorisés » est actif) :
-    « Enregistrer en brouillon » (catégorie et titre suffisent, priorité « Normale » par défaut) ;
-    rien n'est envoyé ni notifié, le brouillon n'est visible que de son auteur. Reprise sur
-    `/demandes/:id/brouillon` (`DraftPage.tsx`) : formulaire pré-rempli, message vocal à
-    réécouter, remplacer ou supprimer ; « Enregistrer le brouillon » (`PATCH /api/requests/:id`),
-    « Envoyer la demande » (action `SUBMIT`, mêmes règles qu'une création directe),
-    « Supprimer le brouillon » après confirmation (`DELETE /api/requests/:id`). Réglage désactivé :
-    plus de nouveau brouillon, les brouillons existants restent utilisables.
-- **Gardes** — `frontend/src/features/coverage/CoveragePage.tsx` ; API `/api/coverage/*`
-  (`backend/src/coverage/coverage.controller.ts`). Affichage du menu pour les admins, le super
-  administrateur et les membres des groupes Surveillants ou Enseignants (`AppLayout.tsx:55`).
-  Onglets selon le profil : admins et super administrateur (`isCoverageAdmin`,
-  `backend/src/coverage/domain/coverage-policy.ts:56`) : En attente, En cours, Doublons, Équipe,
-  Terminées ; enseignant : Mes signalements ; surveillant : Mes affectations, Historique. Différence
-  avec « Suivi des gardes » : Gardes sert à **agir** (assigner, créer, réassigner, annuler…) ;
-  « Suivi des gardes » (Administrateur) sert à **superviser** (indicateurs, statistiques par
-  surveillant, export CSV), sans action.
-- **Administrateur** — `frontend/src/features/admin/AdminLayout.tsx` ; l'entrée n'est ajoutée au
-  menu que pour le super administrateur (`AppLayout.tsx:234`) et la page affiche « Accès réservé »
-  pour les autres. Protection serveur : `SuperAdminGuard` (`backend/src/audit/super-admin.guard.ts`,
-  règle `canManageAdministration`, `backend/src/common/authorization.ts:29`) sur chaque contrôleur
-  `/api/admin/*`, avec refus journalisé (`ACCESS_DENIED`).
-- **Profil et déconnexion** — le bloc profil (nom et rôle) est un lien vers « Mon profil »
-  (`/profil`, `ProfilePage.tsx`, spec 005 ; `ProfileLink`, `AppLayout.tsx:181`) : nom,
-  identifiant, fonction, rôle et groupes d'affectation en lecture seule (champs `username` et
-  `jobTitle` de `GET /api/auth/me`), et « Changer mon mot de passe ». Changement de mot de passe :
-  route `/mot-de-passe` et `POST /api/auth/password`, imposé à la première connexion (sans
-  annulation, puis accueil) ou volontaire depuis le profil (« Annuler », retour au profil avec
-  confirmation) ; il ferme les autres sessions (`backend/src/auth/auth.service.ts:76`). Déconnexion : suppression de la session en base et
-  fermeture des connexions temps réel (`auth.service.ts:52-54`), journalisée (`LOGOUT`).
+  `GET /api/categories` then `POST /api/requests`. Categories offered to the super administrator:
+  all active **work request** categories, whatever their allowed roles
+  (`access-policy.ts`, `canCreateInCategory`). Shift categories never appear there (assignments
+  are created from Gardes). Fields: category, recipient (direct mode: department
+  preselected if it is the only one; between teachers: colleague to choose; via administration:
+  none), priority, title, voice message, description (either of the two is enough). No attachment
+  at creation.
+  - **Drafts** (spec 007, if the "Brouillons de demande autorisés" (Request drafts allowed) setting is on):
+    "Enregistrer en brouillon" (Save as draft) (category and title are enough, priority "Normale" (Normal) by default);
+    nothing is sent or notified, the draft is visible only to its author. Resuming on
+    `/demandes/:id/brouillon` (`DraftPage.tsx`): pre-filled form, voice message to
+    listen to again, replace or delete; "Enregistrer le brouillon" (Save the draft) (`PATCH /api/requests/:id`),
+    "Envoyer la demande" (Send the request) (action `SUBMIT`, same rules as a direct creation),
+    "Supprimer le brouillon" (Delete the draft) after confirmation (`DELETE /api/requests/:id`). Setting off:
+    no new draft, existing drafts remain usable.
+- **Gardes** — `frontend/src/features/coverage/CoveragePage.tsx`; API `/api/coverage/*`
+  (`backend/src/coverage/coverage.controller.ts`). Menu displayed for admins, the super
+  administrator and members of the Surveillants or Enseignants groups (`AppLayout.tsx:55`).
+  Tabs depending on the profile: admins and super administrator (`isCoverageAdmin`,
+  `backend/src/coverage/domain/coverage-policy.ts:56`): En attente, En cours, Doublons, Équipe,
+  Terminées; teacher: Mes signalements (My reports); supervisor: Mes affectations (My assignments), Historique (History). Difference
+  from "Suivi des gardes" (Shift tracking): Gardes is for **acting** (assigning, creating, reassigning, cancelling…);
+  "Suivi des gardes" (Administrateur) is for **supervising** (indicators, statistics per
+  supervisor, CSV export), with no action.
+- **Administrateur** — `frontend/src/features/admin/AdminLayout.tsx`; the entry is only added to the
+  menu for the super administrator (`AppLayout.tsx:234`) and the page shows "Accès réservé" (Access restricted)
+  to the others. Server protection: `SuperAdminGuard` (`backend/src/audit/super-admin.guard.ts`,
+  rule `canManageAdministration`, `backend/src/common/authorization.ts:29`) on every
+  `/api/admin/*` controller, with logged refusal (`ACCESS_DENIED`).
+- **Profile and logout** — the profile block (name and role) is a link to "Mon profil"
+  (`/profil`, `ProfilePage.tsx`, spec 005; `ProfileLink`, `AppLayout.tsx:181`): name,
+  username, job title, role and assignment groups read-only (fields `username` and
+  `jobTitle` of `GET /api/auth/me`), and "Changer mon mot de passe". Password change:
+  route `/mot-de-passe` and `POST /api/auth/password`, forced at first login (with no
+  cancel, then home) or voluntary from the profile ("Annuler" (Cancel), back to the profile with
+  confirmation); it closes the other sessions (`backend/src/auth/auth.service.ts:76`). Logout: deletion of the session in the database and
+  closing of real-time connections (`auth.service.ts:52-54`), logged (`LOGOUT`).
 
-### 1.2 Visibilité du menu par rôle
+### 1.2 Menu visibility by role
 
-| Entrée | Employé | Admin | Super administrateur |
+| Entry | Employee | Admin | Super administrator |
 | --- | --- | --- | --- |
-| Cloche | ✅ | ✅ | ✅ (alertes filtrées) |
-| Mes demandes : Reçues, Envoyées | ✅ | ✅ | ✅ |
-| Mes demandes : À valider, Suivi | ❌ | ✅ | ✅ |
-| Nouvelle demande | ✅ | ✅ (toute catégorie) | ✅ (toute catégorie) |
-| Gardes | si membre du groupe Surveillants ou Enseignants | ✅ | ✅ |
+| Bell | ✅ | ✅ | ✅ (filtered alerts) |
+| Mes demandes: Reçues, Envoyées | ✅ | ✅ | ✅ |
+| Mes demandes: À valider, Suivi | ❌ | ✅ | ✅ |
+| Nouvelle demande | ✅ | ✅ (any category) | ✅ (any category) |
+| Gardes | if member of the Surveillants or Enseignants group | ✅ | ✅ |
 | Administrateur | ❌ | ❌ | ✅ |
-| Bloc profil, Se déconnecter | ✅ | ✅ | ✅ |
+| Profile block, Se déconnecter | ✅ | ✅ | ✅ |
 
-### 1.3 Mobile et desktop
+### 1.3 Mobile and desktop
 
-`AppLayout.tsx` change de disposition à partir du point de rupture `md` (900 px) :
+`AppLayout.tsx` changes layout from the `md` breakpoint (900 px):
 
-- **desktop** : barre latérale fixe (logo et cloche, menu, bloc profil et bouton « Se
-  déconnecter » en bas) ;
-- **mobile** : barre du haut (bouton « Ouvrir le menu », logo, cloche, icône de déconnexion) ;
-  le menu s'ouvre dans un tiroir latéral.
+- **desktop**: fixed sidebar (logo and bell, menu, profile block and "Se
+  déconnecter" button at the bottom);
+- **mobile**: top bar ("Ouvrir le menu" (Open the menu) button, logo, bell, logout icon);
+  the menu opens in a side drawer.
 
-## 2. Administrateur, onglet par onglet
+## 2. Administrator, tab by tab
 
-Toutes les routes ci-dessous sont protégées par `SuperAdminGuard` (contrôleur indiqué). Onglets :
-Tableau de bord, Suivi des gardes, Comptes, Catégories, Groupes, Étages, Classes, Réglages,
+All the routes below are protected by `SuperAdminGuard` (controller indicated). Tabs:
+Tableau de bord (Dashboard), Suivi des gardes, Comptes (Accounts), Catégories, Groupes, Étages (Floors), Classes, Réglages (Settings),
 Journal d'audit (`AdminLayout.tsx:21-30`).
 
 ### 2.1 Tableau de bord (`/admin/tableau-de-bord`)
 
-| Fonctionnalité | Fichier / endpoint | Autorisation | État |
+| Feature | File / endpoint | Authorization | Status |
 | --- | --- | --- | --- |
-| Filtres : période (7, 30, 90 jours ou personnalisée), catégorie, priorité, employé | `DashboardPage.tsx` | `dashboard.controller.ts:8` | Complète |
-| « À traiter maintenant » : en retard, urgentes en cours, sans employé affecté, alertes avec lien | `GET /api/admin/dashboard/summary` | idem | Complète |
-| Compteurs par état, graphiques (répartition, évolution quotidienne) avec vue tableau | idem | idem | Complète |
-| Délais : première réponse (premier message d'une autre personne que le demandeur), prise en charge, traitement net et brut, taux de respect, par priorité | `GET …/performance` | idem | Complète |
-| Activité par employé | `GET …/employees` | idem | Complète |
-| Liste des demandes | `GET /api/requests?scope=all` | visibilité des demandes | Complète |
-| Fil d'activité (métadonnées seulement) | `GET …/activity` | idem | Complète |
-| Export CSV des demandes de la période (mêmes filtres ; métadonnées, dates et délais, sans description ni message) | `GET …/export.csv` | idem | Complète |
+| Filters: period (7, 30, 90 days or custom), category, priority, employee | `DashboardPage.tsx` | `dashboard.controller.ts:8` | Complete |
+| "À traiter maintenant" (To handle now): overdue, urgent in progress, with no assigned employee, alerts with link | `GET /api/admin/dashboard/summary` | same | Complete |
+| Counters per state, charts (breakdown, daily trend) with table view | same | same | Complete |
+| Deadlines: first response (first message from someone other than the requester), pick-up, net and gross handling, compliance rate, per priority | `GET …/performance` | same | Complete |
+| Activity per employee | `GET …/employees` | same | Complete |
+| List of requests | `GET /api/requests?scope=all` | request visibility | Complete |
+| Activity feed (metadata only) | `GET …/activity` | same | Complete |
+| CSV export of the period's requests (same filters; metadata, dates and deadlines, without description or message) | `GET …/export.csv` | same | Complete |
 
-Périmètre : demandes de travail uniquement ; actualisation en direct à chaque mise à jour de demande
-(salle Socket.IO des super administrateurs) et toutes les 60 s. L'onglet Employés liste aussi, à zéro,
-les comptes actifs sans demande sur la période.
+Scope: work requests only; live refresh on every request update
+(Socket.IO room of the super administrators) and every 60 s. The Employés tab also lists, at zero,
+the active accounts with no request in the period.
 
-### 2.2 Suivi des gardes (`/admin/suivi`, page « Suivi des affectations »)
+### 2.2 Suivi des gardes (`/admin/suivi`, "Suivi des affectations" page)
 
-| Fonctionnalité | Fichier / endpoint | Autorisation | État |
+| Feature | File / endpoint | Authorization | Status |
 | --- | --- | --- | --- |
-| Chiffres clés : en attente, assignées, en cours, en retard, retards, non pourvues, relèves demandées, affectations effectuées | `CoverageDashboardPage.tsx`, `GET /api/admin/coverage/dashboard` | `coverage-admin.controller.ts:12` | Complète |
-| Affectations en cours : classe, statut, surveillant affecté, durée | idem | idem | Complète |
-| Par surveillant : disponibilité, affectation en cours, statistiques | idem | idem | Complète |
-| Filtres (surveillant, classe, statut, étage, Du/Au), export CSV et impression | `GET …/export.csv` (`CoverageDashboardPage.tsx:146`) | idem | Complète |
-| Absences des surveillants | disponibilité « Absent » (Gardes › Équipe) | idem | Partielle : pas de vue dédiée |
+| Key figures: pending, assigned, in progress, overdue, delays, unfilled, handovers requested, assignments made | `CoverageDashboardPage.tsx`, `GET /api/admin/coverage/dashboard` | `coverage-admin.controller.ts:12` | Complete |
+| Assignments in progress: class, status, assigned supervisor, duration | same | same | Complete |
+| Per supervisor: availability, assignment in progress, statistics | same | same | Complete |
+| Filters (supervisor, class, status, floor, From/To), CSV export and printing | `GET …/export.csv` (`CoverageDashboardPage.tsx:146`) | same | Complete |
+| Supervisor absences | availability "Absent" (Gardes › Équipe) | same | Partial: no dedicated view |
 
-Statistiques détaillées (par enseignant, classe ou période, semaine ou mois) : page
+Detailed statistics (per teacher, class or period, week or month): page
 `/gardes/statistiques` (`CoverageStatsPage.tsx`), `GET /api/coverage/stats`
-(`coverage.controller.ts`), admins et super administrateur. Export CSV de la vue affichée
-(spec 008) : « Exporter en CSV », `GET /api/coverage/stats/export.csv`, mêmes accès et mêmes
-valeurs que la page, chaque export journalisé.
+(`coverage.controller.ts`), admins and super administrator. CSV export of the displayed view
+(spec 008): "Exporter en CSV" (Export as CSV), `GET /api/coverage/stats/export.csv`, same access and same
+values as the page, every export logged.
 
 ### 2.3 Comptes (`/admin/comptes`)
 
-| Fonctionnalité | Fichier / endpoint | Autorisation | État |
+| Feature | File / endpoint | Authorization | Status |
 | --- | --- | --- | --- |
-| Liste, création (identifiant, nom, fonction, rôle Employé / Admin / Super administrateur, catégories destinataires) | `UsersAdminPage.tsx`, `UserFormDialog.tsx`, `GET`/`POST /api/admin/users` | `admin-users.controller.ts:11` | Complète |
-| Modification, rattachement aux catégories (« Destinataire : … ») | `PATCH /api/admin/users/:id` | idem | Complète |
-| Réinitialisation du mot de passe : mot de passe provisoire affiché une fois, état « Mot de passe à changer » | `POST …/:id/reset-password` | idem | Complète |
-| Désactivation et réactivation (sessions fermées à la désactivation) | `PATCH …/:id` | idem, `users.service.ts:208` | Complète |
-| Garde-fous serveur sur son propre compte | `users.service.ts:154-157`, `:216-217` | serveur | Complète : un super administrateur ne peut ni se désactiver, ni retirer son propre rôle, ni réinitialiser son propre mot de passe par requête directe |
+| List, creation (username, name, job title, role Employee / Admin / Super administrator, recipient categories) | `UsersAdminPage.tsx`, `UserFormDialog.tsx`, `GET`/`POST /api/admin/users` | `admin-users.controller.ts:11` | Complete |
+| Modification, attachment to categories ("Destinataire : …" (Recipient: …)) | `PATCH /api/admin/users/:id` | same | Complete |
+| Password reset: temporary password shown once, state "Mot de passe à changer" (Password to change) | `POST …/:id/reset-password` | same | Complete |
+| Deactivation and reactivation (sessions closed on deactivation) | `PATCH …/:id` | same, `users.service.ts:208` | Complete |
+| Server safeguards on their own account | `users.service.ts:154-157`, `:216-217` | server | Complete: a super administrator can neither deactivate themselves, nor remove their own role, nor reset their own password by direct request |
 
 ### 2.4 Catégories (`/admin/categories`)
 
-| Fonctionnalité | Fichier / endpoint | Autorisation | État |
+| Feature | File / endpoint | Authorization | Status |
 | --- | --- | --- | --- |
-| Création et modification : nom, type (demande de travail ou garde, figé à la création), mode de routage (via l'administration, direct, entre enseignants), rôles créateurs, clôture, validation finale, affectation automatique, photo de preuve | `CategoryFormDialog.tsx`, `POST`/`PATCH /api/admin/categories` | `admin-categories.controller.ts:11` | Complète |
-| Destinataires et « Admins de la catégorie » (rôle Admin ou Super administrateur uniquement, `admin-categories.service.ts:232-237`) | `PUT …/:id/recipients`, `…/:id/managers` | idem | Complète |
-| Délais par priorité | `PUT …/:id/deadlines` | idem | Complète |
-| Activation et désactivation | case « active » du formulaire | idem | Complète |
-| Rafraîchissement du formulaire « Nouvelle demande » | liste rechargée à chaque ouverture (`requests/api.ts`) | — | Complète |
+| Creation and modification: name, type (work request or shift, fixed at creation), routing mode (via administration, direct, between teachers), creator roles, closing, final validation, automatic assignment, proof photo | `CategoryFormDialog.tsx`, `POST`/`PATCH /api/admin/categories` | `admin-categories.controller.ts:11` | Complete |
+| Recipients and "Admins de la catégorie" (Category admins) (Admin or Super administrator role only, `admin-categories.service.ts:232-237`) | `PUT …/:id/recipients`, `…/:id/managers` | same | Complete |
+| Deadlines per priority | `PUT …/:id/deadlines` | same | Complete |
+| Activation and deactivation | "active" checkbox of the form | same | Complete |
+| Refreshing the "Nouvelle demande" form | list reloaded at every opening (`requests/api.ts`) | — | Complete |
 
-### 2.4 bis Consignes (`/admin/consignes`, fonctionnalité 009)
+### 2.4 bis Consignes (Guidelines) (`/admin/consignes`, feature 009)
 
-| Fonctionnalité | Fichier / endpoint | Autorisation | État |
+| Feature | File / endpoint | Authorization | Status |
 | --- | --- | --- | --- |
-| Liste (titre, portée « Générale » ou catégorie, état, date et auteur de la modification) | `GuidelinesAdminPage.tsx`, `GET /api/admin/guidelines` | `SuperAdminGuard` (`admin-guidelines.controller.ts`) | Complète |
-| Création et modification : titre (120), texte (4 000), portée (générale ou catégorie de demande de travail), active | `GuidelineFormDialog.tsx`, `POST`/`PATCH /api/admin/guidelines` | idem | Complète |
-| Activation, désactivation, suppression confirmée | `PATCH`/`DELETE /api/admin/guidelines/:id` | idem | Complète |
-| Journal d'audit : « Consigne créée / modifiée / supprimée » + titre, jamais le texte | `GUIDELINE_CHANGED` | — | Complète |
+| List (title, scope "Générale" (General) or category, state, date and author of the modification) | `GuidelinesAdminPage.tsx`, `GET /api/admin/guidelines` | `SuperAdminGuard` (`admin-guidelines.controller.ts`) | Complete |
+| Creation and modification: title (120), text (4,000), scope (general or work request category), active | `GuidelineFormDialog.tsx`, `POST`/`PATCH /api/admin/guidelines` | same | Complete |
+| Activation, deactivation, confirmed deletion | `PATCH`/`DELETE /api/admin/guidelines/:id` | same | Complete |
+| Audit log: "Consigne créée / modifiée / supprimée" (Guideline created / modified / deleted) + title, never the text | `GUIDELINE_CHANGED` | — | Complete |
 
-Les consignes actives servent aux **propositions automatiques** du formulaire « Nouvelle
-demande » (catégorie, priorité, titre), visibles seulement des demandeurs autorisés pour la
-catégorie. L'assistance est désactivée par défaut (`ASSIST_*_PROVIDER=disabled`) ; le fournisseur
-`demo` sert aux démonstrations, sans appel externe.
+Active guidelines are used for the **automatic suggestions** of the "Nouvelle
+demande" form (category, priority, title), visible only to requesters allowed for the
+category. Assistance is disabled by default (`ASSIST_*_PROVIDER=disabled`); the `demo`
+provider is used for demonstrations, with no external call.
 
 ### 2.5 Groupes, Étages et Classes (`/admin/groupes`, `/admin/etages`, `/admin/classes`)
 
-| Fonctionnalité | Fichier / endpoint | Autorisation | État |
+| Feature | File / endpoint | Authorization | Status |
 | --- | --- | --- | --- |
-| Groupes : nom, actif, membres ; groupes à clé système « Surveillants » et « Enseignants » (renommables, jamais désactivés) | `GroupsAdminPage.tsx`, `/api/admin/coverage/groups` | `coverage-admin.controller.ts:12` | Complète |
-| Étages : nom, ordre d'affichage, actif ; avertissement si aucun surveillant n'y est rattaché | `FloorsAdminPage.tsx`, `/api/admin/floors` | `coverage-admin.controller.ts:74` | Complète |
-| Classes : nom, salle, étage (obligatoire), active ; QR code imprimable et révocable | `ClassesAdminPage.tsx`, `/api/admin/coverage/classes`, `…/qr`, `…/qr/revoke` | `coverage-admin.controller.ts:12` | Complète |
+| Groups: name, active, members; system-key groups "Surveillants" and "Enseignants" (renamable, never deactivated) | `GroupsAdminPage.tsx`, `/api/admin/coverage/groups` | `coverage-admin.controller.ts:12` | Complete |
+| Floors: name, display order, active; warning if no supervisor is attached to it | `FloorsAdminPage.tsx`, `/api/admin/floors` | `coverage-admin.controller.ts:74` | Complete |
+| Classes: name, room, floor (mandatory), active; printable and revocable QR code | `ClassesAdminPage.tsx`, `/api/admin/coverage/classes`, `…/qr`, `…/qr/revoke` | `coverage-admin.controller.ts:12` | Complete |
 
-Usage : les membres du groupe **Surveillants** peuvent être assignés et déclarer une classe vide ;
-ceux du groupe **Enseignants** peuvent signaler un retard ou une absence ; l'appartenance à l'un
-des deux fait apparaître le menu Gardes. Les autres groupes n'ont pas d'effet sur les
-affectations. Les **étages** ordonnent les surveillants proposés (ceux de l'étage de la classe
-d'abord) ; les **classes** sont le lieu de l'affectation et portent le QR code de preuve de
-présence. Rien de tout cela n'intervient dans le routage ou la visibilité des demandes de travail.
+Usage: members of the **Surveillants** group can be assigned and declare an empty class;
+those of the **Enseignants** group can report a delay or an absence; membership of either
+makes the Gardes menu appear. Other groups have no effect on
+assignments. **Floors** order the proposed supervisors (those of the class's floor
+first); **classes** are the place of the assignment and carry the attendance-proof
+QR code. None of this affects the routing or visibility of work requests.
 
 ### 2.6 Réglages (`/admin/reglages`)
 
-| Paramètre | Valeur par défaut | État |
+| Setting | Default value | Status |
 | --- | --- | --- |
-| Durée maximale d'un vocal, taille maximale | 180 s, 5 Mo | Complète |
-| Taille maximale d'une pièce jointe, nombre par message | 10 Mo, 5 | Complète |
-| Formats de photo et de document acceptés | JPEG, PNG, WebP ; PDF | Complète |
-| Brouillons de demande autorisés | oui | Complète (spec 007) |
-| Seuil d'alerte avant échéance | 20 % | Complète |
-| Inactivité et durée maximale de session | 60 min, 12 h | Complète |
-| Affectations : seuil d'urgence avant le début du créneau, escalade au super administrateur | 60 min, 5 min | Complète |
-| Affectations : rappel du matin, rappel de clôture puis rappel à l'admin | 07:00 ; 10 min, 10 min | Complète |
-| Affectations : rappels de renfort (intervalle, nombre maximal) | 10 min, 3 | Complète |
-| Affectations : conservation avant anonymisation | 12 mois | Complète |
-| Permissions par rôle (créer, priorité, réaffecter, audit…) | `GET`/`PUT /api/admin/role-permissions` | Complète |
+| Maximum voice message length, maximum size | 180 s, 5 MB | Complete |
+| Maximum attachment size, number per message | 10 MB, 5 | Complete |
+| Accepted photo and document formats | JPEG, PNG, WebP; PDF | Complete |
+| Request drafts allowed | yes | Complete (spec 007) |
+| Alert threshold before due date | 20% | Complete |
+| Inactivity and maximum session duration | 60 min, 12 h | Complete |
+| Assignments: urgency threshold before slot start, escalation to the super administrator | 60 min, 5 min | Complete |
+| Assignments: morning reminder, closing reminder then reminder to the admin | 07:00; 10 min, 10 min | Complete |
+| Assignments: support reminders (interval, maximum number) | 10 min, 3 | Complete |
+| Assignments: retention before anonymization | 12 months | Complete |
+| Permissions per role (create, priority, reassign, audit…) | `GET`/`PUT /api/admin/role-permissions` | Complete |
 
-Endpoints `GET`/`PUT /api/admin/settings` (`admin-settings.controller.ts:10`), valeurs par défaut
-dans `backend/src/settings/settings.service.ts:9-30`. Les délais de traitement par priorité se
-règlent par catégorie (§2.4), pas ici ; le délai de prise en charge d'une affectation est celui de
-la catégorie de garde.
+Endpoints `GET`/`PUT /api/admin/settings` (`admin-settings.controller.ts:10`), default values
+in `backend/src/settings/settings.service.ts:9-30`. Handling deadlines per priority are
+set per category (§2.4), not here; the pick-up deadline of an assignment is that of
+the shift category.
 
 ### 2.7 Journal d'audit (`/admin/journal`)
 
-Consultation seule, filtres par auteur, action et période (`admin-audit.controller.ts:57`).
+Read-only, filters by author, action and period (`admin-audit.controller.ts:57`).
 
-| Événement | Enregistré | Source |
+| Event | Recorded | Source |
 | --- | --- | --- |
-| Connexion réussie ou échouée, déconnexion | ✅ | `auth.service.ts` |
-| Accès refusé | ✅ | gardes et services |
-| Compte créé, modifié (dont changement de rôle et réactivation), désactivé | ✅ | `users.service.ts` |
-| Réinitialisation et changement de mot de passe | ✅ | `users.service.ts`, `auth.service.ts` |
-| Permissions, réglages, catégories, délais | ✅ | `admin-settings.service.ts`, `admin-categories.service.ts` |
-| Groupes, étages, classes, révocation de QR, disponibilité | ✅ | `coverage-admin.service.ts`, `coverage.service.ts` |
-| Affectations : assignation, réassignation, libération, validation, annulation, enseignant corrigé, renfort libéré, **modification de la classe ou du créneau** (spec 006, `details.action = 'UPDATE'`, avant et après, sans le motif) (« Affectation gérée par un admin ») | ✅ `COVERAGE_MANAGED` | `coverage-actions.service.ts:71-79`, `coverage.service.ts` (`updateCoverage`) |
-| Affectation directe (« Affectation créée ») | ✅ `COVERAGE_CREATED` | `coverage.service.ts:441` |
-| Décision sur un doublon possible | ✅ `COVERAGE_MERGE_DECIDED` | `coverage-declarations.service.ts` |
-| Anonymisation des affectations anciennes (tâche planifiée) | ✅ `COVERAGE_ANONYMIZED` | `coverage-anonymization.service.ts:87` |
-| Export des statistiques des affectations (période et regroupement, sans valeur ni nom ; spec 008) | ✅ `COVERAGE_STATS_EXPORTED` | `coverage-stats.service.ts` (`exportCsv`) |
-| Signalement d'un enseignant, classe vide déclarée, actions du surveillant (en route, présence, fin) | ❌ par choix (historique de l'affectation) | `RequestEvent` |
-| Demandes de travail : approbation, refus, réaffectation, annulation, validation finale, renvoi à corriger, changement de priorité (motif signalé, sans son texte) | ✅ `REQUEST_MANAGED` | `request-transitions.service.ts:53`, `requests.service.ts` |
-| Demandes de travail : accepter, commencer, terminer, décliner (actions courantes de l'employé) | ❌ par choix (historique de la demande) | `RequestEvent` |
-| Changement de rôle comme événement distinct | ❌ (inclus dans « Compte modifié ») | — |
+| Successful or failed login, logout | ✅ | `auth.service.ts` |
+| Access denied | ✅ | guards and services |
+| Account created, modified (including role change and reactivation), deactivated | ✅ | `users.service.ts` |
+| Password reset and change | ✅ | `users.service.ts`, `auth.service.ts` |
+| Permissions, settings, categories, deadlines | ✅ | `admin-settings.service.ts`, `admin-categories.service.ts` |
+| Groups, floors, classes, QR revocation, availability | ✅ | `coverage-admin.service.ts`, `coverage.service.ts` |
+| Assignments: assignment, reassignment, release, validation, cancellation, teacher corrected, support released, **modification of the class or slot** (spec 006, `details.action = 'UPDATE'`, before and after, without the reason) ("Affectation gérée par un admin" (Assignment managed by an admin)) | ✅ `COVERAGE_MANAGED` | `coverage-actions.service.ts:71-79`, `coverage.service.ts` (`updateCoverage`) |
+| Direct assignment ("Affectation créée" (Assignment created)) | ✅ `COVERAGE_CREATED` | `coverage.service.ts:441` |
+| Decision on a possible duplicate | ✅ `COVERAGE_MERGE_DECIDED` | `coverage-declarations.service.ts` |
+| Anonymization of old assignments (scheduled task) | ✅ `COVERAGE_ANONYMIZED` | `coverage-anonymization.service.ts:87` |
+| Export of assignment statistics (period and grouping, without value or name; spec 008) | ✅ `COVERAGE_STATS_EXPORTED` | `coverage-stats.service.ts` (`exportCsv`) |
+| Teacher report, declared empty class, supervisor actions (on the way, attendance, end) | ❌ by choice (assignment history) | `RequestEvent` |
+| Work requests: approval, refusal, reassignment, cancellation, final validation, sent back for correction, priority change (reason flagged, without its text) | ✅ `REQUEST_MANAGED` | `request-transitions.service.ts:53`, `requests.service.ts` |
+| Work requests: accept, start, finish, decline (routine employee actions) | ❌ by choice (request history) | `RequestEvent` |
+| Role change as a distinct event | ❌ (included in "Compte modifié" (Account modified)) | — |
 
-## 3. Affectation des surveillants
+## 3. Supervisor assignment
 
-| Question | Réponse dans le code |
+| Question | Answer in the code |
 | --- | --- |
-| Qui gère les affectations | Les admins et le super administrateur (`isCoverageAdmin`, `coverage-policy.ts:56`). Le compte `admin` du seed joue la surveillante générale. |
-| D'où vient une affectation | Trois sources : **signalement d'un enseignant** (retard ou absence, `POST /api/coverage/teacher-requests`, « En attente » jusqu'à l'assignation) ; **classe vide** déclarée par un surveillant pendant son tour (`POST /api/coverage/empty-class`, à son nom et en cours) ; **affectation directe** par un admin (`POST /api/coverage`, `coverage.service.ts:327`, créée assignée). |
-| Qui peut être assigné | Un membre actif du groupe Surveillants, quel que soit son rôle (`isEligibleAssignee`, `coverage-policy.ts:61`). Surveillants proposés : ceux de l'étage de la classe d'abord, disponibles d'abord (`supervisorCandidates`, `coverage-availability.ts:94`). |
-| Qui assigne, réassigne, retire, modifie | L'admin : `ASSIGN`, `REASSIGN`, `RELEASE_BY_MANAGER`, `RELEASE_SUPPORT` (renfort), `CANCEL`, `SET_TEACHER`, et **modification** de la classe et du créneau (`PATCH /api/coverage/:id`, spec 006) : classe, date et heures avant la présence, heure de fin seulement pendant la présence (`modifiableFields`, `domain/coverage-modification.ts`), statut inchangé (« En route » compris), disponibilité revérifiée avec refus qui nomme l'affectation en conflit. L'enseignant modifie ou retire son signalement tant qu'il est en attente (`PATCH /api/coverage/:id/teacher-request`, `WITHDRAW`). |
-| Remplacement d'un surveillant absent | Disponibilité « Absent » (Gardes › Équipe), puis réassignation de ses affectations par l'admin. Pendant l'affectation : le surveillant demande une relève (`REQUEST_RELIEF`). |
-| Ce que voit le surveillant | Notification « Demande affectée », onglets « Mes affectations » et « Historique », « Je suis en route », confirmation de présence par QR code de la classe et photo (selon la catégorie de garde), « Terminer ». Le motif du signalement ne lui est jamais montré (`canSeeReason`, `coverage-policy.ts:101`). |
-| Doublons | Classe vide déjà prise en charge : le second déclarant devient **renfort** ; déclaration proche d'une affectation existante : **proposition de rattachement** à trancher par l'admin (onglet Doublons, `coverage-declarations.service.ts:309-321`). |
-| Délais | Signalement non assigné à temps : rappel aux admins, escalade au super administrateur, puis « Non pourvue » (`EXPIRE_UNFILLED`, `coverage-reminders.job.ts:101`). |
-| Traçabilité | Journal d'audit (§2.7) ; historique de l'affectation (`RequestEvent`), par exemple « Réassignée de … à … ». |
-| Conflits gérés | Disponibilité vérifiée côté serveur (`availabilityFor`, `coverage-availability.ts:27`) : compte désactivé, absent, indisponible, déjà affecté sur un créneau qui chevauche ou en renfort → refus `NOT_AVAILABLE` (`coverage-state-machine.ts:167`) ; l'interface désactive ces surveillants. Double prise simultanée empêchée par un verrou par employé (`lockEmployee`, `coverage-availability.ts:124`). |
-| Conflits non gérés | Plus de forçage depuis la 004 : un surveillant indisponible ne peut pas être assigné, même par le super administrateur. |
+| Who manages assignments | Admins and the super administrator (`isCoverageAdmin`, `coverage-policy.ts:56`). The seed's `admin` account plays the head supervisor. |
+| Where an assignment comes from | Three sources: **teacher report** (delay or absence, `POST /api/coverage/teacher-requests`, "En attente" until assigned); **empty class** declared by a supervisor during their round (`POST /api/coverage/empty-class`, in their name and in progress); **direct assignment** by an admin (`POST /api/coverage`, `coverage.service.ts:327`, created assigned). |
+| Who can be assigned | An active member of the Surveillants group, whatever their role (`isEligibleAssignee`, `coverage-policy.ts:61`). Proposed supervisors: those of the class's floor first, available first (`supervisorCandidates`, `coverage-availability.ts:94`). |
+| Who assigns, reassigns, removes, modifies | The admin: `ASSIGN`, `REASSIGN`, `RELEASE_BY_MANAGER`, `RELEASE_SUPPORT` (support), `CANCEL`, `SET_TEACHER`, and **modification** of the class and slot (`PATCH /api/coverage/:id`, spec 006): class, date and times before attendance, end time only during attendance (`modifiableFields`, `domain/coverage-modification.ts`), status unchanged ("En route" included), availability re-checked with a refusal that names the conflicting assignment. The teacher modifies or withdraws their report as long as it is pending (`PATCH /api/coverage/:id/teacher-request`, `WITHDRAW`). |
+| Replacing an absent supervisor | Availability "Absent" (Gardes › Équipe), then reassignment of their assignments by the admin. During the assignment: the supervisor requests a handover (`REQUEST_RELIEF`). |
+| What the supervisor sees | Notification "Demande affectée" (Request assigned), tabs "Mes affectations" and "Historique", "Je suis en route" (I am on my way), attendance confirmation by the class QR code and photo (depending on the shift category), "Terminer" (Finish). The reason for the report is never shown to them (`canSeeReason`, `coverage-policy.ts:101`). |
+| Duplicates | Empty class already handled: the second declarant becomes **support**; declaration close to an existing assignment: **attachment proposal** to be decided by the admin (Doublons tab, `coverage-declarations.service.ts:309-321`). |
+| Deadlines | Report not assigned in time: reminder to admins, escalation to the super administrator, then "Non pourvue" (Unfilled) (`EXPIRE_UNFILLED`, `coverage-reminders.job.ts:101`). |
+| Traceability | Audit log (§2.7); assignment history (`RequestEvent`), for example "Réassignée de … à …" (Reassigned from … to …). |
+| Conflicts handled | Availability checked server-side (`availabilityFor`, `coverage-availability.ts:27`): deactivated account, absent, unavailable, already assigned on an overlapping slot or as support → `NOT_AVAILABLE` refusal (`coverage-state-machine.ts:167`); the interface disables these supervisors. Simultaneous double pick-up prevented by a per-employee lock (`lockEmployee`, `coverage-availability.ts:124`). |
+| Conflicts not handled | No more forcing since 004: an unavailable supervisor cannot be assigned, even by the super administrator. |
 
-## 4. Écarts
+## 4. Gaps
 
-### 4.1 Interface et serveur
+### 4.1 Interface and server
 
-- Aucune fonctionnalité de l'interface trouvée sans protection serveur : chaque action passe par
-  une règle côté API (gardes globales, `SuperAdminGuard`, politiques d'accès).
-- La référence des demandes reste affichée dans le panneau de notifications alors qu'elle est
-  masquée dans le détail et la liste.
+- No interface feature found without server protection: every action goes through
+  a rule on the API side (global guards, `SuperAdminGuard`, access policies).
+- The request reference is still displayed in the notifications panel although it is
+  hidden in the detail and the list.
 
-### 4.2 Actions absentes
+### 4.2 Missing actions
 
-- Réaffecter une demande de travail en mode direct ou entre enseignants : impossible par choix
-  (lecture seule de l'administration) ; seul le mode via l'administration le permet.
-- Suppression d'une affectation : absente (annulation motivée à la place). La modification de la
-  classe et du créneau par l'admin existe depuis la spec 006 (§3).
+- Reassigning a work request in direct mode or between teachers: impossible by choice
+  (read-only administration); only the via-administration mode allows it.
+- Deleting an assignment: absent (reasoned cancellation instead). Modification of the
+  class and slot by the admin has existed since spec 006 (§3).
 
-### 4.3 Fonctionnalités partielles ou inutilisées
+### 4.3 Partial or unused features
 
-- Absences des surveillants : seulement via la disponibilité « Absent », sans vue dédiée.
+- Supervisor absences: only through the "Absent" availability, with no dedicated view.
 
-### 4.4 Scénarios de démonstration (`demo/`)
+### 4.4 Demonstration scenarios (`demo/`)
 
-| Scénario | Jouable | Remarque |
+| Scenario | Playable | Remark |
 | --- | --- | --- |
-| S01 Menu latéral | Oui | Bloc profil : lien vers « Mon profil » (spec 005). |
-| S02 Notifications | Oui | Demande « sans employé affecté » et « en retard » : délais simulés dans la base jetable. |
-| S03 Mes demandes | Oui | « Reçues » ne montre que les demandes affectées au super administrateur ; annulation sur sa propre demande ; changement de priorité en mode via l'administration. |
-| S04 Nouvelle demande | Oui | « Surveillance » et « Photocopies » à créer dans les données fictives. |
-| S05 Comptes | Oui | — |
-| S06 Catégories | Oui | — |
-| S07 Groupes et Classes | Oui | Un employé ajouté au groupe Surveillants, une classe sur un étage, puis une affectation directe. |
-| S08 Réglages | Oui | Effet visible : seuil d'alerte (compte à rebours orange) ou délai d'une catégorie. |
-| S09 Journal d'audit | Oui | Actions administratives sur les demandes de travail et affectations journalisées ; actions courantes de l'employé dans l'historique seul. |
-| S10 Tableau de bord | Oui | — |
-| S11 Suivi des gardes | Oui | Signalement d'enseignant en attente, affectation en cours, affectation annulée. |
-| S12 Affectation des surveillants | Oui | Signalement assigné ; surveillant déjà affecté non proposable ; absent remplacé par réassignation. |
-| S13 Vue du surveillant | Oui | Viewport mobile ; notification et onglet « Mes affectations ». |
+| S01 Side menu | Yes | Profile block: link to "Mon profil" (spec 005). |
+| S02 Notifications | Yes | "No assigned employee" and "overdue" request: deadlines simulated in the disposable database. |
+| S03 Mes demandes | Yes | "Reçues" only shows the requests assigned to the super administrator; cancellation on their own request; priority change in via-administration mode. |
+| S04 Nouvelle demande | Yes | "Surveillance" and "Photocopies" to be created in the fictitious data. |
+| S05 Comptes | Yes | — |
+| S06 Catégories | Yes | — |
+| S07 Groupes et Classes | Yes | An employee added to the Surveillants group, a class on a floor, then a direct assignment. |
+| S08 Réglages | Yes | Visible effect: alert threshold (orange countdown) or a category's deadline. |
+| S09 Journal d'audit | Yes | Administrative actions on work requests and assignments logged; routine employee actions in the history only. |
+| S10 Tableau de bord | Yes | — |
+| S11 Suivi des gardes | Yes | Teacher report pending, assignment in progress, assignment cancelled. |
+| S12 Supervisor assignment | Yes | Report assigned; supervisor already assigned not proposable; absent one replaced by reassignment. |
+| S13 Supervisor view | Yes | Mobile viewport; notification and "Mes affectations" tab. |

@@ -1,126 +1,122 @@
-# Research: Export des statistiques des affectations
+# Research: Export des statistiques des affectations (Assignment statistics export)
 
-Constats sur l'existant (23/10/2026) et décisions de conception.
+Findings on the existing code (23/10/2026) and design decisions.
 
-## R1 — Export produit par le serveur
+## R1 — Export produced by the server
 
-- **Décision** : nouvelle route `GET /api/coverage/stats/export.csv`, mêmes paramètres que
-  `GET /api/coverage/stats`. Le service réutilise `CoverageStatsService.stats` (même contrôle
-  d'accès, mêmes contrôles de période, même calcul) puis met le résultat en forme avec
+- **Decision**: new route `GET /api/coverage/stats/export.csv`, same parameters as
+  `GET /api/coverage/stats`. The service reuses `CoverageStatsService.stats` (same access
+  check, same period checks, same computation), then formats the result with
   `toCsv` (`backend/src/common/csv.ts`).
-- **Pourquoi** : la journalisation de chaque export réussi (FR-009, clarification A) et le
-  contrôle d'accès (FR-006) se font côté serveur ; les deux exports existants (tableau de bord,
-  suivi des gardes) suivent déjà ce modèle (`@Get('export.csv')`, `toCsv` : séparateur « ; »,
-  UTF-8 avec BOM, CRLF, formules neutralisées), ce qui couvre FR-004 sans code nouveau.
-- **Alternatives rejetées** : fichier construit dans le navigateur à partir des données déjà
-  chargées (valeurs identiques par construction, mais il faudrait un second appel pour
-  journaliser, sans garantie que l'export ait bien eu lieu, et un second format CSV à maintenir
-  côté interface) ; paramètre `format=csv` sur `GET /api/coverage/stats` (mélange JSON et
-  fichier sur une même route ; le test existant refuse ce paramètre, R6).
+- **Why**: logging every successful export (FR-009, clarification A) and the access check
+  (FR-006) happen server-side; the two existing exports (dashboard, shift tracking) already
+  follow this model (`@Get('export.csv')`, `toCsv`: ";" separator, UTF-8 with BOM, CRLF,
+  formulas neutralized), which covers FR-004 with no new code.
+- **Alternatives rejected**: file built in the browser from the data already loaded (identical
+  values by construction, but a second call would be needed to log, with no guarantee that the
+  export actually took place, and a second CSV format to maintain on the UI side); a
+  `format=csv` parameter on `GET /api/coverage/stats` (mixes JSON and file on one route; the
+  existing test rejects this parameter, R6).
 
-## R2 — Valeurs identiques à la page (FR-003, SC-002)
+## R2 — Values identical to the page (FR-003, SC-002)
 
-- **Décision** : une fonction pure `statsToCsvRows` (domaine, `backend/src/coverage/domain/`)
-  transforme le résultat de `computeCoverageStats` en lignes, avec les mêmes règles d'affichage
-  que la page :
-  - durée moyenne : même règle que `formatDuration` (`frontend/src/features/coverage/labels.tsx`) —
-    « 45 min », « 1 h », « 1 h 05 » ; cellule vide quand elle n'est pas calculable (« — » sur la
-    page) ;
-  - taux de non pourvue : `Math.round(rate * 100)` suivi de « % », comme `percent` de
-    `CoverageStatsPage.tsx` ;
-  - libellés de lignes : ceux renvoyés par `computeCoverageStats` (« Enseignant anonymisé »,
-    « Enseignant non précisé », « Semaine du JJ/MM/AAAA », mois en toutes lettres), sans
-    retraitement.
-- **Pourquoi** : le calcul est déjà fait une seule fois côté serveur ; seule la mise en forme est
-  dupliquée, et elle est courte et figée par des tests unitaires qui reprennent les cas de
-  `formatDuration` (R7).
-- **Alternative rejetée** : exporter les minutes brutes et le taux décimal (plus pratique dans un
-  tableur, mais contraire à FR-003 : valeurs identiques à la page).
+- **Decision**: a pure function `statsToCsvRows` (domain, `backend/src/coverage/domain/`)
+  turns the result of `computeCoverageStats` into rows, with the same display rules as the page:
+  - average duration: same rule as `formatDuration` (`frontend/src/features/coverage/labels.tsx`) —
+    « 45 min », « 1 h », « 1 h 05 »; empty cell when it cannot be computed (« — » on the page);
+  - unfilled rate: `Math.round(rate * 100)` followed by « % », like `percent` in
+    `CoverageStatsPage.tsx`;
+  - row labels: those returned by `computeCoverageStats` (« Enseignant anonymisé » (Anonymized
+    teacher), « Enseignant non précisé » (Unspecified teacher), « Semaine du JJ/MM/AAAA » (Week of
+    DD/MM/YYYY), months spelled out), with no reprocessing.
+- **Why**: the computation is already done once server-side; only the formatting is duplicated,
+  and it is short and pinned by unit tests that reuse the `formatDuration` cases (R7).
+- **Alternative rejected**: exporting raw minutes and the decimal rate (more convenient in a
+  spreadsheet, but contrary to FR-003: values identical to the page).
 
-## R3 — Disposition du fichier
+## R3 — File layout
 
-- **Décision** : un seul tableau, lisible dans un tableur, colonnes fixes :
+- **Decision**: a single table, readable in a spreadsheet, fixed columns:
 
-  1. ligne d'en-tête : libellé du regroupement (« Enseignant », « Classe » ou « Période »), puis
+  1. header row: grouping label (« Enseignant », « Classe » or « Période »), then
      « Événements », « Retards », « Absences », « Classes vides », « Non pourvues », « Annulées »,
-     « Durée moyenne » (mêmes libellés et même ordre que le tableau de la page) ;
-  2. une ligne par élément, dans l'ordre de la page ;
-  3. une ligne « Total de la période » avec les mêmes colonnes ;
-  4. une ligne vide, puis des lignes « libellé ; valeur » : « Du », « Au », « Fuseau »,
-     « Regroupement » (et « Période » : « Semaine » ou « Mois »), « Taux de non pourvue »,
+     « Durée moyenne » (same labels and same order as the page's table);
+  2. one row per element, in the page's order;
+  3. a « Total de la période » row with the same columns;
+  4. an empty line, then « label ; value » lines: « Du », « Au », « Fuseau »,
+     « Regroupement » (and « Période »: « Semaine » or « Mois »), « Taux de non pourvue »,
      « Doublons non tranchés (comptés une fois) ».
 
-  Les sept indicateurs des totaux de la page sont tous présents : « Retards et absences » est la
-  colonne « Événements » de la ligne de total, le taux et les doublons sont dans le bloc final ;
-  « Annulées » figure dans la ligne de total.
-- **Pourquoi** : le tableau commence en A1 (filtre et tri directs dans un tableur) ; le bloc
-  final donne le contexte sans décaler les colonnes.
-- **Alternative rejetée** : bloc de contexte en tête de fichier (le tableau ne commence plus en
-  A1) ; trois fichiers séparés (plusieurs téléchargements pour une seule action, SC-001).
+  The seven indicators of the page's totals are all present: « Retards et absences » is the
+  « Événements » column of the total row, the rate and the duplicates are in the final block;
+  « Annulées » appears in the total row.
+- **Why**: the table starts at A1 (direct filtering and sorting in a spreadsheet); the final
+  block gives the context without shifting the columns.
+- **Alternative rejected**: context block at the top of the file (the table no longer starts at
+  A1); three separate files (several downloads for a single action, SC-001).
 
-## R4 — Nom du fichier (FR-005)
+## R4 — File name (FR-005)
 
-- **Décision** : `statistiques-affectations-<regroupement>-<du>-au-<au>.csv`, avec
-  `<regroupement>` parmi `enseignant`, `classe`, `semaine`, `mois` (la granularité remplace
-  « période »). Les trois en-têtes (`Content-Type`, `Content-Disposition: attachment;
-  filename="…"`, `Cache-Control: private, no-store`, mêmes valeurs que les exports existants) sont
-  posés par le contrôleur (`@Res({ passthrough: true })`) **après** la production du fichier.
-  Constaté à l'implémentation (T013) : `@Header` les pose avant l'appel, et un refus ou une période
-  invalide partait alors en JSON étiqueté `text/csv` (voir `docs/validation/verification-008.md`).
-- **Pourquoi** : uniquement des caractères ASCII sûrs (dates validées `AAAA-MM-JJ`, regroupement
-  issu d'une liste fermée) : pas d'encodage `filename*` nécessaire.
+- **Decision**: `statistiques-affectations-<regroupement>-<du>-au-<au>.csv`, with
+  `<regroupement>` among `enseignant`, `classe`, `semaine`, `mois` (the granularity replaces
+  "period"). The three headers (`Content-Type`, `Content-Disposition: attachment;
+  filename="…"`, `Cache-Control: private, no-store`, same values as the existing exports) are
+  set by the controller (`@Res({ passthrough: true })`) **after** the file is produced.
+  Found during implementation (T013): `@Header` sets them before the call, and a denial or an
+  invalid period then went out as JSON labeled `text/csv` (see `docs/validation/verification-008.md`).
+- **Why**: only safe ASCII characters (validated `AAAA-MM-JJ` dates, grouping taken from a closed
+  list): no `filename*` encoding needed.
 
-## R5 — Journalisation (FR-009, clarification A)
+## R5 — Logging (FR-009, clarification A)
 
-- **Décision** : nouvelle valeur `COVERAGE_STATS_EXPORTED` de l'énumération `AuditAction`
-  (migration `0010_audit_coverage_stats_export`), écrite par `AuditService.log` après la
-  production du fichier : `actorId`, `ip`, `targetType: 'Request'`,
-  `targetId: 'coverage-stats'` (comme le refus existant), `details` :
-  `{ from, to, groupBy, period }` (`period` seulement pour le regroupement « Période »).
-  Clés `from`, `to`, `groupBy`, `period` ajoutées à `ALLOWED_DETAIL_KEYS`
-  (`backend/src/audit/audit.service.ts`) ; aucune valeur statistique, aucun nom.
-  Libellé « Export des statistiques des affectations » dans `frontend/src/features/admin/labels.ts`
-  (filtre et liste du journal).
-- **Refus** : inchangés — `ACCESS_DENIED` (motif `NOT_COVERAGE_ADMIN`, route de l'export) par le
-  contrôle existant de `stats` ; une période invalide (`INVALID_RANGE`, `400`) n'écrit rien.
-- **Migration** : ajout de valeur d'énumération seul (comme `0007`, `0008`). `down.sql` sur le
-  modèle de `0008_supervision_schema/down.sql` : arrêt si une entrée `COVERAGE_STATS_EXPORTED`
-  existe (le journal d'audit ne se réécrit pas : restaurer la sauvegarde), sinon recréation de
-  l'énumération sans la valeur et retrait de la ligne de suivi Prisma.
-- **Alternative rejetée** : réutiliser une action existante (`COVERAGE_MANAGED`) avec un détail
-  « export » (filtre du journal trompeur, libellé faux).
+- **Decision**: new value `COVERAGE_STATS_EXPORTED` of the `AuditAction` enumeration
+  (migration `0010_audit_coverage_stats_export`), written by `AuditService.log` after the
+  file is produced: `actorId`, `ip`, `targetType: 'Request'`,
+  `targetId: 'coverage-stats'` (like the existing denial), `details`:
+  `{ from, to, groupBy, period }` (`period` only for the « Période » grouping).
+  Keys `from`, `to`, `groupBy`, `period` added to `ALLOWED_DETAIL_KEYS`
+  (`backend/src/audit/audit.service.ts`); no statistical value, no name.
+  Label « Export des statistiques des affectations » in `frontend/src/features/admin/labels.ts`
+  (audit log filter and list).
+- **Denials**: unchanged — `ACCESS_DENIED` (reason `NOT_COVERAGE_ADMIN`, export route) by the
+  existing check in `stats`; an invalid period (`INVALID_RANGE`, `400`) writes nothing.
+- **Migration**: enumeration value addition only (like `0007`, `0008`). `down.sql` modeled on
+  `0008_supervision_schema/down.sql`: stops if a `COVERAGE_STATS_EXPORTED` entry
+  exists (the audit log is not rewritten: restore the backup), otherwise recreates the
+  enumeration without the value and removes the Prisma tracking row.
+- **Alternative rejected**: reusing an existing action (`COVERAGE_MANAGED`) with an "export"
+  detail (misleading audit log filter, wrong label).
 
-## R6 — Interface (FR-001, FR-008, FR-010)
+## R6 — UI (FR-001, FR-008, FR-010)
 
-- **Décision** : bouton-lien « Exporter en CSV » (`Button component="a" href=… download`, icône
-  `Download`, comme `CoverageDashboardPage.tsx:146`) dans l'en-tête des résultats, affiché
-  seulement quand `stats.data` correspond aux filtres affichés (`!stats.isPlaceholderData`, dates
-  complètes, pas d'erreur). L'adresse reprend exactement les paramètres de la requête affichée.
-- **Pourquoi** : même comportement que l'export du suivi des gardes ; un lien est atteignable et
-  activable au clavier sans code ; le masquer pendant le recalcul (`keepPreviousData`) évite
-  d'exporter d'anciens filtres.
-- **Erreurs** : le bouton n'apparaît que si la même requête vient de réussir ; un refus tardif
-  (session expirée) donne la réponse JSON du serveur, comme les deux exports existants.
-  Accepté (YAGNI).
+- **Decision**: link-button « Exporter en CSV » (`Button component="a" href=… download`, `Download`
+  icon, like `CoverageDashboardPage.tsx:146`) in the results header, shown
+  only when `stats.data` matches the displayed filters (`!stats.isPlaceholderData`, complete
+  dates, no error). The address reuses exactly the parameters of the displayed request.
+- **Why**: same behavior as the shift-tracking export; a link is reachable and
+  activable by keyboard with no code; hiding it during recomputation (`keepPreviousData`) avoids
+  exporting old filters.
+- **Errors**: the button only appears if the same request has just succeeded; a late denial
+  (expired session) returns the server's JSON response, like the two existing exports.
+  Accepted (YAGNI).
 
-## R7 — Tests (principe I)
+## R7 — Tests (principle I)
 
-- **Unitaires** (`backend/test/unit/coverage-stats-csv.spec.ts`, nouveau) : `statsToCsvRows`
-  pour les trois regroupements et les deux granularités ; durées (`null`, < 60, heure pile,
-  heure et minutes) ; taux arrondi ; libellés anonymisé / non précisé ; période vide.
-- **Intégration** (`backend/test/integration/supervision-stats-export.spec.ts`, nouveau) :
-  fichier téléchargé (en-têtes, nom), valeurs égales à `GET /api/coverage/stats` pour les mêmes
-  paramètres (SC-002), formule neutralisée, BOM, refus `surveillant`/`enseignante` (404
-  journalisé), `INVALID_RANGE` sans entrée d'export, entrée `COVERAGE_STATS_EXPORTED` avec ses
-  détails et sans valeur statistique.
-- **Test existant** : `supervision-stats.spec.ts` « période par défaut ; paramètres invalides
-  refusés ; aucun export » garde ses attendus (`format=csv` → `400`,
-  `/api/coverage/stats/export` → `404`, toujours vrais) ; seul son titre perd « aucun export »
-  (exception consignée dans la vérification).
-- **Interface** (`frontend/tests/coverage/stats.test.tsx`) : bouton présent avec la bonne adresse
-  après le calcul, absent pendant une date incomplète, un recalcul ou une erreur ; libellé de
-  l'action dans `frontend/tests/admin/role-labels.test.tsx` (qui couvre déjà les libellés
-  d'audit).
-- **E2E** : `e2e/a11y-responsive.spec.ts` (écran statistiques à 320 px : bouton visible, axe) ;
-  `e2e/coverage-stats-export.spec.ts` (nouveau, Chromium) : téléchargement
-  (`page.waitForEvent('download')`), nom du fichier, première ligne, entrée au journal d'audit.
+- **Unit** (`backend/test/unit/coverage-stats-csv.spec.ts`, new): `statsToCsvRows`
+  for the three groupings and the two granularities; durations (`null`, < 60, exact hour,
+  hour and minutes); rounded rate; anonymized / unspecified labels; empty period.
+- **Integration** (`backend/test/integration/supervision-stats-export.spec.ts`, new):
+  downloaded file (headers, name), values equal to `GET /api/coverage/stats` for the same
+  parameters (SC-002), neutralized formula, BOM, `surveillant`/`enseignante` denial (404
+  logged), `INVALID_RANGE` without an export entry, `COVERAGE_STATS_EXPORTED` entry with its
+  details and without statistical value.
+- **Existing test**: `supervision-stats.spec.ts` « période par défaut ; paramètres invalides
+  refusés ; aucun export » (default period; invalid parameters rejected; no export) keeps its
+  expectations (`format=csv` → `400`, `/api/coverage/stats/export` → `404`, still true); only its
+  title loses "aucun export" (exception recorded in the verification).
+- **UI** (`frontend/tests/coverage/stats.test.tsx`): button present with the right address
+  after the computation, absent during an incomplete date, a recomputation or an error; action
+  label in `frontend/tests/admin/role-labels.test.tsx` (which already covers the audit labels).
+- **E2E**: `e2e/a11y-responsive.spec.ts` (statistics screen at 320 px: button visible, axe);
+  `e2e/coverage-stats-export.spec.ts` (new, Chromium): download
+  (`page.waitForEvent('download')`), file name, first line, audit log entry.

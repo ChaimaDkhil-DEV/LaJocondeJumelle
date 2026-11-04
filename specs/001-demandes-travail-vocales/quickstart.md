@@ -1,135 +1,133 @@
-# Quickstart & validation – Lot 1
+# Quickstart & validation – Phase 1
 
-Guide pour lancer le projet et prouver, scénario par scénario, que la fonctionnalité répond à
-la [spec](./spec.md). Les détails des routes et des données sont dans
-[contracts/](./contracts/) et [data-model.md](./data-model.md).
+Guide to start the project and prove, scenario by scenario, that the feature meets
+the [spec](./spec.md). Details of the routes and the data are in
+[contracts/](./contracts/) and [data-model.md](./data-model.md).
 
-## Prérequis
+## Prerequisites
 
-- Node.js 24 LTS et npm. Docker n'est requis que pour le déploiement : en local, PostgreSQL
-  est fourni par embedded-postgres (base de développement et bases de test jetables).
-- ffmpeg installé localement si l'API est lancée hors Docker.
-- Pour tester sur un vrai téléphone : téléphone sur le même réseau et HTTPS (le micro ne
-  fonctionne que dans un contexte sécurisé, sauf sur `localhost`).
+- Node.js 24 LTS and npm. Docker is required only for deployment: locally, PostgreSQL
+  is provided by embedded-postgres (development database and disposable test databases).
+- ffmpeg installed locally if the API is started outside Docker.
+- To test on a real phone: phone on the same network and HTTPS (the microphone only
+  works in a secure context, except on `localhost`).
 
-## Mise en route (développement)
+## Getting started (development)
 
 ```bash
-npm install                                  # installe backend/ et frontend/ (workspaces)
-cp backend/.env.example backend/.env         # renseigner DATABASE_URL, SESSION_SECRET, FILES_DIR
-npm run -w backend db:dev                    # PostgreSQL 17 embarqué (port 5433), dans un terminal dédié
-# (ou, avec Docker : docker compose -f deploy/docker-compose.dev.yml up -d db)
-npm run -w backend prisma:migrate            # applique les migrations (dont les triggers d'ajout seul)
-npm run -w backend prisma:seed               # réglages par défaut, catégorie « Photocopies », comptes de démo
-npm run -w backend start:dev                 # API sur http://localhost:3000
-npm run -w frontend dev                      # SPA sur http://localhost:5173 (proxy /api et /socket.io)
+npm install                                  # installs backend/ and frontend/ (workspaces)
+cp backend/.env.example backend/.env         # fill in DATABASE_URL, SESSION_SECRET, FILES_DIR
+npm run -w backend db:dev                    # embedded PostgreSQL 17 (port 5433), in a dedicated terminal
+# (or, with Docker: docker compose -f deploy/docker-compose.dev.yml up -d db)
+npm run -w backend prisma:migrate            # applies the migrations (including the append-only triggers)
+npm run -w backend prisma:seed               # default settings, category « Photocopies », demo accounts
+npm run -w backend start:dev                 # API on http://localhost:3000
+npm run -w frontend dev                      # SPA on http://localhost:5173 (proxies /api and /socket.io)
 ```
 
-Le seed crée des comptes de démonstration (mots de passe dans la sortie du seed, à changer à
-la première connexion) : `superadmin`, `responsable`, `enseignante`, `reprographie`.
+The seed creates demo accounts (passwords in the seed output, to be changed at
+first login): `superadmin`, `responsable`, `enseignante`, `reprographie`.
 
-**Test sur téléphone** : `docker compose -f deploy/docker-compose.dev.yml up caddy` sert
-l'application en HTTPS sur `https://<ip-du-poste>:8443` avec un certificat interne Caddy ;
-accepter le certificat sur le téléphone.
+**Testing on a phone**: `docker compose -f deploy/docker-compose.dev.yml up caddy` serves
+the application over HTTPS at `https://<machine-ip>:8443` with a Caddy internal certificate;
+accept the certificate on the phone.
 
-## Lancer les tests
+## Running the tests
 
 ```bash
-npm run -w backend test            # unitaires : machine à états, politique d'accès, délais, fichiers
-npm run -w backend test:integration  # API + PostgreSQL de test
-npm run -w frontend test           # composants (Vitest)
-npm run test:e2e                   # bout en bout + axe : Chromium, Firefox, WebKit, iPhone 13, Pixel 7, 320 px
-npm audit --audit-level=high       # bloque en cas de vulnérabilité élevée ou critique
+npm run -w backend test            # unit: state machine, access policy, deadlines, files
+npm run -w backend test:integration  # API + test PostgreSQL
+npm run -w frontend test           # components (Vitest)
+npm run test:e2e                   # end to end + axe: Chromium, Firefox, WebKit, iPhone 13, Pixel 7, 320 px
+npm audit --audit-level=high       # fails on a high or critical vulnerability
 ```
 
-Résultat attendu : tout au vert, aucune violation axe de niveau A ou AA.
+Expected result: everything green, no axe violation at level A or AA.
 
-## Scénarios de validation
+## Validation scenarios
 
-| # | Scénario (spec) | Étapes | Résultat attendu |
-|---|-----------------|--------|------------------|
-| V1 | US1 – demande vocale | Sur smartphone (profil Playwright iPhone et Pixel), `enseignante` crée une demande « Photocopies », enregistre 5 s, réécoute, refait, choisit `reprographie`, priorité Urgente, envoie | Statut « Envoyée », horodatée ; `reprographie` lit le vocal (format `audio/mp4`) sur Chromium, WebKit et Firefox |
-| V2 | US1 – destinataire hors catégorie | Appel direct `POST /api/requests` avec un `recipientId` non destinataire de la catégorie | `422 RECIPIENT_NOT_ALLOWED`, rien n'est créé |
-| V3 | US1 – échec d'envoi | Couper le réseau (Playwright `offline`) au moment de l'envoi, puis le rétablir et cliquer « Réessayer » | Message d'échec ; demande visible dans la boîte d'envoi ; une seule demande créée après relance |
-| V4 | US1 – micro refusé | Refuser la permission micro | Explication affichée ; envoi possible avec une description écrite |
-| V5 | US2 – circuit direct | `reprographie` : Accepter → En cours → Terminée ; `enseignante` : À corriger sans commentaire, puis avec | Horodatages présents ; correction refusée sans commentaire ; acceptée avec ; affecté notifié |
-| V6 | US2 – photo obligatoire | Catégorie avec photo exigée : passer « Terminée » sans photo, puis avec une photo prise | `422 PHOTO_REQUIRED`, puis succès ; photo sans métadonnées EXIF |
-| V7 | US2 – refus par l'affecté | `reprographie` refuse une demande « Envoyée » sans motif, puis avec | Refus bloqué, puis statut « Refusée », demandeuse notifiée avec le motif |
-| V8 | Annulation | `enseignante` annule une demande « Envoyée », puis tente d'annuler une demande « Acceptée » | « Annulée » ; second cas : action absente de `allowedActions` et `409` si forcée |
-| V9 | Transitions concurrentes | Deux sessions acceptent la même demande en même temps | Une réussit, l'autre reçoit `409 STATE_CHANGED` et voit l'état à jour |
-| V10 | US3 – fil et confidentialité | Échange texte + vocal + photo ; puis un utilisateur non participant ouvre `/api/requests/:id` et `/api/files/:id` | Messages avec auteur et heure, visibles sans rechargement ; non participant : `404` et entrée `ACCESS_DENIED` dans l'audit |
-| V11 | US3 – fichier interdit | Joindre un `.exe` renommé en `.jpg`, puis un PDF de 20 Mo | `415 FILE_TYPE_NOT_ALLOWED` ; `413 FILE_TOO_LARGE` |
-| V12 | US4 – notifications | Deux navigateurs ouverts ; envoyer une demande urgente | Notification en < 5 s, sans rechargement, style « Urgente » (icône + texte) ; après reconnexion, les non lues sont présentes |
-| V13 | US5 – circuit B | Catégorie en circuit B avec validation finale : soumettre, refuser sans motif, refuser avec motif ; nouvelle demande : approuver + affecter, réaliser, valider | Invisible pour l'agent avant approbation ; motif exigé ; « Refusée » ; puis « En attente de validation finale » → « Clôturée » |
-| V14 | US6 – retards | Règle « Urgente » de 1 min de prise en charge ; envoyer sans accepter ; attendre | Compte à rebours affiché ; signalée proche de l'échéance ; « En retard (prise en charge) » en < 30 s après l'échéance ; responsable notifié ; demande toujours visible |
-| V15 | US7 – recherche | Jeu de 10 000 demandes (script de seed volumineux) ; filtres combinés statut + priorité + période | Résultats corrects et uniquement autorisés, en < 2 s |
-| V16 | US8 – administration | `superadmin` crée un compte, modifie un délai et une catégorie ; un `responsable` tente d'ouvrir `/admin` | Changements appliqués aux nouvelles demandes seulement ; entrées d'audit ; responsable : `403` et audit |
-| V17 | Audit non modifiable | En base : `UPDATE "AuditLog" …` et `DELETE FROM "RequestEvent" …` | Erreur levée par le trigger, aucune ligne modifiée |
-| V18 | Accessibilité et responsive | Parcours V1, V5, V10 à 320 px, au clavier seul, avec axe | Aucun défilement horizontal ; toutes les actions atteignables au clavier ; aucune violation axe |
+| # | Scenario (spec) | Steps | Expected result |
+|---|-----------------|-------|-----------------|
+| V1 | US1 – voice request | On a smartphone (Playwright iPhone and Pixel profile), `enseignante` creates a « Photocopies » request, records 5 s, listens back, redoes it, picks `reprographie`, priority Urgente (Urgent), sends | Status « Envoyée » (Sent), timestamped; `reprographie` plays the voice message (`audio/mp4` format) on Chromium, WebKit and Firefox |
+| V2 | US1 – recipient outside the category | Direct call to `POST /api/requests` with a `recipientId` that is not a recipient of the category | `422 RECIPIENT_NOT_ALLOWED`, nothing is created |
+| V3 | US1 – send failure | Cut the network (Playwright `offline`) at the moment of sending, then restore it and click « Réessayer » (Retry) | Failure message; request visible in the outbox; only one request created after the retry |
+| V4 | US1 – microphone refused | Refuse the microphone permission | Explanation displayed; sending possible with a written description |
+| V5 | US2 – direct workflow | `reprographie`: Accepter (Accept) → En cours (In progress) → Terminée (Completed); `enseignante`: À corriger (To correct) without a comment, then with one | Timestamps present; correction refused without a comment; accepted with one; assignee notified |
+| V6 | US2 – photo required | Category with a required photo: move to « Terminée » without a photo, then with a photo taken | `422 PHOTO_REQUIRED`, then success; photo without EXIF metadata |
+| V7 | US2 – rejection by the assignee | `reprographie` rejects a « Envoyée » request without a reason, then with one | Rejection blocked, then status « Refusée » (Rejected), requester notified with the reason |
+| V8 | Cancellation | `enseignante` cancels a « Envoyée » request, then tries to cancel an « Acceptée » (Accepted) request | « Annulée » (Cancelled); second case: action absent from `allowedActions` and `409` if forced |
+| V9 | Concurrent transitions | Two sessions accept the same request at the same time | One succeeds, the other receives `409 STATE_CHANGED` and sees the up-to-date state |
+| V10 | US3 – thread and confidentiality | Exchange of text + voice message + photo; then a non-participant user opens `/api/requests/:id` and `/api/files/:id` | Messages with author and time, visible without reloading; non-participant: `404` and an `ACCESS_DENIED` entry in the audit |
+| V11 | US3 – forbidden file | Attach an `.exe` renamed to `.jpg`, then a 20 MB PDF | `415 FILE_TYPE_NOT_ALLOWED`; `413 FILE_TOO_LARGE` |
+| V12 | US4 – notifications | Two browsers open; send an urgent request | Notification in < 5 s, without reloading, « Urgente » style (icon + text); after reconnection, the unread ones are present |
+| V13 | US5 – workflow B | Workflow B category with final validation: submit, reject without a reason, reject with a reason; new request: approve + assign, carry out, validate | Invisible to the employee before approval; reason required; « Refusée »; then « En attente de validation finale » (Awaiting final validation) → « Clôturée » (Closed) |
+| V14 | US6 – delays | « Urgente » rule with a 1 min takeover; send without accepting; wait | Countdown displayed; flagged as close to the due date; « En retard (prise en charge) » (Overdue (takeover)) in < 30 s after the due date; manager notified; request still visible |
+| V15 | US7 – search | Set of 10,000 requests (bulk seed script); combined filters status + priority + period | Correct results and only authorized ones, in < 2 s |
+| V16 | US8 – administration | `superadmin` creates an account, changes a deadline and a category; a `responsable` tries to open `/admin` | Changes applied to new requests only; audit entries; manager: `403` and audit |
+| V17 | Non-modifiable audit | In the database: `UPDATE "AuditLog" …` and `DELETE FROM "RequestEvent" …` | Error raised by the trigger, no row modified |
+| V18 | Accessibility and responsive | Journeys V1, V5, V10 at 320 px, keyboard only, with axe | No horizontal scrolling; all actions reachable by keyboard; no axe violation |
 
-## Déploiement (VPS)
 
-Prérequis sur le VPS : Docker et Docker Compose installés, DNS du domaine pointant vers le VPS,
-ports 80 et 443 ouverts, accès en lecture au dépôt GitHub privé (clé de déploiement, par exemple),
-nécessaire au clonage et à chaque mise à jour.
+## Deployment (VPS)
 
-### Premier déploiement
+Prerequisites on the VPS: Docker and Docker Compose installed, the domain's DNS pointing to the VPS,
+ports 80 and 443 open, and read access to the private GitHub repository (a deploy key, for example),
+needed for cloning and for every update.
 
-Depuis la racine du dépôt cloné :
+### First deployment
+
+From the root of the cloned repository:
 
 ```bash
-cp deploy/.env.example deploy/.env     # domaine, e-mail ACME, secrets, sauvegardes
-deploy/deploy.sh                       # code à jour, sauvegarde, construction et démarrage
-docker compose -f deploy/docker-compose.yml --env-file deploy/.env logs -f api   # migrations appliquées au démarrage
-# Premier super administrateur (mot de passe provisoire affiché une seule fois) :
+cp deploy/.env.example deploy/.env     # domain, ACME e-mail, secrets, backups
+deploy/deploy.sh                       # update code, back up, build and start
+docker compose -f deploy/docker-compose.yml --env-file deploy/.env logs -f api   # migrations applied at startup
+# First super administrator (temporary password displayed once only):
 docker compose -f deploy/docker-compose.yml --env-file deploy/.env exec api node dist/cli/bootstrap.js admin "Direction"
 ```
 
-Passer par `deploy/deploy.sh`, y compris la première fois : sur une base neuve, un
-`docker compose … up` lancé seul s'arrête avec « Migration en attente sans sauvegarde récente :
-lancez deploy/deploy.sh. », car aucune sauvegarde n'existe encore.
+Use `deploy/deploy.sh` even the first time: on a new database, a `docker compose … up` run on its
+own stops with "Migration en attente sans sauvegarde récente : lancez deploy/deploy.sh." (pending
+migration without a recent backup), because no backup exists yet.
 
-`bootstrap.js` est idempotent : il crée les réglages et permissions par défaut sans écraser
-les valeurs existantes, et le super administrateur seulement s'il n'en existe aucun. Aucune
-donnée de démonstration n'est créée en production.
+`bootstrap.js` is idempotent: it creates the default settings and permissions without overwriting
+existing values, and creates the super administrator only if none exists. No demo data is created
+in production.
 
-### Mise à jour
+### Update
 
 ```bash
 deploy/deploy.sh
 ```
 
-Le script récupère le code (`git pull --ff-only`), sauvegarde la base et les fichiers, puis
-reconstruit et redémarre les conteneurs. Il s'arrête sans rien redémarrer si le pull ou la
-sauvegarde échoue, par exemple si l'historique local a divergé ou si le serveur n'est sur aucune
-branche.
+The script updates the code (`git pull --ff-only`), backs up the database and files, then rebuilds
+and restarts the containers. It stops without restarting anything if the pull or the backup fails,
+for example if the local history has diverged or the server is not on a branch.
 
-### Déployer un commit précis
+### Deploying a specific commit
 
 ```bash
 git checkout <commit>
 deploy/deploy.sh --no-pull
 ```
 
-`--no-pull` conserve le code présent sur le serveur. Il ne défait aucune migration : pour revenir
-avant une migration déjà appliquée, appliquer son `down.sql` à la main ou restaurer une sauvegarde
-(voir le test de restauration ci-dessous).
+`--no-pull` keeps the code already on the server. It does not undo any migration: to go back before
+an applied migration, run its `down.sql` by hand or restore a backup (see the restore test below).
 
-### Contrôles
+### Checks
 
-Certificat HTTPS valide ; en-têtes `Strict-Transport-Security`,
-`Content-Security-Policy` et `Permissions-Policy` présents (`curl -I https://<domaine>`) ;
-`https://<domaine>/api/files/<id>` sans cookie → `401` ; aucun port PostgreSQL ni API exposé
-(`docker compose ps`) ; journaux de l'API au format JSON sans secret
-(`docker compose logs api`) ; sauvegarde quotidienne présente dans `BACKUP_DIR`
-(`db-<horodatage>.dump` et `files-<horodatage>.tar.gz`).
+Valid HTTPS certificate; `Strict-Transport-Security`, `Content-Security-Policy` and
+`Permissions-Policy` headers present (`curl -I https://<domain>`);
+`https://<domain>/api/files/<id>` without a cookie returns `401`; no PostgreSQL or API port exposed
+(`docker compose ps`); API logs in JSON format with no secrets (`docker compose logs api`); daily
+backup present in `BACKUP_DIR` (`db-<timestamp>.dump` and `files-<timestamp>.tar.gz`).
 
-**Test de restauration** (obligatoire avant la mise en production, sur une machine de test) :
+**Restore test** (mandatory before going live, on a test machine):
 
-1. Déployer, créer quelques demandes avec vocal et photo, puis lancer une sauvegarde
-   immédiate : `docker compose -f deploy/docker-compose.yml --env-file deploy/.env exec backup bash /scripts/backup.sh`.
-2. Modifier des données (nouvelle demande, message).
-3. Restaurer : `deploy/backup/restore.sh <horodatage>` (confirmation « RESTAURER » demandée).
-4. Vérifier : connexion, demandes de l'étape 1 présentes avec leur vocal lisible et leur photo,
-   données de l'étape 2 absentes, journal d'audit consultable.
-5. Consigner la date, la durée de la restauration et le résultat.
+1. Deploy, create a few requests with a voice message and a photo, then run an immediate backup:
+   `docker compose -f deploy/docker-compose.yml --env-file deploy/.env exec backup bash /scripts/backup.sh`.
+2. Change some data (new request, message).
+3. Restore: `deploy/backup/restore.sh <timestamp>` (confirmation required: type `RESTAURER`).
+4. Check: login works, the requests from step 1 are present with a playable voice message and their
+   photo, the data from step 2 is gone, the audit log can be viewed.
+5. Record the date, the duration of the restore and the result.

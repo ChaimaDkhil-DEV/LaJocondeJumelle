@@ -1,120 +1,138 @@
-# La Joconde Jumelle — demandes de travail et messagerie vocale (lot 1)
+# La Joconde Jumelle — work requests and voice messaging (phase 1)
 
-Application web pour une école privée : les employés adressent des demandes de travail à leurs
-collègues ou à l'administration en **parlant plutôt qu'en écrivant**, depuis un smartphone, une
-tablette ou un ordinateur. Chaque demande a son fil de discussion (texte, vocaux, photos, PDF),
-un statut suivi, des délais et un historique complet. Les notifications arrivent en temps réel,
-dans l'application uniquement.
+Web application for a private school: staff send work requests to colleagues or to the
+administration by **speaking rather than typing**, from a smartphone, a tablet or a computer. Each
+request has its own discussion thread (text, voice messages, photos, PDFs), a tracked status,
+deadlines and a full history. Notifications arrive in real time, inside the application only.
 
-- **Rôles** : employé, admin, super administrateur (espace « Administrateur »).
-- **Circuits** : A (direct) et B (validation administrative préalable), au choix de chaque catégorie.
-- **Confidentialité** : fichiers privés servis uniquement par l'API, droits vérifiés côté serveur,
-  journal d'audit non modifiable.
+- **Roles**: employee, admin, super administrator (the "Administrateur" area).
+- **Workflows**: A (direct) and B (prior administrative approval), chosen per category.
+- **Confidentiality**: private files served only by the API, permissions checked on the server,
+  tamper-proof audit log.
 
 ## Documentation
 
-| Document | Contenu |
+| Document | Content |
 |----------|---------|
-| [Spécification](specs/001-demandes-travail-vocales/spec.md) | Besoins, scénarios, critères de réussite, données personnelles, points ouverts |
-| [Plan technique](specs/001-demandes-travail-vocales/plan.md) | Pile, architecture, écarts justifiés |
-| [Quickstart et validation](specs/001-demandes-travail-vocales/quickstart.md) | Mise en route, tests, scénarios V1–V18, déploiement |
-| [Contrats](specs/001-demandes-travail-vocales/contracts/) | API REST, événements temps réel |
-| [Modèle de données](specs/001-demandes-travail-vocales/data-model.md) | Entités, statuts, valeurs par défaut |
-| [Constitution](.specify/memory/constitution.md) | Principes du projet (TDD, simplicité, accessibilité, sécurité, intégrité) |
+| [Specification](specs/001-demandes-travail-vocales/spec.md) | Requirements, scenarios, success criteria, personal data, open points |
+| [Technical plan](specs/001-demandes-travail-vocales/plan.md) | Stack, architecture, justified deviations |
+| [Quickstart and validation](specs/001-demandes-travail-vocales/quickstart.md) | Getting started, tests, scenarios V1–V18, deployment |
+| [Contracts](specs/001-demandes-travail-vocales/contracts/) | REST API, real-time events |
+| [Data model](specs/001-demandes-travail-vocales/data-model.md) | Entities, statuses, default values |
+| [Constitution](.specify/memory/constitution.md) | Project principles (TDD, simplicity, accessibility, security, integrity) |
 
-## Pile
+Most of these documents are written in French.
 
-React, TypeScript, Vite, React Router, TanStack Query et MUI pour l'interface ; NestJS, Prisma
-et PostgreSQL 17 pour l'API ; Socket.IO pour le temps réel ; Docker et Caddy pour le déploiement.
+## Stack
 
-## Commandes principales
+React, TypeScript, Vite, React Router, TanStack Query and MUI for the interface; NestJS, Prisma and
+PostgreSQL 17 for the API; Socket.IO for real-time features; Docker and Caddy for deployment.
 
-Prérequis : Node.js 24 et ffmpeg (conversion des vocaux). En développement, PostgreSQL est
-fourni par embedded-postgres : Docker n'est nécessaire que pour le déploiement.
+## Main commands
 
-Si votre `backend/.env` date d'avant le passage au port 3002, remplacez `PORT=3000` par
-`PORT=3002`.
+Prerequisites: Node.js 24 and ffmpeg (voice message conversion). In development, PostgreSQL is
+provided by embedded-postgres: Docker is only needed for deployment.
+
+If your `backend/.env` predates the move to port 3002, replace `PORT=3000` with `PORT=3002`.
 
 ```bash
 npm install
-cp backend/.env.example backend/.env       # puis renseigner SESSION_SECRET
-npm run -w backend db:dev                  # PostgreSQL embarqué (terminal dédié)
+cp backend/.env.example backend/.env       # then set SESSION_SECRET
+npm run -w backend db:dev                  # embedded PostgreSQL (dedicated terminal)
 npm run -w backend prisma:migrate
-npm run -w backend prisma:seed             # réglages, catégories et comptes de démonstration
-npm run -w backend start:dev               # API : http://localhost:3002
-npm run -w frontend dev                    # interface : http://localhost:5173
+npm run -w backend prisma:seed             # settings, categories and demo accounts
+npm run -w backend start:dev               # API: http://localhost:3002
+npm run -w frontend dev                    # interface: http://localhost:5173
 
-npm run verify                             # lint + tests unitaires et d'intégration + audit npm
-npm run test:e2e                           # bout en bout : 6 profils navigateur, contrôles axe
+npm run verify                             # lint + unit and integration tests + npm audit
+npm run test:e2e                           # end-to-end: 6 browser profiles, axe checks
 ```
 
-Avant toute fusion vers `master` : [vérification avant fusion](docs/procedure-fusion.md). Elle est
-manuelle : la CI GitHub signale les échecs mais n'empêche pas la fusion.
+Before merging into `master`: see the [pre-merge verification](docs/procedure-fusion.md). It is
+manual: GitHub CI reports failures but does not prevent the merge.
 
-## Démonstration en ligne (gratuite, sans compte)
+## Online demo (free, no account)
 
-Pour montrer l'application sur téléphone ou tablette sans serveur : `demo-en-ligne.bat` (ou
-`npm run -w backend demo:en-ligne`) construit l'API et l'interface, ouvre un Quick Tunnel
-Cloudflare et affiche une adresse `https://xxxx.trycloudflare.com` avec son QR code. HTTPS : le
-micro fonctionne sur iPhone. Prérequis : `winget install --id Cloudflare.cloudflared -e`.
+To show the application on a phone or tablet without a server, run `demo-en-ligne.bat` (or
+`npm run -w backend demo:en-ligne`). It builds the API and the interface, opens a Cloudflare Quick
+Tunnel and displays a `https://xxxx.trycloudflare.com` address with its QR code. Because the
+address uses HTTPS, the microphone works on iPhone. Prerequisite:
+`winget install --id Cloudflare.cloudflared -e`.
 
-Le poste doit rester allumé, l'adresse change à chaque lancement et toute personne qui la
-connaît accède à l'écran de connexion (base de développement locale) : ne la communiquer qu'aux
-personnes concernées. Ctrl+C arrête tout. Ce mode ne remplace pas le déploiement ci-dessous.
+If `ASSIST_TRANSCRIPTION_PROVIDER=whisper` is set in `backend/.env`, the demo also starts the
+Whisper container: open Docker Desktop first. If Whisper cannot start, the demo carries on with a
+warning and only voice transcription is missing. Whisper keeps running after the demo stops.
 
-## Déploiement
+The computer must stay on, the address changes on each run, and anyone who knows it reaches the
+login screen (local development database): share it only with the people concerned. Ctrl+C stops
+everything except Whisper. This mode does not replace the deployment described below.
 
-Sur un VPS avec Docker (détails et contrôles dans le
-[quickstart](specs/001-demandes-travail-vocales/quickstart.md#déploiement-vps)) :
+## Deployment
+
+On a VPS with Docker (details and checks in the
+[quickstart](specs/001-demandes-travail-vocales/quickstart.md#deployment-vps)):
 
 ```bash
-cp deploy/.env.example deploy/.env         # domaine, secrets, sauvegardes
-deploy/deploy.sh                           # sauvegarde, puis construction et démarrage
+cp deploy/.env.example deploy/.env         # domain, secrets, backups
+deploy/deploy.sh                           # update code, back up, build and start
 docker compose -f deploy/docker-compose.yml --env-file deploy/.env exec api node dist/cli/bootstrap.js admin "Direction"
 ```
 
-La dernière commande crée le premier super administrateur et affiche une seule fois son mot de
-passe provisoire.
+The last command creates the first super administrator and displays their temporary password once
+only. The server needs read access to the private GitHub repository (a deploy key, for example).
 
-Chaque mise à jour passe par `deploy/deploy.sh`, lancé depuis la racine du dépôt : il sauvegarde
-la base et les fichiers, puis reconstruit et redémarre les conteneurs. L'API refuse d'appliquer
-une migration sans sauvegarde de moins de `PRE_MIGRATION_BACKUP_MAX_AGE_MINUTES` minutes (60 par
-défaut) : un `docker compose … up` lancé sans le script s'arrête alors avec « Migration en attente
-sans sauvegarde récente : lancez deploy/deploy.sh. », sans toucher la base.
+Every update goes through `deploy/deploy.sh`, run from the repository root. It updates the code
+with `git pull --ff-only`, backs up the database and files, then rebuilds and restarts the
+containers. It stops without touching the containers if the pull or the backup fails.
 
-Les jours et heures du module des affectations (« aujourd'hui », « demain », rappel de 7 h, fin
-de journée) suivent le fuseau de l'école `SCHOOL_TIMEZONE` (identifiant IANA, par défaut celui de
-`TZ`, sinon `Europe/Paris`) ; une valeur invalide empêche l'API de démarrer.
-
-Mot de passe du super administrateur perdu : la réinitialisation est tracée dans le journal
-d'audit, ferme toutes ses sessions et impose un nouveau mot de passe à la connexion suivante.
+To deploy the code already on the server, such as a specific commit, skip the pull:
 
 ```bash
-# Développement
+git checkout <commit>
+deploy/deploy.sh --no-pull
+```
+
+`--no-pull` does not undo migrations: to go back before an applied migration, run its `down.sql`
+by hand or restore a backup.
+
+The API refuses to apply a migration without a backup less than
+`PRE_MIGRATION_BACKUP_MAX_AGE_MINUTES` minutes old (60 by default). A `docker compose … up` run
+without the script therefore stops with "Migration en attente sans sauvegarde récente : lancez
+deploy/deploy.sh." (pending migration without a recent backup), leaving the database untouched.
+
+Days and times in the assignments module ("today", "tomorrow", the 7 a.m. reminder, end of day)
+follow the school time zone `SCHOOL_TIMEZONE` (IANA identifier, defaulting to `TZ`, otherwise
+`Europe/Paris`); an invalid value prevents the API from starting.
+
+Lost super administrator password: the reset is recorded in the audit log, closes all their
+sessions and forces a new password at the next login.
+
+```bash
+# Development
 npm run -w backend build && node backend/dist/cli/bootstrap.js --reset-password superadmin
-# Production (sans identifiant : le plus ancien super administrateur actif)
+# Production (without a username: the oldest active super administrator)
 docker compose -f deploy/docker-compose.yml --env-file deploy/.env exec api \
   node dist/cli/bootstrap.js --reset-password
 ```
 
-Les sauvegardes sont quotidiennes (base et fichiers, 14 jours) ; la
-restauration (`deploy/backup/restore.sh`) doit être testée avant la mise en production.
+Backups run daily (database and files, kept 14 days); the restore procedure
+(`deploy/backup/restore.sh`) must be tested before going live.
 
-## À trancher avant la mise en production
+## To decide before going live
 
-Les valeurs suivantes sont **provisoires** et modifiables dans l'administration ; elles doivent
-être validées avec l'établissement (voir la section « Points ouverts » de la spécification) :
+The following values are **provisional** and can be changed in the administration area; they must
+be validated with the school (see the "Open points" section of the specification):
 
-- **Durées de conservation des données personnelles** : vocaux, photos et pièces jointes
-  12 mois après la clôture ; historique des demandes et journal d'audit 5 ans. La suppression
-  automatique à l'échéance n'est pas réalisée dans ce lot.
-- Permissions détaillées par rôle, et catégories en circuit B ou avec validation finale.
-- Délais par catégorie et priorité, seuil « proche de l'échéance », règles d'escalade.
-- Destinataires de chaque catégorie (dont « Photocopies »), photo de preuve obligatoire, mode de clôture.
-- Durée maximale et taille des vocaux, formats et taille des pièces jointes.
-- Accusé de lecture ou d'écoute.
+- **Personal data retention periods**: voice messages, photos and attachments 12 months after
+  closure; request history and audit log 5 years. Automatic deletion at expiry is not implemented
+  in this phase.
+- Detailed permissions per role, and categories using workflow B or final approval.
+- Deadlines per category and priority, "close to deadline" threshold, escalation rules.
+- Recipients of each category (including "Photocopies"), mandatory proof photo, closure mode.
+- Maximum duration and size of voice messages, attachment formats and size.
+- Read or listen receipts.
 
-Restent aussi à réaliser : la vérification manuelle sur un vrai iPhone
-([docs/validation/iphone-manuel.md](docs/validation/iphone-manuel.md)) et le test
-d'utilisabilité avec cinq employés
+Still to be done: the manual check on a real iPhone
+([docs/validation/iphone-manuel.md](docs/validation/iphone-manuel.md)) and the usability test with
+five employees
 ([docs/validation/test-utilisabilite-lot1.md](docs/validation/test-utilisabilite-lot1.md)).

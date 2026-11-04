@@ -1,77 +1,77 @@
-# Research — 005 Page « Mon profil »
+# Research — 005 Page « Mon profil » (My profile page)
 
-Aucune inconnue technique : la fonctionnalité réutilise la pile, l'authentification, la page de
-changement de mot de passe et les composants existants. Les décisions ci-dessous fixent les choix
-de conception à partir du code de `master` (`dafec78`).
+No technical unknown: the feature reuses the stack, authentication, the password change page and
+the existing components. The decisions below fix the design choices based on the code of
+`master` (`dafec78`).
 
-## R1 — Source des informations du profil
+## R1 — Source of the profile information
 
-- **Decision** : ajouter `username` et `jobTitle` (`string | null`) à la réponse existante
-  `GET /api/auth/me` (et `POST /api/auth/login`, qui renvoie le même type `MeResponse`). Les
-  groupes viennent déjà de `isTeacher` et `isSupervisor`.
-- **Rationale** : la session charge déjà la ligne complète de l'utilisateur
-  (`session.service.ts`, `include: { user: true }`) ; `username` est déjà dans
-  `AuthenticatedUser`, `jobTitle` s'y ajoute sans requête de plus. Le profil réutilise le cache
-  `useCurrentUser`, déjà chargé sur toutes les pages. Les deux champs ne concernent que le compte
-  connecté, qui les connaît déjà : pas de nouvelle exposition de données personnelles.
-- **Alternatives considered** : nouvel endpoint `GET /api/auth/profile` (une route, un contrôle
-  d'accès et un cache de plus pour deux champs : rejeté, principe II) ; lecture via
-  `/api/admin/users/:id` (réservé au super administrateur : impossible pour les autres rôles).
+- **Decision**: add `username` and `jobTitle` (`string | null`) to the existing
+  `GET /api/auth/me` response (and `POST /api/auth/login`, which returns the same `MeResponse`
+  type). The groups already come from `isTeacher` and `isSupervisor`.
+- **Rationale**: the session already loads the full user row
+  (`session.service.ts`, `include: { user: true }`); `username` is already in
+  `AuthenticatedUser`, `jobTitle` is added with no extra query. The profile reuses the
+  `useCurrentUser` cache, already loaded on all pages. Both fields concern only the signed-in
+  account, which already knows them: no new exposure of personal data.
+- **Alternatives considered**: new endpoint `GET /api/auth/profile` (one more route, access
+  control and cache for two fields: rejected, principle II); reading through
+  `/api/admin/users/:id` (reserved to the super administrator: impossible for the other roles).
 
-## R2 — Route et emplacement de la page
+## R2 — Route and location of the page
 
-- **Decision** : nouvelle route `/profil`, enfant de `AppLayout` (donc derrière `RequireAuth`),
+- **Decision**: new route `/profil`, child of `AppLayout` (hence behind `RequireAuth`),
   page `frontend/src/features/auth/ProfilePage.tsx`.
-- **Rationale** : `RequireAuth` redirige déjà vers `/mot-de-passe` tant que le changement est
-  imposé : le profil est inatteignable dans ce cas sans code de plus (cas limite de la spec). Le
-  menu et le tiroir mobile restent disponibles sur la page.
-- **Alternatives considered** : page hors gabarit comme `/mot-de-passe` (perd le menu : rejeté).
+- **Rationale**: `RequireAuth` already redirects to `/mot-de-passe` while the change is
+  forced: the profile is unreachable in that case with no extra code (spec edge case). The
+  menu and the mobile drawer stay available on the page.
+- **Alternatives considered**: page outside the layout like `/mot-de-passe` (loses the menu: rejected).
 
-## R3 — Lien du bloc profil (desktop et tiroir mobile)
+## R3 — Profile block link (desktop and mobile drawer)
 
-- **Decision** : le bloc `Person` (nom et rôle) devient le contenu d'un lien vers `/profil`,
-  précédé d'un texte masqué visuellement « Mon profil : ». Nom accessible :
-  « Mon profil : <nom> <rôle> ». Le lien ferme le tiroir mobile, comme les entrées du menu.
-- **Rationale** : le nom accessible contient le texte visible (WCAG 2.5.3 « Label in Name »),
-  ce qu'un `aria-label` remplaçant le contenu ne garantit pas. Un seul élément `user` est déjà
-  partagé par la barre latérale et le tiroir : une seule modification.
-- **Alternatives considered** : entrée « Mon profil » de plus dans la navigation principale
-  (doublon visuel du bloc existant : rejeté) ; `aria-label` seul (risque Label in Name : rejeté).
+- **Decision**: the `Person` block (name and role) becomes the content of a link to `/profil`,
+  preceded by a visually hidden text « Mon profil : ». Accessible name:
+  « Mon profil : <nom> <rôle> ». The link closes the mobile drawer, like the menu entries.
+- **Rationale**: the accessible name contains the visible text (WCAG 2.5.3 "Label in Name"),
+  which an `aria-label` replacing the content does not guarantee. A single `user` element is
+  already shared by the sidebar and the drawer: a single change.
+- **Alternatives considered**: one more « Mon profil » entry in the main navigation
+  (visual duplicate of the existing block: rejected); `aria-label` alone (Label in Name risk: rejected).
 
-## R4 — Parcours volontaire de changement de mot de passe
+## R4 — Voluntary password change flow
 
-- **Decision** : la page `/mot-de-passe` existante choisit son mode d'après
-  `me.mustChangePassword` (état serveur) :
-  - imposé (`true`) : inchangé, pas d'annulation, succès → accueil (`/`) ;
-  - volontaire (`false`) : bouton « Annuler » → `/profil` ; succès → `/profil` avec un message
-    de confirmation (statut annoncé) précisant que les autres sessions sont fermées.
-- **Rationale** : le mode dépend de l'état du compte, pas d'un paramètre d'URL qu'on pourrait
-  manipuler pour éviter le changement imposé. Aucune règle serveur ne change : vérification du
-  mot de passe actuel, 12 caractères, fermeture des autres sessions et audit `PASSWORD_CHANGED`
-  existent déjà (`auth.service.ts`).
-- **Alternatives considered** : formulaire intégré dans la page profil (duplique la page et ses
-  tests : rejeté) ; paramètre `?depuis=profil` (manipulable, inutile : rejeté).
+- **Decision**: the existing `/mot-de-passe` page chooses its mode from
+  `me.mustChangePassword` (server state):
+  - forced (`true`): unchanged, no cancel, success → home (`/`);
+  - voluntary (`false`): « Annuler » (Cancel) button → `/profil`; success → `/profil` with a
+    confirmation message (announced status) stating that the other sessions are closed.
+- **Rationale**: the mode depends on the account state, not on a URL parameter that could be
+  manipulated to avoid the forced change. No server rule changes: current password
+  verification, 12 characters, closing of other sessions and audit `PASSWORD_CHANGED`
+  already exist (`auth.service.ts`).
+- **Alternatives considered**: form embedded in the profile page (duplicates the page and its
+  tests: rejected); `?depuis=profil` parameter (manipulable, useless: rejected).
 
-## R5 — Message serveur « Changer mon mot de passe » (FR-013)
+## R5 — Server message « Changer mon mot de passe » (FR-013)
 
-- **Decision** : l'action de la page profil porte exactement le libellé « Changer mon mot de
-  passe », celui du message de refus de `users.service.ts` ; le message n'est pas modifié.
-- **Rationale** : le message devient juste dès que l'action existe ; aucun changement serveur.
+- **Decision**: the profile page's action carries exactly the label « Changer mon mot de
+  passe » (Change my password), the one in the refusal message of `users.service.ts`; the message is not modified.
+- **Rationale**: the message becomes accurate as soon as the action exists; no server change.
 
-## R6 — Stratégie de test (principe I)
+## R6 — Test strategy (principle I)
 
-- **Unitaires backend** : `toMeResponse` renvoie `username` et `jobTitle` (`null` si absent).
-- **Intégration backend** (`backend/test/integration/auth.spec.ts`) : `GET /api/auth/me` renvoie
-  `username` et `jobTitle` du compte connecté, et seulement les siens.
-- **Frontend (Vitest + Testing Library)** : nouvelle suite `frontend/tests/auth/profile.test.tsx`
-  (contenu de la page, libellés « Non renseignée » / « Aucun », aucun champ modifiable, lien
-  « Changer mon mot de passe ») ; parcours volontaire et imposé de `ChangePasswordPage`
-  (annulation, retour au profil, confirmation, mode imposé inchangé) ; lien du bloc profil.
-- **Bout en bout** : nouveau test Chromium dans `e2e/auth.spec.ts` : ouvrir le profil depuis le
-  menu, changer le mot de passe d'un compte de démonstration, vérifier la fermeture d'une autre
-  session et la connexion avec le nouveau mot de passe, puis **remettre l'ancien** pour laisser
-  la base e2e rejouable (même principe que les parcours d'affectations). Ajout de la page
-  « Mon profil » à V18 (`e2e/a11y-responsive.spec.ts`, 320 px, axe).
-- **Synchronisation des types** : `Me` (frontend, écrit à la main) reçoit les deux champs ; la
-  vérification existante `enums-sync.test.ts` porte sur les énumérations, non sur `Me` : rien à
-  ajouter.
+- **Backend unit**: `toMeResponse` returns `username` and `jobTitle` (`null` if absent).
+- **Backend integration** (`backend/test/integration/auth.spec.ts`): `GET /api/auth/me` returns
+  `username` and `jobTitle` of the signed-in account, and only its own.
+- **Frontend (Vitest + Testing Library)**: new suite `frontend/tests/auth/profile.test.tsx`
+  (page content, labels « Non renseignée » / « Aucun », no editable field, link
+  « Changer mon mot de passe »); voluntary and forced flows of `ChangePasswordPage`
+  (cancel, return to the profile, confirmation, forced mode unchanged); profile block link.
+- **End to end**: new Chromium test in `e2e/auth.spec.ts`: open the profile from the
+  menu, change the password of a demo account, verify the closing of another
+  session and sign-in with the new password, then **restore the old one** to leave
+  the e2e database replayable (same principle as the assignment flows). Addition of the
+  « Mon profil » page to V18 (`e2e/a11y-responsive.spec.ts`, 320 px, axe).
+- **Type synchronization**: `Me` (frontend, hand-written) receives the two fields; the existing
+  `enums-sync.test.ts` check covers enumerations, not `Me`: nothing to
+  add.

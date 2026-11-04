@@ -1,23 +1,25 @@
-# Contrat d'interface : export des statistiques
+# UI contract: statistics export
 
-## Page « Statistiques des affectations » (`/gardes/statistiques`)
+## « Statistiques des affectations » page (`/gardes/statistiques`)
 
-- Nouveau bouton-lien **« Exporter en CSV »** (icône de téléchargement, `aria-hidden`), placé au-dessus
-  des totaux, aligné à droite sur desktop, pleine largeur possible à 320 px sans défilement
-  horizontal.
-- Adresse : `/api/coverage/stats/export.csv?` + exactement les paramètres de la requête affichée
-  (`from`, `to`, `groupBy`, et `period` si « Période »), attribut `download`.
-- Affiché seulement quand les statistiques des filtres affichés sont chargées :
-  - absent tant qu'une date est incomplète (la requête n'est pas lancée) ;
-  - absent pendant un recalcul (les anciennes valeurs restent affichées, mais pas exportables) ;
-  - absent après une erreur (`INVALID_RANGE` ou autre) ;
-  - présent pour une période vide (le fichier contient alors des totaux à zéro).
-- Accessibilité : nom accessible « Exporter en CSV », atteignable et activable au clavier, focus
-  visible (composants existants) ; audit axe sans violation à 320 px et sur desktop.
-- Commentaire d'en-tête de `CoverageStatsPage` (« aucun export dans ce lot ») mis à jour.
+- New link-button **« Exporter en CSV »** (Export as CSV; download icon, `aria-hidden`), placed
+  above the totals, right-aligned on desktop, possibly full width at 320 px without horizontal
+  scrolling.
+- Address: `/api/coverage/stats/export.csv?` + exactly the parameters of the displayed request
+  (`from`, `to`, `groupBy`, and `period` if « Période »), `download` attribute.
+- Shown only when the statistics for the displayed filters are loaded:
+  - absent while a date is incomplete (the request is not sent);
+  - absent during a recomputation (the old values stay displayed, but cannot be exported);
+  - absent after an error (`INVALID_RANGE` or other);
+  - present for an empty period (the file then contains totals at zero).
+- Accessibility: accessible name « Exporter en CSV », reachable and activable by keyboard, focus
+  visible (existing components); axe audit without violations at 320 px and on desktop.
+- Header comment of `CoverageStatsPage` (« aucun export dans ce lot », "no export in this phase")
+  updated.
 
-## Journal d'audit (Administrateur › Journal d'audit)
+## Audit log (Administrateur › Journal d'audit)
 
-- Filtre « Action » : nouvelle entrée **« Export des statistiques des affectations »**.
-- Ligne d'une entrée : auteur, date et heure, libellé ci-dessus, détails
-  `from`, `to`, `groupBy`, `period` (affichage générique existant des détails).
+- « Action » filter: new entry **« Export des statistiques des affectations »** (Assignment
+  statistics export).
+- Row of an entry: author, date and time, the label above, details
+  `from`, `to`, `groupBy`, `period` (existing generic display of details).

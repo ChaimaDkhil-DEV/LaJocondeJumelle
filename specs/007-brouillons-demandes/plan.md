@@ -1,4 +1,4 @@
-# Implementation Plan: Brouillons de demande de travail
+# Implementation Plan: Brouillons de demande de travail (Work request drafts)
 
 **Branch**: `007-brouillons-demandes` | **Date**: 2026-10-22 | **Spec**: [spec.md](./spec.md)
 
@@ -6,48 +6,48 @@
 
 ## Summary
 
-Interface des brouillons sur une API existante : « Enregistrer en brouillon » dans « Nouvelle
-demande » (si le réglage l'autorise), onglet « Brouillons » dans « Mes demandes » (seulement s'il y
-en a), page `/demandes/:id/brouillon` qui reprend le formulaire pré-rempli pour enregistrer, envoyer
-ou supprimer. Seul changement serveur : périmètre de liste `drafts`, et `mine` (« Envoyées ») sans
-brouillon. Détails : [research.md](./research.md).
+Drafts UI on an existing API: « Enregistrer en brouillon » (Save as draft) in « Nouvelle
+demande » (if the setting allows it), « Brouillons » (Drafts) tab in « Mes demandes » (only if there
+are any), `/demandes/:id/brouillon` page that resumes the pre-filled form to save, send
+or delete. The only server change: `drafts` list scope, and `mine` (« Envoyées » (Sent)) without
+drafts. Details: [research.md](./research.md).
 
 ## Technical Context
 
 **Language/Version**: TypeScript 5.9, Node.js 24
 
-**Primary Dependencies**: NestJS 11, Prisma 6 (backend) ; React 19, React Router 7, MUI 7,
-TanStack Query (frontend) — pile existante, aucune dépendance ajoutée
+**Primary Dependencies**: NestJS 11, Prisma 6 (backend); React 19, React Router 7, MUI 7,
+TanStack Query (frontend) — existing stack, no dependency added
 
-**Storage**: PostgreSQL 17 — aucune modification de schéma ni migration
+**Storage**: PostgreSQL 17 — no schema change or migration
 
-**Testing**: Jest (intégration avec PostgreSQL embarqué), Vitest + Testing Library, Playwright + axe
+**Testing**: Jest (integration with embedded PostgreSQL), Vitest + Testing Library, Playwright + axe
 
-**Target Platform**: navigateurs récents (desktop et mobiles), serveur Linux (Docker)
+**Target Platform**: recent browsers (desktop and mobile), Linux server (Docker)
 
-**Project Type**: application web (monorepo `backend/` + `frontend/`)
+**Project Type**: web application (monorepo `backend/` + `frontend/`)
 
-**Performance Goals**: une requête légère de plus sur « Mes demandes » (présence de brouillons,
+**Performance Goals**: one more lightweight request on « Mes demandes » (presence of drafts,
 `limit=1`)
 
-**Constraints**: WCAG 2.2 AA, 320 px ; aucune règle métier nouvelle ; réglage `draftsEnabled`
-respecté (création seulement)
+**Constraints**: WCAG 2.2 AA, 320 px; no new business rule; `draftsEnabled` setting
+respected (creation only)
 
-**Scale/Scope**: 1 périmètre de liste, 1 page, 1 composant de formulaire extrait, 1 onglet
+**Scale/Scope**: 1 list scope, 1 page, 1 extracted form component, 1 tab
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-| Principe | Avant conception | Après conception |
-|----------|------------------|------------------|
-| **I. Tests d'abord** | Chaque scénario a son test rouge avant le code (R7). | ✅ Intégration (périmètres, envoi d'un brouillon, réglage), frontend (formulaire, onglet, page), e2e (parcours, 320 px). |
-| **II. Simplicité / YAGNI** | API existante réutilisée ; formulaire extrait plutôt que dupliqué. | ✅ Un périmètre serveur ; pas de tri ni de pagination propres (R2) ; pas de boîte d'envoi pour les brouillons (R6). |
-| **III. Accessibilité et UX** | Actions explicites, confirmation de suppression, erreurs reliées, 320 px. | ✅ Composants existants (`ConfirmDialog`, `VoicePlayer`, `VoiceRecorder`) ; V18 étendu. |
-| **IV. Sécurité et données** | Visibilité de l'auteur seul (existante) ; validation serveur existante. | ✅ `scope=drafts` limité à l'utilisateur de la session ; aucune donnée nouvelle. |
-| **V. Intégrité et audit** | Transitions existantes (`SUBMIT`) ; un brouillon n'a ni historique ni notification (existant). | ✅ Envoi par la machine à états existante, version optimiste. |
+| Principle | Before design | After design |
+|-----------|---------------|--------------|
+| **I. Tests first** | Each scenario has its red test before the code (R7). | ✅ Integration (scopes, draft submission, setting), frontend (form, tab, page), e2e (flow, 320 px). |
+| **II. Simplicity / YAGNI** | Existing API reused; form extracted rather than duplicated. | ✅ One server scope; no dedicated sorting or pagination (R2); no outbox for drafts (R6). |
+| **III. Accessibility and UX** | Explicit actions, deletion confirmation, tied errors, 320 px. | ✅ Existing components (`ConfirmDialog`, `VoicePlayer`, `VoiceRecorder`); V18 extended. |
+| **IV. Security and data** | Visibility to the author alone (existing); existing server validation. | ✅ `scope=drafts` limited to the session's user; no new data. |
+| **V. Integrity and audit** | Existing transitions (`SUBMIT`); a draft has no history or notification (existing). | ✅ Submission through the existing state machine, optimistic version. |
 
-Aucune violation : « Complexity Tracking » sans objet.
+No violation: "Complexity Tracking" not applicable.
 
 ## Project Structure
 
@@ -56,12 +56,12 @@ Aucune violation : « Complexity Tracking » sans objet.
 ```text
 specs/007-brouillons-demandes/
 ├── plan.md
-├── research.md          # R1 à R7
+├── research.md          # R1 to R7
 ├── data-model.md
 ├── quickstart.md
 ├── contracts/
-│   ├── rest-api.md      # GET /api/requests?scope=drafts ; scope=mine sans brouillon ; appels réutilisés
-│   └── ui.md            # bouton, onglet, page brouillon
+│   ├── rest-api.md      # GET /api/requests?scope=drafts; scope=mine without drafts; reused calls
+│   └── ui.md            # button, tab, draft page
 ├── checklists/requirements.md
 └── tasks.md             # /speckit-tasks
 ```
@@ -70,29 +70,29 @@ specs/007-brouillons-demandes/
 
 ```text
 backend/
-├── src/requests/requests.dto.ts           # REQUEST_SCOPES : 'drafts'
-├── src/requests/requests.service.ts       # list : 'mine' sans DRAFT ; 'drafts'
-└── test/integration/requests-drafts.spec.ts   # nouveau
+├── src/requests/requests.dto.ts           # REQUEST_SCOPES: 'drafts'
+├── src/requests/requests.service.ts       # list: 'mine' without DRAFT; 'drafts'
+└── test/integration/requests-drafts.spec.ts   # new
 
 frontend/
 ├── src/features/requests/
-│   ├── types.ts                 # RequestScope : 'drafts'
+│   ├── types.ts                 # RequestScope: 'drafts'
 │   ├── api.ts                   # saveDraft, updateDraft, submitDraft, deleteDraft
-│   ├── RequestForm.tsx          # formulaire extrait de CreateRequestPage (nouveau)
-│   ├── CreateRequestPage.tsx    # utilise RequestForm ; « Enregistrer en brouillon »
-│   ├── DraftPage.tsx            # /demandes/:id/brouillon (nouveau)
-│   ├── RequestListPage.tsx      # onglet « Brouillons », lien des brouillons
-│   └── RequestDetailPage.tsx    # brouillon → redirection vers la page brouillon
+│   ├── RequestForm.tsx          # form extracted from CreateRequestPage (new)
+│   ├── CreateRequestPage.tsx    # uses RequestForm; « Enregistrer en brouillon »
+│   ├── DraftPage.tsx            # /demandes/:id/brouillon (new)
+│   ├── RequestListPage.tsx      # « Brouillons » tab, drafts link
+│   └── RequestDetailPage.tsx    # draft → redirect to the draft page
 ├── src/app/routes.tsx           # route demandes/:id/brouillon
-└── tests/requests/drafts.test.tsx   # nouveau
+└── tests/requests/drafts.test.tsx   # new
 
 e2e/
-├── drafts.spec.ts               # parcours (nouveau)
-└── a11y-responsive.spec.ts      # page brouillon à 320 px
+├── drafts.spec.ts               # flow (new)
+└── a11y-responsive.spec.ts      # draft page at 320 px
 ```
 
-**Structure Decision**: monorepo existant ; module `requests` côté serveur et interface.
+**Structure Decision**: existing monorepo; `requests` module on the server and in the UI.
 
 ## Complexity Tracking
 
-Sans objet : aucune violation de la constitution.
+Not applicable: no constitution violation.

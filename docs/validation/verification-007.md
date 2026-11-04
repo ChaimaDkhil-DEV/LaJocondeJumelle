@@ -1,60 +1,60 @@
-# Vérification de la fonctionnalité 007 — brouillons de demande de travail
+# Verification of feature 007 — work request drafts
 
-Spécification, plan et tâches : `specs/007-brouillons-demandes/`.
+Specification, plan and tasks: `specs/007-brouillons-demandes/`.
 
-## État initial (T001)
+## Initial state (T001)
 
-Branche `007-brouillons-demandes`, créée depuis `master` (`c0f16fb`, fusion de la PR #25). Depuis
-la vérification finale de la 006 (`f753270`), seul `.github/workflows/ci.yml` a changé (plafond de
-5 minutes sur ffmpeg) ; aucun fichier de `backend/`, `frontend/`, `e2e/` ni des dépendances.
+Branch `007-brouillons-demandes`, created from `master` (`c0f16fb`, merge of PR #25). Since
+the final verification of 006 (`f753270`), only `.github/workflows/ci.yml` changed (5-minute
+limit on ffmpeg); no file in `backend/`, `frontend/`, `e2e/` or the dependencies.
 
-| Étape | Résultat (vérification finale 006, `verification-006.md`) |
+| Step | Result (final verification 006, `verification-006.md`) |
 |-------|----------|
-| CI sur `c0f16fb` | verte |
-| Tests unitaires backend | 585 / 585 |
-| Tests d'intégration backend | 623 / 623 |
-| Tests frontend (Vitest) | 262 / 262 |
-| Bout en bout (6 profils) | 146 réussis, 0 échec, 88 ignorés volontairement |
+| CI on `c0f16fb` | green |
+| Backend unit tests | 585 / 585 |
+| Backend integration tests | 623 / 623 |
+| Frontend tests (Vitest) | 262 / 262 |
+| End to end (6 profiles) | 146 passed, 0 failed, 88 deliberately skipped |
 
-## Scénarios du quickstart (T020)
+## Quickstart scenarios (T020)
 
-| # | Scénario | Couverture automatique | Reste à faire à la main |
+| # | Scenario | Automated coverage | Left to do by hand |
 |---|----------|------------------------|-------------------------|
-| 1 | Enregistrer en brouillon (US1, FR-001 à FR-003) | `drafts.test.tsx` (« Enregistrer en brouillon » : `asDraft`, priorité « Normale », vocal téléversé d'abord) ; `requests-drafts.spec.ts` (aucune notification) ; `e2e/drafts.spec.ts` (le destinataire ne voit rien) | — |
-| 2 | Validation réduite (US1 scénario 2) | `drafts.test.tsx` (« validation réduite ») | — |
-| 3 | Onglet (US2, FR-004, FR-004b) | `drafts.test.tsx` (onglet absent, présent après « Envoyées », lien vers la reprise) ; `requests-drafts.spec.ts` (`scope=drafts`, `scope=mine` sans brouillon) ; `e2e/drafts.spec.ts` | — |
-| 4 | Reprendre et envoyer (US2, FR-005 à FR-007, SC-003) | `drafts.test.tsx` (pré-remplissage, champs changés seuls, `SUBMIT` avec la version) ; `requests-drafts.spec.ts` (statut et notifications d'une création directe, deux circuits) ; `e2e/drafts.spec.ts` (parcours complet, destinataire notifié) | Réécoute du vocal sur un vrai téléphone (comme T119) |
-| 5 | Envoi incomplet (US2 scénario 4) | `drafts.test.tsx` ; `requests-drafts.spec.ts` (refus serveur, brouillon conservé) | — |
-| 6 | Supprimer (US3) | `drafts.test.tsx` (annuler, confirmer) ; `e2e/drafts.spec.ts` | — |
-| 7 | Réglage désactivé (FR-001, FR-008) | `drafts.test.tsx` (bouton absent) ; `requests-drafts.spec.ts` (création refusée, modification, envoi et suppression permis) | Bascule du réglage dans « Réglages » puis retour sur « Nouvelle demande » |
-| 8 | Accessibilité (FR-010, SC-005) | `a11y-responsive.spec.ts` (test « 007 », 320 px : enregistrement au clavier, page brouillon, onglet, dialogue de suppression, axe) ; écran « création » du test V18 avec le nouveau bouton | Lecteur d'écran (NVDA) sur la page brouillon |
+| 1 | Save as draft (US1, FR-001 to FR-003) | `drafts.test.tsx` ("Enregistrer en brouillon" (Save as draft): `asDraft`, priority "Normale" (Normal), voice message uploaded first); `requests-drafts.spec.ts` (no notification); `e2e/drafts.spec.ts` (the recipient sees nothing) | — |
+| 2 | Reduced validation (US1 scenario 2) | `drafts.test.tsx` ("validation réduite" (reduced validation)) | — |
+| 3 | Tab (US2, FR-004, FR-004b) | `drafts.test.tsx` (tab absent, present after "Envoyées" (Sent), link to resume); `requests-drafts.spec.ts` (`scope=drafts`, `scope=mine` without draft); `e2e/drafts.spec.ts` | — |
+| 4 | Resume and send (US2, FR-005 to FR-007, SC-003) | `drafts.test.tsx` (pre-filling, only changed fields, `SUBMIT` with the version); `requests-drafts.spec.ts` (status and notifications of a direct creation, two workflows); `e2e/drafts.spec.ts` (full flow, recipient notified) | Replaying the voice message on a real phone (as T119) |
+| 5 | Incomplete send (US2 scenario 4) | `drafts.test.tsx`; `requests-drafts.spec.ts` (server refusal, draft kept) | — |
+| 6 | Delete (US3) | `drafts.test.tsx` (cancel, confirm); `e2e/drafts.spec.ts` | — |
+| 7 | Setting disabled (FR-001, FR-008) | `drafts.test.tsx` (button absent); `requests-drafts.spec.ts` (creation refused, edit, send and delete allowed) | Toggling the setting in "Réglages" (Settings) then going back to "Nouvelle demande" (New request) |
+| 8 | Accessibility (FR-010, SC-005) | `a11y-responsive.spec.ts` ("007" test, 320 px: keyboard recording, draft page, tab, delete dialog, axe); "creation" screen of the V18 test with the new button | Screen reader (NVDA) on the draft page |
 
-Écart avec le plan : sur mobile, les boutons sont empilés dans l'ordre du document (pas d'inversion
-visuelle), pour que l'ordre du clavier suive l'ordre affiché (WCAG 2.4.3).
+Deviation from the plan: on mobile, the buttons are stacked in document order (no visual
+reversal), so that keyboard order follows displayed order (WCAG 2.4.3).
 
-## Vérification finale (T021)
+## Final verification (T021)
 
-Le 22/10/2026, sorties conservées.
+On 22/10/2026, outputs kept.
 
-| Étape | Avant (006) | Après (007) |
+| Step | Before (006) | After (007) |
 |-------|-------------|-------------|
-| `npm run lint` | sans erreur | sans erreur (après correction d'un motif vide dans `e2e/drafts.spec.ts`, signalé au premier passage) |
-| Tests unitaires backend | 585 / 585 | **585 / 585** |
-| Tests d'intégration backend | 623 / 623 | **630 / 630** (+7 : `requests-drafts.spec.ts`) |
-| Tests frontend (Vitest) | 262 / 262 | **282 / 282** (+20 : `drafts.test.tsx`) |
-| Typecheck backend et frontend | sans erreur | sans erreur |
-| `npm audit --audit-level=high` | aucune vulnérabilité élevée (21 modérées) | aucune vulnérabilité élevée ; **2 modérées** (`js-yaml` via `@nestjs/swagger`, correctif = passage cassant à `@nestjs/swagger` 12 ; base d'avis changée, aucune dépendance modifiée par la 007) |
-| Bout en bout (6 profils, 252 tests) | 146 réussis, 88 ignorés | **138 réussis, 0 échec, 114 ignorés volontairement** (36,3 min) |
+| `npm run lint` | no errors | no errors (after fixing an empty pattern in `e2e/drafts.spec.ts`, flagged on the first run) |
+| Backend unit tests | 585 / 585 | **585 / 585** |
+| Backend integration tests | 623 / 623 | **630 / 630** (+7: `requests-drafts.spec.ts`) |
+| Frontend tests (Vitest) | 262 / 262 | **282 / 282** (+20: `drafts.test.tsx`) |
+| Backend and frontend typecheck | no errors | no errors |
+| `npm audit --audit-level=high` | no high vulnerabilities (21 moderate) | no high vulnerabilities; **2 moderate** (`js-yaml` via `@nestjs/swagger`, fix = breaking upgrade to `@nestjs/swagger` 12; advisory database changed, no dependency modified by 007) |
+| End to end (6 profiles, 252 tests) | 146 passed, 88 skipped | **138 passed, 0 failed, 114 deliberately skipped** (36.3 min) |
 
-Les 114 ignorés : les 88 habituels (scénarios réservés à un profil), les 15 nouveaux hors de leur
-profil (`drafts.spec.ts` hors Chromium : 10 ; test 007 de `a11y-responsive` hors `mobile-320` : 5),
-et **11 gardes horaires** : la campagne a tourné vers 22 h 15 heure de l'école (l'horloge de la
-machine est en UTC+1, Paris en UTC+2 jusqu'au 25/10), ce qui ignore les 9 parcours d'affectation
-(A, B, C à 360, 768 et 1 280 px, après 22 h) et les 2 de la spec 006 (après 20 h). Ils ne touchent
-pas au code de la 007 ; ils étaient verts à la vérification de la 006 et le restent en CI.
+The 114 skipped: the usual 88 (scenarios reserved for one profile), the 15 new ones outside their
+profile (`drafts.spec.ts` outside Chromium: 10; 007 test of `a11y-responsive` outside `mobile-320`: 5),
+and **11 time-of-day guards**: the run took place around 22:15 school time (the
+machine clock is UTC+1, Paris is UTC+2 until 25/10), which skips the 9 assignment flows
+(A, B, C at 360, 768 and 1,280 px, after 22:00) and the 2 of spec 006 (after 20:00). They do not touch
+the 007 code; they were green at the 006 verification and remain so in CI.
 
-Nouveaux tests e2e réussis : les deux parcours de `drafts.spec.ts` (Chromium) et le test 007 de
-`a11y-responsive.spec.ts` (320 px : enregistrement au clavier, page brouillon, onglet, dialogue de
-suppression, axe).
+New e2e tests passed: the two flows of `drafts.spec.ts` (Chromium) and the 007 test of
+`a11y-responsive.spec.ts` (320 px: keyboard recording, draft page, tab, delete
+dialog, axe).
 
-Restent : CI verte sur la branche, puis fusion selon `docs/procedure-fusion.md`.
+Remaining: green CI on the branch, then merge following `docs/procedure-fusion.md`.

@@ -1,100 +1,100 @@
-# Vidéos de démonstration — super administrateur
+# Demo videos — super administrator
 
-Une vidéo par scénario, enregistrée avec Playwright (`recordVideo`), sous-titres français incrustés
-par ffmpeg (texte blanc sur fond semi-transparent), curseur visible, pauses de 1 à 2 s. Pas de voix
-off. Les vidéos produites ne sont pas versionnées (voir `.gitignore`) ; la démo ne modifie pas le
-code de l'application.
+One video per scenario, recorded with Playwright (`recordVideo`), French subtitles burned in
+by ffmpeg (white text on a semi-transparent background), visible cursor, pauses of 1 to 2 s. No
+voice-over. The videos produced are not versioned (see `.gitignore`); the demo does not change the
+application code.
 
-## Lancer
+## Running
 
-Depuis la racine du dépôt, dépendances installées, ffmpeg disponible (sur le PATH, ou chemins dans
-`FFMPEG_PATH` et `FFPROBE_PATH`, mêmes valeurs que dans `backend/.env`) :
+From the repository root, with dependencies installed and ffmpeg available (on the PATH, or paths in
+`FFMPEG_PATH` and `FFPROBE_PATH`, same values as in `backend/.env`):
 
 ```text
-npx tsx demo/run.ts all --env=test              tous les scénarios + vidéo compilée
-npx tsx demo/run.ts S12 --env=test              un seul scénario
-npx tsx demo/run.ts S01 S05 --env=test          plusieurs scénarios
-npx tsx demo/run.ts all --env=test --no-compile sans la vidéo compilée
-npx tsx demo/run.ts all --env=test --compile-only vidéo compilée à partir des vidéos existantes
-npx tsx demo/run.ts all --env=test --reburn       sous-titres réincrustés (demo/tmp), sans réenregistrer
-npx tsx demo/run.ts parcours --env=test           parcours d'une demande vocale (P01 à P05) + vidéo compilée
+npx tsx demo/run.ts all --env=test              all scenarios + compiled video
+npx tsx demo/run.ts S12 --env=test              a single scenario
+npx tsx demo/run.ts S01 S05 --env=test          several scenarios
+npx tsx demo/run.ts all --env=test --no-compile without the compiled video
+npx tsx demo/run.ts all --env=test --compile-only compiled video built from the existing videos
+npx tsx demo/run.ts all --env=test --reburn       subtitles burned in again (demo/tmp), without re-recording
+npx tsx demo/run.ts parcours --env=test           journey of a voice request (P01 to P05) + compiled video
 ```
 
-`all` et `parcours` s'emploient seuls. Les séries S et P ne se mélangent pas dans une même
-exécution (`S01 P01` est refusé) : la série P a besoin de la création vocale assistée, la série S
-la désactive.
+`all` and `parcours` are used alone. The S and P series cannot be mixed in a single
+run (`S01 P01` is refused): the P series needs assisted voice creation, the S series
+disables it.
 
-L'environnement doit être déclaré explicitement « dev » ou « test » (`--env=…` ou `NODE_ENV`) :
-sinon la démo refuse de s'exécuter. Elle refuse aussi toute base qui n'est pas locale.
+The environment must be declared explicitly as "dev" or "test" (`--env=…` or `NODE_ENV`):
+otherwise the demo refuses to run. It also refuses any database that is not local.
 
-## Sorties
+## Outputs
 
-- `demo/videos/S01-menu-lateral.mp4` … `S13-vue-surveillant.mp4` ;
-- `demo/videos/demo-superadmin-complete.mp4` : toutes les vidéos, avec un écran-titre avant
-  chacune (vues mobiles centrées en 1280×720) ;
-- `demo/tmp/` : vidéos brutes (.webm), sous-titres (.srt), écrans-titres.
+- `demo/videos/S01-menu-lateral.mp4` … `S13-vue-surveillant.mp4`;
+- `demo/videos/demo-superadmin-complete.mp4`: all the videos, with a title screen before
+  each one (mobile views centered in 1280×720);
+- `demo/tmp/`: raw videos (.webm), subtitles (.srt), title screens.
 
-## Données
+## Data
 
-Tout est fictif et jetable :
+Everything is fictional and disposable:
 
-- base PostgreSQL embarquée créée pour la démo (port 55435), migrations appliquées, **remise à
-  zéro et réensemencée avant chaque scénario** (chaque scénario est rejouable seul), détruite à
-  la fin ;
-- comptes du seed de démonstration (`superadmin`, `admin`, `enseignante`, `reprographie`,
-  `surveillant`, `surveillant2`, `remplacant`, `nouveau`, `autre`), mot de passe de démo commun (`demo/lib/config.ts`) ;
-- données propres à chaque scénario créées par l'API (vraies règles de l'application) dans
-  `prepare` ; seul le temps écoulé (retards) est simulé dans la base jetable ;
-- l'API garde les réglages en mémoire : après chaque remise à zéro, les réglages par défaut sont
-  réécrits par l'API pour vider ce cache.
+- embedded PostgreSQL database created for the demo (port 55435), migrations applied, **reset
+  and re-seeded before each scenario** (each scenario can be replayed on its own), destroyed at
+  the end;
+- accounts from the demo seed (`superadmin`, `admin`, `enseignante`, `reprographie`,
+  `surveillant`, `surveillant2`, `remplacant`, `nouveau`, `autre`), common demo password (`demo/lib/config.ts`);
+- data specific to each scenario created through the API (the application's real rules) in
+  `prepare`; only elapsed time (delays) is simulated in the disposable database;
+- the API keeps the settings in memory: after each reset, the default settings are
+  rewritten through the API to empty this cache.
 
-Le seed contient des catégories marquées « démo » (« Intervention technique (démo circuit B) »,
-« Petits travaux (démo photo) ») : elles sont utilisées telles quelles, jamais supprimées.
+The seed contains categories marked "démo" (demo) ("Intervention technique (démo circuit B)", i.e. technical intervention (demo workflow B),
+"Petits travaux (démo photo)", i.e. small jobs (demo photo)): they are used as they are, never deleted.
 
-Ports : API 3200, frontend 5175 (ni ceux de l'application de développement, ni ceux des e2e).
+Ports: API 3200, frontend 5175 (neither those of the development application, nor those of the e2e tests).
 
-Affectations (S07, S11, S12) : créneaux du jour de l'école (Europe/Paris), comme les e2e. Lancer
-la démo avant 22 h, heure de l'école : plus tard, les créneaux d'une heure débordent sur le lendemain.
+Assignments (S07, S11, S12): slots of the school's current day (Europe/Paris), like the e2e tests. Run
+the demo before 10 pm, school time: later, the one-hour slots spill over into the next day.
 
-## Scénarios
+## Scenarios
 
-| Id | Fichier | Viewport | Remarque |
+| Id | File | Viewport | Note |
 | --- | --- | --- | --- |
-| S01 | `scenarios/S01-menu-lateral.ts` | desktop | Bloc profil : lien vers « Mon profil » (spec 005). |
-| S02 | `scenarios/S02-notifications.ts` | desktop | Retards simulés ; alertes posées par les tâches planifiées. |
-| S03 | `scenarios/S03-mes-demandes.ts` | desktop | « Reçues » ne montre que les demandes affectées au super administrateur. |
-| S04 | `scenarios/S04-nouvelle-demande.ts` | desktop | « Surveillance » préparée (via l'administration). |
+| S01 | `scenarios/S01-menu-lateral.ts` | desktop | Profile block: link to "Mon profil" (My profile) (spec 005). |
+| S02 | `scenarios/S02-notifications.ts` | desktop | Simulated delays; alerts raised by the scheduled tasks. |
+| S03 | `scenarios/S03-mes-demandes.ts` | desktop | "Reçues" (Received) shows only the requests assigned to the super administrator. |
+| S04 | `scenarios/S04-nouvelle-demande.ts` | desktop | "Surveillance" (Supervision) prepared (through the administration). |
 | S05 | `scenarios/S05-comptes.ts` | desktop | — |
 | S06 | `scenarios/S06-categories.ts` | desktop | — |
-| S07 | `scenarios/S07-groupes-classes.ts` | desktop | Un employé ajouté au groupe Surveillants ; affectation dans la nouvelle classe. |
-| S08 | `scenarios/S08-reglages.ts` | desktop | Seuil d'alerte et délai de prise en charge ; effet visible en 30 s. |
-| S09 | `scenarios/S09-journal-audit.ts` | desktop | Actions administratives sur les demandes journalisées ; accepter, commencer, terminer : historique seul. |
+| S07 | `scenarios/S07-groupes-classes.ts` | desktop | An employee added to the Surveillants group; assignment in the new class. |
+| S08 | `scenarios/S08-reglages.ts` | desktop | Alert threshold and acceptance deadline; effect visible within 30 s. |
+| S09 | `scenarios/S09-journal-audit.ts` | desktop | Administrative actions on requests are logged; accept, start, finish: history only. |
 | S10 | `scenarios/S10-tableau-de-bord.ts` | desktop | — |
-| S11 | `scenarios/S11-suivi-gardes.ts` | desktop | Signalement d'enseignant « En attente » (créneau du jour). |
-| S12 | `scenarios/S12-affectation-surveillants.ts` | desktop | Surveillant déjà affecté : non proposable ; remplacement par réassignation. |
+| S11 | `scenarios/S11-suivi-gardes.ts` | desktop | Teacher report "En attente" (Pending) (slot of the day). |
+| S12 | `scenarios/S12-affectation-surveillants.ts` | desktop | Supervisor already assigned: cannot be proposed; replacement by reassignment. |
 | S13 | `scenarios/S13-vue-surveillant.ts` | mobile 390×844 | — |
 
-Fonctionnalités absentes de l'application (inventaire : `docs/superadmin-fonctionnalites.md`) :
-modification et suppression d'une garde.
+Features missing from the application (inventory: `docs/superadmin-fonctionnalites.md`):
+editing and deleting a duty.
 
-## Parcours d'une demande vocale (série P)
+## Journey of a voice request (P series)
 
-`npx tsx demo/run.ts parcours --env=test` produit `demo/videos/P01-…` à `P05-…` et
-`demo/videos/demo-parcours-demande-vocale.mp4`. La vidéo s'ouvre sur la création vocale assistée :
+`npx tsx demo/run.ts parcours --env=test` produces `demo/videos/P01-…` to `P05-…` and
+`demo/videos/demo-parcours-demande-vocale.mp4`. The video opens on assisted voice creation:
 
-- la demande est prononcée par une voix de synthèse française (Windows, `System.Speech`), générée
-  dans `demo/tmp/voix-demande.wav` (texte : `VOICE_SENTENCE`, `lib/config.ts`) et régénérée
-  seulement quand ce texte change ; elle est diffusée par le micro simulé de Chromium ;
-- si le serveur Whisper de `backend/.env` (`ASSIST_WHISPER_URL`) répond, le message est
-  **réellement transcrit** par Whisper et les propositions viennent du moteur par règles ; sinon,
-  repli sur les fournisseurs locaux de démonstration, et le sous-titre le signale ;
-- l'attente de la transcription est montrée en accéléré (×8), signalé par le sous-titre ;
-- `DEMO_API_LOG=<fichier>` écrit le journal de l'API de démo (durée de transcription, propositions).
+- the request is spoken by a French synthetic voice (Windows, `System.Speech`), generated
+  in `demo/tmp/voix-demande.wav` (text: `VOICE_SENTENCE`, `lib/config.ts`) and regenerated
+  only when that text changes; it is played through Chromium's simulated microphone;
+- if the Whisper server from `backend/.env` (`ASSIST_WHISPER_URL`) responds, the message is
+  **actually transcribed** by Whisper and the suggestions come from the rules engine; otherwise,
+  fall back to the local demo providers, and the subtitle says so;
+- the wait for the transcription is shown sped up (×8), as indicated by the subtitle;
+- `DEMO_API_LOG=<file>` writes the demo API's log (transcription time, suggestions).
 
-| Id | Fichier | Contenu |
+| Id | File | Content |
 | --- | --- | --- |
-| P01 | `scenarios/P01-demande-vocale.ts` | Dictée vocale : transcription, titre, catégorie (d'après une consigne), priorité et destinataire remplis automatiquement, « Voir pourquoi », historique ; puis traitement avec photo de preuve et clôture. |
-| P02 | `scenarios/P02-validation-administration.ts` | Demande écrite. Validation par la surveillante générale et choix de l'employé, renvoi à corriger, reprise, validation finale. |
-| P03 | `scenarios/P03-refus-annulation.ts` | Refus motivé par l'administration, refus motivé par l'employé, annulation par l'enseignante. |
-| P04 | `scenarios/P04-discussion.ts` | Message écrit, réponse vocale dans la discussion, notifications. |
-| P05 | `scenarios/P05-super-administrateur.ts` | Alertes ciblées, tableau de bord, réaffectation, journal d'audit. |
+| P01 | `scenarios/P01-demande-vocale.ts` | Voice dictation: transcription, title, category (from an instruction), priority and recipient filled in automatically, "Voir pourquoi" (See why), history; then handling with a proof photo and closing. |
+| P02 | `scenarios/P02-validation-administration.ts` | Written request. Validation by the head supervisor and choice of the employee, sent back for correction, resubmission, final validation. |
+| P03 | `scenarios/P03-refus-annulation.ts` | Refusal with a reason by the administration, refusal with a reason by the employee, cancellation by the teacher. |
+| P04 | `scenarios/P04-discussion.ts` | Written message, voice reply in the discussion, notifications. |
+| P05 | `scenarios/P05-super-administrateur.ts` | Targeted alerts, dashboard, reassignment, audit log. |

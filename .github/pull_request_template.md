@@ -1,17 +1,17 @@
-## Résumé
+## Summary
 
-<!-- Ce que change cette demande de fusion, et pourquoi. -->
+<!-- What this pull request changes, and why. -->
 
-## Vérification avant fusion
+## Checks before merging
 
-Procédure manuelle : `docs/procedure-fusion.md`. GitHub ne bloque
-pas la fusion ; une case non cochée interdit de fusionner.
+Manual procedure: `docs/procedure-fusion.md`. GitHub does not block
+the merge; an unchecked box forbids merging.
 
-- [ ] **1. CI** : « Contrôles qualité » réussi sur le dernier commit (`gh pr checks <n°>`) ; ni
-      absent, ni en cours, ni en échec, ni annulé
-- [ ] **2. Tests requis** : toutes les étapes de la CI ont tourné ; pour une livraison,
-      `npm run test:e2e` lancé à la main et consigné dans `docs/validation/`
-- [ ] **3. Aucun échec non résolu** : aucun test désactivé ou ignoré sans raison consignée ;
-      branche à jour avec `master` ; aucune discussion de revue ouverte
-- [ ] **4. Diff relu** (`gh pr diff <n°>`) : tests écrits d'abord et verts, attendus existants
-      inchangés sauf exception documentée, aucun secret, aucun fichier inattendu
+- [ ] **1. CI**: "Contrôles qualité" (quality checks) passed on the latest commit (`gh pr checks <n°>`); not
+      missing, not in progress, not failed, not cancelled
+- [ ] **2. Required tests**: all CI steps ran; for a release,
+      `npm run test:e2e` run by hand and recorded in `docs/validation/`
+- [ ] **3. No unresolved failure**: no test disabled or skipped without a recorded reason;
+      branch up to date with `master`; no open review discussion
+- [ ] **4. Diff reviewed** (`gh pr diff <n°>`): tests written first and green, existing expectations
+      unchanged except for a documented exception, no secret, no unexpected file

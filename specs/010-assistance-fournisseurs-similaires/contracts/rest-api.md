@@ -1,13 +1,13 @@
-# REST API: fournisseurs réels et demandes similaires (010)
+# REST API: real providers and similar requests (010)
 
-## POST /api/assist/suggestions (étendu)
+## POST /api/assist/suggestions (extended)
 
-Accès, limite, erreurs et corps inchangés (spec 009). Réponse `200` : champ ajouté `similar`
-(toujours présent, éventuellement vide).
+Access, limit, errors and body unchanged (spec 009). `200` response: added field `similar`
+(always present, possibly empty).
 
 ```json
 {
-  "suggestion": { "...": "inchangé" },
+  "suggestion": { "...": "unchanged" },
   "sources": [],
   "noGuideline": false,
   "token": "…",
@@ -24,22 +24,22 @@ Accès, limite, erreurs et corps inchangés (spec 009). Réponse `200` : champ a
 }
 ```
 
-`similar` : 3 au plus, uniquement des demandes de travail visibles par l'utilisateur, hors
-brouillons. Aucun champ supplémentaire (ni description, ni personnes).
+`similar`: at most 3, only work requests visible to the user, excluding
+drafts. No additional field (neither description nor people).
 
-## Requêtes sortantes (connecteurs réels, désactivés par défaut)
+## Outgoing requests (real connectors, disabled by default)
 
-### Whisper (serveur de l'établissement)
+### Whisper (the school's server)
 
-`POST {ASSIST_WHISPER_URL}/v1/audio/transcriptions`, `multipart/form-data` :
-`file` (audio/mp4), `model`, `language=fr`, `response_format=json`. En-tête
-`Authorization: Bearer {ASSIST_WHISPER_API_KEY}` si la clé est définie.
-Réponse attendue : `{ "text": "…" }`. Tout autre cas : `ASSIST_UNAVAILABLE`.
+`POST {ASSIST_WHISPER_URL}/v1/audio/transcriptions`, `multipart/form-data`:
+`file` (audio/mp4), `model`, `language=fr`, `response_format=json`. Header
+`Authorization: Bearer {ASSIST_WHISPER_API_KEY}` if the key is defined.
+Expected response: `{ "text": "…" }`. Any other case: `ASSIST_UNAVAILABLE`.
 
-### Claude (API Messages d'Anthropic, par le SDK officiel)
+### Claude (Anthropic Messages API, via the official SDK)
 
-Bêta `server-side-fallback-2026-07-01`, `fallbacks: "default"`, modèle `ASSIST_CLAUDE_MODEL`,
-`output_config.format` de type `json_schema` :
+Beta `server-side-fallback-2026-07-01`, `fallbacks: "default"`, model `ASSIST_CLAUDE_MODEL`,
+`output_config.format` of type `json_schema`:
 
 ```json
 {
@@ -48,7 +48,7 @@ Bêta `server-side-fallback-2026-07-01`, `fallbacks: "default"`, modèle `ASSIST
   "required": ["title", "categoryId", "priority", "reason", "missing", "sourceIds"],
   "properties": {
     "title": { "type": ["string", "null"] },
-    "categoryId": { "enum": ["<ids des catégories autorisées>", null] },
+    "categoryId": { "enum": ["<ids of the allowed categories>", null] },
     "priority": { "enum": ["NORMAL", "MEDIUM", "HIGH", "URGENT", null] },
     "reason": { "type": ["string", "null"] },
     "missing": { "type": "array", "items": { "type": "string" } },
@@ -57,6 +57,6 @@ Bêta `server-side-fallback-2026-07-01`, `fallbacks: "default"`, modèle `ASSIST
 }
 ```
 
-Contenu transmis : texte de la demande (entre `<demande>`), catégories autorisées (id, nom),
-consignes autorisées retrouvées (id, titre, texte), demandes similaires (titre, catégorie,
-priorité). Les `null` sont retirés avant `sanitizeSuggestion`.
+Content sent: request text (between `<demande>`), allowed categories (id, name),
+allowed guidelines found (id, title, text), similar requests (title, category,
+priority). The `null` values are removed before `sanitizeSuggestion`.

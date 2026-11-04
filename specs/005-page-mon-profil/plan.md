@@ -1,4 +1,4 @@
-# Implementation Plan: Page « Mon profil » et accès au changement de mot de passe
+# Implementation Plan: Page « Mon profil » (My profile page) and access to the password change
 
 **Branch**: `005-page-mon-profil` | **Date**: 2026-10-22 | **Spec**: [spec.md](./spec.md)
 
@@ -6,52 +6,52 @@
 
 ## Summary
 
-Le bloc profil du menu devient un lien vers une nouvelle page `/profil` qui affiche, en lecture
-seule, le nom, l'identifiant, la fonction, le rôle et les groupes d'affectation du compte
-connecté, et propose « Changer mon mot de passe ». La page de changement existante gagne un mode
-volontaire (annulation, retour au profil avec confirmation), choisi d'après l'état serveur
-`mustChangePassword` ; le mode imposé est inchangé. Côté serveur, seule la réponse
-`GET /api/auth/me` gagne deux champs (`username`, `jobTitle`). Détails : [research.md](./research.md).
+The menu's profile block becomes a link to a new `/profil` page that displays, read-only, the
+name, identifier, job title, role and assignment groups of the signed-in account, and offers
+« Changer mon mot de passe » (Change my password). The existing change page gains a voluntary
+mode (cancel, return to the profile with a confirmation), chosen from the server state
+`mustChangePassword`; the forced mode is unchanged. On the server side, only the
+`GET /api/auth/me` response gains two fields (`username`, `jobTitle`). Details: [research.md](./research.md).
 
 ## Technical Context
 
-**Language/Version**: TypeScript 5.9 (backend et frontend), Node.js 24
+**Language/Version**: TypeScript 5.9 (backend and frontend), Node.js 24
 
-**Primary Dependencies**: NestJS 11 et Prisma 6 (backend) ; React 19, React Router 7, MUI 7,
-TanStack Query (frontend) — pile existante, aucune dépendance ajoutée
+**Primary Dependencies**: NestJS 11 and Prisma 6 (backend); React 19, React Router 7, MUI 7,
+TanStack Query (frontend) — existing stack, no dependency added
 
-**Storage**: PostgreSQL 17 — aucune modification de schéma ni migration (`User.jobTitle` existe)
+**Storage**: PostgreSQL 17 — no schema change or migration (`User.jobTitle` exists)
 
-**Testing**: Jest (unitaires et intégration backend, PostgreSQL embarqué), Vitest + Testing
-Library (frontend), Playwright + axe (bout en bout, 6 profils)
+**Testing**: Jest (backend unit and integration, embedded PostgreSQL), Vitest + Testing
+Library (frontend), Playwright + axe (end to end, 6 profiles)
 
-**Target Platform**: navigateurs récents (desktop, iOS Safari, Android Chrome), serveur Linux
-(Docker) en production
+**Target Platform**: recent browsers (desktop, iOS Safari, Android Chrome), Linux server
+(Docker) in production
 
-**Project Type**: application web (monorepo `backend/` + `frontend/`)
+**Project Type**: web application (monorepo `backend/` + `frontend/`)
 
-**Performance Goals**: aucune requête supplémentaire à l'ouverture du profil (cache de
-`/api/auth/me` réutilisé) ; changement de mot de passe : performances actuelles
+**Performance Goals**: no additional request when opening the profile (`/api/auth/me` cache
+reused); password change: current performance
 
-**Constraints**: WCAG 2.2 AA ; 320 px sans défilement horizontal ; parcours imposé et règles de
-mot de passe inchangés ; aucune donnée nouvelle collectée
+**Constraints**: WCAG 2.2 AA; 320 px with no horizontal scrolling; forced flow and password
+rules unchanged; no new data collected
 
-**Scale/Scope**: 1 page nouvelle, 1 page adaptée, 1 lien, 2 champs ajoutés à une réponse
-existante ; quelques dizaines d'utilisateurs (un établissement)
+**Scale/Scope**: 1 new page, 1 adapted page, 1 link, 2 fields added to an existing
+response; a few dozen users (one school)
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-| Principe | Vérification avant conception | Après conception |
-|----------|-------------------------------|------------------|
-| **I. Tests d'abord** | Chaque scénario d'acceptation a un test qui échoue avant le code (R6) : unitaire et intégration pour `/me`, Vitest pour la page et le parcours, e2e pour le parcours complet et l'accessibilité. | ✅ Plan de tests R6 rattaché aux FR-001 à FR-013 (voir quickstart). Les tests existants du parcours imposé restent inchangés (SC-005). |
-| **II. Simplicité / YAGNI** | Pas de nouvel endpoint, de dépendance, de migration ni de configuration. | ✅ Deux champs sur une réponse existante, une route frontend, un mode dérivé de l'état serveur. Rien à consigner en « Complexity Tracking ». |
-| **III. Accessibilité et UX** | Lien au nom accessible complet, focus visible, erreurs reliées aux champs, confirmation annoncée, 320 px, axe dans V18. | ✅ R3 (Label in Name), R4 (statut annoncé), V18 étendu. États chargement et erreur : ceux de `RequireAuth`, communs à toutes les pages protégées. |
-| **IV. Sécurité et données** | Validation serveur du changement inchangée ; aucune donnée nouvelle ; secrets : aucun. | ✅ `username` et `jobTitle` renvoyés au seul compte connecté (session). Mode volontaire non manipulable (état serveur, pas d'URL). |
-| **V. Intégrité et audit** | Aucune demande ni statut touché ; `PASSWORD_CHANGED` déjà journalisé ; aucun nouvel accès à une ressource d'autrui. | ✅ Inchangé ; test e2e vérifiant la fermeture des autres sessions. |
+| Principle | Check before design | After design |
+|-----------|---------------------|--------------|
+| **I. Tests first** | Each acceptance scenario has a test that fails before the code (R6): unit and integration for `/me`, Vitest for the page and the flow, e2e for the full flow and accessibility. | ✅ R6 test plan tied to FR-001 to FR-013 (see quickstart). Existing tests of the forced flow stay unchanged (SC-005). |
+| **II. Simplicity / YAGNI** | No new endpoint, dependency, migration or configuration. | ✅ Two fields on an existing response, one frontend route, one mode derived from server state. Nothing to record in "Complexity Tracking". |
+| **III. Accessibility and UX** | Link with a complete accessible name, visible focus, errors tied to fields, announced confirmation, 320 px, axe in V18. | ✅ R3 (Label in Name), R4 (announced status), V18 extended. Loading and error states: those of `RequireAuth`, shared by all protected pages. |
+| **IV. Security and data** | Server-side validation of the change unchanged; no new data; secrets: none. | ✅ `username` and `jobTitle` returned only to the signed-in account (session). Voluntary mode cannot be manipulated (server state, no URL). |
+| **V. Integrity and audit** | No request or status touched; `PASSWORD_CHANGED` already logged; no new access to someone else's resource. | ✅ Unchanged; e2e test verifying that the other sessions are closed. |
 
-Aucune violation : section « Complexity Tracking » sans objet.
+No violation: "Complexity Tracking" section not applicable.
 
 ## Project Structure
 
@@ -59,15 +59,15 @@ Aucune violation : section « Complexity Tracking » sans objet.
 
 ```text
 specs/005-page-mon-profil/
-├── plan.md              # Ce fichier
-├── research.md          # Phase 0 : décisions R1 à R6
-├── data-model.md        # Phase 1 : données lues (aucune modification de schéma)
-├── quickstart.md        # Phase 1 : scénarios de validation
+├── plan.md              # This file
+├── research.md          # Phase 0: decisions R1 to R6
+├── data-model.md        # Phase 1: data read (no schema change)
+├── quickstart.md        # Phase 1: validation scenarios
 ├── contracts/
-│   ├── rest-api.md      # GET /api/auth/me (champs ajoutés), POST /api/auth/password (inchangé)
-│   └── ui.md            # Route /profil, lien du bloc profil, modes de /mot-de-passe
+│   ├── rest-api.md      # GET /api/auth/me (fields added), POST /api/auth/password (unchanged)
+│   └── ui.md            # Route /profil, profile block link, modes of /mot-de-passe
 ├── checklists/
-│   └── requirements.md  # Qualité de la spec
+│   └── requirements.md  # Spec quality
 └── tasks.md             # Phase 2 (/speckit-tasks)
 ```
 
@@ -76,32 +76,32 @@ specs/005-page-mon-profil/
 ```text
 backend/
 ├── src/auth/
-│   ├── auth.types.ts            # AuthenticatedUser + MeResponse : username, jobTitle
-│   └── session.service.ts       # toAuthenticatedUser : jobTitle
+│   ├── auth.types.ts            # AuthenticatedUser + MeResponse: username, jobTitle
+│   └── session.service.ts       # toAuthenticatedUser: jobTitle
 └── test/
     ├── unit/                    # toMeResponse
     └── integration/auth.spec.ts # GET /api/auth/me
 
 frontend/
 ├── src/
-│   ├── api/types.ts             # Me : username, jobTitle
-│   ├── app/AppLayout.tsx        # bloc profil → lien /profil
-│   ├── app/routes.tsx           # route /profil
+│   ├── api/types.ts             # Me: username, jobTitle
+│   ├── app/AppLayout.tsx        # profile block → /profil link
+│   ├── app/routes.tsx           # /profil route
 │   └── features/auth/
-│       ├── ProfilePage.tsx      # nouvelle page
-│       └── ChangePasswordPage.tsx # mode volontaire (annuler, retour, confirmation)
+│       ├── ProfilePage.tsx      # new page
+│       └── ChangePasswordPage.tsx # voluntary mode (cancel, return, confirmation)
 └── tests/auth/
-    ├── profile.test.tsx         # nouvelle suite
-    └── change-password.test.tsx # modes volontaire et imposé
+    ├── profile.test.tsx         # new suite
+    └── change-password.test.tsx # voluntary and forced modes
 
 e2e/
-├── auth.spec.ts                 # parcours profil → changement → autres sessions fermées
-└── a11y-responsive.spec.ts      # V18 : page « Mon profil » à 320 px
+├── auth.spec.ts                 # flow profile → change → other sessions closed
+└── a11y-responsive.spec.ts      # V18: « Mon profil » page at 320 px
 ```
 
-**Structure Decision**: monorepo existant (`backend/`, `frontend/`, `e2e/`) ; le profil relève
-du domaine `auth` côté frontend comme côté backend (aucun nouveau dossier de domaine).
+**Structure Decision**: existing monorepo (`backend/`, `frontend/`, `e2e/`); the profile belongs
+to the `auth` domain on both the frontend and the backend (no new domain folder).
 
 ## Complexity Tracking
 
-Sans objet : aucune violation de la constitution.
+Not applicable: no constitution violation.

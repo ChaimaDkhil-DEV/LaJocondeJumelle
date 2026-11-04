@@ -1,12 +1,12 @@
 #!/bin/bash
-# Mise en production (à lancer sur l'hôte, depuis la racine du dépôt) :
-#   deploy/deploy.sh             code à jour (git pull --ff-only), puis déploiement
-#   deploy/deploy.sh --no-pull   déploie le code présent (commit précis, retour à une version)
-# 0. Mise à jour du code en avance rapide seulement ; arrêt si elle échoue.
-# 1. Sauvegarde ponctuelle de la base et des fichiers par le service « backup » ; arrêt si elle échoue.
-# 2. Reconstruction et redémarrage des conteneurs. Au démarrage, l'API n'applique une migration en
-#    attente que si la sauvegarde a moins de PRE_MIGRATION_BACKUP_MAX_AGE_MINUTES minutes (FR-018).
-# Premier déploiement compris : la base est démarrée si besoin avant la sauvegarde.
+# Production deployment (run on the host, from the repository root):
+#   deploy/deploy.sh             update the code (git pull --ff-only), then deploy
+#   deploy/deploy.sh --no-pull   deploy the code already present (specific commit, rollback)
+# 0. Update the code, fast-forward only; stop if that fails.
+# 1. One-off backup of the database and files by the "backup" service; stop if that fails.
+# 2. Rebuild and restart the containers. At startup, the API applies a pending migration only if
+#    the backup is less than PRE_MIGRATION_BACKUP_MAX_AGE_MINUTES minutes old (FR-018).
+# This also covers the first deployment: the database is started if needed before the backup.
 set -euo pipefail
 
 PULL=1
@@ -25,7 +25,7 @@ if [ "$PULL" = 1 ]; then
     echo "[deploy] ÉCHEC de git pull : aucun conteneur modifié. Corrigez le dépôt, ou déployez le code présent avec --no-pull." >&2
     exit 1
   fi
-  # Ce script a pu changer et bash le lit au fil de l'exécution : relancer la version à jour.
+  # This script may have changed and bash reads it as it runs: run the updated version.
   exec bash "$0" --no-pull
 fi
 

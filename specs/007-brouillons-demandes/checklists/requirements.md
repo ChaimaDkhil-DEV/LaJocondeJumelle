@@ -1,4 +1,4 @@
-# Specification Quality Checklist: Brouillons de demande de travail
+# Specification Quality Checklist: Brouillons de demande de travail (Work request drafts)
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
 **Created**: 2026-10-22
@@ -31,9 +31,9 @@
 
 ## Notes
 
-- Itération 1 : 1 question ouverte (emplacement des brouillons dans « Mes demandes », US2
-  scénario 1 et FR-004).
-- Itération 2 (2026-10-22) : réponse Q1 A consignée dans « Clarifications » ; US2 scénarios 1 et 6,
-  FR-004 et FR-004b ajustés. Tous les points passent.
-- Comportement du réglage désactivé non questionné : aligné sur l'existant (seule la création est
-  bloquée ; FR-008).
+- Iteration 1: 1 open question (location of drafts in « Mes demandes » (My requests), US2
+  scenario 1 and FR-004).
+- Iteration 2 (2026-10-22): answer Q1 A recorded in "Clarifications"; US2 scenarios 1 and 6,
+  FR-004 and FR-004b adjusted. All items pass.
+- Behavior of the disabled setting not questioned: aligned with the existing system (only creation is
+  blocked; FR-008).

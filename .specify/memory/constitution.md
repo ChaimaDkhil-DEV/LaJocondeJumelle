@@ -1,124 +1,123 @@
-# Constitution de LaJocondeJumelle
+# LaJocondeJumelle Constitution
 
 ## Core Principles
 
-### I. Développement piloté par les tests (NON NÉGOCIABLE)
+### I. Test-Driven Development (NON-NEGOTIABLE)
 
-- Tout comportement nouveau ou modifié DOIT d'abord être décrit par un test automatisé qui
-  échoue, avant d'écrire le code d'implémentation (cycle Rouge → Vert → Refactorisation).
-- Chaque user story DOIT avoir des tests d'acceptation traçables vers ses critères
-  d'acceptation dans la spécification.
-- Les règles métier (statuts, transitions, droits d'accès) DOIVENT être couvertes par des tests
-  unitaires ; les parcours utilisateur critiques DOIVENT être couverts par des tests
-  d'intégration ou de bout en bout.
-- Aucune modification ne peut être fusionnée si la suite de tests échoue.
+- Any new or changed behavior MUST first be described by a failing automated test, before
+  the implementation code is written (Red → Green → Refactor cycle).
+- Every user story MUST have acceptance tests traceable to its acceptance criteria
+  in the specification.
+- Business rules (statuses, transitions, access rights) MUST be covered by unit
+  tests; critical user journeys MUST be covered by integration or end-to-end tests.
+- No change may be merged if the test suite fails.
 
-**Justification** : les tests écrits en premier fixent le comportement attendu et protègent
-les règles administratives contre les régressions silencieuses.
+**Rationale**: tests written first fix the expected behavior and protect
+the administrative rules against silent regressions.
 
-### II. Simplicité / YAGNI
+### II. Simplicity / YAGNI
 
-- Chaque fonctionnalité DOIT être implémentée avec la solution la plus simple qui satisfait
-  les exigences actuelles de la spécification.
-- Aucune abstraction, dépendance, couche ou option de configuration ne DOIT être ajoutée pour
-  un besoin hypothétique futur.
-- Toute complexité supplémentaire (nouveau service, nouvelle dépendance majeure, nouveau
-  pattern architectural) DOIT être justifiée par écrit dans la section « Complexity Tracking »
-  du plan, avec l'alternative plus simple rejetée et la raison du rejet.
+- Every feature MUST be implemented with the simplest solution that satisfies
+  the current requirements of the specification.
+- No abstraction, dependency, layer or configuration option MUST be added for
+  a hypothetical future need.
+- Any additional complexity (new service, new major dependency, new architectural
+  pattern) MUST be justified in writing in the "Complexity Tracking" section
+  of the plan, with the simpler alternative that was rejected and the reason for rejecting it.
 
-**Justification** : un code simple est plus facile à tester, à sécuriser et à faire évoluer.
+**Rationale**: simple code is easier to test, to secure and to evolve.
 
-### III. Accessibilité et qualité UX
+### III. Accessibility and UX quality
 
-- Toute interface utilisateur DOIT respecter les WCAG 2.2 niveau AA : navigation complète au
-  clavier, contrastes suffisants, libellés explicites pour les champs de formulaire, focus
-  visible et sémantique HTML correcte.
-- L'interface DOIT être responsive et utilisable de 320 px de large jusqu'aux écrans de bureau,
-  sans défilement horizontal.
-- Les composants, libellés, messages d'erreur et états (chargement, vide, erreur, succès)
-  DOIVENT être cohérents dans toute l'application.
-- Les messages d'erreur DOIVENT indiquer clairement le problème et l'action corrective possible.
-- Des vérifications d'accessibilité automatisées DOIVENT faire partie de la suite de tests des
-  écrans livrés.
+- Every user interface MUST comply with WCAG 2.2 level AA: full keyboard
+  navigation, sufficient contrast, explicit labels for form fields, visible focus
+  and correct HTML semantics.
+- The interface MUST be responsive and usable from 320 px wide up to desktop screens,
+  without horizontal scrolling.
+- Components, labels, error messages and states (loading, empty, error, success)
+  MUST be consistent throughout the application.
+- Error messages MUST clearly state the problem and the possible corrective action.
+- Automated accessibility checks MUST be part of the test suite of the
+  screens delivered.
 
-**Justification** : une application administrative doit être utilisable par tous les agents
-et usagers, y compris ceux en situation de handicap.
+**Rationale**: an administrative application must be usable by all staff
+and users, including those with disabilities.
 
-### IV. Sécurité et protection des données
+### IV. Security and data protection
 
-- Toutes les entrées (formulaires, paramètres d'URL, API, fichiers téléversés) DOIVENT être
-  validées et assainies côté serveur ; la validation côté client ne suffit jamais.
-- Aucun secret (mot de passe, clé d'API, jeton) ne DOIT figurer dans le code source ni dans
-  l'historique du dépôt ; les secrets DOIVENT provenir de la configuration d'environnement ou
-  d'un gestionnaire de secrets.
-- Seules les données personnelles strictement nécessaires à une fonctionnalité DOIVENT être
-  collectées (minimisation, conformément au RGPD) ; leur finalité et leur durée de
-  conservation DOIVENT être documentées dans la spécification concernée.
-- Les échanges DOIVENT être chiffrés en transit (HTTPS), et les mots de passe DOIVENT être
-  stockés avec un algorithme de hachage adapté (par ex. Argon2 ou bcrypt).
-- Les dépendances présentant des vulnérabilités connues de sévérité élevée ou critique ne
-  DOIVENT pas être livrées en production.
+- All inputs (forms, URL parameters, API, uploaded files) MUST be
+  validated and sanitized on the server side; client-side validation is never enough.
+- No secret (password, API key, token) MUST appear in the source code or in the
+  repository history; secrets MUST come from the environment configuration or
+  from a secrets manager.
+- Only the personal data strictly necessary for a feature MUST be
+  collected (minimization, in line with the GDPR); its purpose and retention period
+  MUST be documented in the relevant specification.
+- Exchanges MUST be encrypted in transit (HTTPS), and passwords MUST be
+  stored with a suitable hashing algorithm (e.g. Argon2 or bcrypt).
+- Dependencies with known vulnerabilities of high or critical severity MUST
+  NOT be shipped to production.
 
-**Justification** : l'application traite des demandes administratives et des communications
-internes dont la fuite ou l'altération aurait des conséquences graves.
+**Rationale**: the application handles administrative requests and internal
+communications whose leak or alteration would have serious consequences.
 
-### V. Intégrité des workflows administratifs et des communications
+### V. Integrity of administrative workflows and communications
 
-- Chaque demande administrative DOIT avoir un statut explicite, issu d'un ensemble fini et
-  documenté, et ne peut changer de statut que par des transitions autorisées et définies.
-- Chaque création, modification ou changement de statut d'une demande DOIT être tracé dans un
-  journal d'audit non modifiable par les utilisateurs (auteur, date et heure, action, valeurs
-  avant et après).
-- L'accès aux demandes et aux actions DOIT être contrôlé par rôle (RBAC) ; les autorisations
-  DOIVENT être vérifiées côté serveur pour chaque requête, selon le principe du moindre
-  privilège.
-- Les communications internes DOIVENT être organisées (par fil, demande ou canal) et
-  consultables par les utilisateurs autorisés, et DOIVENT être protégées contre tout accès,
-  modification ou suppression non autorisés.
-- Tout refus d'accès DOIT être journalisé et ne DOIT pas révéler l'existence de ressources
-  auxquelles l'utilisateur n'a pas droit.
+- Every administrative request MUST have an explicit status, taken from a finite and
+  documented set, and can change status only through authorized, defined transitions.
+- Every creation, modification or status change of a request MUST be recorded in an
+  audit log that users cannot modify (author, date and time, action, values
+  before and after).
+- Access to requests and actions MUST be controlled by role (RBAC); authorizations
+  MUST be checked on the server side for every request, following the principle of least
+  privilege.
+- Internal communications MUST be organized (by thread, request or channel) and
+  viewable by authorized users, and MUST be protected against any unauthorized access,
+  modification or deletion.
+- Every access denial MUST be logged and MUST NOT reveal the existence of resources
+  the user has no right to.
 
-**Justification** : la confiance dans le traitement administratif repose sur la clarté des
-statuts, la traçabilité des actions et la confidentialité des échanges.
+**Rationale**: trust in administrative processing rests on clear
+statuses, traceability of actions and confidentiality of exchanges.
 
-## Contraintes techniques et de sécurité
+## Technical and security constraints
 
-- La pile technique (frameworks, base de données, hébergement) est choisie dans le plan
-  d'implémentation de chaque fonctionnalité, conformément aux principes II et IV ; tout écart
-  avec la pile existante DOIT être justifié.
-- L'authentification DOIT être obligatoire pour toute fonctionnalité non publique, et les
-  sessions DOIVENT expirer après une période d'inactivité définie.
-- Les journaux d'application et d'audit NE DOIVENT PAS contenir de secrets ni de données
-  personnelles sensibles en clair.
-- Les modèles de données des demandes, des rôles et des communications DOIVENT être documentés
-  (`data-model.md`) avant implémentation.
+- The technical stack (frameworks, database, hosting) is chosen in the implementation
+  plan of each feature, in line with principles II and IV; any deviation
+  from the existing stack MUST be justified.
+- Authentication MUST be mandatory for any non-public feature, and
+  sessions MUST expire after a defined period of inactivity.
+- Application and audit logs MUST NOT contain secrets or sensitive personal data
+  in clear text.
+- The data models for requests, roles and communications MUST be documented
+  (`data-model.md`) before implementation.
 
-## Workflow de développement et contrôles qualité
+## Development workflow and quality checks
 
-- Chaque fonctionnalité suit le cycle Spec Kit : spécification → clarification → plan →
-  tâches → implémentation.
-- Le plan DOIT inclure un « Constitution Check » vérifiant la conformité aux cinq principes
-  avant la phase de conception, puis à nouveau après celle-ci.
-- Toute modification DOIT passer une revue de code qui vérifie : tests écrits en premier et au
-  vert, absence de complexité injustifiée, accessibilité, sécurité (validation, secrets,
-  autorisations), traçabilité des actions administratives.
-- Une fonctionnalité n'est considérée comme terminée que si ses critères d'acceptation sont
-  couverts par des tests passants et que les vérifications d'accessibilité et de dépendances
-  sont au vert.
+- Every feature follows the Spec Kit cycle: specification → clarification → plan →
+  tasks → implementation.
+- The plan MUST include a "Constitution Check" verifying compliance with the five principles
+  before the design phase, and again after it.
+- Every change MUST pass a code review that checks: tests written first and
+  green, absence of unjustified complexity, accessibility, security (validation, secrets,
+  authorizations), traceability of administrative actions.
+- A feature is considered finished only if its acceptance criteria are
+  covered by passing tests and the accessibility and dependency checks
+  are green.
 
 ## Governance
 
-- Cette constitution prévaut sur toute autre pratique ou convention du projet. En cas de
-  conflit, la constitution s'applique.
-- Toute modification de la constitution DOIT être proposée par écrit, avec la justification,
-  l'impact sur les spécifications et plans existants et, si nécessaire, un plan de migration.
-- Versionnage sémantique de la constitution :
-  - MAJEUR : suppression ou redéfinition incompatible d'un principe ou d'une règle de
-    gouvernance ;
-  - MINEUR : ajout d'un principe ou d'une section, ou extension substantielle des règles ;
-  - CORRECTIF : clarifications, reformulations, corrections sans effet sur le fond.
-- La conformité est vérifiée à chaque plan (Constitution Check) et à chaque revue de code ;
-  toute dérogation DOIT être documentée et justifiée dans le plan concerné.
-- Une revue de la constitution est recommandée à chaque version majeure de l'application.
+- This constitution prevails over any other practice or convention of the project. In case of
+  conflict, the constitution applies.
+- Any change to the constitution MUST be proposed in writing, with the justification,
+  the impact on existing specifications and plans and, if necessary, a migration plan.
+- Semantic versioning of the constitution:
+  - MAJOR: removal or incompatible redefinition of a principle or of a
+    governance rule;
+  - MINOR: addition of a principle or a section, or substantial expansion of the rules;
+  - PATCH: clarifications, rewording, corrections with no effect on substance.
+- Compliance is verified at every plan (Constitution Check) and at every code review;
+  any exemption MUST be documented and justified in the relevant plan.
+- A review of the constitution is recommended at every major version of the application.
 
 **Version**: 1.0.0 | **Ratified**: 2026-10-12 | **Last Amended**: 2026-10-12

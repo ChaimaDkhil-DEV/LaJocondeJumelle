@@ -1,4 +1,4 @@
-# Implementation Plan: Retards et absences des enseignants, affectation des surveillants
+# Implementation Plan: Teacher lateness and absences, supervisor assignment
 
 **Branch**: `004-retards-affectation-surveillants` | **Date**: 2026-10-16 | **Spec**: [spec.md](./spec.md)
 
@@ -8,224 +8,225 @@
 
 ## Summary
 
-Faire évoluer la fonctionnalité « Gardes » (lot 2) en module d'affectations, sans créer de
-module parallèle :
+Evolve the "Gardes" (guard duties, phase 2) feature into an assignments module, without creating
+a parallel module:
 
-- **Attribution** : la diffusion « premier volontaire » disparaît ; seul l'admin assigne et
-  réassigne. Exception : un surveillant qui déclare une classe vide en reçoit l'affectation, déjà
-  « en cours ». Les mécanismes existants sont conservés : présence QR/photo, délai d'arrivée,
-  prolongation, relève, validation.
-- **Trois sources** : demande d'enseignant (aujourd'hui/demain, plage libre), déclaration de
-  classe vide, affectation directe. **Trois types** : retard, absence, classe vide.
-- **Statuts** : six statuts principaux et des sous-états, **calculés** à partir de
-  `Request.status` existant, plus une seule nouvelle valeur `PENDING` (R1).
-- **Échéances** : une table `CoverageReminder` et un job unique couvrent le délai de prise en
-  charge, l'escalade, le rappel de 7 h, les rappels de clôture et les rappels de renfort (R2, R3).
-  Le passage « non pourvue » et l'anonymisation à 12 mois glissants sont des jobs dédiés.
-- **Nouveautés de structure** :
-  - étages (super administrateur) ;
-  - groupes « Enseignants » et « Surveillants » repérés par une clé système ;
-  - renforts ;
-  - propositions de fusion des doublons ;
-  - statistiques calculées à la demande.
-- **Rôle** : `MANAGER` est renommé `ADMIN` (enum PostgreSQL) et l'espace du super administrateur est libellé « Administrateur ».
-  Seule la valeur du **rôle** `Role.MANAGER` change : le mode de clôture `ClosureMode.MANAGER` et
-  l'acteur `'MANAGER'` des machines à états (demandes et gardes) sont d'autres notions et restent
-  tels quels.
-- **Migration** : deux étapes, `0008` additive puis `0009` données, chacune avec un `down.sql`.
-  Elle est précédée d'un pré-contrôle et de trois validations humaines. Chaque changement de
-  statut est tracé par un événement ajouté ; aucun historique n'est réécrit.
+- **Allocation**: the "first volunteer" broadcast goes away; only the admin assigns and
+  reassigns. Exception: a supervisor who reports an empty class receives the assignment for it,
+  already "en cours" (in progress). The existing mechanisms are kept: QR/photo presence, arrival
+  deadline, extension, handover, validation.
+- **Three sources**: teacher request (today/tomorrow, free time range), empty-class report,
+  direct assignment. **Three types**: lateness, absence, empty class.
+- **Statuses**: six main statuses and sub-states, **computed** from the existing
+  `Request.status`, plus a single new value `PENDING` (R1).
+- **Due dates**: a `CoverageReminder` table and a single job cover the pick-up deadline,
+  escalation, the 7:00 reminder, closing reminders and backup reminders (R2, R3).
+  The switch to "non pourvue" (unfilled) and the anonymization at 12 rolling months are dedicated
+  jobs.
+- **Structural additions**:
+  - floors (super administrator);
+  - "Enseignants" and "Surveillants" groups identified by a system key;
+  - backups;
+  - merge proposals for duplicates;
+  - statistics computed on demand.
+- **Role**: `MANAGER` is renamed `ADMIN` (PostgreSQL enum) and the super administrator area is labeled "Administrateur".
+  Only the value of the **role** `Role.MANAGER` changes: the closure mode `ClosureMode.MANAGER` and
+  the `'MANAGER'` actor of the state machines (requests and guard duties) are other notions and
+  stay as they are.
+- **Migration**: two steps, additive `0008` then data `0009`, each with a `down.sql`.
+  It is preceded by a pre-check and three human validations. Each status change is traced by an
+  added event; no history is rewritten.
 
-Aucune nouvelle dépendance. Détails : [research.md](./research.md).
+No new dependency. Details: [research.md](./research.md).
 
 ## Technical Context
 
-**Language/Version**: TypeScript 5.9 (strict), Node.js 24 — inchangé
+**Language/Version**: TypeScript 5.9 (strict), Node.js 24 — unchanged
 
 **Primary Dependencies**: NestJS 11 (`@nestjs/schedule`, `@nestjs/websockets` + Socket.IO), Prisma 6,
-React 19, Vite, TanStack Query 5, MUI — inchangés. **Aucun ajout** (fuseau via `Intl`, signal
-sonore via Web Audio API).
+React 19, Vite, TanStack Query 5, MUI — unchanged. **No addition** (time zone via `Intl`, sound
+signal via Web Audio API).
 
-**Storage**: PostgreSQL 17. Deux migrations : `0008_supervision_schema` (additive) et
-`0009_supervision_data` (données), chacune avec `down.sql` ([contracts/migration.md](./contracts/migration.md)).
-Quatre tables (`Floor`, `CoverageSupport`, `CoverageMergeProposal`, `CoverageReminder`), colonnes
-sur `CoverageDetail`, `SchoolClass`, `User`, `EmployeeGroup` ([data-model.md](./data-model.md)).
+**Storage**: PostgreSQL 17. Two migrations: `0008_supervision_schema` (additive) and
+`0009_supervision_data` (data), each with `down.sql` ([contracts/migration.md](./contracts/migration.md)).
+Four tables (`Floor`, `CoverageSupport`, `CoverageMergeProposal`, `CoverageReminder`), columns
+on `CoverageDetail`, `SchoolClass`, `User`, `EmployeeGroup` ([data-model.md](./data-model.md)).
 
-**Testing**: Jest (unitaires ; intégration sur PostgreSQL embarqué, `--runInBand`), Vitest + RTL,
-Playwright (360/768/1280 px). Tests écrits avant le code (principe I).
+**Testing**: Jest (unit; integration on embedded PostgreSQL, `--runInBand`), Vitest + RTL,
+Playwright (360/768/1280 px). Tests written before the code (principle I).
 
-**Target Platform**: une seule application web adaptative (smartphone, tablette, ordinateur) ;
-production VPS Linux, Docker Compose, Caddy. Pas de mobile natif, pas de push, pas de canal
-externe (aucun n'existe).
+**Target Platform**: a single responsive web application (smartphone, tablet, computer);
+production on a Linux VPS, Docker Compose, Caddy. No native mobile app, no push, no external
+channel (none exists).
 
-**Project Type**: application web (API `backend/` + SPA `frontend/`, workspaces npm) + `e2e/`.
+**Project Type**: web application (`backend/` API + `frontend/` SPA, npm workspaces) + `e2e/`.
 
-**Performance Goals**: notification d'un signalement ou d'une déclaration en moins de 5 s
-(SC-003), avec un job de 15 s pour les échéances, comme l'existant. Liste des candidats et
-statistiques du mois en moins de 1 s à l'échelle d'une école.
+**Performance Goals**: notification of a report or declaration in under 5 s
+(SC-003), with a 15 s job for the due dates, as today. Candidate list and
+month statistics in under 1 s at the scale of one school.
 
 **Constraints**:
 
-- aucune régression : tests existants verts, adaptés seulement pour le renommage du rôle et la
-  diffusion retirée (FR-002) ;
-- `RequestEvent` et `AuditLog` restent en ajout seul ;
-- une seule instance d'API (inchangé) ; verrous consultatifs pour les jobs ;
-- fuseau de l'école `SCHOOL_TIMEZONE` (R4).
+- no regression: existing tests green, adapted only for the role rename and the removed
+  broadcast (FR-002);
+- `RequestEvent` and `AuditLog` stay append-only;
+- a single API instance (unchanged); advisory locks for the jobs;
+- school time zone `SCHOOL_TIMEZONE` (R4).
 
 **Scale/Scope**:
 
-- une école : de l'ordre de 100 comptes, 50 classes, quelques étages et quelques dizaines
-  d'affectations par jour ;
-- environ 15 écrans touchés ou ajoutés ;
-- 415 occurrences de « responsable » dans 82 fichiers à traiter (dont tests et documentation),
-  décompte du 2026-10-16 sur `master` après la PR #11, hors spécifications.
+- one school: on the order of 100 accounts, 50 classes, a few floors and a few dozen
+  assignments per day;
+- about 15 screens touched or added;
+- 415 occurrences of "responsable" in 82 files to handle (including tests and documentation),
+  count of 2026-10-16 on `master` after PR #11, excluding specifications.
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-| Principe | Vérification avant conception | Après conception (Phase 1) |
+| Principle | Check before design | After design (Phase 1) |
 | --- | --- | --- |
-| **I. TDD** | Chaque FR et scénario d'acceptation reçoit un test qui échoue d'abord. Règles de statuts, transitions et droits : tests unitaires. Parcours : tests d'intégration et e2e. | ✅ Stratégie détaillée ci-dessous. La machine d'états, le statut principal, les échéances et le fuseau sont des modules **purs**, testables unitairement. |
-| **II. Simplicité / YAGNI** | Réutiliser gardes, groupes, notifications, disponibilité, présence, relève. Aucune dépendance. | ✅ Statuts dérivés (pas de 2ᵉ source) ; statistiques calculées (pas d'agrégats) ; pas d'emploi du temps ni de module d'absences. Quatre tables justifiées (Complexity Tracking). |
-| **III. Accessibilité / UX** | WCAG 2.2 AA, 320 px, états cohérents, messages actionnables. | ✅ Composants MUI existants. Les alertes urgentes ne reposent jamais sur le son seul : `aria-live="assertive"` et Snackbar `role="alert"` existants, son facultatif. Contrôles axe et e2e à 360/768/1280 px. |
-| **IV. Sécurité / données** | Validation serveur, minimisation RGPD, finalité et durée documentées. | ✅ DTO validés (dates bornées au fuseau de l'école). Motif détaillé visible de l'admin et du super administrateur seulement. Anonymisation à N mois glissants. `SCHOOL_TIMEZONE` validé au démarrage. Aucun secret ajouté. |
-| **V. Intégrité des workflows** | Statuts finis, transitions définies, audit non modifiable, RBAC serveur, refus journalisés sans divulgation. | ✅ Table de transitions complète (data-model §4). Chaque changement, y compris par la migration et l'anonymisation, **ajoute** un `RequestEvent`. Audit pour les actions d'admin. `404` et `ACCESS_DENIED` hors périmètre. Le journal d'audit et l'historique sont exclus de l'anonymisation. |
+| **I. TDD** | Every FR and acceptance scenario gets a test that fails first. Status rules, transitions and rights: unit tests. Journeys: integration and e2e tests. | ✅ Strategy detailed below. The state machine, main status, due dates and time zone are **pure** modules, unit-testable. |
+| **II. Simplicity / YAGNI** | Reuse guard duties, groups, notifications, availability, presence, handover. No dependency. | ✅ Derived statuses (no 2nd source); computed statistics (no aggregates); no timetable or absences module. Four tables justified (Complexity Tracking). |
+| **III. Accessibility / UX** | WCAG 2.2 AA, 320 px, consistent states, actionable messages. | ✅ Existing MUI components. Urgent alerts never rely on sound alone: existing `aria-live="assertive"` and Snackbar `role="alert"`, sound optional. axe checks and e2e at 360/768/1280 px. |
+| **IV. Security / data** | Server validation, GDPR minimization, purpose and retention documented. | ✅ Validated DTOs (dates bounded to the school time zone). Detailed reason visible to the admin and the super administrator only. Anonymization at N rolling months. `SCHOOL_TIMEZONE` validated at startup. No secret added. |
+| **V. Workflow integrity** | Finite statuses, defined transitions, non-modifiable audit, server RBAC, refusals logged without disclosure. | ✅ Complete transition table (data-model §4). Each change, including by the migration and the anonymization, **adds** a `RequestEvent`. Audit for admin actions. `404` and `ACCESS_DENIED` outside the scope. The audit log and the history are excluded from anonymization. |
 
-Contraintes techniques : pile inchangée ✅ ; `data-model.md` rédigé avant implémentation ✅ ;
-authentification et sessions inchangées ✅. **Aucune violation non justifiée.**
+Technical constraints: stack unchanged ✅; `data-model.md` written before implementation ✅;
+authentication and sessions unchanged ✅. **No unjustified violation.**
 
-## Décisions validées (questions posées pendant le plan)
+## Validated decisions (questions asked during the plan)
 
-| # | Sujet | Choix |
+| # | Topic | Choice |
 | --- | --- | --- |
-| D1 | Stockage des statuts | Dérivés de `Request.status` + valeur `PENDING` (R1) |
-| D2 | Échéances | Table `CoverageReminder` + un job (R2) |
-| D3 | Anonymisation | Données du module seulement ; historique et audit intacts (R5) |
-| D4 | Fusion | Affectation absorbée « annulée » + `mergedIntoId`, exclue des statistiques (R6) |
-| D5 | Fuseau | Variable `SCHOOL_TIMEZONE`, défaut `Europe/Paris` (R4) |
-| D6 | Rétention | Âge glissant, 12 mois réglables (R5) |
+| D1 | Status storage | Derived from `Request.status` + `PENDING` value (R1) |
+| D2 | Due dates | `CoverageReminder` table + one job (R2) |
+| D3 | Anonymization | Module data only; history and audit intact (R5) |
+| D4 | Merge | Absorbed assignment "cancelled" + `mergedIntoId`, excluded from statistics (R6) |
+| D5 | Time zone | `SCHOOL_TIMEZONE` variable, default `Europe/Paris` (R4) |
+| D6 | Retention | Rolling age, 12 adjustable months (R5) |
 
-Choix découlant de la spec, **validés le 2026-10-16** (reportés dans la spec : Clarifications,
-FR-016a, FR-017a) :
+Choices that follow from the spec, **validated on 2026-10-16** (carried into the spec:
+Clarifications, FR-016a, FR-017a):
 
-- **R10** : la déclaration de classe vide n'exige pas de preuve de présence. Un QR code scanné
-  est enregistré s'il est fourni.
-- **R11** : sans admin actif, les notifications « admin » des **gardes et affectations** vont aux
-  super administrateurs (spec Q23). Sur les demandes de travail, le filtre du super administrateur
-  (`notifications/super-admin-policy.ts`, PR #7) reste la règle : seulement urgentes, sans employé
-  affecté ou en retard. L'enseignant auteur est notifié de l'assignation.
-- **R3** : la fin de créneau inconnue des anciennes gardes est réputée être la fin de journée.
+- **R10**: the empty-class report does not require proof of presence. A scanned QR code is
+  recorded if provided.
+- **R11**: with no active admin, the "admin" notifications for **guard duties and assignments** go
+  to the super administrators (spec Q23). On work requests, the super administrator filter
+  (`notifications/super-admin-policy.ts`, PR #7) stays the rule: only urgent ones, with no
+  assigned or delayed employee. The teacher author is notified of the assignment.
+- **R3**: the unknown time-slot end of old guard duties is deemed to be the end of the day.
 
-## Permissions par rôle
+## Permissions by role
 
-Contrôles côté serveur dans `coverage-policy.ts` (pur). Le rôle vient de `User.role`, les
-fonctions de l'appartenance aux groupes à clé système.
+Checks are made server side in `coverage-policy.ts` (pure). The role comes from `User.role`, the
+functions from membership in the system-key groups.
 
-| Capacité | Super admin | Admin | Surveillant | Enseignant | Autres employés |
+| Capability | Super admin | Admin | Supervisor | Teacher | Other employees |
 | --- | --- | --- | --- | --- | --- |
-| Voir le module | ✅ | ✅ | ses affectations et renforts | ses demandes | ❌ (`404`) |
-| Signaler retard/absence, modifier ou retirer en attente | ✅ | si membre Enseignants | si membre Enseignants | ✅ (les siennes) | ❌ |
-| Déclarer une classe vide | ✅ | si membre Surveillants | ✅ | si membre Surveillants | ❌ |
-| Assigner, réassigner, annuler, créer en direct | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Décider fusion et renfort, corriger l'enseignant | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Départ, présence, relève, terminer, prolonger | si affecté | si affecté (prolonger : toujours) | si affecté | ❌ | ❌ |
-| Voir le motif détaillé | ✅ | ✅ | ❌ | le sien | ❌ |
-| Statistiques et historique par enseignant | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Étages, rattachement des classes, étage d'un surveillant, réglages | ✅ | ❌ | ❌ | ❌ | ❌ |
-| Être assigné | si membre Surveillants | si membre Surveillants | ✅ | si membre Surveillants | ❌ |
+| See the module | ✅ | ✅ | their assignments and backups | their requests | ❌ (`404`) |
+| Report lateness/absence, edit or withdraw while pending | ✅ | if member of Enseignants | if member of Enseignants | ✅ (their own) | ❌ |
+| Report an empty class | ✅ | if member of Surveillants | ✅ | if member of Surveillants | ❌ |
+| Assign, reassign, cancel, create directly | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Decide merge and backup, correct the teacher | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Depart, presence, handover, finish, extend | if assigned | if assigned (extend: always) | if assigned | ❌ | ❌ |
+| See the detailed reason | ✅ | ✅ | ❌ | their own | ❌ |
+| Statistics and history by teacher | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Floors, linking classes, a supervisor's floor, settings | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Be assigned | if member of Surveillants | if member of Surveillants | ✅ | if member of Surveillants | ❌ |
 
-Le reste de l'application (demandes de travail et leurs modes de routage, lecture seule des
-demandes terminées, notifications du super administrateur, administration) se comporte comme
-dans `master` après la PR #9 (spec Q22, Q24). `ADMIN` reprend les droits de l'ex-`MANAGER`
-(`RolePermission`, `creatorRoles`, `CategoryManager`), y compris ceux qu'il tient du mode de
-routage. Points de code où la valeur du rôle est testée et doit passer à `ADMIN` :
+The rest of the application (work requests and their routing modes, read-only view of finished
+requests, super administrator notifications, administration) behaves as in `master` after PR #9
+(spec Q22, Q24). `ADMIN` takes over the rights of the former `MANAGER`
+(`RolePermission`, `creatorRoles`, `CategoryManager`), including those it holds from the routing
+mode. Code places where the role value is tested and must become `ADMIN`:
 
-- `requests/domain/access-policy.ts` : `isAdministration` (consultation en lecture seule des
-  modes direct et entre enseignants) et `canCreateInCategory` (création dans toute catégorie) ;
-- `requests/domain/visibility.ts` : visibilité des demandes `DIRECT` et `PEER` pour tout admin ;
-- `coverage/coverage.service.ts` (gestion des gardes) et les autres tests de rôle repérés lors du
-  renommage.
+- `requests/domain/access-policy.ts`: `isAdministration` (read-only view of direct and
+  peer-to-peer modes) and `canCreateInCategory` (creation in any category);
+- `requests/domain/visibility.ts`: visibility of `DIRECT` and `PEER` requests for any admin;
+- `coverage/coverage.service.ts` (guard duty management) and the other role tests found during
+  the rename.
 
-## Tâches planifiées (`backend/src/scheduler/`)
+## Scheduled tasks (`backend/src/scheduler/`)
 
-| Job | Fréquence | Rôle | Idempotence |
+| Job | Frequency | Role | Idempotence |
 | --- | --- | --- | --- |
-| `CoverageRemindersJob` (nouveau) | 15 s | Traite les `CoverageReminder` échus : `TAKEOVER` (alerte admins puis crée `TAKEOVER_ESCALATION`), `TAKEOVER_ESCALATION` (SA), `MORNING` (admins, si encore `PENDING`), `END_OF_SLOT` (surveillant puis `END_OF_SLOT_ADMIN`), `SUPPORT_DECISION` (répété, plafonné, puis `SUPPORT_ESCALATION`) | verrou consultatif, `FOR UPDATE SKIP LOCKED`, `attempts`/`resolvedAt` ; condition revérifiée avant envoi |
-| `CoverageUnfilledJob` (nouveau, même fichier ou voisin) | 15 s | `PENDING` dont la fin de créneau est passée → `UNFILLED` (`EXPIRE_UNFILLED`) | mise à jour conditionnelle sur `{status, version}` |
-| `CoverageDeadlinesJob` (modifié) | 15 s | Garde seulement `ARRIVAL` (`ACCEPTED`/`EN_ROUTE` → `LATE`) ; retire `BROADCAST → UNFILLED` | inchangé (`overdueStage`) |
-| `CoverageAnonymizationJob` (nouveau) | toutes les heures | Anonymise les affectations finales de plus de `coverageRetentionMonths` | `anonymizedAt` ; lots de 200 |
+| `CoverageRemindersJob` (new) | 15 s | Processes due `CoverageReminder` rows: `TAKEOVER` (alerts admins then creates `TAKEOVER_ESCALATION`), `TAKEOVER_ESCALATION` (SA), `MORNING` (admins, if still `PENDING`), `END_OF_SLOT` (supervisor then `END_OF_SLOT_ADMIN`), `SUPPORT_DECISION` (repeated, capped, then `SUPPORT_ESCALATION`) | advisory lock, `FOR UPDATE SKIP LOCKED`, `attempts`/`resolvedAt`; condition rechecked before sending |
+| `CoverageUnfilledJob` (new, same file or neighboring) | 15 s | `PENDING` whose time slot end has passed → `UNFILLED` (`EXPIRE_UNFILLED`) | conditional update on `{status, version}` |
+| `CoverageDeadlinesJob` (modified) | 15 s | Guards `ARRIVAL` only (`ACCEPTED`/`EN_ROUTE` → `LATE`); removes `BROADCAST → UNFILLED` | unchanged (`overdueStage`) |
+| `CoverageAnonymizationJob` (new) | every hour | Anonymizes final assignments older than `coverageRetentionMonths` | `anonymizedAt`; batches of 200 |
 
-**Contrainte à reprendre telle quelle dans `tasks.md`** (FR-016a, R3) : pour une garde « jusqu'à
-l'arrivée » (`plannedEndAt` null, gardes antérieures), l'échéance `END_OF_SLOT` est la fin de la
-journée locale + `coverageCloseReminderMinutes` ; **aucun rappel de clôture ne part avant la fin
-de journée**. Un test unitaire (`coverage-reminders.spec.ts`) et un test du job le vérifient.
+**Constraint to carry over as is into `tasks.md`** (FR-016a, R3): for a guard duty "until
+arrival" (`plannedEndAt` null, earlier guard duties), the `END_OF_SLOT` due date is the end of
+the local day + `coverageCloseReminderMinutes`; **no closing reminder is sent before the end of
+the day**. A unit test (`coverage-reminders.spec.ts`) and a job test check it.
 
-Toutes les heures locales passent par `school-time.ts`. Les tests appellent `runOnce(now)` avec
-une horloge injectée, comme les jobs existants.
+All local times go through `school-time.ts`. Tests call `runOnce(now)` with an injected clock,
+like the existing jobs.
 
-## Notifications et alertes
+## Notifications and alerts
 
-Voir [contracts/realtime-events.md](./contracts/realtime-events.md) : onze nouveaux types, priorité
-`URGENT` pour les cas urgents, mise en évidence visuelle et vocale (lecteurs d'écran) existante,
-et signal sonore facultatif ajouté au `NotificationCenter`.
+See [contracts/realtime-events.md](./contracts/realtime-events.md): eleven new types, `URGENT`
+priority for urgent cases, existing visual and spoken highlighting (screen readers), and an
+optional sound signal added to the `NotificationCenter`.
 
-## Validations avant migration
+## Validations before migration
 
-Pré-contrôle en lecture seule et validations **V1** (membres non surveillants), **V2** (statuts
-sans équivalent, garde-fou SQL dans `0009`) et **V3** (durée de conservation) :
-[contracts/migration.md](./contracts/migration.md) étape 0.
+Read-only pre-check and validations **V1** (non-supervisor members), **V2** (statuses with no
+equivalent, SQL guard in `0009`) and **V3** (retention duration):
+[contracts/migration.md](./contracts/migration.md) step 0.
 
-## Stratégie de tests
+## Test strategy
 
-Ordre TDD : test rouge → code → refactorisation, story par story (US4 rôle → US1 → US2 → US3 →
-US5), migration en premier pour la structure.
+TDD order: red test → code → refactoring, story by story (US4 role → US1 → US2 → US3 →
+US5), migration first for the structure.
 
-- **Unitaires (Jest, `backend/test/unit/`)** :
-  - `coverage-state-machine.spec.ts` réécrit : table data-model §4, actions retirées refusées,
-    surveillant sans action d'acceptation, de refus ni d'annulation ;
-  - `coverage-main-status.spec.ts` : correspondance R1 complète ;
-  - `coverage-reminders.spec.ts` : seuil de 60 min, 7 h, fin de créneau, renfort plafonné, recalcul
-    après modification et prolongation ;
-  - `school-time.spec.ts` : aujourd'hui/demain, changement d'heure, minuit ;
-  - `coverage-availability.spec.ts` : renfort occupé, disponibilité déclarée, tri par étage ;
-  - `coverage-duplicates.spec.ts` : table data-model §6 ;
-  - `coverage-stats.spec.ts` : décomptes, fusions, « non tranché » ;
-  - `coverage-policy.spec.ts` : matrice des permissions complète ;
-  - `config.spec.ts` : `SCHOOL_TIMEZONE` ;
-  - `architecture-layers.spec.ts` : inchangé et vert.
-- **Intégration (`backend/test/integration/`)** :
-  - un fichier par story : `supervision-teacher-request`, `supervision-empty-class`,
-    `supervision-direct`, `supervision-stats`, `role-admin-rename` ;
-  - `supervision-jobs` : horloge simulée, escalades, non pourvue, anonymisation sans toucher à
-    `RequestEvent` ni `AuditLog` ;
-  - `supervision-permissions` : chaque refus est journalisé et répond `404` hors périmètre ;
-  - `migration-0009` : montée, contrôles, `down.sql`, garde-fous ;
-  - `append-only.spec.ts` : inchangé.
-- **Adaptation des tests de gardes** :
-  - `coverage.spec.ts` : les cas de diffusion et d'acceptation (1, 2, 2 bis, 3, 5, 5 bis, 6,
-    « taken » en direct, groupe vide) sont remplacés par leurs équivalents d'assignation par
-    l'admin ou supprimés quand le comportement n'existe plus ;
-  - les cas de présence, relève, prolongation, retard, annulation, QR et photo sont conservés,
-    avec une préparation par `ASSIGN` ;
-  - `coverage-work-isolation.spec.ts`, `reassign.spec.ts` et `notifications.spec.ts` : ajustés
-    au rôle `ADMIN` ; de même pour les tests ajoutés depuis la spécification, qui emploient le
-    rôle et le compte `responsable` : `routing-modes.spec.ts`, `superadmin-notifications.spec.ts`,
-    `categories-form-list.spec.ts`, `admin-dashboard.spec.ts` (intégration), les tests frontend du
-    routage et du tableau de bord, et les e2e `us6-deadlines`, `us8-admin`, `admin-dashboard` ;
-  - chaque suppression de test est listée dans la PR avec sa raison (exigence supprimée par la
+- **Unit (Jest, `backend/test/unit/`)**:
+  - `coverage-state-machine.spec.ts` rewritten: data-model §4 table, removed actions refused,
+    supervisor with no accept, refuse or cancel action;
+  - `coverage-main-status.spec.ts`: complete R1 mapping;
+  - `coverage-reminders.spec.ts`: 60 min threshold, 7:00, time slot end, capped backup,
+    recomputation after modification and extension;
+  - `school-time.spec.ts`: today/tomorrow, daylight saving change, midnight;
+  - `coverage-availability.spec.ts`: busy backup, declared availability, sorting by floor;
+  - `coverage-duplicates.spec.ts`: data-model §6 table;
+  - `coverage-stats.spec.ts`: counts, merges, "non tranché" (undecided);
+  - `coverage-policy.spec.ts`: complete permissions matrix;
+  - `config.spec.ts`: `SCHOOL_TIMEZONE`;
+  - `architecture-layers.spec.ts`: unchanged and green.
+- **Integration (`backend/test/integration/`)**:
+  - one file per story: `supervision-teacher-request`, `supervision-empty-class`,
+    `supervision-direct`, `supervision-stats`, `role-admin-rename`;
+  - `supervision-jobs`: simulated clock, escalations, unfilled, anonymization without touching
+    `RequestEvent` or `AuditLog`;
+  - `supervision-permissions`: each refusal is logged and answers `404` outside the scope;
+  - `migration-0009`: upgrade, checks, `down.sql`, guards;
+  - `append-only.spec.ts`: unchanged.
+- **Adapting the guard duty tests**:
+  - `coverage.spec.ts`: the broadcast and acceptance cases (1, 2, 2 bis, 3, 5, 5 bis, 6,
+    live "taken", empty group) are replaced by their admin-assignment equivalents or removed
+    when the behavior no longer exists;
+  - the presence, handover, extension, lateness, cancellation, QR and photo cases are kept,
+    set up through `ASSIGN`;
+  - `coverage-work-isolation.spec.ts`, `reassign.spec.ts` and `notifications.spec.ts`: adjusted
+    to the `ADMIN` role; likewise for the tests added since the specification, which use the
+    `responsable` role and account: `routing-modes.spec.ts`, `superadmin-notifications.spec.ts`,
+    `categories-form-list.spec.ts`, `admin-dashboard.spec.ts` (integration), the frontend tests
+    for routing and the dashboard, and the e2e `us6-deadlines`, `us8-admin`, `admin-dashboard`;
+  - each test removal is listed in the PR with its reason (requirement removed by the
     spec).
-- **Frontend (Vitest + RTL + axe)** :
-  - formulaires enseignant et surveillant, file admin priorisée, badges de sous-état,
-    propositions et renforts, statistiques, étages ;
-  - alerte urgente : rôle `alert`, aucune dépendance au son ;
-  - `enums-sync.test.ts` : nouveaux enums ;
-  - `coverage.test.tsx` : retrait des cas « À prendre » et « Je prends ».
-- **E2E (Playwright)** : `coverage-class.spec.ts` réécrit avec trois parcours (demande →
-  assignation → terminée ; classe vide → doublon → renfort ; affectation directe) aux trois
-  largeurs ; `us8-admin`, `auth`, `us5`, `us6` adaptés au compte `admin`.
-- **Non-régression** : suites complètes backend, frontend et e2e vertes avant fusion, comme le
-  CI existant.
+- **Frontend (Vitest + RTL + axe)**:
+  - teacher and supervisor forms, prioritized admin queue, sub-state badges,
+    proposals and backups, statistics, floors;
+  - urgent alert: `alert` role, no dependence on sound;
+  - `enums-sync.test.ts`: new enums;
+  - `coverage.test.tsx`: removal of the "À prendre" (To take) and "Je prends" (I take it) cases.
+- **E2E (Playwright)**: `coverage-class.spec.ts` rewritten with three journeys (request →
+  assignment → done; empty class → duplicate → backup; direct assignment) at the three
+  widths; `us8-admin`, `auth`, `us5`, `us6` adapted to the `admin` account.
+- **Non-regression**: full backend, frontend and e2e suites green before merge, like the
+  existing CI.
 
 ## Project Structure
 
@@ -233,14 +234,14 @@ US5), migration en premier pour la structure.
 
 ```text
 specs/004-retards-affectation-surveillants/
-├── plan.md              # ce fichier
-├── research.md          # décisions R1–R15
-├── data-model.md        # modèle, transitions, disponibilité, statistiques
-├── quickstart.md        # validation de bout en bout
+├── plan.md              # this file
+├── research.md          # decisions R1–R15
+├── data-model.md        # model, transitions, availability, statistics
+├── quickstart.md        # end-to-end validation
 ├── contracts/
 │   ├── rest-api.md
 │   ├── realtime-events.md
-│   └── migration.md     # étapes, validations V1–V3, retour arrière
+│   └── migration.md     # steps, validations V1–V3, rollback
 ├── checklists/requirements.md
 └── tasks.md             # /speckit-tasks
 ```
@@ -250,58 +251,58 @@ specs/004-retards-affectation-surveillants/
 ```text
 backend/
 ├── prisma/
-│   ├── schema.prisma                         # enums, Floor, CoverageSupport, CoverageMergeProposal, CoverageReminder, colonnes
+│   ├── schema.prisma                         # enums, Floor, CoverageSupport, CoverageMergeProposal, CoverageReminder, columns
 │   ├── migrations/0008_supervision_schema/   # migration.sql + down.sql
 │   ├── migrations/0009_supervision_data/     # migration.sql + down.sql
-│   └── seed.ts                               # admin, enseignante, surveillants, étages
-├── scripts/supervision-preflight.ts          # pré-contrôle (lecture seule)
+│   └── seed.ts                               # admin, enseignante, supervisors, floors
+├── scripts/supervision-preflight.ts          # pre-check (read-only)
 └── src/
     ├── config/                               # SCHOOL_TIMEZONE
-    ├── common/school-time.ts                 # jour/heure locale (pur)
-    ├── settings/                             # clés coverage*
+    ├── common/school-time.ts                 # local day/time (pure)
+    ├── settings/                             # coverage* keys
     ├── coverage/
-    │   ├── domain/coverage-state-machine.ts  # transitions (modifié)
-    │   ├── domain/coverage-status.ts         # statut principal + sous-état (nouveau, pur)
-    │   ├── domain/coverage-reminders.ts      # calcul des échéances (nouveau, pur)
-    │   ├── domain/coverage-duplicates.ts     # règles de rattachement (nouveau, pur)
-    │   ├── domain/coverage-policy.ts         # acteurs et permissions (modifié)
-    │   ├── coverage-availability.ts          # renfort, tri par étage (modifié)
-    │   ├── coverage-actions.service.ts       # sans diffusion ; renfort, fusion (modifié)
-    │   ├── coverage.service.ts / .controller.ts / .dto.ts / .mapper.ts   # nouvelles routes
-    │   ├── coverage-stats.service.ts         # statistiques (nouveau)
-    │   ├── coverage-anonymization.service.ts # (nouveau)
-    │   └── coverage-admin.*                  # étages, floorId des classes
+    │   ├── domain/coverage-state-machine.ts  # transitions (modified)
+    │   ├── domain/coverage-status.ts         # main status + sub-state (new, pure)
+    │   ├── domain/coverage-reminders.ts      # due date computation (new, pure)
+    │   ├── domain/coverage-duplicates.ts     # attachment rules (new, pure)
+    │   ├── domain/coverage-policy.ts         # actors and permissions (modified)
+    │   ├── coverage-availability.ts          # backup, sorting by floor (modified)
+    │   ├── coverage-actions.service.ts       # no broadcast; backup, merge (modified)
+    │   ├── coverage.service.ts / .controller.ts / .dto.ts / .mapper.ts   # new routes
+    │   ├── coverage-stats.service.ts         # statistics (new)
+    │   ├── coverage-anonymization.service.ts # (new)
+    │   └── coverage-admin.*                  # floors, floorId of classes
     ├── users/                                # floorId
     └── scheduler/
-        ├── coverage-reminders.job.ts         # (nouveau)
-        ├── coverage-anonymization.job.ts     # (nouveau)
-        └── coverage-deadlines.job.ts         # ARRIVAL seulement (modifié)
-    test/unit/…, test/integration/…           # voir stratégie de tests
+        ├── coverage-reminders.job.ts         # (new)
+        ├── coverage-anonymization.job.ts     # (new)
+        └── coverage-deadlines.job.ts         # ARRIVAL only (modified)
+    test/unit/…, test/integration/…           # see test strategy
 
 frontend/
 ├── src/
-│   ├── api/types.ts                          # Role ADMIN, nouveaux enums
-│   ├── app/AppLayout.tsx, features/admin/    # libellés Admin / Administrateur, étages, floorId
-│   ├── features/coverage/                    # formulaires enseignant et surveillant, file admin, badges, renforts, fusions, statistiques ; « À prendre » retiré
-│   └── features/notifications/NotificationCenter.tsx   # signal sonore facultatif
+│   ├── api/types.ts                          # Role ADMIN, new enums
+│   ├── app/AppLayout.tsx, features/admin/    # Admin / Administrateur labels, floors, floorId
+│   ├── features/coverage/                    # teacher and supervisor forms, admin queue, badges, backups, merges, statistics; "À prendre" removed
+│   └── features/notifications/NotificationCenter.tsx   # optional sound signal
 └── tests/…
 
-e2e/coverage-class.spec.ts, e2e/support/accounts.ts  # parcours réécrits, compte admin
-deploy/docker-compose.yml, deploy/.env.example       # SCHOOL_TIMEZONE pour l'API
-docs/                                                # ARCHITECTURE, coverage-migration ; notes dans specs 001 et 003
+e2e/coverage-class.spec.ts, e2e/support/accounts.ts  # rewritten journeys, admin account
+deploy/docker-compose.yml, deploy/.env.example       # SCHOOL_TIMEZONE for the API
+docs/                                                # ARCHITECTURE, coverage-migration; notes in specs 001 and 003
 ```
 
-**Structure Decision** : on garde l'application web existante (`backend/`, `frontend/`, `e2e/`).
-Le module « affectations » est le dossier `coverage/` enrichi ; aucun nouveau module Nest ni
-nouvelle fonctionnalité frontend de premier niveau. L'ordre des couches vérifié par
-`architecture-layers.spec.ts` (`… → coverage → scheduler`) reste respecté.
+**Structure Decision**: we keep the existing web application (`backend/`, `frontend/`, `e2e/`).
+The "assignments" module is the enriched `coverage/` folder; no new Nest module and no new
+top-level frontend feature. The layer order checked by
+`architecture-layers.spec.ts` (`… → coverage → scheduler`) is still respected.
 
 ## Complexity Tracking
 
-| Ajout | Pourquoi nécessaire | Alternative plus simple écartée |
+| Addition | Why necessary | Simpler alternative rejected |
 | --- | --- | --- |
-| Table `CoverageReminder` | 7 minuteries, dont une répétée et plafonnée, avec escalades traçables (FR-011d/e/f, FR-015i, FR-016a) | Colonnes sur `CoverageDetail` : 8 à 10 colonnes, et la répétition du renfort ne s'y range pas. `currentDueAt` : une seule échéance à la fois. |
-| Table `CoverageSupport` | Plusieurs surveillants sur une affectation (renfort), occupés et libérables (FR-015f, FR-015i) | `assigneeId` unique : ne peut pas représenter le renfort. |
-| Table `CoverageMergeProposal` | Proposition, décision, « non tranché » et décision après coup tracés (FR-015g, FR-015h) | Drapeau sur l'affectation : perd la paire, la décision et la dernière présentation. |
-| Table `Floor` | Étages gérés par le super administrateur, liés aux classes et aux surveillants (FR-006) | Texte libre : pas d'intégrité, ni de tri ni d'avertissement fiables. |
-| Deux migrations | `ADD VALUE` d'un enum inutilisable dans la même transaction ; retour arrière séparé structure/données | Migration unique : techniquement impossible. |
+| `CoverageReminder` table | 7 timers, one of them repeated and capped, with traceable escalations (FR-011d/e/f, FR-015i, FR-016a) | Columns on `CoverageDetail`: 8 to 10 columns, and the backup repetition does not fit there. `currentDueAt`: only one due date at a time. |
+| `CoverageSupport` table | Several supervisors on one assignment (backup), busy and releasable (FR-015f, FR-015i) | A single `assigneeId`: cannot represent the backup. |
+| `CoverageMergeProposal` table | Proposal, decision, "non tranché" and after-the-fact decision traced (FR-015g, FR-015h) | Flag on the assignment: loses the pair, the decision and the last presentation. |
+| `Floor` table | Floors managed by the super administrator, linked to classes and supervisors (FR-006) | Free text: no integrity, no reliable sorting or warning. |
+| Two migrations | `ADD VALUE` of an enum is unusable in the same transaction; separate structure/data rollback | Single migration: technically impossible. |

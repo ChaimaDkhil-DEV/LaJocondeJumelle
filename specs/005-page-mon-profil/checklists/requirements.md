@@ -1,4 +1,4 @@
-# Specification Quality Checklist: Page « Mon profil » et accès au changement de mot de passe
+# Specification Quality Checklist: Page « Mon profil » (My profile page) and access to the password change
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
 **Created**: 2026-10-22
@@ -31,11 +31,11 @@
 
 ## Notes
 
-- Validation (itération 1) : tous les points passent.
-- Aucun marqueur [NEEDS CLARIFICATION] : les points ouverts ont reçu une valeur par défaut,
-  consignée dans « Assumptions » (affichage minimal : pas d'étage, de catégories ni de
-  permissions détaillées ; règles de mot de passe inchangées).
-- Le « Contexte » cite des faits de l'existant (page de changement, message du serveur) pour
-  situer le besoin ; il ne prescrit aucune solution technique.
-- Point à confirmer éventuellement en `/speckit-clarify` : faut-il afficher l'étage de
-  rattachement d'un surveillant (utile pour comprendre l'ordre des propositions d'affectation) ?
+- Validation (iteration 1): all items pass.
+- No [NEEDS CLARIFICATION] marker: open points were given a default value,
+  recorded in "Assumptions" (minimal display: no floor, categories or detailed
+  permissions; password rules unchanged).
+- The "Contexte" (Context) section cites facts about the existing system (change page, server message) to
+  situate the need; it prescribes no technical solution.
+- Point to possibly confirm in `/speckit-clarify`: should the floor a supervisor is attached to be displayed
+  (useful to understand the order of assignment suggestions)?

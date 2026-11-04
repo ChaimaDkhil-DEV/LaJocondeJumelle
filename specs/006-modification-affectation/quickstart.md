@@ -1,18 +1,18 @@
-# Quickstart — 006 Modification d'une affectation
+# Quickstart — 006 Modification d'une affectation (Editing an assignment)
 
-Contrats : [contracts/rest-api.md](./contracts/rest-api.md), [contracts/ui.md](./contracts/ui.md).
-Modèle : [data-model.md](./data-model.md).
+Contracts: [contracts/rest-api.md](./contracts/rest-api.md), [contracts/ui.md](./contracts/ui.md).
+Model: [data-model.md](./data-model.md).
 
-## Prérequis
+## Prerequisites
 
-- `npm ci`, application de développement lancée (`start.bat`) : API 3002, interface 5173, base
-  locale 5433 avec le seed de démonstration.
-- Comptes : `admin` (surveillante générale), `superadmin`, `surveillant` (1er étage),
-  `surveillant2` (2e étage), `enseignante`. Classes : « 1ère année Violet » (1er étage), « 2e année
-  Bleu » (2e étage).
-- Dans la journée de l'école (créneaux du jour).
+- `npm ci`, development application running (`start.bat`): API 3002, UI 5173, local
+  database 5433 with the demo seed.
+- Accounts: `admin` (general supervisor), `superadmin`, `surveillant` (1st floor),
+  `surveillant2` (2nd floor), `enseignante`. Classes: « 1ère année Violet » (1st floor), « 2e année
+  Bleu » (2nd floor).
+- During the school day (today's time slots).
 
-## Contrôles automatiques
+## Automated checks
 
 ```text
 npm run verify
@@ -21,28 +21,28 @@ npm run -w frontend typecheck
 npm run test:e2e
 ```
 
-## Scénarios
+## Scenarios
 
-1. **Créneau (US1, FR-003, FR-004, FR-007, FR-010)** — en `admin`, créer une affectation directe
-   (1ère année Violet, `surveillant`, maintenant → +1 h) ; « Modifier » : fin avancée de 30 min →
-   « Affectation modifiée. » ; détail, « Mes affectations » de `surveillant` (sans recharger,
-   SC-002) et notification « Affectation modifiée — Garde — 1ère année Violet » ; historique :
-   « Affectation modifiée : … → … » ; journal d'audit (`superadmin`) : « Affectation gérée par un
-   admin » avec avant et après.
-2. **Créneau invalide (US1 scénario 5)** — fin avant le début, début dans 8 jours → message sous
-   le champ, rien de modifié.
-3. **Conflit nommé (US1 scénario 4, FR-006, SC-004)** — deux affectations de `surveillant` à des
-   heures différentes ; modifier la seconde pour chevaucher la première → refus « Surveillant déjà
-   affecté : 1ère année Violet, … », rien de modifié ; réassigner à `surveillant2`, puis modifier
-   → accepté.
-4. **Classe avant présence (US2, FR-005, FR-009, Q3)** — affectation « En route » : changer la
-   classe → statut toujours « En route », notification avec la nouvelle classe ; QR code de
-   l'ancienne classe refusé, de la nouvelle accepté.
-5. **Pendant la présence (US1 scénario 6, US2 scénario 3)** — affectation « En cours » : seule
-   l'heure de fin est modifiable ; fin dans le passé refusée ; fin plus tardive acceptée.
-6. **Statuts définitifs et rôles (FR-001, FR-002)** — affectation terminée : pas de « Modifier » ;
-   en `surveillant` ou `enseignante`, `PATCH /api/coverage/:id` → `404` et refus au journal.
-7. **Concurrence (FR-012)** — deux onglets admin : modifier dans l'un puis dans l'autre → « La
-   demande a été modifiée entre-temps. Elle a été rechargée. »
-8. **Accessibilité (FR-013, SC-005)** — dialogue au clavier seul ; 320 px sans défilement
-   horizontal ; axe sans violation.
+1. **Time slot (US1, FR-003, FR-004, FR-007, FR-010)** — as `admin`, create a direct assignment
+   (1ère année Violet, `surveillant`, now → +1 h); « Modifier »: end moved earlier by 30 min →
+   « Affectation modifiée. »; detail, `surveillant`'s « Mes affectations » (without reloading,
+   SC-002) and notification « Affectation modifiée — Garde — 1ère année Violet »; history:
+   « Affectation modifiée : … → … »; audit log (`superadmin`): « Affectation gérée par un
+   admin » (Assignment managed by an admin) with before and after.
+2. **Invalid slot (US1 scenario 5)** — end before the start, start in 8 days → message under
+   the field, nothing changed.
+3. **Named conflict (US1 scenario 4, FR-006, SC-004)** — two assignments of `surveillant` at
+   different times; change the second to overlap the first → refusal « Surveillant déjà
+   affecté : 1ère année Violet, … », nothing changed; reassign to `surveillant2`, then edit
+   → accepted.
+4. **Class before attendance (US2, FR-005, FR-009, Q3)** — « En route » assignment: change the
+   class → status still « En route », notification with the new class; QR code of the
+   old class refused, of the new one accepted.
+5. **During attendance (US1 scenario 6, US2 scenario 3)** — « En cours » assignment: only the
+   end time is editable; end in the past refused; later end accepted.
+6. **Final statuses and roles (FR-001, FR-002)** — finished assignment: no « Modifier »;
+   as `surveillant` or `enseignante`, `PATCH /api/coverage/:id` → `404` and refusal in the log.
+7. **Concurrency (FR-012)** — two admin tabs: change in one then in the other → « La
+   demande a été modifiée entre-temps. Elle a été rechargée. » (The request was modified in the meantime. It has been reloaded.)
+8. **Accessibility (FR-013, SC-005)** — dialog with keyboard only; 320 px with no horizontal
+   scrolling; axe with no violation.

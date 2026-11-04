@@ -1,4 +1,4 @@
-# Specification Quality Checklist: Modification d'une affectation par l'admin (classe, créneau)
+# Specification Quality Checklist: Modification d'une affectation par l'admin (classe, créneau) (Assignment edit by the admin: class, time slot)
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
 **Created**: 2026-10-22
@@ -31,8 +31,8 @@
 
 ## Notes
 
-- Itération 1 : 3 marqueurs [NEEDS CLARIFICATION] (FR-002 statuts modifiables ; US1 scénario 4
-  surveillant indisponible ; US2 scénario 4 statut « En route » après changement de classe).
-- Itération 2 (2026-10-22) : réponses Q1 B, Q2 A, Q3 A consignées dans « Clarifications » ; FR-002,
-  FR-003, FR-005, FR-006, FR-007, FR-008, US1 scénarios 4 et 6, US2 scénarios 3 et 4 ajustés.
-  Tous les points passent.
+- Iteration 1: 3 [NEEDS CLARIFICATION] markers (FR-002 editable statuses; US1 scenario 4
+  supervisor unavailable; US2 scenario 4 « En route » status after a class change).
+- Iteration 2 (2026-10-22): answers Q1 B, Q2 A, Q3 A recorded in "Clarifications"; FR-002,
+  FR-003, FR-005, FR-006, FR-007, FR-008, US1 scenarios 4 and 6, US2 scenarios 3 and 4 adjusted.
+  All items pass.

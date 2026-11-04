@@ -1,4 +1,4 @@
-# Implementation Plan: Corrections issues de l'audit technique
+# Implementation Plan: Fixes from the technical audit
 
 **Branch**: `003-corrections-audit-technique` | **Date**: 2026-10-15 | **Spec**: [spec.md](./spec.md)
 
@@ -8,86 +8,86 @@
 
 ## Summary
 
-Corriger les constats « correction technique » de `docs/ARCHITECTURE.md` sans changer le
-comportement visible, sauf la règle d'affectation tranchée en D1 :
+Fix the "technical fix" findings of `docs/ARCHITECTURE.md` without changing visible
+behavior, except for the assignment rule settled in D1:
 
-- **Environnement** : aligner le développement sur le port 3002 (la production garde 3000,
-  explicite), lancer l'API en mode rechargement, valider toute la configuration au démarrage.
-- **Sécurité et traçabilité** : une seule liste de clés masquées, un seul contrôle d'origine,
-  la réinitialisation du super administrateur intégrée à l'outil d'initialisation avec audit et
-  fermeture des sessions.
-- **Affectation (D1, D8, D9)** : mode **et** personne figés dans le snapshot à la soumission ;
-  deux exceptions validées et tracées dans l'historique : demande antérieure → catégorie
-  actuelle (EXC-1, D9) ; personne figée non affectable → refus puis choix du responsable
-  (EXC-2, D8). Cela corrige aussi un blocage réel de l'approbation (constat N1).
-- **Dépendances** : ordre de couches `config → common → audit → auth → files → requests →
-  coverage → scheduler` vérifié par un test ; accès aux fichiers par registre ; chargeur de
-  règles déclaré une fois ; code mort retiré ; énumérations serveur/interface comparées par un
+- **Environment**: align development on port 3002 (production keeps 3000,
+  explicit), run the API in reload mode, validate the whole configuration at startup.
+- **Security and traceability**: a single list of masked keys, a single origin check,
+  the super administrator reset built into the initialization tool with audit and
+  session closing.
+- **Assignment (D1, D8, D9)**: mode **and** person frozen in the snapshot at submission;
+  two validated exceptions traced in the history: earlier request → current category
+  (EXC-1, D9); frozen person not assignable → refusal then choice by the manager
+  (EXC-2, D8). This also fixes a real approval blockage (finding N1).
+- **Dependencies**: layer order `config → common → audit → auth → files → requests →
+  coverage → scheduler` checked by a test; file access through a registry; rules loader
+  declared once; dead code removed; server/interface enums compared by a
   test.
-- **Production** : CI GitHub pour lint, types, tests unitaires, d'intégration et d'interface,
-  audit des dépendances (D3) ; vérification manuelle obligatoire avant chaque fusion, faute de
-  protection de branche sur le dépôt privé (D10) ; sauvegarde imposée avant migration ;
-  restauration et en-têtes vérifiés sur préproduction.
+- **Production**: GitHub CI for lint, types, unit, integration and interface tests,
+  dependency audit (D3); mandatory manual check before every merge, for lack of
+  branch protection on the private repository (D10); mandatory backup before migration;
+  restore and headers verified on staging.
 
-Une seule migration (ajout de `RequestEvent.seq`, N3), aucune nouvelle dépendance d'exécution. Détails : [research.md](./research.md).
+A single migration (adding `RequestEvent.seq`, N3), no new runtime dependency. Details: [research.md](./research.md).
 
 ## Technical Context
 
-**Language/Version**: TypeScript 5.9 (strict), Node.js 24 — inchangé
+**Language/Version**: TypeScript 5.9 (strict), Node.js 24 — unchanged
 
-**Primary Dependencies**: NestJS 11, Prisma 6, React 19, Vite, TanStack Query 5, MUI — inchangés.
-Retrait : `@mui/icons-material` (inutilisée). Ajout : aucun paquet ; GitHub Actions (service
-externe, pas une dépendance du code)
+**Primary Dependencies**: NestJS 11, Prisma 6, React 19, Vite, TanStack Query 5, MUI — unchanged.
+Removal: `@mui/icons-material` (unused). Addition: no package; GitHub Actions (external
+service, not a code dependency)
 
-**Storage**: PostgreSQL 17 — **une migration** (`0003_request_event_seq` : colonne
-`RequestEvent.seq`, N3) ; une clé ajoutée dans le JSON `Request.rulesSnapshot`
+**Storage**: PostgreSQL 17 — **one migration** (`0003_request_event_seq`: column
+`RequestEvent.seq`, N3); one key added in the `Request.rulesSnapshot` JSON
 ([data-model.md](./data-model.md))
 
-**Testing**: Jest (unitaires, intégration sur PostgreSQL embarqué), Vitest + RTL, Playwright.
-Nouveaux tests : `architecture-layers.spec.ts` (Jest), `enums-sync.test.ts` (Vitest), tests
-d'intégration d'affectation et de réinitialisation, cas `TRUST_PROXY` dans `config.spec.ts`
+**Testing**: Jest (unit, integration on embedded PostgreSQL), Vitest + RTL, Playwright.
+New tests: `architecture-layers.spec.ts` (Jest), `enums-sync.test.ts` (Vitest), assignment
+and reset integration tests, `TRUST_PROXY` cases in `config.spec.ts`
 
-**Target Platform**: poste de développement Windows 11 ; production VPS Linux, Docker Compose,
-Caddy ; CI `ubuntu-latest`
+**Target Platform**: Windows 11 development workstation; Linux VPS production, Docker Compose,
+Caddy; CI `ubuntu-latest`
 
-**Project Type**: application web (API `backend/` + SPA `frontend/`, workspaces npm)
+**Project Type**: web application (`backend/` API + `frontend/` SPA, npm workspaces)
 
-**Performance Goals**: inchangés (lot 1). Les corrections n'ajoutent aucun accès base sur les
-chemins chauds ; l'entrypoint n'ajoute `prisma migrate status` qu'au démarrage
+**Performance Goals**: unchanged (phase 1). The fixes add no database access on hot
+paths; the entrypoint only adds `prisma migrate status` at startup
 
-**Constraints**: FR-023 — aucun changement de comportement visible hors D1 ; tests existants
-inchangés dans leurs attendus (SC-007) ; une seule instance d'API (inchangé, A28)
+**Constraints**: FR-023 — no visible behavior change outside D1; existing tests
+unchanged in their expectations (SC-007); a single API instance (unchanged, A28)
 
-**Scale/Scope**: 24 exigences (FR-001 à FR-025, sans FR-022), environ 35 fichiers touchés (backend surtout), 3 fichiers de
-déploiement, 1 workflow CI, 1 procédure de vérification avant fusion (D10), 3 comptes rendus de validation
+**Scale/Scope**: 24 requirements (FR-001 to FR-025, without FR-022), about 35 files touched (mostly backend), 3
+deployment files, 1 CI workflow, 1 pre-merge check procedure (D10), 3 validation reports
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-| Principe | Vérification | Statut |
+| Principle | Check | Status |
 |----------|--------------|--------|
-| I. TDD (non négociable) | Chaque correction commence par un test rouge : `config.spec.ts` (port 3002, `TRUST_PROXY`), test d'intégration d'affectation (rouge sur le comportement actuel, FR-009), test de réinitialisation CLI, test de masquage commun, test de couches (rouge tant que les cycles existent), test de synchronisation des énumérations, test automatisé de `api-entrypoint.sh` (5 cas, écrit avant la modification du script), test de cohérence des ports et du script `dev:backend`. Le comportement existant de l'interface quand l'API est arrêtée est figé par un test (aucune modification, FR-023). Les refactorisations sans effet visible (R7, R8, R9) sont protégées par la suite existante, inchangée dans ses attendus. La CI (T003) exécute la suite à chaque envoi et à chaque demande de fusion. La protection de branche n'étant pas disponible sur le dépôt privé (offre gratuite, D10), la règle « aucune modification ne peut être fusionnée si la suite de tests échoue » est appliquée par une vérification manuelle obligatoire avant chaque fusion (T006, `docs/procedure-fusion.md`) : elle n'empêche pas techniquement une fusion rouge. | ⚠️ règle appliquée à la main (D10) |
-| II. Simplicité / YAGNI | Aucune nouvelle dépendance (vérification des couches et des énumérations par des tests maison de quelques dizaines de lignes) ; une dépendance retirée ; périmètre des cycles limité aux dossiers cités par l'audit (les autres sont consignés, pas corrigés) ; pas de fusion des machines à états (hors périmètre). Le seul nouveau mécanisme, le registre d'accès aux fichiers, remplace une dépendance directe à deux domaines : voir Complexity Tracking. | ✅ (1 justification) |
-| III. Accessibilité et UX | Deux changements d'interface : la boîte d'approbation affiche le sélecteur d'employé après `AUTO_ASSIGNEE_UNAVAILABLE`, avec le message du serveur (composant existant, déjà accessible et testé par axe ; test RTL ajouté) ; l'historique ajoute la source de l'affectation après « Affectée à <nom> » (texte seul, autorisé par FR-023 ; test dans `HistoryTimeline.test.tsx`). | ✅ |
-| IV. Sécurité et données | Masquage unifié et élargi (FR-005) ; configuration du proxy validée (FR-004) ; contrôle d'origine unique (FR-006) ; aucun secret ajouté ; mot de passe provisoire jamais journalisé ; `npm audit` bloquant en CI. Durées de conservation toujours provisoires (D4, hors périmètre) : réserve héritée du lot 1. | ⚠️ réserve héritée (D4) |
-| V. Workflows et communications | Réinitialisation hors interface désormais tracée (`PASSWORD_RESET`, sessions supprimées) ; source de l'affectation tracée dans l'historique (`assigneeSource`) ; statuts et transitions inchangés ; refus d'accès aux fichiers toujours journalisés et en 404 (registre fermé par défaut). | ✅ |
+| I. TDD (non-negotiable) | Every fix starts with a red test: `config.spec.ts` (port 3002, `TRUST_PROXY`), assignment integration test (red on the current behavior, FR-009), CLI reset test, shared masking test, layers test (red as long as cycles exist), enum synchronization test, automated test of `api-entrypoint.sh` (5 cases, written before the script change), ports and `dev:backend` script consistency test. The existing interface behavior when the API is stopped is pinned by a test (no change, FR-023). Refactorings with no visible effect (R7, R8, R9) are protected by the existing suite, unchanged in its expectations. CI (T003) runs the suite on every push and every pull request. Since branch protection is not available on the private repository (free plan, D10), the rule "aucune modification ne peut être fusionnée si la suite de tests échoue" (no change may be merged if the test suite fails) is enforced by a mandatory manual check before every merge (T006, `docs/procedure-fusion.md`): it does not technically prevent a red merge. | ⚠️ rule applied by hand (D10) |
+| II. Simplicity / YAGNI | No new dependency (layer and enum checks done by in-house tests of a few dozen lines); one dependency removed; scope of cycles limited to the folders cited by the audit (the others are recorded, not fixed); no merging of state machines (out of scope). The only new mechanism, the file access registry, replaces a direct dependency on two domains: see Complexity Tracking. | ✅ (1 justification) |
+| III. Accessibility and UX | Two interface changes: the approval dialog shows the employee selector after `AUTO_ASSIGNEE_UNAVAILABLE`, with the server's message (existing component, already accessible and tested with axe; RTL test added); the history adds the assignment source after « Affectée à <nom> » (Assigned to <name>) (text only, allowed by FR-023; test in `HistoryTimeline.test.tsx`). | ✅ |
+| IV. Security and data | Unified and widened masking (FR-005); proxy configuration validated (FR-004); single origin check (FR-006); no secret added; temporary password never logged; `npm audit` blocking in CI. Retention periods still provisional (D4, out of scope): reservation inherited from phase 1. | ⚠️ inherited reservation (D4) |
+| V. Workflows and communications | Reset outside the interface now traced (`PASSWORD_RESET`, sessions deleted); assignment source traced in the history (`assigneeSource`); statuses and transitions unchanged; file access refusals still logged and returned as 404 (registry closed by default). | ✅ |
 
-**Application de la règle de fusion du principe I (D10)** : la règle « Aucune modification ne
-peut être fusionnée si la suite de tests échoue » reste entière ; ce n'est pas une dérogation à
-la règle. Seul son moyen d'application change : faute de protection de branche sur le dépôt
-privé (offre gratuite), elle repose sur la vérification manuelle avant fusion (T006). Risque
-résiduel accepté par le responsable du projet : une fusion rouge reste techniquement possible
-par erreur ; elle est alors corrigée et consignée (`contracts/cli-and-deploy.md`).
+**Application of principle I's merge rule (D10)**: the rule "Aucune modification ne
+peut être fusionnée si la suite de tests échoue" (no change may be merged if the test suite fails) remains whole; this is not a waiver of
+the rule. Only the means of enforcing it changes: for lack of branch protection on the
+private repository (free plan), it relies on the manual check before merging (T006). Residual
+risk accepted by the project lead: a red merge remains technically possible
+by mistake; it is then fixed and recorded (`contracts/cli-and-deploy.md`).
 
-**Résultat avant Phase 0** : passe. **Résultat après Phase 1** (re-vérifié sur
-[data-model.md](./data-model.md) et [contracts/](./contracts/)) : passe ; une seule migration (ajout de colonne, N3),
-aucun nouveau statut, contrat REST modifié sur un seul point (approbation) ; la réserve D4
-reste celle du lot 1.
+**Result before Phase 0**: pass. **Result after Phase 1** (re-checked against
+[data-model.md](./data-model.md) and [contracts/](./contracts/)): pass; a single migration (column addition, N3),
+no new status, REST contract changed at a single point (approval); the D4 reservation
+remains that of phase 1.
 
-## Correspondance exigences → décisions
+## Requirements → decisions mapping
 
-| Exigences | Décision | Constats |
+| Requirements | Decision | Findings |
 |---|---|---|
 | FR-001, FR-002 | R1 | A01 |
 | FR-003 | R2 | A02 |
@@ -103,22 +103,22 @@ reste celle du lot 1.
 | FR-017, FR-019 | R11 | A20, A21, A26 |
 | FR-018 | R12 | A22, A23 |
 | FR-020, FR-021 | R13 | A24, A25 |
-| FR-023 | toutes (non-régression) | — |
-| FR-024 | clôture ([quickstart.md](./quickstart.md)) | A01–A35, N1–N3 |
+| FR-023 | all (non-regression) | — |
+| FR-024 | closure ([quickstart.md](./quickstart.md)) | A01–A35, N1–N3 |
 | FR-025 | R15 | N3 |
 
-## Ordre de réalisation recommandé
+## Recommended order of work
 
-1. **US1** (port, `dev:backend`, configuration) : remet la suite au vert ; prérequis de tout le
-   reste (principe I).
-2. **CI (R11)** dès que la suite est verte, pour vérifier les étapes suivantes ; puis la
-   procédure de vérification manuelle avant fusion (D10 : pas de protection de branche sur le
-   dépôt privé).
-3. **US2** (masquage, origine, réinitialisation CLI).
-4. **US3** (affectation figée) : test rouge d'abord.
-5. **US4** (couches, registre de fichiers, nettoyage, énumérations) : en dernier côté code, car
-   ce sont des déplacements larges ; un commit par déplacement pour faciliter la relecture.
-6. **US5** (sauvegarde avant migration, restauration, en-têtes) puis clôture FR-024.
+1. **US1** (port, `dev:backend`, configuration): brings the suite back to green; prerequisite for
+   everything else (principle I).
+2. **CI (R11)** as soon as the suite is green, to verify the following steps; then the
+   manual pre-merge check procedure (D10: no branch protection on the
+   private repository).
+3. **US2** (masking, origin, CLI reset).
+4. **US3** (frozen assignment): red test first.
+5. **US4** (layers, file registry, cleanup, enums): last on the code side, because
+   these are large moves; one commit per move to ease review.
+6. **US5** (backup before migration, restore, headers) then closure FR-024.
 
 ## Project Structure
 
@@ -126,13 +126,13 @@ reste celle du lot 1.
 
 ```text
 specs/003-corrections-audit-technique/
-├── plan.md              # Ce fichier
-├── research.md          # Phase 0 : R1–R15, constats N1–N3
-├── data-model.md        # Phase 1 : snapshot, historique, audit, configuration
-├── quickstart.md        # Phase 1 : scénarios de validation
+├── plan.md              # This file
+├── research.md          # Phase 0: R1–R15, findings N1–N3
+├── data-model.md        # Phase 1: snapshot, history, audit, configuration
+├── quickstart.md        # Phase 1: validation scenarios
 ├── contracts/
-│   ├── rest-api.md          # APPROVE et AUTO_ASSIGNEE_UNAVAILABLE
-│   ├── configuration.md     # variables d'environnement et ports
+│   ├── rest-api.md          # APPROVE and AUTO_ASSIGNEE_UNAVAILABLE
+│   ├── configuration.md     # environment variables and ports
 │   └── cli-and-deploy.md    # bootstrap --reset-password, deploy.sh, entrypoint, CI
 ├── checklists/
 │   └── requirements.md
@@ -141,90 +141,90 @@ specs/003-corrections-audit-technique/
 
 ### Source Code (repository root)
 
-Fichiers touchés (N = nouveau, M = modifié, D = déplacé, S = supprimé) :
+Files touched (N = new, M = modified, D = moved, S = deleted):
 
 ```text
 .github/workflows/ci.yml                              N  CI (R11)
-.github/pull_request_template.md                      N  cases de la vérification avant fusion (D10)
+.github/pull_request_template.md                      N  pre-merge check checkboxes (D10)
 package.json                                          M  dev:backend → start:dev (R2)
-README.md                                             M  port 3002, --reset-password, deploy.sh, renvoi à procedure-fusion.md
+README.md                                             M  port 3002, --reset-password, deploy.sh, pointer to procedure-fusion.md
 backend/
 ├── .env.example                                      M  PORT=3002
 ├── prisma/schema.prisma                              M  RequestEvent.seq (N3, R15)
-├── prisma/migrations/0003_request_event_seq/         N  ajout de la colonne seq (N3)
+├── prisma/migrations/0003_request_event_seq/         N  adds the seq column (N3)
 ├── scripts/
 │   ├── reset-superadmin-password.ts                  S  (R6)
-│   └── check-users.ts                                M  formatage
+│   └── check-users.ts                                M  formatting
 ├── src/
-│   ├── main.ts                                       M  port lu dans APP_CONFIG
-│   ├── app.setup.ts                                  M  trustProxy, isProduction depuis APP_CONFIG
-│   ├── config/config.ts                              M  trustProxy validé
+│   ├── main.ts                                       M  port read from APP_CONFIG
+│   ├── app.setup.ts                                  M  trustProxy, isProduction from APP_CONFIG
+│   ├── config/config.ts                              M  trustProxy validated
 │   ├── cli/bootstrap.ts                              M  --reset-password, resetSuperAdminPassword()
 │   ├── common/
 │   │   ├── authorization.ts                          N  PolicyUser, permissionsFor, canManageAdministration, canReadAudit
-│   │   ├── request-info.ts                           D  depuis auth/
+│   │   ├── request-info.ts                           D  from auth/
 │   │   ├── origin.ts                                 N  originOf + isAllowedOrigin
-│   │   ├── sensitive-keys.ts                         N  SENSITIVE_KEY unique
+│   │   ├── sensitive-keys.ts                         N  single SENSITIVE_KEY
 │   │   ├── app-logger.ts                             M
 │   │   ├── errors.ts                                 M  AUTO_ASSIGNEE_UNAVAILABLE
 │   │   └── super-admin.guard.ts                      D  → audit/
 │   ├── audit/
-│   │   ├── super-admin.guard.ts                      D  depuis common/
-│   │   └── audit.service.ts                          M  SENSITIVE_KEY commun
-│   ├── auth/ (origin.guard, session.service, auth.types)  M  imports depuis common/
-│   ├── realtime/realtime.gateway.ts                  M  isAllowedOrigin ; commentaire du module reformulé
-│   ├── files/ (files.service, files.module, file-access.ts N)  M  registre RequestFileAccess (R8)
+│   │   ├── super-admin.guard.ts                      D  from common/
+│   │   └── audit.service.ts                          M  shared SENSITIVE_KEY
+│   ├── auth/ (origin.guard, session.service, auth.types)  M  imports from common/
+│   ├── realtime/realtime.gateway.ts                  M  isAllowedOrigin; module comment reworded
+│   ├── files/ (files.service, files.module, file-access.ts N)  M  RequestFileAccess registry (R8)
 │   ├── requests/
-│   │   ├── request-policy.module.ts                  N  fournit et exporte RequestPolicyLoader
-│   │   ├── request-policy.loader.ts                  M  autoAssigneeId dans le snapshot
-│   │   ├── request-transitions.service.ts            M  assigneeContext lit le snapshot (R14)
-│   │   ├── requests.service.ts                       M  historique trié par createdAt puis seq (N3)
-│   │   ├── work-file-access.ts                       N  implémentation WORK du registre
-│   │   └── domain/access-policy.ts                   M  règles transverses retirées
-│   ├── coverage/ (coverage.module, coverage-file-access.ts N)  M  implémentation COVERAGE ; job déplacé
-│   ├── coverage/ (coverage.service, coverage-admin.service)  M  historique trié par createdAt puis seq (N3)
-│   ├── categories/, messages/ (*.module.ts)          M  importent RequestPolicyModule
-│   ├── notifications/notifications.service.ts        M  NoopNotificationPublisher retiré
+│   │   ├── request-policy.module.ts                  N  provides and exports RequestPolicyLoader
+│   │   ├── request-policy.loader.ts                  M  autoAssigneeId in the snapshot
+│   │   ├── request-transitions.service.ts            M  assigneeContext reads the snapshot (R14)
+│   │   ├── requests.service.ts                       M  history sorted by createdAt then seq (N3)
+│   │   ├── work-file-access.ts                       N  WORK implementation of the registry
+│   │   └── domain/access-policy.ts                   M  cross-cutting rules removed
+│   ├── coverage/ (coverage.module, coverage-file-access.ts N)  M  COVERAGE implementation; job moved
+│   ├── coverage/ (coverage.service, coverage-admin.service)  M  history sorted by createdAt then seq (N3)
+│   ├── categories/, messages/ (*.module.ts)          M  import RequestPolicyModule
+│   ├── notifications/notifications.service.ts        M  NoopNotificationPublisher removed
 │   └── scheduler/
 │       ├── job-interval.ts                           N  JOB_INTERVAL_MS
-│       ├── coverage-deadlines.job.ts                 D  depuis coverage/
+│       ├── coverage-deadlines.job.ts                 D  from coverage/
 │       └── scheduler.module.ts                       M
 └── test/
     ├── unit/config.spec.ts                           M  3002, TRUST_PROXY
-    ├── unit/dev-port-consistency.spec.ts             N  ports et dev:backend (US1)
-    ├── unit/api-entrypoint.spec.ts                   N  5 cas de l'entrypoint (R12)
+    ├── unit/dev-port-consistency.spec.ts             N  ports and dev:backend (US1)
+    ├── unit/api-entrypoint.spec.ts                   N  5 entrypoint cases (R12)
     ├── unit/architecture-layers.spec.ts              N  (R7)
     ├── unit/sensitive-keys.spec.ts                   N  (R4)
-    ├── integration/auto-assignment-snapshot.spec.ts  N  (R14, écrit en premier)
-    ├── integration/history-priority.spec.ts          M  ordre d'écriture, test déterministe (N3)
-    ├── integration/coverage.spec.ts                  M  ordre d'écriture, test déterministe (N3)
+    ├── integration/auto-assignment-snapshot.spec.ts  N  (R14, written first)
+    ├── integration/history-priority.spec.ts          M  write order, deterministic test (N3)
+    ├── integration/coverage.spec.ts                  M  write order, deterministic test (N3)
     └── integration/bootstrap-production.spec.ts      M  describe('resetSuperAdminPassword') (R6, T017)
 frontend/
-├── package.json                                      M  @mui/icons-material retiré
-├── src/api/types.ts                                  M  commentaire « types générés » retiré
-├── src/features/requests/ApprovalDialog.tsx          M  sélecteur sur AUTO_ASSIGNEE_UNAVAILABLE
-├── src/features/requests/HistoryTimeline.tsx         M  source de l'affectation (assigneeSource, US3)
-├── tests/api/client.test.ts                         M  API arrêtée : tests existants renforcés, messages exacts (US1)
-├── tests/requests/HistoryTimeline.test.tsx           M  source de l'affectation (US3)
+├── package.json                                      M  @mui/icons-material removed
+├── src/api/types.ts                                  M  "generated types" comment removed
+├── src/features/requests/ApprovalDialog.tsx          M  selector on AUTO_ASSIGNEE_UNAVAILABLE
+├── src/features/requests/HistoryTimeline.tsx         M  assignment source (assigneeSource, US3)
+├── tests/api/client.test.ts                         M  API stopped: existing tests strengthened, exact messages (US1)
+├── tests/requests/HistoryTimeline.test.tsx           M  assignment source (US3)
 └── tests/api/enums-sync.test.ts                      N  (R10)
 deploy/
 ├── Caddyfile.dev                                     M  3002
-├── deploy.sh                                         N  sauvegarde puis up (R12)
-├── api-entrypoint.sh                                 M  contrôle de sauvegarde avant migration (PRE_MIGRATION_BACKUP_DIR)
-└── docker-compose.yml                                M  /backups:ro dans api
+├── deploy.sh                                         N  backup then up (R12)
+├── api-entrypoint.sh                                 M  backup check before migration (PRE_MIGRATION_BACKUP_DIR)
+└── docker-compose.yml                                M  /backups:ro in api
 docs/
-├── ARCHITECTURE.md                                   M  clôture FR-024
+├── ARCHITECTURE.md                                   M  closure FR-024
 ├── coverage-migration.md                             M  deploy.sh
-├── procedure-fusion.md                               N  vérification manuelle avant fusion (D10)
+├── procedure-fusion.md                               N  manual pre-merge check (D10)
 └── validation/ (restauration.md, en-tetes-securite.md, verification-003.md)  N
 ```
 
-**Structure Decision**: structure existante conservée (workspaces `backend/` et `frontend/`,
-`deploy/`, `docs/`). Seuls changent l'emplacement de quelques fichiers pour respecter l'ordre de
-couches de R7, et l'ajout de `.github/` (workflow CI, modèle de demande de fusion).
+**Structure Decision**: existing structure kept (`backend/` and `frontend/` workspaces,
+`deploy/`, `docs/`). Only the location of a few files changes to respect the layer
+order of R7, plus the addition of `.github/` (CI workflow, pull request template).
 
 ## Complexity Tracking
 
 | Violation | Why Needed | Simpler Alternative Rejected Because |
 |-----------|------------|-------------------------------------|
-| Registre d'accès aux fichiers par type de demande (`registerAccess`), au lieu d'appels directs | FR-014 : le stockage de fichiers ne doit plus connaître la politique d'accès de chaque domaine ; supprime les cycles `files ↔ requests` et `files → coverage` | Appels directs actuels : ce sont eux qui créent les cycles (A09, A10). `forwardRef` NestJS : garde le cycle et le cache. Contrôle dans chaque contrôleur métier : duplique le téléchargement et le streaming de fichiers. |
+| File access registry by request type (`registerAccess`), instead of direct calls | FR-014: file storage must no longer know each domain's access policy; removes the `files ↔ requests` and `files → coverage` cycles | Current direct calls: they are what creates the cycles (A09, A10). NestJS `forwardRef`: keeps the cycle and hides it. Check in each business controller: duplicates file download and streaming. |

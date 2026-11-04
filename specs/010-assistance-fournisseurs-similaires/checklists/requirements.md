@@ -1,4 +1,4 @@
-# Specification Quality Checklist: Assistance aux demandes — fournisseurs réels et demandes similaires
+# Specification Quality Checklist: Assistance aux demandes — fournisseurs réels et demandes similaires (Request assistance — real providers and similar requests)
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
 **Created**: 2026-10-28
@@ -31,6 +31,6 @@
 
 ## Notes
 
-- Les noms « Whisper » et « Claude » sont des choix de fournisseur faits par l'utilisatrice (décision
-  métier : où vont les données), pas des détails d'implémentation ; ils sont conservés.
-- Clarifications déjà obtenues avant la rédaction (3 questions : fournisseurs, transcription, RAG).
+- The names "Whisper" and "Claude" are provider choices made by the user (business
+  decision: where the data goes), not implementation details; they are kept.
+- Clarifications already obtained before writing (3 questions: providers, transcription, RAG).

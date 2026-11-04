@@ -1,46 +1,45 @@
-# Vérification de la fonctionnalité 010 — connecteurs réels et demandes similaires
+# Verification of feature 010 — real connectors and similar requests
 
-Spécification, plan et tâches : `specs/010-assistance-fournisseurs-similaires/`.
+Specification, plan and tasks: `specs/010-assistance-fournisseurs-similaires/`.
 
-## État initial (T001)
+## Initial state (T001)
 
-Branche `010-assistance-fournisseurs-et-similaires`, créée depuis `master` (`7a55b83`, fusion de
-#41). Référence : derniers résultats mesurés sur ce code le 28/10/2026 — lint et typages sans
-erreur, unitaires backend 661 / 661, intégration 687 / 687 (avant #39 à #41, sans changement
-backend depuis), frontend 325 / 325. Le relevé lancé au début de ce lot n'est pas retenu : il
-incluait déjà les nouveaux tests écrits en parallèle.
+Branch `010-assistance-fournisseurs-et-similaires`, created from `master` (`7a55b83`, merge of #41). Reference: latest results measured on this code on 28/10/2026 — lint and types with no
+errors, backend unit 661 / 661, integration 687 / 687 (before #39 to #41, no backend change
+since), frontend 325 / 325. The run started at the beginning of this phase is not used: it
+already included the new tests written in parallel.
 
-## Dépendance ajoutée (T002)
+## Dependency added (T002)
 
-`@anthropic-ai/sdk` 1.3.0 (backend), SDK officiel imposé par la référence de l'API pour un projet
-TypeScript. `npm audit --audit-level=high` : 16 vulnérabilités avant comme après l'ajout (aucune
-dans ce paquet) ; les 4 « high » existantes (`multer`, `body-parser`, `undici`) sont antérieures et
-font échouer l'étape `npm audit` de la CI depuis fin octobre.
+`@anthropic-ai/sdk` 1.3.0 (backend), the official SDK required by the API reference for a
+TypeScript project. `npm audit --audit-level=high`: 16 vulnerabilities before and after the addition (none
+in this package); the 4 existing "high" ones (`multer`, `body-parser`, `undici`) are pre-existing and
+have been making the CI `npm audit` step fail since the end of October.
 
-## Vérification finale (T019)
+## Final verification (T019)
 
-Le 28/10/2026, résultats réels :
+On 28/10/2026, real results:
 
-| Étape | Commande | Résultat |
+| Step | Command | Result |
 |-------|----------|----------|
-| Lint | `npm run lint` | sans erreur |
-| Typage backend et frontend | `npm run -w backend typecheck`, `npm run -w frontend typecheck` | sans erreur |
-| Unitaires backend | `npm test -w backend` | 679 / 679 (38 suites ; +18 : configuration, Whisper, Claude, contrôle) |
-| Intégration backend | `npm run -w backend test:integration` | 693 / 693 (50 suites ; +6 : demandes similaires et droits) — voir « Écarts » |
-| Frontend (Vitest) | `npm test -w frontend` | 328 / 328 (+3 : section, absence, transcription remplacée) |
-| E2E assistance | `assist.spec.ts` (chromium, mobile-320) | 6 / 6, dont la demande similaire et l'audit axe |
-| E2E 320 px et clavier | `a11y-responsive.spec.ts` (chromium, mobile-320) | 5 réussis, 5 ignorés volontairement |
-| Dépendances | `npm audit --audit-level=high` | 4 « high » antérieures, aucune nouvelle |
+| Lint | `npm run lint` | no errors |
+| Backend and frontend types | `npm run -w backend typecheck`, `npm run -w frontend typecheck` | no errors |
+| Backend unit | `npm test -w backend` | 679 / 679 (38 suites; +18: configuration, Whisper, Claude, check) |
+| Backend integration | `npm run -w backend test:integration` | 693 / 693 (50 suites; +6: similar requests and permissions) — see "Écarts" (Deviations) |
+| Frontend (Vitest) | `npm test -w frontend` | 328 / 328 (+3: section, absence, transcription replaced) |
+| Assistance E2E | `assist.spec.ts` (chromium, mobile-320) | 6 / 6, including the similar request and the axe audit |
+| 320 px and keyboard E2E | `a11y-responsive.spec.ts` (chromium, mobile-320) | 5 passed, 5 deliberately skipped |
+| Dependencies | `npm audit --audit-level=high` | 4 pre-existing "high", none new |
 
-### Écarts et limites
+### Deviations and limits
 
-- **Intégration** : une première passe complète a compté 1 échec sur 693 ; deux relances complètes
-  sont vertes (693 / 693). Le test en cause n'a pas été identifié (sortie filtrée) : à surveiller.
-- **Test d'interface T007** écrit avant le code mais lancé seulement après : son état rouge n'a pas
-  été observé. T016 passe sans modification de code (comportement déjà correct, désormais prouvé).
-- **Connecteurs non essayés avec un vrai service** : vérifiés uniquement sur `fetch` et SDK simulés
-  (aucun appel réseau, SC-004). Un essai réel exige la décision de l'établissement et une clé.
-- **Repli serveur** `fallbacks: "default"` activé sur le connecteur Claude : en cas de refus de
-  sécurité, la demande est rejouée sur un autre modèle Claude ; à désactiver si l'établissement le
-  refuse.
-- E2E Firefox, WebKit, iPhone 13 et Pixel 7 non relancés.
+- **Integration**: a first full run counted 1 failure out of 693; two full re-runs
+  are green (693 / 693). The test at fault was not identified (filtered output): to be monitored.
+- **UI test T007** written before the code but run only afterwards: its red state was not
+  observed. T016 passes without any code change (behavior already correct, now proven).
+- **Connectors not tried with a real service**: verified only with simulated `fetch` and SDK
+  (no network call, SC-004). A real trial requires the school's decision and a key.
+- **Server fallback** `fallbacks: "default"` enabled on the Claude connector: in case of a
+  safety refusal, the request is replayed on another Claude model; to be disabled if the school
+  refuses it.
+- Firefox, WebKit, iPhone 13 and Pixel 7 E2E not re-run.

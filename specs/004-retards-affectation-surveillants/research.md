@@ -1,250 +1,249 @@
-# Research — 004 Retards et absences des enseignants, affectation des surveillants
+# Research — 004 Teacher lateness and absences, supervisor assignment
 
-**Date** : 2026-10-16 · **Spec** : [spec.md](./spec.md) · **Plan** : [plan.md](./plan.md)
+**Date**: 2026-10-16 · **Spec**: [spec.md](./spec.md) · **Plan**: [plan.md](./plan.md)
 
-Chaque décision indique : la décision, la raison, les alternatives écartées. « Validée » signifie
-tranchée par l'utilisateur le 2026-10-16 (questions techniques posées pendant `/speckit-plan`).
-Les références de code renvoient à la branche `003-corrections-audit-technique`.
+Each decision states: the decision, the reason, the alternatives rejected. "Validated" means
+settled by the user on 2026-10-16 (technical questions asked during `/speckit-plan`).
+Code references point to the `003-corrections-audit-technique` branch.
 
-## Constats de départ (lus dans le code)
+## Starting findings (read in the code)
 
-- Une garde est une `Request` (`kind = COVERAGE`) + `CoverageDetail` 1-1. La machine d'états pure
-  est `backend/src/coverage/domain/coverage-state-machine.ts` (`TRANSITIONS`, l. 188-232) ; les
-  effets (mise à jour conditionnelle `{id, status, version}`, événements, audit, notifications)
-  sont dans `coverage-actions.service.ts` (`commit`, l. 265-535).
-- Diffusion : `BROADCAST` posé à la création (`coverage.service.ts:161`), par `createRelief` et
-  par `RELEASE` ; `broadcastInTx` notifie les membres disponibles des groupes ciblés ; `ACCEPT`
-  (acteur `CANDIDATE`) prend la garde.
-- Disponibilité : `coverage-availability.ts` — raisons `INACTIVE`, `ABSENT`, `UNAVAILABLE`,
-  `ON_GUARD` (gardes actives qui chevauchent, `plannedEndAt` null = +∞) ; verrou
-  `pg_advisory_xact_lock` par employé.
-- Échéances : `Request.currentStage/currentDueAt/overdueStage` ; `CoverageDeadlinesJob`
-  (15 s, verrou consultatif) exécute `EXPIRE` (BROADCAST→UNFILLED, ACCEPTED/EN_ROUTE→LATE).
-  Aucun mécanisme générique de rappel ; `warnAt` est calculé mais lu par aucun job.
-- `RequestEvent` et `AuditLog` : triggers `forbid_modification()` sur UPDATE/DELETE/TRUNCATE
-  (`0001_init`). INSERT et DDL restent permis.
-- Notifications : `notifyInTx(tx, userIds, actorId, {type, requestId, priority})`, publiées après
-  commit (Socket.IO, salle par utilisateur). `priority = URGENT` déclenche déjà dans
-  `NotificationCenter.tsx` une mise en évidence visuelle, une région `aria-live="assertive"` et
-  un Snackbar persistant `role="alert"`. **Aucun son.** Aucun e-mail, SMS, push ni PWA.
-- Fuseau : l'API tourne en UTC ; seul le service `backup` reçoit `TZ` (défaut `Europe/Paris`).
-- Migrations : `0001_init`, `0002_coverage` (+ `down.sql`), `0003_request_event_seq`, puis dans `master` après la spécification : `0004_superadmin_notifications`, `0005_routing_mode` (+ `down.sql`), `0006_request_event_dashboard_indexes` (PR #13) et `0007_audit_request_actions` (PR #17). Les migrations de cette fonctionnalité sont donc `0008` et `0009`.
-  `deploy/api-entrypoint.sh` exige une sauvegarde récente avant toute migration en attente.
+- A guard duty is a `Request` (`kind = COVERAGE`) + a 1-1 `CoverageDetail`. The pure state machine
+  is `backend/src/coverage/domain/coverage-state-machine.ts` (`TRANSITIONS`, l. 188-232); the
+  effects (conditional update `{id, status, version}`, events, audit, notifications)
+  are in `coverage-actions.service.ts` (`commit`, l. 265-535).
+- Broadcast: `BROADCAST` set at creation (`coverage.service.ts:161`), by `createRelief` and
+  by `RELEASE`; `broadcastInTx` notifies the available members of the targeted groups; `ACCEPT`
+  (actor `CANDIDATE`) takes the guard duty.
+- Availability: `coverage-availability.ts` — reasons `INACTIVE`, `ABSENT`, `UNAVAILABLE`,
+  `ON_GUARD` (overlapping active guard duties, `plannedEndAt` null = +∞); `pg_advisory_xact_lock`
+  per employee.
+- Due dates: `Request.currentStage/currentDueAt/overdueStage`; `CoverageDeadlinesJob`
+  (15 s, advisory lock) runs `EXPIRE` (BROADCAST→UNFILLED, ACCEPTED/EN_ROUTE→LATE).
+  No generic reminder mechanism; `warnAt` is computed but read by no job.
+- `RequestEvent` and `AuditLog`: `forbid_modification()` triggers on UPDATE/DELETE/TRUNCATE
+  (`0001_init`). INSERT and DDL stay allowed.
+- Notifications: `notifyInTx(tx, userIds, actorId, {type, requestId, priority})`, published after
+  commit (Socket.IO, per-user room). `priority = URGENT` already triggers in
+  `NotificationCenter.tsx` a visual highlight, an `aria-live="assertive"` region and
+  a persistent `role="alert"` Snackbar. **No sound.** No email, SMS, push or PWA.
+- Time zone: the API runs in UTC; only the `backup` service receives `TZ` (default `Europe/Paris`).
+- Migrations: `0001_init`, `0002_coverage` (+ `down.sql`), `0003_request_event_seq`, then in `master` after the specification: `0004_superadmin_notifications`, `0005_routing_mode` (+ `down.sql`), `0006_request_event_dashboard_indexes` (PR #13) and `0007_audit_request_actions` (PR #17). The migrations of this feature are therefore `0008` and `0009`.
+  `deploy/api-entrypoint.sh` requires a recent backup before any pending migration.
 
-## R1 — Statuts principaux et sous-états : dérivés de `Request.status` (validée)
+## R1 — Main statuses and sub-states: derived from `Request.status` (validated)
 
-- **Décision** : `Request.status` reste l'unique source de vérité. On ajoute la valeur
-  `PENDING` (« en attente ») à `RequestStatus`. Le statut principal et le sous-état sont
-  calculés par une fonction pure `coverageMainStatus(status)` :
+- **Decision**: `Request.status` stays the single source of truth. The value
+  `PENDING` ("en attente", pending) is added to `RequestStatus`. The main status and the sub-state
+  are computed by a pure function `coverageMainStatus(status)`:
 
-  | `Request.status` | Statut principal | Sous-état (badge) |
+  | `Request.status` | Main status | Sub-state (badge) |
   |---|---|---|
-  | `PENDING` | en attente | — |
-  | `ACCEPTED` | assignée | — |
-  | `EN_ROUTE` | assignée | En route |
-  | `LATE` | assignée | En retard |
-  | `ON_DUTY` | en cours | — |
-  | `RELIEF_PENDING` | en cours | Relève demandée |
-  | `DONE` | terminée | — |
-  | `CLOSED` | terminée | Clôturée après validation |
-  | `CANCELLED` | annulée | — |
-  | `UNFILLED` | non pourvue | — |
-  | `BROADCAST` | *(obsolète : plus jamais posé ; migré vers `PENDING`)* | — |
+  | `PENDING` | en attente (pending) | — |
+  | `ACCEPTED` | assignée (assigned) | — |
+  | `EN_ROUTE` | assignée | En route (on the way) |
+  | `LATE` | assignée | En retard (late) |
+  | `ON_DUTY` | en cours (in progress) | — |
+  | `RELIEF_PENDING` | en cours | Relève demandée (handover requested) |
+  | `DONE` | terminée (done) | — |
+  | `CLOSED` | terminée | Clôturée après validation (closed after validation) |
+  | `CANCELLED` | annulée (cancelled) | — |
+  | `UNFILLED` | non pourvue (unfilled) | — |
+  | `BROADCAST` | *(obsolete: never set again; migrated to `PENDING`)* | — |
 
-- **Raison** : une seule source de vérité, aucune réécriture d'historique, migration de données
-  minimale (FR-008c, FR-008d), filtres et statistiques sur le statut principal par simple
-  ensemble de valeurs.
-- **Alternatives écartées** : colonnes `mainStatus`/`subState` sur `CoverageDetail` (deux sources
-  à synchroniser, migration de toutes les lignes).
-- **Conséquence** : `UNFILLED` change de sens — il ne signifie plus « délai de prise en charge
-  dépassé » mais « créneau passé sans assignation » (FR-008a). La valeur `BROADCAST` reste dans
-  l'enum (la retirer imposerait de recréer le type et de réécrire l'historique).
+- **Reason**: a single source of truth, no history rewrite, minimal data migration (FR-008c,
+  FR-008d), filters and statistics on the main status by a simple set of values.
+- **Alternatives rejected**: `mainStatus`/`subState` columns on `CoverageDetail` (two sources
+  to keep in sync, migration of every row).
+- **Consequence**: `UNFILLED` changes meaning — it no longer means "pick-up deadline
+  exceeded" but "time slot passed with no assignment" (FR-008a). The `BROADCAST` value stays in
+  the enum (removing it would require recreating the type and rewriting the history).
 
-## R2 — Rappels, délais et escalades : table d'échéances unique (validée)
+## R2 — Reminders, deadlines and escalations: a single due-date table (validated)
 
-- **Décision** : table `CoverageReminder` (affectation, type, cible, échéance, tentatives,
-  plafond, intervalle, résolution). Un job unique `CoverageRemindersJob` (15 s, verrou
-  consultatif, `FOR UPDATE SKIP LOCKED`) traite les lignes échues. Types : `TAKEOVER`,
+- **Decision**: `CoverageReminder` table (assignment, type, target, due date, attempts,
+  cap, interval, resolution). A single job `CoverageRemindersJob` (15 s, advisory
+  lock, `FOR UPDATE SKIP LOCKED`) processes the due rows. Types: `TAKEOVER`,
   `TAKEOVER_ESCALATION`, `MORNING`, `END_OF_SLOT`, `END_OF_SLOT_ADMIN`, `SUPPORT_DECISION`,
   `SUPPORT_ESCALATION`.
-- **Raison** : sept minuteries hétérogènes (dont une répétée avec plafond) ; une table rend chaque
-  envoi idempotent, traçable et testable sans migration supplémentaire par type.
-- **Alternatives écartées** : colonnes horodatées sur `CoverageDetail` (8-10 colonnes, répétition
-  du renfort mal représentée) ; réutiliser `currentStage/currentDueAt` (une seule échéance à la
-  fois, alors que délai de prise en charge, rappel du matin et escalade coexistent).
-- **Conservé** : `currentStage = ARRIVAL` et `EXPIRE` vers `LATE` (délai d'arrivée, FR-011b).
-  Retiré : l'étape `TAKEOVER` sur `currentStage` (remplacée par `CoverageReminder.TAKEOVER`).
+- **Reason**: seven heterogeneous timers (one of them repeated with a cap); a table makes each
+  send idempotent, traceable and testable without an extra migration per type.
+- **Alternatives rejected**: timestamped columns on `CoverageDetail` (8-10 columns, backup
+  repetition poorly represented); reusing `currentStage/currentDueAt` (only one due date at a
+  time, whereas pick-up deadline, morning reminder and escalation coexist).
+- **Kept**: `currentStage = ARRIVAL` and `EXPIRE` to `LATE` (arrival deadline, FR-011b).
+  Removed: the `TAKEOVER` stage on `currentStage` (replaced by `CoverageReminder.TAKEOVER`).
 
-## R3 — Calcul des échéances
+## R3 — Due date computation
 
-- **Délai de prise en charge** (FR-011d) : à la création d'une demande `PENDING` (hors classe
-  vide), une ligne `TAKEOVER` avec `dueAt = max(now, startAt − seuil) + délai`. Seuil = réglage
-  `coverageUrgencyThresholdMinutes` (60) ; délai = `DeadlineRule.takeoverMinutes` de la catégorie
-  de garde (2, déjà réglable par le super administrateur). À l'échéance : notification URGENT aux
-  admins, puis ligne `TAKEOVER_ESCALATION` à `+ coverageEscalationMinutes` (5) vers les super
-  administrateurs. Résolution de toutes les lignes ouvertes à l'assignation ou à l'annulation.
-- **Modification par l'enseignant** (FR-008g) : les lignes ouvertes sont recalculées.
-- **Rappel du matin** (FR-011f) : si la date locale de `startAt` est postérieure à la date locale
-  de création, ligne `MORNING` à `coverageMorningReminderTime` (« 07:00 ») du jour de `startAt` ;
-  envoyée aux admins seulement si l'affectation est encore `PENDING`.
-- **Fin de créneau** (FR-016a) : à l'assignation (ou à la création « en cours »), ligne
-  `END_OF_SLOT` à `plannedEndAt + coverageCloseReminderMinutes` (10) vers le surveillant ; sans
-  clôture, ligne `END_OF_SLOT_ADMIN` à `+ coverageCloseEscalationMinutes` (10) vers les admins.
-  Recalculée à chaque prolongation (`EXTEND`).
-- **Renfort** (FR-015i) : ligne `SUPPORT_DECISION` toutes les `coverageSupportReminderMinutes`
-  (10), au plus `coverageSupportReminderMax` (3) envois, puis `SUPPORT_ESCALATION` vers les super
-  administrateurs.
-- **Non pourvue** (FR-008a) : le même job passe en `UNFILLED` (transition système) toute
-  affectation `PENDING` dont la fin de créneau est passée.
-- **Fin de créneau inconnue** (gardes anciennes « jusqu'à l'arrivée », `plannedEndAt` null) :
-  fin réputée = fin de la journée locale de `startAt`. Les nouvelles demandes ont toujours une fin
-  (FR-012) ; l'affectation directe exige aussi une fin.
+- **Pick-up deadline** (FR-011d): when a `PENDING` request is created (except empty class), a
+  `TAKEOVER` row with `dueAt = max(now, startAt − threshold) + deadline`. Threshold = setting
+  `coverageUrgencyThresholdMinutes` (60); deadline = `DeadlineRule.takeoverMinutes` of the guard
+  category (2, already adjustable by the super administrator). At the due date: URGENT
+  notification to the admins, then a `TAKEOVER_ESCALATION` row at `+ coverageEscalationMinutes`
+  (5) to the super administrators. All open rows are resolved on assignment or cancellation.
+- **Edit by the teacher** (FR-008g): the open rows are recomputed.
+- **Morning reminder** (FR-011f): if the local date of `startAt` is after the local date of
+  creation, a `MORNING` row at `coverageMorningReminderTime` ("07:00") on the day of `startAt`;
+  sent to the admins only if the assignment is still `PENDING`.
+- **Time slot end** (FR-016a): at assignment (or at "en cours" creation), an
+  `END_OF_SLOT` row at `plannedEndAt + coverageCloseReminderMinutes` (10) to the supervisor;
+  without closure, an `END_OF_SLOT_ADMIN` row at `+ coverageCloseEscalationMinutes` (10) to the
+  admins. Recomputed at each extension (`EXTEND`).
+- **Backup** (FR-015i): a `SUPPORT_DECISION` row every `coverageSupportReminderMinutes`
+  (10), at most `coverageSupportReminderMax` (3) sends, then `SUPPORT_ESCALATION` to the super
+  administrators.
+- **Unfilled** (FR-008a): the same job moves to `UNFILLED` (system transition) any `PENDING`
+  assignment whose time slot end has passed.
+- **Unknown time slot end** (old "until arrival" guard duties, `plannedEndAt` null):
+  deemed end = end of the local day of `startAt`. New requests always have an end
+  (FR-012); direct assignment also requires an end.
 
-## R4 — Fuseau horaire de l'école : `SCHOOL_TIMEZONE` (validée)
+## R4 — School time zone: `SCHOOL_TIMEZONE` (validated)
 
-- **Décision** : nouvelle variable d'environnement `SCHOOL_TIMEZONE`, validée au démarrage par
-  `backend/src/config` (identifiant IANA accepté par `Intl.DateTimeFormat`), défaut
-  `Europe/Paris`, branchée sur `TZ` dans `deploy/docker-compose.yml`. Calculs « aujourd'hui /
-  demain », 7 h 00 et fin de journée via un module pur `school-time.ts` utilisant `Intl` (aucune
-  dépendance).
-- **Alternatives écartées** : fuseau en dur (changement de code si l'école change) ; `TZ` du
-  processus Node (effets de bord sur tous les horodatages et les tests).
+- **Decision**: new environment variable `SCHOOL_TIMEZONE`, validated at startup by
+  `backend/src/config` (IANA identifier accepted by `Intl.DateTimeFormat`), default
+  `Europe/Paris`, wired to `TZ` in `deploy/docker-compose.yml`. "Today / tomorrow",
+  7:00 and end-of-day computations go through a pure module `school-time.ts` using `Intl` (no
+  dependency).
+- **Alternatives rejected**: hard-coded time zone (code change if the school moves); the Node
+  process `TZ` (side effects on all timestamps and on the tests).
 
-## R5 — Rétention et anonymisation (validée)
+## R5 — Retention and anonymization (validated)
 
-- **Décision** : âge glissant. Réglage `coverageRetentionMonths` (12). Job quotidien
-  `CoverageAnonymizationJob` (intervalle horaire, verrou, idempotent via `anonymizedAt`) :
-  pour chaque affectation finale (terminée, annulée, non pourvue) créée il y a plus de N mois,
-  `CoverageDetail.teacherId = null`, `absentTeacher = null`, `reason = null`, `anonymizedAt = now` ;
-  si l'affectation vient d'une demande enseignant, `Request.requesterId` est remplacé par le
-  compte technique inactif `enseignant-anonymise` et `Request.description` vidée. Un événement
-  `ANONYMIZED` (sans donnée personnelle) est ajouté et une entrée d'audit `COVERAGE_ANONYMIZED`
-  (comptes, sans identité) écrite.
-- **Non touchés** : `RequestEvent`, `AuditLog` (append-only, principe V) et `Notification`
-  (historique de réception). Ils gardent des **identifiants** d'auteur, jamais de nom ni de motif
-  (les nouveaux événements n'écrivent ni motif ni nom d'enseignant) ; ce lien résiduel est
-  documenté et l'accès à ces historiques reste restreint (FR-023).
-- **Alternatives écartées** : événements sans `actorId` (affaiblit la traçabilité) ; bascule à
-  date fixe de rentrée (durée de conservation réelle variable de 0 à 12 mois).
+- **Decision**: rolling age. Setting `coverageRetentionMonths` (12). Daily job
+  `CoverageAnonymizationJob` (hourly interval, lock, idempotent via `anonymizedAt`):
+  for each final assignment (done, cancelled, unfilled) created more than N months ago,
+  `CoverageDetail.teacherId = null`, `absentTeacher = null`, `reason = null`, `anonymizedAt = now`;
+  if the assignment comes from a teacher request, `Request.requesterId` is replaced by the
+  inactive technical account `enseignant-anonymise` and `Request.description` is emptied. An
+  `ANONYMIZED` event (with no personal data) is added and a `COVERAGE_ANONYMIZED` audit entry
+  (counts, no identity) is written.
+- **Not touched**: `RequestEvent`, `AuditLog` (append-only, principle V) and `Notification`
+  (reception history). They keep author **identifiers**, never a name or a reason
+  (the new events write no reason nor teacher name); this residual link is
+  documented and access to these histories stays restricted (FR-023).
+- **Alternatives rejected**: events without `actorId` (weakens traceability); switch on a
+  fixed start-of-school-year date (actual retention duration varies from 0 to 12 months).
 
-## R6 — Fusion de doublons (validée)
+## R6 — Duplicate merge (validated)
 
-- **Décision** : à la confirmation, l'affectation absorbée (déclaration du surveillant) passe
-  `CANCELLED` avec `mergedIntoId` vers l'affectation conservée ; le déclarant est reporté sur
-  l'affectation conservée selon FR-015d/e/f (prise en charge si `PENDING`, renfort sinon). Les
-  statistiques excluent toute affectation ayant `mergedIntoId` (ni retard, ni annulation).
-  Propositions dans `CoverageMergeProposal` (`PENDING`, `CONFIRMED`, `REJECTED`) ; « non
-  tranché » = `PENDING` après la dernière présentation (`finalPresentedAt`).
+- **Decision**: on confirmation, the absorbed assignment (the supervisor's report) becomes
+  `CANCELLED` with `mergedIntoId` pointing to the kept assignment; the reporter is carried over
+  onto the kept assignment according to FR-015d/e/f (taken over if `PENDING`, backup otherwise).
+  The statistics exclude any assignment with `mergedIntoId` (neither lateness nor cancellation).
+  Proposals in `CoverageMergeProposal` (`PENDING`, `CONFIRMED`, `REJECTED`); "non
+  tranché" (undecided) = `PENDING` after the last presentation (`finalPresentedAt`).
 
-## R7 — Identification des enseignants et surveillants : groupes à clé système
+## R7 — Identifying teachers and supervisors: system-key groups
 
-- **Décision** : colonne `EmployeeGroup.systemKey` (enum `GroupSystemKey` : `TEACHERS`,
-  `SUPERVISORS`, unique, nullable). Le groupe « Surveillants/Remplaçants » est renommé
-  « Surveillants » et reçoit `SUPERVISORS` ; un groupe « Enseignants » (`TEACHERS`) est créé vide.
-  Le code identifie les groupes par clé, jamais par nom (le super administrateur peut renommer).
-- **Éligibilité à une affectation** : membre actif du groupe `SUPERVISORS` (remplace le contrôle
-  actuel « rôle EMPLOYEE », `coverage-actions.service.ts:624-633`). Un super administrateur membre
-  du groupe est donc assignable (FR-004b).
-- **Alternative écartée** : repérage par nom de groupe (fragile au renommage).
+- **Decision**: column `EmployeeGroup.systemKey` (enum `GroupSystemKey`: `TEACHERS`,
+  `SUPERVISORS`, unique, nullable). The "Surveillants/Remplaçants" group is renamed
+  "Surveillants" and gets `SUPERVISORS`; an "Enseignants" group (`TEACHERS`) is created empty.
+  The code identifies groups by key, never by name (the super administrator can rename).
+- **Eligibility for an assignment**: active member of the `SUPERVISORS` group (replaces the
+  current "role EMPLOYEE" check, `coverage-actions.service.ts:624-633`). A super administrator who
+  is a member of the group is therefore assignable (FR-004b).
+- **Alternative rejected**: identification by group name (fragile when renamed).
 
-## R8 — Renommage du rôle
+## R8 — Role rename
 
-- **Décision** : `ALTER TYPE "Role" RENAME VALUE 'MANAGER' TO 'ADMIN'` (réversible par
-  l'opération inverse, met à jour automatiquement `User.role`, `Category.creatorRoles`,
-  `RolePermission`). Dans le code, `Role.MANAGER` → `Role.ADMIN`. Les autres identifiants
-  techniques contenant `MANAGER` (`ClosureMode.MANAGER`, acteur `MANAGER` des politiques,
-  `RELEASE_BY_MANAGER`) ne désignent pas le rôle et sont conservés ; seuls leurs libellés
-  d'interface changent (« Par un admin »). Espace `/admin/*` : libellé « Administrateur ».
-- **Compte de démonstration** : `responsable` → `admin` dans `seed.ts`, `e2e/support/accounts.ts`,
-  `test/utils/auth-helpers.ts` ; la migration de données renomme aussi le compte en base s'il
-  existe, si l'identifiant `admin` est libre et s'il porte le nom affiché du seed (« Responsable
-  administratif »), afin de ne jamais toucher un compte réel.
-- **Documentation** : note en tête de `specs/001…/spec.md` et `specs/003…/spec.md` (FR-004d),
-  `README.md`, `docs/ARCHITECTURE.md`, `docs/coverage-migration.md` mis à jour.
+- **Decision**: `ALTER TYPE "Role" RENAME VALUE 'MANAGER' TO 'ADMIN'` (reversible by the
+  inverse operation, automatically updates `User.role`, `Category.creatorRoles`,
+  `RolePermission`). In the code, `Role.MANAGER` → `Role.ADMIN`. The other technical identifiers
+  containing `MANAGER` (`ClosureMode.MANAGER`, the `MANAGER` actor of the policies,
+  `RELEASE_BY_MANAGER`) do not designate the role and are kept; only their interface labels
+  change ("Par un admin", by an admin). `/admin/*` area: label "Administrateur".
+- **Demo account**: `responsable` → `admin` in `seed.ts`, `e2e/support/accounts.ts`,
+  `test/utils/auth-helpers.ts`; the data migration also renames the account in the database if
+  it exists, if the `admin` identifier is free and if it carries the seed's display name
+  ("Responsable administratif", administrative manager), so as never to touch a real account.
+- **Documentation**: note at the top of `specs/001…/spec.md` and `specs/003…/spec.md` (FR-004d),
+  `README.md`, `docs/ARCHITECTURE.md`, `docs/coverage-migration.md` updated.
 
-## R9 — Gestion des gardes : tous les admins
+## R9 — Guard duty management: all admins
 
-- **Décision** : `isCoverageManagerUser` devient « rôle `ADMIN` ou `SUPER_ADMIN` » (Q18) ; la
-  règle « responsable d'une catégorie de garde » disparaît. L'acteur `MANAGER` de
-  `coverage-policy.ts` = admin ou super administrateur (le demandeur n'est plus `MANAGER` : un
-  enseignant demandeur obtient un acteur `REQUESTER` limité à modifier/retirer en `PENDING`).
-- **Catégorie** : la catégorie « Garde de classe » reste le support technique (`Request.categoryId`
-  obligatoire, `DeadlineRule`, `proofMode`, `finalValidation`) ; ses responsables et rôles
-  créateurs ne servent plus aux droits du module.
+- **Decision**: `isCoverageManagerUser` becomes "role `ADMIN` or `SUPER_ADMIN`" (Q18); the
+  rule "manager of a guard category" goes away. The `MANAGER` actor of
+  `coverage-policy.ts` = admin or super administrator (the requester is no longer `MANAGER`: a
+  requesting teacher gets a `REQUESTER` actor limited to editing/withdrawing while `PENDING`).
+- **Category**: the "Garde de classe" (class guard duty) category stays the technical support
+  (`Request.categoryId` required, `DeadlineRule`, `proofMode`, `finalValidation`); its managers
+  and creator roles no longer serve for the module's rights.
 
-## R10 — Déclaration de classe vide : présence
+## R10 — Empty-class report: presence
 
-- **Décision** : la déclaration crée l'affectation directement `ON_DUTY` (« en cours »,
-  `presenceAt = now`, durée à partir de la déclaration, FR-021). Un QR code scanné (page
-  `/gardes/presence` existante) peut servir à choisir la classe et est alors enregistré comme
-  `CoveragePresence` ; aucune preuve n'est exigée pour déclarer, car la spec impose un passage
-  immédiat « en cours » et l'absence de blocage.
-- **Alternative écartée** : exiger la preuve (`proofMode`) avant création — contredit FR-015.
-- **Validé le 2026-10-16.** Évolution possible : si l'établissement veut une preuve obligatoire pour
-  les déclarations, elle s'ajoute au guard sans changer le modèle.
+- **Decision**: the report creates the assignment directly `ON_DUTY` ("en cours",
+  `presenceAt = now`, duration counted from the report, FR-021). A scanned QR code (existing
+  `/gardes/presence` page) can be used to pick the class and is then recorded as a
+  `CoveragePresence`; no proof is required to report, because the spec requires an
+  immediate switch to "en cours" and no blocking.
+- **Alternative rejected**: require proof (`proofMode`) before creation — contradicts FR-015.
+- **Validated on 2026-10-16.** Possible evolution: if the school wants mandatory proof for
+  reports, it is added to the guard without changing the model.
 
-## R11 — Notifications et alertes mises en évidence
+## R11 — Notifications and highlighted alerts
 
-- **Décision** : mécanisme existant uniquement (`notifyInTx` + Socket.IO). Les cas urgents
-  (classe vide, délai expiré, escalade, double affectation, rappels de renfort) sont émis avec
-  `priority = URGENT`, ce qui active la mise en évidence visuelle, `aria-live="assertive"` et le
-  Snackbar persistant déjà en place. Ajout d'un **signal sonore facultatif** (Web Audio API, pas
-  de fichier ni de dépendance), désactivable, déclenché seulement après une interaction de
-  l'utilisateur (règles d'autoplay) et toujours accompagné du signal visuel (FR-024a, WCAG).
-- **Destinataires « admin »** : tous les utilisateurs actifs de rôle `ADMIN` ; à défaut d'admin
-  actif, les super administrateurs. Les escalades vont aux super administrateurs actifs.
-- **Nouveaux types** (`NotificationType`) : `COVERAGE_REQUESTED`, `COVERAGE_EMPTY_CLASS`,
+- **Decision**: existing mechanism only (`notifyInTx` + Socket.IO). Urgent cases
+  (empty class, expired deadline, escalation, double assignment, backup reminders) are emitted
+  with `priority = URGENT`, which activates the visual highlight, `aria-live="assertive"` and the
+  persistent Snackbar already in place. Addition of an **optional sound signal** (Web Audio API, no
+  file or dependency), can be turned off, triggered only after a user interaction
+  (autoplay rules) and always accompanied by the visual signal (FR-024a, WCAG).
+- **"Admin" recipients**: all active users with the `ADMIN` role; if no admin is
+  active, the super administrators. Escalations go to the active super administrators.
+- **New types** (`NotificationType`): `COVERAGE_REQUESTED`, `COVERAGE_EMPTY_CLASS`,
   `COVERAGE_TAKEOVER_EXPIRED`, `COVERAGE_ESCALATED`, `COVERAGE_MORNING_REMINDER`,
   `COVERAGE_CLOSE_REMINDER`, `COVERAGE_DUPLICATE`, `COVERAGE_SUPPORT_REMINDER`,
-  `COVERAGE_DOUBLE_ASSIGNMENT`, `COVERAGE_LIFTED`, `COVERAGE_UPDATED`. Le test
-  `frontend/tests/api/enums-sync.test.ts` garde l'interface synchronisée.
+  `COVERAGE_DOUBLE_ASSIGNMENT`, `COVERAGE_LIFTED`, `COVERAGE_UPDATED`. The test
+  `frontend/tests/api/enums-sync.test.ts` keeps the interface in sync.
 
-## R12 — Migration en plusieurs étapes, réversible
+## R12 — Multi-step, reversible migration
 
-- **Décision** : deux migrations Prisma + scripts de pré-contrôle (détail :
+- **Decision**: two Prisma migrations + pre-check scripts (detail:
   [contracts/migration.md](./contracts/migration.md)).
-  1. `0008_supervision_schema` — **additive** : valeurs d'enum, tables, colonnes nullables, clé de
-     groupe. Séparée car une valeur ajoutée par `ALTER TYPE … ADD VALUE` ne peut pas être
-     utilisée dans la même transaction.
-  2. `0009_supervision_data` — **données** : rôle `MANAGER`→`ADMIN`, groupes, `BROADCAST`→`PENDING`,
-     `UNFILLED` à venir→`PENDING`, `source` des gardes existantes, compte de démo. Chaque
-     changement de statut ajoute un `RequestEvent` `STATUS_CHANGED` (acteur SYSTEM, commentaire
-     `migration-0009`) : traçabilité (principe V) et repère pour le retour arrière.
-  - Chaque migration a un `down.sql` (exécuté manuellement, comme `0002`) : `0009/down.sql`
-    rétablit les statuts à partir des événements `migration-0009` (en ajoutant des événements
-    inverses, sans rien supprimer) et renomme `ADMIN`→`MANAGER` ; `0008/down.sql` retire tables,
-    colonnes et valeurs d'enum en recréant les types, et refuse de s'exécuter si des données du
-    nouveau module existent.
-  - Ordre de déploiement : pré-contrôles → validations humaines → sauvegarde (imposée par
-    l'entrypoint) → `migrate deploy` → démarrage.
-- **Alternatives écartées** : une migration unique (impossible : `ADD VALUE` puis usage) ;
-  `prisma migrate dev` en production (interdit par le déploiement existant).
+  1. `0008_supervision_schema` — **additive**: enum values, tables, nullable columns, group
+     key. Separate because a value added by `ALTER TYPE … ADD VALUE` cannot be
+     used in the same transaction.
+  2. `0009_supervision_data` — **data**: role `MANAGER`→`ADMIN`, groups, `BROADCAST`→`PENDING`,
+     upcoming `UNFILLED`→`PENDING`, `source` of existing guard duties, demo account. Each
+     status change adds a `RequestEvent` `STATUS_CHANGED` (actor SYSTEM, comment
+     `migration-0009`): traceability (principle V) and a marker for the rollback.
+  - Each migration has a `down.sql` (run manually, like `0002`): `0009/down.sql`
+    restores the statuses from the `migration-0009` events (adding inverse events,
+    deleting nothing) and renames `ADMIN`→`MANAGER`; `0008/down.sql` removes tables,
+    columns and enum values by recreating the types, and refuses to run if data of the
+    new module exists.
+  - Deployment order: pre-checks → human validations → backup (enforced by the
+    entrypoint) → `migrate deploy` → startup.
+- **Alternatives rejected**: a single migration (impossible: `ADD VALUE` then use);
+  `prisma migrate dev` in production (forbidden by the existing deployment).
 
-## R13 — Pré-contrôles et validations humaines (FR-005a, FR-008d, FR-023a)
+## R13 — Pre-checks and human validations (FR-005a, FR-008d, FR-023a)
 
-- **Décision** : script `backend/scripts/supervision-preflight.ts` (lecture seule, `npm run
-  preflight:supervision -w backend`) produisant un rapport Markdown :
-  1. membres du groupe « Surveillants/Remplaçants » avec intitulé de poste et rôle, à classer
-     surveillant / non surveillant par l'établissement ;
-  2. décompte des gardes par statut, avec la cible calculée, et **liste des statuts sans
-     équivalent évident** (tout statut hors tableau R1, ou garde `COVERAGE` portant un statut de
-     demande de travail) ;
-  3. durée de conservation proposée (12 mois) et nombre d'affectations qui seraient anonymisées
-     immédiatement.
-  La mise en production exige les trois validations consignées dans le rapport ; la migration
-  `0009` refuse de s'exécuter si un statut sans équivalent est présent (garde-fou SQL).
+- **Decision**: script `backend/scripts/supervision-preflight.ts` (read-only, `npm run
+  preflight:supervision -w backend`) producing a Markdown report:
+  1. members of the "Surveillants/Remplaçants" group with job title and role, to be classified
+     supervisor / non-supervisor by the school;
+  2. count of guard duties by status, with the computed target, and **list of statuses with no
+     obvious equivalent** (any status outside the R1 table, or a `COVERAGE` guard duty carrying a
+     work-request status);
+  3. proposed retention duration (12 months) and number of assignments that would be anonymized
+     immediately.
+  Going to production requires the three validations recorded in the report; migration
+  `0009` refuses to run if a status with no equivalent is present (SQL guard).
 
 ## R14 — Interface
 
-- Réutilisation de `features/coverage/` : suppression de l'onglet « À prendre », du bouton « Je
-  prends » et de l'élargissement ; ajout des écrans « Signaler un retard ou une absence »
-  (enseignant), « Déclarer une classe vide » (surveillant), file « En attente » priorisée,
-  propositions de rattachement, renforts et statistiques (admin) ; badges de sous-état.
-  Administration : étages (super administrateur), étage sur la classe et sur le profil du
-  surveillant. Accessibilité : composants MUI existants, vérifications automatisées existantes
-  (Vitest + Playwright à 360/768/1280 px).
+- Reuse of `features/coverage/`: removal of the "À prendre" tab, the "Je prends" (I take it)
+  button and the widening; addition of the "Signaler un retard ou une absence" (Report a lateness
+  or an absence) screens (teacher), "Déclarer une classe vide" (Report an empty class)
+  (supervisor), prioritized "En attente" queue, attachment proposals, backups and statistics
+  (admin); sub-state badges. Administration: floors (super administrator), floor on the class and
+  on the supervisor's profile. Accessibility: existing MUI components, existing automated checks
+  (Vitest + Playwright at 360/768/1280 px).
 
-## R15 — Dépendances
+## R15 — Dependencies
 
-- **Décision** : aucune nouvelle dépendance. Fuseau via `Intl`, son via Web Audio API, jobs via
-  `@nestjs/schedule` déjà présent.
+- **Decision**: no new dependency. Time zone via `Intl`, sound via Web Audio API, jobs via
+  `@nestjs/schedule` already present.

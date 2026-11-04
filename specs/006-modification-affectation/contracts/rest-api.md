@@ -1,39 +1,39 @@
-# Contrat REST — 006 Modification d'une affectation
+# REST Contract — 006 Modification d'une affectation (Editing an assignment)
 
-## `PATCH /api/coverage/:id` (nouveau)
+## `PATCH /api/coverage/:id` (new)
 
-Session requise ; **admins et super administrateur** seulement. En-tête `Origin` exigé (comme
-toute écriture).
+Session required; **admins and super administrator** only. `Origin` header required (like any
+write).
 
-Corps (`UpdateCoverageDto`) — tous les champs sauf `version` sont facultatifs ; au moins un doit
-différer de la valeur actuelle pour qu'il y ait modification :
+Body (`UpdateCoverageDto`) — all fields except `version` are optional; at least one must
+differ from the current value for there to be a change:
 
 ```jsonc
 {
-  "version": 7,                 // obligatoire, entier : version lue
-  "classId": "uuid",            // classe active
-  "date": "2026-10-23",         // AAAA-MM-JJ, fuseau de l'école
+  "version": 7,                 // required, integer: version read
+  "classId": "uuid",            // active class
+  "date": "2026-10-23",         // YYYY-MM-DD, school time zone
   "startTime": "09:30",         // HH:MM
   "endTime": "10:30"            // HH:MM
 }
 ```
 
-Réponse `200` : détail de l'affectation (`CoverageDetail`, même forme que `GET /api/coverage/:id`),
-avec `version` incrémentée. Valeurs identiques : `200`, détail inchangé, sans événement ni
+`200` response: assignment detail (`CoverageDetail`, same shape as `GET /api/coverage/:id`),
+with `version` incremented. Identical values: `200`, detail unchanged, with no event or
 notification.
 
-| Code | Cas |
-|------|-----|
-| 200 | modifiée (ou rien à modifier) |
-| 400 `VALIDATION_ERROR` | champ mal formé ; champ non modifiable dans ce statut (`fields[].field` = `classId`, `date` ou `startTime`, message « Non modifiable pendant la présence en classe. ») ; début hors de la fenêtre 12 h avant / 7 jours après ; fin non postérieure à maintenant pendant la présence |
-| 400 `INVALID_RANGE` | fin avant le début, ou fin déjà passée |
-| 400 `CLASS_INACTIVE` | classe introuvable ou désactivée |
-| 404 `NOT_FOUND` | affectation inexistante, ou rôle non admin (refus journalisé `ACCESS_DENIED`) |
-| 409 `INVALID_TRANSITION` | statut définitif (terminée, clôturée, annulée, non pourvue) |
-| 409 `STATE_CHANGED` | version différente (modification concurrente) |
-| 409 `NOT_AVAILABLE` | surveillant indisponible sur le nouveau créneau ; `message` nomme le conflit, `details.conflict = { id, className, startAt, plannedEndAt }` si une autre affectation ou un renfort chevauche |
+| Code | Case |
+|------|------|
+| 200 | updated (or nothing to change) |
+| 400 `VALIDATION_ERROR` | malformed field; field not editable in this status (`fields[].field` = `classId`, `date` or `startTime`, message « Non modifiable pendant la présence en classe. » (Not editable during attendance in class.)); start outside the window 12 h before / 7 days after; end not later than now during attendance |
+| 400 `INVALID_RANGE` | end before the start, or end already past |
+| 400 `CLASS_INACTIVE` | class not found or deactivated |
+| 404 `NOT_FOUND` | assignment does not exist, or non-admin role (refusal logged `ACCESS_DENIED`) |
+| 409 `INVALID_TRANSITION` | final status (done, closed, cancelled, unfilled) |
+| 409 `STATE_CHANGED` | different version (concurrent change) |
+| 409 `NOT_AVAILABLE` | supervisor unavailable in the new slot; `message` names the conflict, `details.conflict = { id, className, startAt, plannedEndAt }` if another assignment or a reinforcement overlaps |
 
-Exemple de refus nommé :
+Example of a named refusal:
 
 ```json
 {
@@ -45,23 +45,25 @@ Exemple de refus nommé :
 }
 ```
 
-## `GET /api/coverage/:id` — champ ajouté au détail
+(Message in English: Supervisor already assigned: 2e année Bleu, 22/10 09:00–10:00. Reassign first, then edit.)
+
+## `GET /api/coverage/:id` — field added to the detail
 
 ```jsonc
 {
   "allowedActions": ["UPDATE", "REASSIGN", "EXTEND", "CANCEL"],
-  "modifiableFields": ["classId", "date", "startTime", "endTime"]   // AJOUTÉ ; [] si rien
+  "modifiableFields": ["classId", "date", "startTime", "endTime"]   // ADDED; [] if none
 }
 ```
 
-`modifiableFields` est renseigné pour les admins (vide pour les autres rôles).
+`modifiableFields` is filled in for admins (empty for the other roles).
 
-## Historique (`GET /api/coverage/:id`, `history[]`) — événement `UPDATED`
+## History (`GET /api/coverage/:id`, `history[]`) — `UPDATED` event
 
-`fromValue` / `toValue` : `classId`, `className` (résolu à la lecture), `startAt`, `plannedEndAt` ;
-`toValue.byAdmin: true` pour une modification par un admin. Jamais le motif.
+`fromValue` / `toValue`: `classId`, `className` (resolved at read time), `startAt`, `plannedEndAt`;
+`toValue.byAdmin: true` for a change by an admin. Never the reason.
 
-## Notification `COVERAGE_UPDATED` (existante)
+## `COVERAGE_UPDATED` notification (existing)
 
-Destinataires : surveillant affecté (s'il y en a un) et autres admins. Libellé affiché :
-« Affectation modifiée », suivi du titre de l'affectation, qui porte la classe.
+Recipients: the assigned supervisor (if any) and the other admins. Displayed label:
+« Affectation modifiée » (Assignment modified), followed by the assignment title, which carries the class.

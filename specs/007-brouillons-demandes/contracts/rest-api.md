@@ -1,22 +1,22 @@
-# Contrat REST — 007 Brouillons de demande de travail
+# REST Contract — 007 Brouillons de demande de travail (Work request drafts)
 
-## Modifié : `GET /api/requests?scope=…`
+## Changed: `GET /api/requests?scope=…`
 
-| `scope` | Contenu |
+| `scope` | Content |
 |---------|---------|
-| `mine` | demandes dont l'utilisateur est l'auteur, **sauf** celles au statut `DRAFT` |
-| `drafts` (**nouveau**) | demandes dont l'utilisateur est l'auteur, au statut `DRAFT` seulement |
+| `mine` | requests the user authored, **except** those with status `DRAFT` |
+| `drafts` (**new**) | requests the user authored, with status `DRAFT` only |
 
-Autres paramètres (filtres, `limit`, `cursor`) et forme de réponse (`{ items, nextCursor }`)
-inchangés. `scope` inconnu : `400 VALIDATION_ERROR` (inchangé).
+Other parameters (filters, `limit`, `cursor`) and response shape (`{ items, nextCursor }`)
+unchanged. Unknown `scope`: `400 VALIDATION_ERROR` (unchanged).
 
-## Réutilisés sans changement
+## Reused without change
 
-| Appel | Usage |
-|-------|-------|
-| `POST /api/requests` avec `asDraft: true` | enregistrer en brouillon ; `400` sur `asDraft` si `draftsEnabled` est désactivé |
-| `GET /api/requests/:id` | ouvrir un brouillon (auteur seul ; `404` sinon) |
-| `PATCH /api/requests/:id` | enregistrer un brouillon (champs changés ; `voiceFileId: null` retire le vocal) |
-| `POST /api/requests/:id/actions` `{ action: "SUBMIT", version }` | envoyer ; contrôles de contenu, catégorie, destinataire |
-| `DELETE /api/requests/:id` | supprimer (auteur seul, brouillon seulement) → `204` |
-| `POST /api/files` (`kind: VOICE`) | téléverser un message vocal avant `POST`/`PATCH` |
+| Call | Use |
+|------|-----|
+| `POST /api/requests` with `asDraft: true` | save as a draft; `400` on `asDraft` if `draftsEnabled` is disabled |
+| `GET /api/requests/:id` | open a draft (author only; `404` otherwise) |
+| `PATCH /api/requests/:id` | save a draft (changed fields; `voiceFileId: null` removes the voice message) |
+| `POST /api/requests/:id/actions` `{ action: "SUBMIT", version }` | submit; content, category, recipient checks |
+| `DELETE /api/requests/:id` | delete (author only, draft only) → `204` |
+| `POST /api/files` (`kind: VOICE`) | upload a voice message before `POST`/`PATCH` |

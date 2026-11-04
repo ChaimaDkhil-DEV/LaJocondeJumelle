@@ -1,28 +1,27 @@
-# Contrat REST : export des statistiques des affectations
+# REST contract: assignment statistics export
 
-## `GET /api/coverage/stats/export.csv` (nouveau)
+## `GET /api/coverage/stats/export.csv` (new)
 
-Paramètres de requête : ceux de `GET /api/coverage/stats` (`CoverageStatsQuery`), tous
-facultatifs.
+Query parameters: those of `GET /api/coverage/stats` (`CoverageStatsQuery`), all optional.
 
-| Paramètre | Valeurs | Défaut |
-|-----------|---------|--------|
-| `from` | `AAAA-MM-JJ` | 1er du mois en cours (fuseau de l'école) |
-| `to` | `AAAA-MM-JJ` | aujourd'hui (fuseau de l'école) |
+| Parameter | Values | Default |
+|-----------|--------|---------|
+| `from` | `AAAA-MM-JJ` | 1st of the current month (school time zone) |
+| `to` | `AAAA-MM-JJ` | today (school time zone) |
 | `groupBy` | `teacher`, `class`, `period` | `teacher` |
-| `period` | `week`, `month` (avec `groupBy=period`) | `week` |
+| `period` | `week`, `month` (with `groupBy=period`) | `week` |
 
-### Réponses
+### Responses
 
-| Cas | Statut | Corps | Audit |
-|-----|--------|-------|-------|
-| admin ou super administrateur, période valide | `200` | fichier CSV (research R3) | `COVERAGE_STATS_EXPORTED` |
-| autre utilisateur connecté | `404` `NOT_FOUND` | erreur JSON habituelle | `ACCESS_DENIED` (`NOT_COVERAGE_ADMIN`) |
-| sans session | `401` | erreur JSON habituelle | — (comportement global existant) |
-| paramètre mal formé (`groupBy=enseignant`, date invalide) | `400` | erreur de validation | — |
-| `from > to` ou plus de 400 jours | `400` `INVALID_RANGE` | même message que `GET /api/coverage/stats` | — |
+| Case | Status | Body | Audit |
+|------|--------|------|-------|
+| admin or super administrator, valid period | `200` | CSV file (research R3) | `COVERAGE_STATS_EXPORTED` |
+| other logged-in user | `404` `NOT_FOUND` | usual JSON error | `ACCESS_DENIED` (`NOT_COVERAGE_ADMIN`) |
+| no session | `401` | usual JSON error | — (existing global behavior) |
+| malformed parameter (`groupBy=enseignant`, invalid date) | `400` | validation error | — |
+| `from > to` or more than 400 days | `400` `INVALID_RANGE` | same message as `GET /api/coverage/stats` | — |
 
-En-têtes de la réponse `200` :
+Headers of the `200` response:
 
 ```text
 Content-Type: text/csv; charset=utf-8
@@ -30,12 +29,12 @@ Content-Disposition: attachment; filename="statistiques-affectations-<regroupeme
 Cache-Control: private, no-store
 ```
 
-`<regroupement>` : `enseignant`, `classe`, `semaine` ou `mois`.
+`<regroupement>` (grouping): `enseignant`, `classe`, `semaine` or `mois`.
 
-Corps : `toCsv` existant — UTF-8 avec BOM, séparateur `;`, fins de ligne CRLF, cellules commençant
-par `=`, `+`, `-`, `@` préfixées d'une apostrophe.
+Body: the existing `toCsv` — UTF-8 with BOM, `;` separator, CRLF line endings, cells starting
+with `=`, `+`, `-`, `@` prefixed with an apostrophe.
 
-Exemple (`groupBy=class`, extrait) :
+Example (`groupBy=class`, excerpt):
 
 ```text
 Classe;Événements;Retards;Absences;Classes vides;Non pourvues;Annulées;Durée moyenne
@@ -51,11 +50,11 @@ Taux de non pourvue;17 %
 Doublons non tranchés (comptés une fois);0
 ```
 
-## `GET /api/coverage/stats` (inchangé)
+## `GET /api/coverage/stats` (unchanged)
 
-Réponse, accès et contrôles identiques. Le paramètre `format` reste refusé (`400`).
+Response, access and checks identical. The `format` parameter is still rejected (`400`).
 
-## `GET /api/admin/audit` (inchangé)
+## `GET /api/admin/audit` (unchanged)
 
-Accepte `action=COVERAGE_STATS_EXPORTED` (valeur d'énumération ajoutée) ; les `details`
-d'une entrée d'export sont `from`, `to`, `groupBy` et `period`.
+Accepts `action=COVERAGE_STATS_EXPORTED` (added enumeration value); the `details` of an export
+entry are `from`, `to`, `groupBy` and `period`.

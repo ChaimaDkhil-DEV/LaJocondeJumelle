@@ -1,79 +1,79 @@
-# Vérification de la fonctionnalité 008 — export des statistiques des affectations
+# Verification of feature 008 — export of assignment statistics
 
-Spécification, plan et tâches : `specs/008-export-statistiques-affectations/`.
+Specification, plan and tasks: `specs/008-export-statistiques-affectations/`.
 
-## État initial (T001)
+## Initial state (T001)
 
-Branche `008-export-statistiques-affectations`, créée depuis `master` (`85ce9c5`, fusion de la
-PR #31). Depuis la vérification finale de la 007 (`1e64650`), le code a changé une fois : correctif
-`6a68e4b` de la 006 (PR #27, heure de fin d'une garde finissant après minuit ; `coverage.service.ts`,
-`coverage-modification.ts` et 4 tests unitaires de plus). Le reste ne touche que la documentation
-et `.github/workflows/ci.yml` (cache de ffmpeg). Suites relancées le 23/10/2026 :
+Branch `008-export-statistiques-affectations`, created from `master` (`85ce9c5`, merge of
+PR #31). Since the final verification of 007 (`1e64650`), the code changed once: fix
+`6a68e4b` of 006 (PR #27, end time of a shift ending after midnight; `coverage.service.ts`,
+`coverage-modification.ts` and 4 more unit tests). The rest only touches documentation
+and `.github/workflows/ci.yml` (ffmpeg cache). Suites re-run on 23/10/2026:
 
-| Étape | Résultat |
+| Step | Result |
 |-------|----------|
-| CI sur `85ce9c5` | verte |
-| Tests unitaires backend | 589 / 589 (31 suites) |
-| Tests d'intégration backend | 630 / 630 (44 suites) |
-| Tests frontend (Vitest) | 282 / 282 (37 fichiers) |
-| Bout en bout (6 profils) | 138 réussis, 0 échec à la vérification de la 007 ; non relancé (aucun fichier de `frontend/` ni `e2e/` changé depuis) |
+| CI on `85ce9c5` | green |
+| Backend unit tests | 589 / 589 (31 suites) |
+| Backend integration tests | 630 / 630 (44 suites) |
+| Frontend tests (Vitest) | 282 / 282 (37 files) |
+| End to end (6 profiles) | 138 passed, 0 failed at the 007 verification; not re-run (no file in `frontend/` or `e2e/` changed since) |
 
 ## Migration (T002, T003)
 
-`0010_audit_coverage_stats_export` appliquée sur la base de développement (`localhost:5433`) par le
-hook du projet ; `prisma migrate status` : 10 migrations, « Database schema is up to date! » ;
-`prisma migrate diff` base → schéma : « No difference detected. ». `down.sql` écrit sur le modèle de
-`0008` (arrêt si `COVERAGE_STATS_EXPORTED` a servi), non exécuté ; sa liste de valeurs a été
-comparée à `schema.prisma` (identique, sans la valeur ajoutée).
+`0010_audit_coverage_stats_export` applied to the development database (`localhost:5433`) by the
+project hook; `prisma migrate status`: 10 migrations, "Database schema is up to date!";
+`prisma migrate diff` database → schema: "No difference detected.". `down.sql` written on the model of
+`0008` (stops if `COVERAGE_STATS_EXPORTED` has been used), not executed; its list of values was
+compared with `schema.prisma` (identical, without the added value).
 
-## Scénarios du quickstart (T021)
+## Quickstart scenarios (T021)
 
-| Scénario | Couverture automatique | Reste à faire à la main |
+| Scenario | Automated coverage | Left to do by hand |
 |----------|------------------------|-------------------------|
-| 1 — Export par enseignant | `supervision-stats-export.spec.ts` (en-têtes, nom, BOM, valeurs = `GET /api/coverage/stats`) ; `coverage-stats-csv.spec.ts` ; `e2e/coverage-stats-export.spec.ts` (téléchargement réel, nom, première ligne) | ouverture du fichier dans Excel et LibreOffice (colonnes, accents) |
-| 2 — Classe, semaine, mois | `supervision-stats-export.spec.ts` (4 regroupements, lignes et total égaux au JSON) ; `coverage-stats-csv.spec.ts` (libellés, noms de fichier) | — |
-| 3 — Anonymisé et formule | `supervision-stats-export.spec.ts` (« Enseignant anonymisé », `'=SOMME(A1)`) | constat dans un tableur qu'aucune formule ne s'exécute |
-| 4 — Accès et période invalide | `supervision-stats-export.spec.ts` (`surveillant`, `enseignante` : 404 journalisé ; sans session : 401 ; `INVALID_RANGE` même message, aucune entrée d'export) | — |
-| 5 — États de la page | `stats.test.tsx` (date incomplète, recalcul, erreur, période vide) | — |
-| 6 — Journal d'audit | `supervision-stats-export.spec.ts` (une entrée par export, détails exacts, sans valeur ni nom) ; `e2e/coverage-stats-export.spec.ts` (filtre « Export des statistiques des affectations ») ; `role-labels.test.tsx` | — |
-| 7 — Accessibilité | `e2e/a11y-responsive.spec.ts`, test « 004 » à 320 px : lien visible, atteint au clavier, axe sans violation, sans défilement horizontal | contrôle visuel du focus |
+| 1 — Export per teacher | `supervision-stats-export.spec.ts` (headers, name, BOM, values = `GET /api/coverage/stats`); `coverage-stats-csv.spec.ts`; `e2e/coverage-stats-export.spec.ts` (real download, name, first line) | opening the file in Excel and LibreOffice (columns, accents) |
+| 2 — Class, week, month | `supervision-stats-export.spec.ts` (4 groupings, rows and total equal to the JSON); `coverage-stats-csv.spec.ts` (labels, file names) | — |
+| 3 — Anonymized and formula | `supervision-stats-export.spec.ts` ("Enseignant anonymisé" (Anonymized teacher), `'=SOMME(A1)`) | check in a spreadsheet that no formula runs |
+| 4 — Access and invalid period | `supervision-stats-export.spec.ts` (`surveillant`, `enseignante`: 404 logged; without a session: 401; `INVALID_RANGE` same message, no export entry) | — |
+| 5 — Page states | `stats.test.tsx` (incomplete date, recalculation, error, empty period) | — |
+| 6 — Audit log | `supervision-stats-export.spec.ts` (one entry per export, exact details, without value or name); `e2e/coverage-stats-export.spec.ts` (filter "Export des statistiques des affectations" (Export of assignment statistics)); `role-labels.test.tsx` | — |
+| 7 — Accessibility | `e2e/a11y-responsive.spec.ts`, test "004" at 320 px: link visible, reached by keyboard, axe with no violation, no horizontal scrolling | visual check of focus |
 
-## Vérification finale (T022) — 23 octobre 2026, branche `008-export-statistiques-affectations`
+## Final verification (T022) — 23 October 2026, branch `008-export-statistiques-affectations`
 
-`npm run verify` : code de sortie 0 ; types backend et frontend : aucune erreur.
+`npm run verify`: exit code 0; backend and frontend types: no errors.
 
-| Étape | Départ (T001) | Final |
+| Step | Start (T001) | Final |
 |-------|---------------|-------|
-| `npm run lint` | sans erreur | sans erreur (après remplacement de deux BOM littéraux dans les tests par `0xfeff`, signalés au premier passage) |
-| Tests unitaires backend | 589 / 589 (31 suites) | **608 / 608** (32 suites ; +18 `coverage-stats-csv.spec.ts`, +1 `audit-sanitize.spec.ts`) |
-| Tests d'intégration backend | 630 / 630 (44 suites) | **642 / 642** (45 suites ; +12 `supervision-stats-export.spec.ts`) |
-| Tests frontend (Vitest) | 282 / 282 (37 fichiers) | **288 / 288** (37 fichiers ; +6 dans `stats.test.tsx`, libellé ajouté dans `role-labels.test.tsx`) |
-| `npm audit --audit-level=high` | aucune vulnérabilité élevée (2 modérées) | inchangé |
-| Bout en bout (6 profils) | 252 tests : 138 réussis, 114 ignorés (vérification 007) | **258 tests : 150 réussis, 0 échec, 108 ignorés volontairement** (38,7 min) |
+| `npm run lint` | no errors | no errors (after replacing two literal BOMs in the tests with `0xfeff`, flagged on the first run) |
+| Backend unit tests | 589 / 589 (31 suites) | **608 / 608** (32 suites; +18 `coverage-stats-csv.spec.ts`, +1 `audit-sanitize.spec.ts`) |
+| Backend integration tests | 630 / 630 (44 suites) | **642 / 642** (45 suites; +12 `supervision-stats-export.spec.ts`) |
+| Frontend tests (Vitest) | 282 / 282 (37 files) | **288 / 288** (37 files; +6 in `stats.test.tsx`, label added in `role-labels.test.tsx`) |
+| `npm audit --audit-level=high` | no high vulnerabilities (2 moderate) | unchanged |
+| End to end (6 profiles) | 252 tests: 138 passed, 114 skipped (verification 007) | **258 tests: 150 passed, 0 failed, 108 deliberately skipped** (38.7 min) |
 
-Les 108 ignorés : les 88 habituels (scénarios réservés à un profil), les 15 de la 007 hors de leur
-profil, et le test 008 `coverage-stats-export.spec.ts` hors Chromium (5). Aucune garde horaire :
-campagne lancée vers 15 h 20 heure de l'école. Nouveaux tests e2e réussis :
-`coverage-stats-export.spec.ts` (Chromium : téléchargement, nom, contenu, entrée au journal
-d'audit) et le test « 004 » de `a11y-responsive.spec.ts` à 320 px avec « Exporter en CSV » (visible,
-atteint au clavier, axe sans violation).
+The 108 skipped: the usual 88 (scenarios reserved for one profile), the 15 of 007 outside their
+profile, and the 008 test `coverage-stats-export.spec.ts` outside Chromium (5). No time-of-day guard:
+run started around 15:20 school time. New e2e tests passed:
+`coverage-stats-export.spec.ts` (Chromium: download, name, content, audit log
+entry) and the "004" test of `a11y-responsive.spec.ts` at 320 px with "Exporter en CSV" (Export as CSV) (visible,
+reached by keyboard, axe with no violation).
 
-CI verte sur `1835469` (runs 39958166585 et 39958174752) ; demande #33 fusionnée le 23/10/2026 (`62694de`) **avant** la fin de la CI, consigné dans `docs/validation/fusions-hors-procedure.md` ; CI de `master` verte sur `62694de`. T022 close.
+CI green on `1835469` (runs 39958166585 and 39958174752); pull request #33 merged on 23/10/2026 (`62694de`) **before** the end of CI, recorded in `docs/validation/fusions-hors-procedure.md`; `master` CI green on `62694de`. T022 closed.
 
-## Attendus existants modifiés (exceptions consignées)
+## Existing expectations modified (exceptions recorded)
 
-La spec 004 avait livré les statistiques « sans export » (FR-022) ; deux tests le disaient.
+Spec 004 had delivered the statistics "without export" (FR-022); two tests said so.
 
-| Test | Avant | Après | Raison |
+| Test | Before | After | Reason |
 |------|-------|-------|--------|
-| `frontend/tests/coverage/stats.test.tsx`, « changer le regroupement et la période relance le calcul ; aucun export proposé » | vérifiait l'absence d'un **bouton** « export / télécharger / csv » | assertion retirée, titre sans « aucun export proposé » | contraire à la spec 008 ; l'export est un **lien**, l'assertion serait restée vraie tout en contredisant la fonctionnalité. Présence et états du lien couverts par le bloc « Export des statistiques (008) » du même fichier |
-| `backend/test/integration/supervision-stats.spec.ts`, « période par défaut ; paramètres invalides refusés ; aucun export » | titre et commentaire d'en-tête « aucun export » | titre et commentaire sans « aucun export » ; **attendus inchangés** (`format=csv` → `400`, `/api/coverage/stats/export` → `404`, toujours vrais) | l'export existe désormais sous `/api/coverage/stats/export.csv` |
+| `frontend/tests/coverage/stats.test.tsx`, "changer le regroupement et la période relance le calcul ; aucun export proposé" (changing the grouping and the period triggers the calculation again; no export offered) | checked the absence of an "export / télécharger / csv" **button** | assertion removed, title without "aucun export proposé" | contrary to spec 008; the export is a **link**, the assertion would have stayed true while contradicting the feature. Presence and states of the link covered by the "Export des statistiques (008)" block in the same file |
+| `backend/test/integration/supervision-stats.spec.ts`, "période par défaut ; paramètres invalides refusés ; aucun export" (default period; invalid parameters refused; no export) | title and header comment "aucun export" | title and comment without "aucun export"; **expectations unchanged** (`format=csv` → `400`, `/api/coverage/stats/export` → `404`, still true) | the export now exists under `/api/coverage/stats/export.csv` |
 
-## Écart relevé pendant l'implémentation
+## Deviation noted during implementation
 
-`@Header('Content-Type', 'text/csv…')` pose l'en-tête **avant** l'appel du contrôleur : un refus
-(`404`) ou une période invalide (`400`) partait en JSON étiqueté `text/csv`. Constaté par T013
-(corps d'erreur illisible) ; l'export 008 pose ses en-têtes après la production du fichier. Les deux
-exports existants (`/api/admin/dashboard/export.csv`, `/api/admin/coverage/export.csv`) utilisent
-toujours `@Header` : leurs réponses d'erreur ont le même défaut (hors périmètre de la 008, à
-traiter à part).
+`@Header('Content-Type', 'text/csv…')` sets the header **before** the controller is called: a refusal
+(`404`) or an invalid period (`400`) went out as JSON labeled `text/csv`. Found by T013
+(unreadable error body); the 008 export sets its headers after the file is produced. The two
+existing exports (`/api/admin/dashboard/export.csv`, `/api/admin/coverage/export.csv`) still use
+`@Header`: their error responses have the same defect (out of scope for 008, to be
+handled separately).

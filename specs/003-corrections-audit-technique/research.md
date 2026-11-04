@@ -1,407 +1,406 @@
-# Research: Corrections issues de l'audit technique
+# Research: Fixes from the technical audit
 
 **Feature**: [spec.md](./spec.md) | **Date**: 2026-10-15
 
-Chaque décision s'appuie sur le code de la branche `003-corrections-audit-technique` (commit
-`809b44a`), lu pour ce plan. Les marquages suivent la convention de `docs/ARCHITECTURE.md` :
-**[VÉRIFIÉ]** = lu dans le code ou constaté par une commande ; **[DÉDUIT]** = interprétation.
+Each decision relies on the code of branch `003-corrections-audit-technique` (commit
+`809b44a`), read for this plan. The markings follow the convention of `docs/ARCHITECTURE.md`:
+**[VERIFIED]** = read in the code or observed by a command; **[INFERRED]** = interpretation.
 
-## Constats nouveaux relevés pendant le plan
+## New findings noted during the plan
 
-Ils complètent l'audit sans le refaire ; ils seront reportés dans `docs/ARCHITECTURE.md` (FR-024).
+They complete the audit without redoing it; they will be carried over into `docs/ARCHITECTURE.md` (FR-024).
 
-- **N1 [VÉRIFIÉ] — Blocage possible à l'approbation.** L'interface choisit d'afficher ou non le
-  sélecteur d'employé d'après le **snapshot** (`RequestActions.tsx` :
-  `automatic={request.rulesSnapshot.assignmentMode === 'AUTO'}`), alors que le serveur décide
-  d'après la **catégorie actuelle** (`RequestTransitionsService.assigneeContext`). Si une
-  catégorie passe d'automatique à manuelle pendant qu'une demande attend, l'interface n'affiche
-  pas de sélecteur et le serveur répond `ASSIGNEE_REQUIRED` : le responsable ne peut pas
-  approuver. Le constat [DÉDUIT] A04 est donc confirmé par lecture ; FR-009 le confirmera par un
-  test. La décision D1 (tout figé) supprime cet écart.
-- **N2 [VÉRIFIÉ] — Les cycles sont plus étendus que ne le dit l'audit.** Une analyse des imports
-  relatifs de `backend/src` (script ponctuel, dossier par dossier) montre que **11 dossiers**
-  forment une seule composante fortement connexe : `audit`, `auth`, `common`, `coverage`,
-  `files`, `notifications`, `realtime`, `requests`, `scheduler`, `settings`, `users`. L'audit
-  (§10) n'en citait que quatre. Voir R7 pour le périmètre retenu.
-- **N3 [VÉRIFIÉ] — Ordre aléatoire des événements de même horodatage.** Relevé par la première
-  exécution de la CI (T005, 2026-10-15) : sur le même commit, `coverage.spec.ts` a réussi dans un
-  run et échoué dans l'autre (`→CLOSED` avant `→DONE`). L'historique est trié par `createdAt`
-  puis `id` (`requests.service.ts`, `coverage.service.ts`, `coverage-admin.service.ts`) ; `id`
-  est un UUID aléatoire, et deux événements d'une même transaction tombent souvent dans la même
-  milliseconde. L'ordre affiché aux utilisateurs peut donc être faux. Voir R15.
+- **N1 [VERIFIED] — Possible blockage at approval.** The interface chooses whether to show the
+  employee selector based on the **snapshot** (`RequestActions.tsx`:
+  `automatic={request.rulesSnapshot.assignmentMode === 'AUTO'}`), while the server decides
+  based on the **current category** (`RequestTransitionsService.assigneeContext`). If a
+  category goes from automatic to manual while a request is waiting, the interface shows
+  no selector and the server answers `ASSIGNEE_REQUIRED`: the manager cannot
+  approve. Finding A04 [INFERRED] is therefore confirmed by reading; FR-009 will confirm it by a
+  test. Decision D1 (everything frozen) removes this gap.
+- **N2 [VERIFIED] — The cycles are wider than the audit says.** An analysis of the relative
+  imports of `backend/src` (one-off script, folder by folder) shows that **11 folders**
+  form a single strongly connected component: `audit`, `auth`, `common`, `coverage`,
+  `files`, `notifications`, `realtime`, `requests`, `scheduler`, `settings`, `users`. The audit
+  (§10) only cited four. See R7 for the scope retained.
+- **N3 [VERIFIED] — Random order of events with the same timestamp.** Noted by the first
+  CI run (T005, 2026-10-15): on the same commit, `coverage.spec.ts` passed in one
+  run and failed in the other (`→CLOSED` before `→DONE`). The history is sorted by `createdAt`
+  then `id` (`requests.service.ts`, `coverage.service.ts`, `coverage-admin.service.ts`); `id`
+  is a random UUID, and two events of the same transaction often fall in the same
+  millisecond. The order shown to users can therefore be wrong. See R15.
 
 ---
 
-## R1 — Port 3002 en développement, 3000 en production (FR-001, FR-002, A01)
+## R1 — Port 3002 in development, 3000 in production (FR-001, FR-002, A01)
 
-**Decision**: aligner sur 3002 toutes les sources de développement encore à 3000 :
-`backend/.env.example` (`PORT=3002`), `README.md` (ligne 41), `deploy/Caddyfile.dev` (deux
-`reverse_proxy host.docker.internal:3002`), `backend/test/unit/config.spec.ts` (attendu 3002).
-La production garde 3000, déjà fixé explicitement par `deploy/api.Dockerfile` (`ENV PORT=3000`,
-`EXPOSE`, `HEALTHCHECK`) et `docker-compose.yml` (`expose: '3000'`) : rien à changer.
+**Decision**: align on 3002 all development sources still at 3000:
+`backend/.env.example` (`PORT=3002`), `README.md` (line 41), `deploy/Caddyfile.dev` (two
+`reverse_proxy host.docker.internal:3002`), `backend/test/unit/config.spec.ts` (expected 3002).
+Production keeps 3000, already set explicitly by `deploy/api.Dockerfile` (`ENV PORT=3000`,
+`EXPOSE`, `HEALTHCHECK`) and `docker-compose.yml` (`expose: '3000'`): nothing to change.
 
-**Rationale**: [VÉRIFIÉ] `config.ts`, `main.ts`, `vite.config.ts`, `frontend/package.json` et
-`start.bat` sont déjà à 3002 (commit `1e6d4ee`). Le port de production est interne au réseau
-Docker et indépendant de la valeur par défaut.
+**Rationale**: [VERIFIED] `config.ts`, `main.ts`, `vite.config.ts`, `frontend/package.json` and
+`start.bat` are already at 3002 (commit `1e6d4ee`). The production port is internal to the Docker
+network and independent of the default value.
 
-**Alternatives considered**: revenir à 3000 partout (annule un choix déjà commité) ; passer la
-production à 3002 (aucun bénéfice, modifie trois fichiers de déploiement et le healthcheck).
+**Alternatives considered**: go back to 3000 everywhere (undoes an already committed choice); move
+production to 3002 (no benefit, changes three deployment files and the healthcheck).
 
-## R2 — Lanceur de développement avec rechargement (FR-003, A02)
+## R2 — Development launcher with reload (FR-003, A02)
 
-**Decision**: le script racine `dev:backend` appelle `npm run -w backend start:dev`
-(`nest start --watch`) au lieu de `start` (`node dist/main.js`). `start.bat` n'a pas à changer
-(il appelle `npm run dev`).
+**Decision**: the root script `dev:backend` calls `npm run -w backend start:dev`
+(`nest start --watch`) instead of `start` (`node dist/main.js`). `start.bat` does not need to change
+(it calls `npm run dev`).
 
-**Rationale**: [VÉRIFIÉ] le README recommande déjà `start:dev` ; `start` exige une compilation
-préalable et ne recharge pas. Un seul changement aligne les deux documents.
+**Rationale**: [VERIFIED] the README already recommends `start:dev`; `start` requires a prior
+build and does not reload. A single change aligns both documents.
 
-**Alternatives considered**: compiler avant de lancer (`build && start`) : plus lent, sans
-rechargement.
+**Alternatives considered**: build before launching (`build && start`): slower, with no
+reload.
 
-## R3 — Toute la configuration validée au démarrage (FR-004, A07)
+## R3 — All configuration validated at startup (FR-004, A07)
 
 **Decision**:
-- `AppConfig` gagne `trustProxy: string | number | boolean`. `loadConfig` lit `TRUST_PROXY`
-  (défaut `loopback`) et l'accepte si c'est : `true`/`false` ; un entier ≥ 0 (nombre de
-  proxys) ; une liste séparée par des virgules de valeurs parmi `loopback`, `linklocal`,
-  `uniquelocal`, adresse IPv4/IPv6 ou plage CIDR. Sinon `ConfigError` explicite.
-- `app.setup.ts` lit `config.trustProxy` via `APP_CONFIG` au lieu de `process.env.TRUST_PROXY`.
-- `main.ts` écoute sur `app.get(APP_CONFIG).port` au lieu de relire `process.env.PORT`.
-- `app.setup.ts` lit `config.isProduction` au lieu de `process.env.NODE_ENV` (même principe).
+- `AppConfig` gains `trustProxy: string | number | boolean`. `loadConfig` reads `TRUST_PROXY`
+  (default `loopback`) and accepts it if it is: `true`/`false`; an integer ≥ 0 (number of
+  proxies); a comma-separated list of values among `loopback`, `linklocal`,
+  `uniquelocal`, IPv4/IPv6 address or CIDR range. Otherwise an explicit `ConfigError`.
+- `app.setup.ts` reads `config.trustProxy` via `APP_CONFIG` instead of `process.env.TRUST_PROXY`.
+- `main.ts` listens on `app.get(APP_CONFIG).port` instead of re-reading `process.env.PORT`.
+- `app.setup.ts` reads `config.isProduction` instead of `process.env.NODE_ENV` (same principle).
 
-**Rationale**: [VÉRIFIÉ] `TRUST_PROXY` et `PORT` sont lus hors de `loadConfig` ; une valeur
-invalide de `TRUST_PROXY` n'est aujourd'hui rejetée que par Express, avec un message technique.
-Une seule porte d'entrée pour la configuration rend la validation testable par
+**Rationale**: [VERIFIED] `TRUST_PROXY` and `PORT` are read outside `loadConfig`; an invalid
+`TRUST_PROXY` value is today only rejected by Express, with a technical message.
+A single entry point for configuration makes validation testable by
 `config.spec.ts`.
 
-**Alternatives considered**: bibliothèque de validation (Joi, zod) : nouvelle dépendance pour
-trois lignes de contrôle (principe II).
+**Alternatives considered**: validation library (Joi, zod): a new dependency for
+three lines of checking (principle II).
 
-## R4 — Liste unique des clés sensibles (FR-005, A06)
+## R4 — Single list of sensitive keys (FR-005, A06)
 
-**Decision**: créer `backend/src/common/sensitive-keys.ts` exportant `SENSITIVE_KEY`, union des
-deux expressions actuelles :
+**Decision**: create `backend/src/common/sensitive-keys.ts` exporting `SENSITIVE_KEY`, the union of the
+two current expressions:
 `/pass(word)?|hash|token|secret|cookie|authorization|^sid$|^text$|^message$|^content$/i`.
-`common/app-logger.ts` et `audit/audit.service.ts` l'importent. Les motifs de texte du logger
-(`argon2`, en-têtes `cookie`/`authorization`, `sid=`) restent propres au logger, car ils
-portent sur des chaînes, pas sur des clés.
+`common/app-logger.ts` and `audit/audit.service.ts` import it. The logger's text patterns
+(`argon2`, `cookie`/`authorization` headers, `sid=`) stay specific to the logger, because
+they apply to strings, not to keys.
 
-**Rationale**: [VÉRIFIÉ] `authorization` manque côté audit et `^message$` côté logger. Le
-masquage d'une clé `message` dans un objet journalisé ne touche pas le message d'une erreur
-(`redact` traite `Error.message` à part) ni le premier argument des journaux Nest.
+**Rationale**: [VERIFIED] `authorization` is missing on the audit side and `^message$` on the logger side. Masking
+a `message` key in a logged object does not affect an error's message
+(`redact` handles `Error.message` separately) nor the first argument of Nest logs.
 
-**Risque [DÉDUIT]**: un objet journalisé dont la clé `message` porte une information utile
-(sans donnée personnelle) sera masqué. Le test unitaire du logger vérifiera que les messages
-d'erreur restent lisibles.
+**Risk [INFERRED]**: a logged object whose `message` key carries useful information
+(with no personal data) will be masked. The logger's unit test will check that error
+messages remain readable.
 
-**Alternatives considered**: deux listes synchronisées par un test : la duplication reste.
+**Alternatives considered**: two lists synchronized by a test: the duplication remains.
 
-## R5 — Contrôle d'origine unique (FR-006, A08)
+## R5 — Single origin check (FR-006, A08)
 
-**Decision**: déplacer `originOf` dans `backend/src/common/origin.ts` avec une fonction
+**Decision**: move `originOf` into `backend/src/common/origin.ts` with a function
 `isAllowedOrigin(headers: { origin?: string; referer?: string }, appOrigin): boolean`.
-`auth/origin.guard.ts` et `realtime/realtime.gateway.ts` l'utilisent tous deux.
+`auth/origin.guard.ts` and `realtime/realtime.gateway.ts` both use it.
 
-**Point à préserver [VÉRIFIÉ]**: aujourd'hui la garde HTTP accepte `Origin` **ou**, à défaut,
-`Referer` ; la passerelle Socket.IO n'accepte que `Origin`. La fonction unique prend
-`referer` en option : la passerelle ne le passe pas, pour ne rien changer au comportement
-(FR-023). Les tests d'intégration existants (`auth.spec.ts`, tests temps réel) vérifient les deux
-voies.
+**Point to preserve [VERIFIED]**: today the HTTP guard accepts `Origin` **or**, failing that,
+`Referer`; the Socket.IO gateway only accepts `Origin`. The single function takes
+`referer` as optional: the gateway does not pass it, so as to change nothing in the behavior
+(FR-023). The existing integration tests (`auth.spec.ts`, real-time tests) check both
+paths.
 
-**Alternatives considered**: aligner la passerelle sur `Referer` : changement de comportement
-non demandé.
+**Alternatives considered**: align the gateway on `Referer`: unrequested behavior change.
 
-## R6 — Réinitialisation du super administrateur dans l'outil d'initialisation (FR-007, FR-010, A05, D2)
+## R6 — Super administrator reset in the initialization tool (FR-007, FR-010, A05, D2)
 
 **Decision**:
-- Nouvelle sous-commande de `backend/src/cli/bootstrap.ts` :
-  `node dist/cli/bootstrap.js --reset-password [identifiant]` (identifiant par défaut : le plus
-  ancien super administrateur actif). Le premier argument `--reset-password` est réservé ;
-  l'appel historique `bootstrap.js <identifiant> "<nom>"` reste inchangé.
-- Fonction exportée et testable `resetSuperAdminPassword(prisma, username?)`, qui, dans **une
-  seule transaction** : vérifie que le compte existe et a le rôle `SUPER_ADMIN` ; écrit le
-  nouveau haché Argon2id avec `mustChangePassword: true` ; supprime toutes les sessions du
-  compte ; écrit l'audit `PASSWORD_RESET` (`actorId: null`, `targetType: 'User'`, `targetId`,
-  `details: { reason: 'CLI' }`, `ip: null`). Mot de passe provisoire de 16 octets aléatoires
-  (base64url), affiché une seule fois.
-- Les connexions temps réel encore ouvertes sont fermées par le job existant
-  `SessionRevalidationJob` (≤ 60 s), puisque les sessions n'existent plus en base.
-- `backend/scripts/reset-superadmin-password.ts` est supprimé ; le README et la documentation
-  d'exploitation pointent vers la sous-commande, utilisable aussi dans le conteneur de
-  production (`docker compose … exec api node dist/cli/bootstrap.js --reset-password`).
+- New subcommand of `backend/src/cli/bootstrap.ts`:
+  `node dist/cli/bootstrap.js --reset-password [identifiant]` (default identifier: the oldest
+  active super administrator). The first argument `--reset-password` is reserved; the
+  historical call `bootstrap.js <identifiant> "<nom>"` stays unchanged.
+- Exported, testable function `resetSuperAdminPassword(prisma, username?)` which, in **a
+  single transaction**: checks that the account exists and has the `SUPER_ADMIN` role; writes
+  the new Argon2id hash with `mustChangePassword: true`; deletes all the account's
+  sessions; writes the `PASSWORD_RESET` audit (`actorId: null`, `targetType: 'User'`, `targetId`,
+  `details: { reason: 'CLI' }`, `ip: null`). Temporary password of 16 random bytes
+  (base64url), shown only once.
+- Real-time connections still open are closed by the existing job
+  `SessionRevalidationJob` (≤ 60 s), since the sessions no longer exist in the database.
+- `backend/scripts/reset-superadmin-password.ts` is deleted; the README and the operations
+  documentation point to the subcommand, which can also be used in the production container
+  (`docker compose … exec api node dist/cli/bootstrap.js --reset-password`).
 
-**Rationale**: [VÉRIFIÉ] le même enchaînement existe déjà dans
-`UsersService.resetPassword` (transaction, `session.deleteMany`, audit `PASSWORD_RESET`) ;
-l'outil d'initialisation journalise déjà (`USER_CREATED`, `reason: 'BOOTSTRAP'`). Le script
-actuel n'est pas compilé dans `dist/` : il n'est pas utilisable en production. Le champ
-`details.reason` fait partie de la liste blanche de l'audit [VÉRIFIÉ : `USER_CREATED` l'utilise
-déjà].
+**Rationale**: [VERIFIED] the same sequence already exists in
+`UsersService.resetPassword` (transaction, `session.deleteMany`, `PASSWORD_RESET` audit);
+the initialization tool already logs (`USER_CREATED`, `reason: 'BOOTSTRAP'`). The current
+script is not compiled into `dist/`: it cannot be used in production. The
+`details.reason` field is part of the audit allowlist [VERIFIED: `USER_CREATED` already
+uses it].
 
-**Alternatives considered**: garder le script séparé (D2 option A, écartée par la décision) ;
-réutiliser `UsersService` hors de Nest (il dépend de `RealtimeService` et de l'injection).
+**Alternatives considered**: keep the separate script (D2 option A, rejected by the decision);
+reuse `UsersService` outside Nest (it depends on `RealtimeService` and on injection).
 
-## R7 — Dépendances entre dossiers : périmètre et vérification (FR-012, FR-013, A09, A12, N2)
+## R7 — Dependencies between folders: scope and verification (FR-012, FR-013, A09, A12, N2)
 
-**Decision — périmètre**: rendre acyclique, et garder acyclique, le sous-graphe des dossiers
-`common`, `audit`, `auth`, `files`, `requests`, `coverage`, `scheduler`, selon l'ordre de
-couches suivant (un dossier ne peut importer que des dossiers situés **avant** lui, plus
-`config`) :
+**Decision — scope**: make acyclic, and keep acyclic, the subgraph of the folders
+`common`, `audit`, `auth`, `files`, `requests`, `coverage`, `scheduler`, following this layer
+order (a folder may only import folders located **before** it, plus
+`config`):
 
 ```text
 config → common → audit → auth → files → requests → coverage → scheduler
 ```
 
-Les autres cycles relevés en N2 (`auth ↔ settings`, `auth ↔ realtime`, `users`, `notifications`)
-sont **hors périmètre** : ils sont consignés comme constats [VÉRIFIÉ] restants dans
-`docs/ARCHITECTURE.md`, sans correction (principe II).
+The other cycles noted in N2 (`auth ↔ settings`, `auth ↔ realtime`, `users`, `notifications`)
+are **out of scope**: they are recorded as remaining [VERIFIED] findings in
+`docs/ARCHITECTURE.md`, without a fix (principle II).
 
-**Decision — déplacements** (aucune règle métier modifiée) :
+**Decision — moves** (no business rule changed):
 
-| Élément | De | Vers | Cycle supprimé |
+| Element | From | To | Cycle removed |
 |---|---|---|---|
 | `PolicyUser`, `ALL_PERMISSIONS`, `permissionsFor`, `canManageAdministration`, `canReadAudit` | `requests/domain/access-policy.ts` | `common/authorization.ts` | `auth → requests` (A09, A12) |
 | `clientIp`, `requestPath` | `auth/request-info.ts` | `common/request-info.ts` | `common → auth` |
-| `SuperAdminGuard` (utilise désormais `canManageAdministration`) | `common/super-admin.guard.ts` | `audit/super-admin.guard.ts` | `common → audit` |
-| Décision d'accès aux fichiers | `files/files.service.ts` | registre par type de demande (R8) | `files → requests`, `files → coverage` (A10) |
+| `SuperAdminGuard` (now uses `canManageAdministration`) | `common/super-admin.guard.ts` | `audit/super-admin.guard.ts` | `common → audit` |
+| File access decision | `files/files.service.ts` | registry by request type (R8) | `files → requests`, `files → coverage` (A10) |
 | `CoverageDeadlinesJob` | `coverage/` | `scheduler/` | `coverage → scheduler` (A15) |
-| `JOB_INTERVAL_MS` | `scheduler/auto-close.job.ts` | `scheduler/job-interval.ts` | — (clarté) |
+| `JOB_INTERVAL_MS` | `scheduler/auto-close.job.ts` | `scheduler/job-interval.ts` | — (clarity) |
 
-Pourquoi `SuperAdminGuard` va dans `audit/` et pas dans `auth/` : il dépend d'`AuditService` ;
-le placer dans `auth/` créerait `audit → auth` (le contrôleur d'audit l'utilise) alors que
-`auth → audit` existe déjà.
+Why `SuperAdminGuard` goes into `audit/` and not `auth/`: it depends on `AuditService`;
+placing it in `auth/` would create `audit → auth` (the audit controller uses it) while
+`auth → audit` already exists.
 
-**Decision — vérification automatique**: test Jest
-`backend/test/unit/architecture-layers.spec.ts`, sans nouvelle dépendance : il parcourt
-`backend/src/**/*.ts`, extrait les imports relatifs (y compris `import type`), les rapporte au
-dossier de premier niveau, et échoue si un dossier de la liste importe un dossier situé après
-lui, en nommant le fichier source et la cible. Il tourne avec la suite unitaire, donc dans la CI
+**Decision — automatic verification**: Jest test
+`backend/test/unit/architecture-layers.spec.ts`, with no new dependency: it walks
+`backend/src/**/*.ts`, extracts the relative imports (including `import type`), maps them to the
+top-level folder, and fails if a folder of the list imports a folder located after
+it, naming the source file and the target. It runs with the unit suite, therefore in CI
 (R11).
 
-**Rationale**: [VÉRIFIÉ] ESLint n'a pas de plugin d'import installé ; `madge` ou
-`dependency-cruiser` raisonnent par fichier ou demandent une configuration plus lourde qu'un
-test de 50 lignes. Un test dans la suite existante respecte le principe I et ne coûte aucune
-dépendance.
+**Rationale**: [VERIFIED] ESLint has no import plugin installed; `madge` or
+`dependency-cruiser` reason per file or require heavier configuration than a
+50-line test. A test in the existing suite respects principle I and costs no
+dependency.
 
-**Le module `RealtimeGatewayModule` est conservé [VÉRIFIÉ]** : il sépare le registre des
-connexions (`RealtimeService`, global, sans dépendance à l'authentification) de la passerelle
-(qui authentifie avec `SessionService`). C'est un découpage légitime, pas seulement un
-contournement ; seul son commentaire est reformulé. Le scénario 1 de la user story 4 de la spec
-est ajusté en conséquence.
+**The `RealtimeGatewayModule` module is kept [VERIFIED]**: it separates the connection registry
+(`RealtimeService`, global, with no dependency on authentication) from the gateway
+(which authenticates with `SessionService`). This is a legitimate split, not just a
+workaround; only its comment is reworded. Scenario 1 of user story 4 of the spec
+is adjusted accordingly.
 
-**Alternatives considered**: supprimer tous les cycles des 11 dossiers (refonte large, risque
-élevé, hors du besoin exprimé) ; `forwardRef` NestJS (masque le cycle sans le supprimer).
+**Alternatives considered**: remove all cycles among the 11 folders (large refactoring, high
+risk, beyond the stated need); NestJS `forwardRef` (hides the cycle without removing it).
 
-## R8 — Accès aux fichiers par registre (FR-014, A10, A11)
+## R8 — File access by registry (FR-014, A10, A11)
 
-**Decision**: `files/` définit une interface `RequestFileAccess` :
+**Decision**: `files/` defines an interface `RequestFileAccess`:
 
 ```text
 canRead(user, file, request): Promise<boolean>
 canAttach(user, request): Promise<boolean>
 ```
 
-et `FilesService` expose `registerAccess(kind: RequestKind, access: RequestFileAccess)`.
-`RequestsModule` (kind `WORK`) et `CoverageModule` (kind `COVERAGE`) enregistrent leur
-implémentation au démarrage (`onModuleInit`), qui reprend **mot pour mot** la logique actuelle
-de `findReadable` et `assertCanAttach`. `FilesService` garde : fichier sans demande → lisible par
-son auteur seul ; type non enregistré → refus (fermé par défaut). `FilesModule` n'importe plus ni
-`RequestPolicyLoader` ni `CoverageAccessLoader`.
+and `FilesService` exposes `registerAccess(kind: RequestKind, access: RequestFileAccess)`.
+`RequestsModule` (kind `WORK`) and `CoverageModule` (kind `COVERAGE`) register their
+implementation at startup (`onModuleInit`), which takes the current logic of
+`findReadable` and `assertCanAttach` **word for word**. `FilesService` keeps: file without a request → readable by
+its author alone; unregistered type → refusal (closed by default). `FilesModule` no longer imports
+`RequestPolicyLoader` nor `CoverageAccessLoader`.
 
-**Rationale**: [VÉRIFIÉ] `FilesModule` déclare aujourd'hui les chargeurs des deux domaines.
-L'enregistrement au démarrage évite toute injection circulaire (`files` ne connaît aucun
-module métier). Les tests d'intégration de lecture de fichiers (demandes et preuves de
-présence) restent inchangés dans leurs attendus (SC-007).
+**Rationale**: [VERIFIED] `FilesModule` today declares the loaders of both domains.
+Registration at startup avoids any circular injection (`files` knows no
+business module). The file reading integration tests (requests and attendance
+proofs) remain unchanged in their expectations (SC-007).
 
-**Alternatives considered**: jeton d'injection multi-fournisseurs (non natif dans NestJS) ;
-déplacer le contrôle dans chaque contrôleur métier (dupliquerait le service de téléchargement).
+**Alternatives considered**: multi-provider injection token (not native in NestJS);
+move the check into each business controller (would duplicate the download service).
 
-## R9 — Déclaration unique du chargeur de règles et nettoyage (FR-015, A13, A15, A16, A18, A19)
+## R9 — Single declaration of the rules loader and cleanup (FR-015, A13, A15, A16, A18, A19)
 
 **Decision**:
-- `requests/request-policy.module.ts` fournit et exporte `RequestPolicyLoader` ;
-  `requests`, `categories`, `messages`, `coverage` l'importent ; `files` n'en a plus besoin (R8).
-- Suppression de `NoopNotificationPublisher` et de son commentaire périmé
-  (`notifications.service.ts`) [VÉRIFIÉ : aucun usage dans `src` ni `test`].
-- Suppression de `@mui/icons-material` de `frontend/package.json` [VÉRIFIÉ : aucun import].
-- `backend/scripts/check-users.ts` reformaté par Prettier (l'autre script est supprimé en R6).
-- `CoverageDeadlinesJob` déplacé dans `scheduler/` (voir R7).
+- `requests/request-policy.module.ts` provides and exports `RequestPolicyLoader`;
+  `requests`, `categories`, `messages`, `coverage` import it; `files` no longer needs it (R8).
+- Removal of `NoopNotificationPublisher` and its outdated comment
+  (`notifications.service.ts`) [VERIFIED: no use in `src` nor `test`].
+- Removal of `@mui/icons-material` from `frontend/package.json` [VERIFIED: no import].
+- `backend/scripts/check-users.ts` reformatted by Prettier (the other script is deleted in R6).
+- `CoverageDeadlinesJob` moved into `scheduler/` (see R7).
 
-**Rationale**: corrections mécaniques, couvertes par la suite existante.
+**Rationale**: mechanical fixes, covered by the existing suite.
 
-## R10 — Statuts et énumérations synchronisés entre serveur et interface (FR-016, A17)
+## R10 — Statuses and enums synchronized between server and interface (FR-016, A17)
 
-**Decision**: test Vitest `frontend/tests/api/enums-sync.test.ts` qui lit
-`backend/prisma/schema.prisma` et `frontend/src/api/types.ts` (et
-`frontend/src/features/requests/types.ts` si une énumération y est redéclarée), extrait les
-valeurs des énumérations communes (`Role`, `Priority`, `RequestStatus`, `RequestKind`,
-`Circuit`, `ClosureMode`, `AssignmentMode`, `Permission` et les autres présentes des deux
-côtés) et échoue en listant les valeurs manquantes ou en trop. Le commentaire de `types.ts`
-annonçant des types générés est retiré ; le script `api:types` est conservé comme outil
-facultatif, sans promesse.
+**Decision**: Vitest test `frontend/tests/api/enums-sync.test.ts` that reads
+`backend/prisma/schema.prisma` and `frontend/src/api/types.ts` (and
+`frontend/src/features/requests/types.ts` if an enum is redeclared there), extracts the
+values of the common enums (`Role`, `Priority`, `RequestStatus`, `RequestKind`,
+`Circuit`, `ClosureMode`, `AssignmentMode`, `Permission` and the others present on both
+sides) and fails by listing the missing or extra values. The comment in `types.ts`
+announcing generated types is removed; the `api:types` script is kept as an
+optional tool, with no promise.
 
-**Rationale**: [VÉRIFIÉ] le backend ne décore pas ses DTO pour OpenAPI (aucun `@ApiProperty`) :
-les types générés seraient pauvres sans un chantier d'annotation. La base de données est la
-source de vérité des énumérations ; un test de lecture de fichiers suffit, sans dépendance.
+**Rationale**: [VERIFIED] the backend does not decorate its DTOs for OpenAPI (no `@ApiProperty`):
+the generated types would be poor without an annotation project. The database is the
+source of truth for enums; a file-reading test is enough, with no dependency.
 
-**Alternatives considered**: génération OpenAPI complète (chantier lourd, hors besoin) ;
-paquet partagé de types (nouveau workspace, principe II).
+**Alternatives considered**: full OpenAPI generation (heavy project, beyond the need);
+shared types package (new workspace, principle II).
 
-## R11 — Intégration continue partielle (FR-017, FR-019, A20, A21, D3, D10)
+## R11 — Partial continuous integration (FR-017, FR-019, A20, A21, D3, D10)
 
-**Decision**: `.github/workflows/ci.yml` (dépôt GitHub `origin` [VÉRIFIÉ]), déclenché sur
-`push` et `pull_request`, avec un seul job d'identifiant `verify` et de nom « Contrôles qualité »
-(nom stable, cité par la vérification avant fusion et réutilisable par une protection de
-branche future) :
-1. `ubuntu-latest`, Node 24 (`.nvmrc`), `npm ci`, installation de `ffmpeg` (apt) ;
-2. `npm run lint` ; `npm run -w backend typecheck` ; `npm run -w frontend typecheck` ;
-3. `npm run -w backend test` ; `npm run -w backend test:integration` ;
-   `npm run -w frontend test` ;
+**Decision**: `.github/workflows/ci.yml` (GitHub repository `origin` [VERIFIED]), triggered on
+`push` and `pull_request`, with a single job of identifier `verify` and name « Contrôles qualité »
+(quality checks) (stable name, cited by the pre-merge check and reusable by a future branch
+protection):
+1. `ubuntu-latest`, Node 24 (`.nvmrc`), `npm ci`, installation of `ffmpeg` (apt);
+2. `npm run lint`; `npm run -w backend typecheck`; `npm run -w frontend typecheck`;
+3. `npm run -w backend test`; `npm run -w backend test:integration`;
+   `npm run -w frontend test`;
 4. `npm audit --audit-level=high`.
 
-Les tests de bout en bout (dont le chronométrage `e2e/sc001-create-timing.spec.ts`) restent
-manuels, avec compte rendu daté dans `docs/validation/` (modèle : `verification-finale.md`).
-[VÉRIFIÉ] Le test de performance de recherche (`search-performance.spec.ts`) est un test
-d'intégration : il tourne donc en CI ; s'il est instable sur les machines GitHub, il en sera
-exclu et rejoué à la main.
+End-to-end tests (including the timing test `e2e/sc001-create-timing.spec.ts`) stay
+manual, with a dated report in `docs/validation/` (model: `verification-finale.md`).
+[VERIFIED] The search performance test (`search-performance.spec.ts`) is an
+integration test: it therefore runs in CI; if it is unstable on GitHub machines, it will be
+excluded from it and replayed by hand.
 
-**Points à vérifier au premier passage de la CI [DÉDUIT]** :
-- les tests d'intégration démarrent leur propre PostgreSQL via `embedded-postgres`
-  (`test/utils/global-setup.ts`) : il faut que `package-lock.json`, produit sous Windows,
-  contienne le binaire optionnel Linux (`@embedded-postgres/linux-x64`) ; sinon, régénérer le
-  verrou ou utiliser un service `postgres:17` dans la CI ;
-- `prisma generate` doit tourner avant les tests (via `postinstall` ou une étape dédiée).
+**Points to check on the first CI pass [INFERRED]**:
+- the integration tests start their own PostgreSQL via `embedded-postgres`
+  (`test/utils/global-setup.ts`): `package-lock.json`, produced under Windows, must
+  contain the optional Linux binary (`@embedded-postgres/linux-x64`); otherwise, regenerate the
+  lock or use a `postgres:17` service in CI;
+- `prisma generate` must run before the tests (via `postinstall` or a dedicated step).
 
-**Fusion vers `master` (constat G3, décision D10)** : la CI signale les échecs mais ne bloque
-pas la fusion par elle-même. La protection de branche qui le ferait n'est pas disponible :
-[VÉRIFIÉ] le 2026-10-15, `GET /repos/…/branches/master/protection` renvoie `403 Upgrade to
-GitHub Pro or make this repository public` (dépôt privé, offre gratuite). Décision D10 : le
-dépôt reste privé, sans abonnement ; la protection est reportée et remplacée par une
-**vérification manuelle obligatoire avant chaque fusion** (`contracts/cli-and-deploy.md`
-§Vérification avant fusion) : résultat de la CI, tests requis, absence d'échec non résolu,
-examen du diff, cochés dans la demande de fusion. Elle n'empêche pas techniquement une fusion
-dont les tests échouent.
+**Merge into `master` (finding G3, decision D10)**: CI reports failures but does not block
+the merge by itself. The branch protection that would do so is not available:
+[VERIFIED] on 2026-10-15, `GET /repos/…/branches/master/protection` returns `403 Upgrade to
+GitHub Pro or make this repository public` (private repository, free plan). Decision D10: the
+repository stays private, with no subscription; the protection is postponed and replaced by a
+**mandatory manual check before every merge** (`contracts/cli-and-deploy.md`
+§Vérification avant fusion, i.e. the pre-merge check): CI result, required tests, absence of unresolved failure,
+diff review, ticked in the pull request. It does not technically prevent a merge
+whose tests fail.
 
-Réglage à créer si l'offre le permet un jour (GitHub → Settings → Branches → Branch protection
-rules, sur `master`) : « Require a pull request before merging », « Require status checks to
-pass before merging » avec « Contrôles qualité », « Require branches to be up to date before
-merging ».
+Setting to create if the plan ever allows it (GitHub → Settings → Branches → Branch protection
+rules, on `master`): "Require a pull request before merging", "Require status checks to
+pass before merging" with « Contrôles qualité », "Require branches to be up to date before
+merging".
 
-**Rationale**: décision D3 ; reprend exactement `npm run verify`, sans les navigateurs.
+**Rationale**: decision D3; takes exactly `npm run verify`, without the browsers.
 
-**Alternatives considered**: tout en CI, y compris Playwright (écarté par D3) ; autre service
-de CI (le dépôt est sur GitHub) ; offre GitHub payante ou dépôt public pour obtenir la
-protection de branche (écartés pour le moment par D10).
+**Alternatives considered**: everything in CI, including Playwright (rejected by D3); another CI
+service (the repository is on GitHub); paid GitHub plan or public repository to get
+branch protection (rejected for now by D10).
 
-## R12 — Sauvegarde garantie avant migration (FR-018, A22, A23)
-
-**Decision**:
-- `deploy/deploy.sh` (hôte) : (1) sauvegarde ponctuelle via le service `backup`
-  (`docker compose run --rm --entrypoint /bin/bash backup /scripts/backup.sh`), arrêt si elle
-  échoue ; (2) `docker compose up -d --build`.
-- `deploy/api-entrypoint.sh` : avant `prisma migrate deploy`, exécute `prisma migrate status` ;
-  s'il reste des migrations à appliquer, exige une archive `db-*.dump` de moins de
-  `PRE_MIGRATION_BACKUP_MAX_AGE_MINUTES` (défaut 60) dans `/backups`, monté **en lecture seule**
-  dans le conteneur `api` ; sinon il s'arrête avec un message explicite sans toucher la base.
-  Sans migration en attente, démarrage normal (aucun ralentissement des redémarrages).
-- `README.md` et `docs/coverage-migration.md` remplacent l'étape manuelle « faire une sauvegarde »
-  par `deploy/deploy.sh`.
-- **Testabilité (constat C1 de l'analyse, principe I)** : le dossier des sauvegardes est lu dans
-  `PRE_MIGRATION_BACKUP_DIR` (défaut `/backups`) au lieu d'être écrit en dur, et les commandes
-  `npx` et `node` sont résolues par le `PATH`. Un test Jest
-  `backend/test/unit/api-entrypoint.spec.ts` lance le script avec un shell POSIX, un faux `npx`
-  et un faux `node` (scripts placés en tête du `PATH`, qui écrivent leurs arguments dans un
-  journal et simulent la sortie de `prisma migrate status`) et un dossier temporaire de
-  sauvegardes dont l'ancienneté est réglée par `fs.utimesSync`. Cas : schéma à jour (aucune
-  migration, démarrage) ; migration en attente sans archive (code 1, message, ni `migrate
-  deploy` ni démarrage) ; migration en attente avec archive trop ancienne (idem) ; migration en
-  attente avec archive récente (`migrate deploy` puis démarrage) ; base inaccessible (code 1,
-  sortie de Prisma affichée, ni `migrate deploy` ni démarrage). Shell : `sh` sous Linux (CI) ;
-  sous Windows, `bash.exe` de Git for Windows, trouvé à partir de `git --exec-path`
-  (`…/mingw64/libexec/git-core` → `…/bin/bash.exe`). Si aucun shell POSIX n'est trouvé, le test
-  échoue avec un message qui l'explique (pas de saut silencieux). Le test tourne dans la suite
-  unitaire, donc dans la CI.
-
-**Rationale**: [VÉRIFIÉ] le conteneur `api` n'a pas `pg_dump` ; le service `backup` l'a et sait
-déjà produire et contrôler une archive (`pg_restore --list`). La vérification dans l'entrypoint
-couvre aussi un `docker compose up` lancé à la main, sans le script.
-
-**Point à vérifier [DÉDUIT]**: le code de sortie et le texte de `prisma migrate status`
-(Prisma 6) quand des migrations sont en attente ; l'entrypoint s'appuiera sur le texte
-« Database schema is up to date » si le code de sortie ne suffit pas. Relevé avant le test
-(tâche T049), puis vérifié sur la préproduction (quickstart, scénario 6).
-
-**Alternatives considered**: sauvegarde dans l'entrypoint de l'API (ajoute le client
-PostgreSQL à l'image, mélange les responsabilités) ; confiance dans la procédure manuelle
-(c'est la situation dénoncée par A22).
-
-## R13 — Restauration et en-têtes de sécurité vérifiés (FR-020, FR-021, A24, A25)
-
-**Decision**: pas de code ; deux comptes rendus à produire sur un serveur de préproduction :
-`docs/validation/restauration.md` (sauvegarde réelle → `deploy/backup/restore.sh` sur un
-serveur vierge, durée, contrôles : connexion, une demande avec vocal et photo, journal d'audit)
-et `docs/validation/en-tetes-securite.md` (sortie de `curl -sI` sur `/` et `/api/health` :
-`Content-Security-Policy`, `Strict-Transport-Security`, et refus d'un envoi de plus de 26 Mo).
-
-**Rationale**: ces constats [DÉDUIT] ne peuvent être confirmés qu'en conditions réelles.
-
-## R14 — Affectation automatique figée à la soumission (FR-008, FR-009, FR-011, A03, A04, D1, D8, D9)
-
-**Décisions métier appliquées** (toutes validées le 2026-10-15, voir spec « Clarifications ») :
-D1 (tout figé), D8 (personne non affectable → refus puis choix du responsable), D9 (demandes
-antérieures → catégorie actuelle). Aucune autre règle n'est introduite.
+## R12 — Guaranteed backup before migration (FR-018, A22, A23)
 
 **Decision**:
-- `RequestRulesSnapshot` gagne `autoAssigneeId: string | null`, renseigné par
+- `deploy/deploy.sh` (host): (1) one-off backup via the `backup` service
+  (`docker compose run --rm --entrypoint /bin/bash backup /scripts/backup.sh`), stop if it
+  fails; (2) `docker compose up -d --build`.
+- `deploy/api-entrypoint.sh`: before `prisma migrate deploy`, runs `prisma migrate status`;
+  if migrations remain to be applied, requires a `db-*.dump` archive newer than
+  `PRE_MIGRATION_BACKUP_MAX_AGE_MINUTES` (default 60) in `/backups`, mounted **read-only**
+  in the `api` container; otherwise it stops with an explicit message without touching the database.
+  With no pending migration, normal startup (no slowdown of restarts).
+- `README.md` and `docs/coverage-migration.md` replace the manual step "make a backup"
+  with `deploy/deploy.sh`.
+- **Testability (finding C1 of the analysis, principle I)**: the backups folder is read from
+  `PRE_MIGRATION_BACKUP_DIR` (default `/backups`) instead of being hard-coded, and the
+  `npx` and `node` commands are resolved through the `PATH`. A Jest test
+  `backend/test/unit/api-entrypoint.spec.ts` runs the script with a POSIX shell, a fake `npx`
+  and a fake `node` (scripts placed at the head of the `PATH`, which write their arguments to a
+  log and simulate the output of `prisma migrate status`) and a temporary backups folder whose
+  age is set by `fs.utimesSync`. Cases: schema up to date (no
+  migration, startup); pending migration with no archive (code 1, message, neither `migrate
+  deploy` nor startup); pending migration with an archive that is too old (same); pending
+  migration with a recent archive (`migrate deploy` then startup); database unreachable (code 1,
+  Prisma output shown, neither `migrate deploy` nor startup). Shell: `sh` under Linux (CI);
+  under Windows, `bash.exe` from Git for Windows, found from `git --exec-path`
+  (`…/mingw64/libexec/git-core` → `…/bin/bash.exe`). If no POSIX shell is found, the test
+  fails with a message explaining it (no silent skip). The test runs in the unit suite,
+  therefore in CI.
+
+**Rationale**: [VERIFIED] the `api` container has no `pg_dump`; the `backup` service has it and already
+knows how to produce and check an archive (`pg_restore --list`). The check in the entrypoint
+also covers a `docker compose up` launched by hand, without the script.
+
+**Point to check [INFERRED]**: the exit code and the text of `prisma migrate status`
+(Prisma 6) when migrations are pending; the entrypoint will rely on the text
+"Database schema is up to date" if the exit code is not enough. Noted before the test
+(task T049), then verified on staging (quickstart, scenario 6).
+
+**Alternatives considered**: backup in the API entrypoint (adds the PostgreSQL client to the
+image, mixes responsibilities); trust in the manual procedure
+(this is the situation denounced by A22).
+
+## R13 — Restore and security headers verified (FR-020, FR-021, A24, A25)
+
+**Decision**: no code; two reports to produce on a staging server:
+`docs/validation/restauration.md` (real backup → `deploy/backup/restore.sh` on a blank
+server, duration, checks: login, a request with a voice message and a photo, audit log)
+and `docs/validation/en-tetes-securite.md` (output of `curl -sI` on `/` and `/api/health`:
+`Content-Security-Policy`, `Strict-Transport-Security`, and refusal of an upload larger than 26 MB).
+
+**Rationale**: these [INFERRED] findings can only be confirmed under real conditions.
+
+## R14 — Automatic assignment frozen at submission (FR-008, FR-009, FR-011, A03, A04, D1, D8, D9)
+
+**Business decisions applied** (all validated on 2026-10-15, see spec "Clarifications"):
+D1 (everything frozen), D8 (person not assignable → refusal then choice by the manager), D9 (earlier
+requests → current category). No other rule is introduced.
+
+**Decision**:
+- `RequestRulesSnapshot` gains `autoAssigneeId: string | null`, set by
   `RequestPolicyLoader.rulesSnapshot` (`category.assignmentMode === 'AUTO' ?
-  category.autoAssigneeId : null`). Champ JSON : **aucune migration**.
-- `assigneeContext`, pour `APPROVE`, lit `rules.assignmentMode` et `rules.autoAssigneeId` du
-  snapshot. Si le snapshot ne contient pas la clé `autoAssigneeId` (demande soumise avant la
-  correction, exception EXC-1, D9), il lit `category.autoAssigneeId`, et seulement dans ce cas.
-- Si la personne à affecter est absente ou n'est plus affectable (`canPickRecipient` : compte
-  inactif ou retiré des destinataires de la catégorie ; exception EXC-2, D8), une approbation
-  sans `assigneeId` reçoit le nouveau code `AUTO_ASSIGNEE_UNAVAILABLE` (422, « La personne
+  category.autoAssigneeId : null`). JSON field: **no migration**.
+- `assigneeContext`, for `APPROVE`, reads `rules.assignmentMode` and `rules.autoAssigneeId` from the
+  snapshot. If the snapshot does not contain the `autoAssigneeId` key (request submitted before the
+  fix, exception EXC-1, D9), it reads `category.autoAssigneeId`, and only in that case.
+- If the person to assign is missing or no longer assignable (`canPickRecipient`: inactive
+  account or removed from the category recipients; exception EXC-2, D8), an approval
+  without `assigneeId` receives the new code `AUTO_ASSIGNEE_UNAVAILABLE` (422, « La personne
   désignée pour cette catégorie n'est plus disponible. Choisissez l'employé qui réalisera la
-  demande. »). Le responsable peut alors approuver en fournissant `assigneeId` ; le serveur ne
-  l'accepte en mode automatique que dans ce cas, et refuse un compte non affectable
+  demande. » (The person designated for this category is no longer available. Choose the employee who will carry out the request.)). The manager can then approve by supplying `assigneeId`; the server only
+  accepts it in automatic mode in that case, and refuses a non-assignable account
   (`RECIPIENT_NOT_ALLOWED`).
-- L'événement d'historique `ASSIGNED` créé par l'approbation (`RequestEvent`, `toValue`) porte
-  `assigneeSource` : `SNAPSHOT`, `CATEGORY_CURRENT` (EXC-1) ou `MANAGER_CHOICE` (mode manuel ou
-  EXC-2). `HistoryTimeline` l'affiche après « Affectée à <nom> ».
-- Interface : `ApprovalDialog` affiche le sélecteur quand le serveur renvoie
+- The `ASSIGNED` history event created by the approval (`RequestEvent`, `toValue`) carries
+  `assigneeSource`: `SNAPSHOT`, `CATEGORY_CURRENT` (EXC-1) or `MANAGER_CHOICE` (manual mode or
+  EXC-2). `HistoryTimeline` shows it after « Affectée à <nom> » (Assigned to <name>).
+- Interface: `ApprovalDialog` shows the selector when the server returns
   `AUTO_ASSIGNEE_UNAVAILABLE`.
-- Tests d'abord (FR-009) : un test d'intégration qui reproduit le cas « E1 désigné à la
-  soumission, E2 désigné ensuite » (rouge aujourd'hui : affecté à E2), le cas « catégorie passée
-  en manuelle » (rouge aujourd'hui : `ASSIGNEE_REQUIRED`, voir N1), les cas « E1 désactivé » et
-  « E1 retiré des destinataires » (EXC-2), et le cas « demande ancienne sans `autoAssigneeId` »
+- Tests first (FR-009): an integration test that reproduces the case "E1 designated at
+  submission, E2 designated afterwards" (red today: assigned to E2), the case "category switched
+  to manual" (red today: `ASSIGNEE_REQUIRED`, see N1), the cases "E1 deactivated" and
+  "E1 removed from the recipients" (EXC-2), and the case "old request without `autoAssigneeId`"
   (EXC-1).
 
-**Rationale**: décision D1. Le snapshot existe déjà pour cette raison (FR-022 du lot 1) ; il
-suffit d'y ajouter la personne. Le repli explicite évite qu'une demande reste bloquée sans
-affecter de compte inactif (FR-011).
+**Rationale**: decision D1. The snapshot already exists for this reason (FR-022 of phase 1); it is
+enough to add the person to it. The explicit fallback prevents a request from staying blocked without
+assigning an inactive account (FR-011).
 
-**Alternatives considered**: reprise des snapshots existants par migration de données (fige
-après coup une valeur qui n'était peut-être pas celle de la soumission, donc inexacte) ;
-refus sans repli (demande bloquée jusqu'à intervention de l'administrateur).
+**Alternatives considered**: backfilling existing snapshots by data migration (freezes after the
+fact a value that may not have been the one at submission, hence inaccurate);
+refusal without fallback (request blocked until the administrator intervenes).
 
-## R15 — Ordre d'écriture des événements d'historique (FR-025, N3)
+## R15 — Write order of history events (FR-025, N3)
 
-**Decision**: colonne `RequestEvent.seq` (`BIGSERIAL`, `@default(autoincrement())`), ajoutée
-par la migration `0003_request_event_seq` ; les lectures chronologiques trient par `createdAt`
-puis `seq` au lieu de `createdAt` puis `id`. `createdAt` reste le premier critère, car il porte
-la date affichée. La colonne n'est jamais exposée par l'API.
+**Decision**: column `RequestEvent.seq` (`BIGSERIAL`, `@default(autoincrement())`), added
+by migration `0003_request_event_seq`; chronological reads sort by `createdAt`
+then `seq` instead of `createdAt` then `id`. `createdAt` stays the first criterion, because it carries
+the displayed date. The column is never exposed by the API.
 
-**Rationale**: la séquence reflète l'ordre d'insertion, y compris dans une même transaction ;
-aucun des 13 endroits qui écrivent des événements n'est modifié. L'ajout d'une colonne réécrit
-la table sans déclencher le trigger « append-only » (`BEFORE UPDATE OR DELETE`). Les événements
-existants reçoivent un numéro dans l'ordre physique de la table, sans garantie pour les égalités
-passées ; seules les égalités futures sont corrigées.
+**Rationale**: the sequence reflects insertion order, including within a single transaction;
+none of the 13 places that write events is modified. Adding a column rewrites
+the table without triggering the "append-only" trigger (`BEFORE UPDATE OR DELETE`). Existing events
+receive a number in the table's physical order, with no guarantee for past ties;
+only future ties are fixed.
 
-**Tests d'abord**: `history-priority.spec.ts` et `coverage.spec.ts` insèrent deux événements de
-même `createdAt` dont les `id` sont en ordre inverse de l'écriture : rouges avec le tri par `id`,
-verts avec `seq`, sans dépendre du hasard.
+**Tests first**: `history-priority.spec.ts` and `coverage.spec.ts` insert two events with the
+same `createdAt` whose `id`s are in the reverse order of writing: red with sorting by `id`,
+green with `seq`, without depending on chance.
 
-**Alternatives considered**: horodatages croissants imposés à chaque écriture (13 endroits à
-modifier, dates légèrement faussées) ; UUID v7 (ordre garanti seulement d'une milliseconde à
-l'autre) ; test tolérant l'ordre (masque un défaut visible) ; relance de la CI (échec non
-résolu, interdit par la vérification avant fusion).
+**Alternatives considered**: increasing timestamps imposed on each write (13 places to
+modify, dates slightly falsified); UUID v7 (order guaranteed only from one millisecond to the
+next); test tolerant of the order (hides a visible defect); CI rerun (unresolved failure,
+forbidden by the pre-merge check).

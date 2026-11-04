@@ -1,54 +1,54 @@
-# Quickstart — validation de 004
+# Quickstart — validation of 004
 
-Guide de vérification de bout en bout. Modèle : [data-model.md](./data-model.md) ; API :
-[contracts/rest-api.md](./contracts/rest-api.md) ; migration :
+End-to-end verification guide. Model: [data-model.md](./data-model.md); API:
+[contracts/rest-api.md](./contracts/rest-api.md); migration:
 [contracts/migration.md](./contracts/migration.md).
 
-## Prérequis
+## Prerequisites
 
-- Node.js 24, dépendances installées (`npm ci` à la racine).
-- Base de développement : `npm run db:dev -w backend`, puis `npm run prisma:deploy -w backend`
-  et `npm run prisma:seed -w backend`.
-- `SCHOOL_TIMEZONE` défini (défaut `Europe/Paris`).
-- Comptes du seed : `superadmin`, **`admin`** (ex-`responsable`), `enseignante` (groupe
-  Enseignants), `surveillant` et un second surveillant (groupe Surveillants, étages différents),
-  `reprographie` (aucun accès au module). Étages « 1er étage » et « 2e étage » ; classes
-  rattachées.
-- Lancement : `start.bat` (API sur 3002 + interface).
+- Node.js 24, dependencies installed (`npm ci` at the root).
+- Development database: `npm run db:dev -w backend`, then `npm run prisma:deploy -w backend`
+  and `npm run prisma:seed -w backend`.
+- `SCHOOL_TIMEZONE` set (default `Europe/Paris`).
+- Seed accounts: `superadmin`, **`admin`** (formerly `responsable`), `enseignante` (Enseignants
+  group), `surveillant` and a second supervisor (Surveillants group, different floors),
+  `reprographie` (no access to the module). Floors "1er étage" (1st floor) and "2e étage"
+  (2nd floor); classes linked.
+- Launch: `start.bat` (API on 3002 + interface).
 
-## Tests automatisés
+## Automated tests
 
 ```text
-npm test -w backend                    # unitaires (machine d'états, statut principal, échéances, fuseau)
-npm run test:integration -w backend    # parcours, droits, migration 0008/0009 + down, jobs, anonymisation
-npm test -w frontend                   # écrans, accessibilité, synchronisation des enums
-npx playwright test -c e2e/playwright.config.ts   # 3 parcours à 360, 768 et 1280 px
+npm test -w backend                    # unit (state machine, main status, due dates, time zone)
+npm run test:integration -w backend    # journeys, rights, migration 0008/0009 + down, jobs, anonymization
+npm test -w frontend                   # screens, accessibility, enum synchronization
+npx playwright test -c e2e/playwright.config.ts   # 3 journeys at 360, 768 and 1280 px
 ```
 
-Attendu : tout au vert, y compris les tests existants adaptés (diffusion retirée).
+Expected: all green, including the existing tests that were adapted (broadcast removed).
 
-## Scénarios manuels
+## Manual scenarios
 
-| # | Parcours | Étapes | Attendu |
+| # | Journey | Steps | Expected |
 | --- | --- | --- | --- |
-| 1 | Demande enseignant (US1) | `enseignante` signale un retard demain 08:00–09:00, classe du 1er étage, motif « RDV médical » | « en attente » ; `admin` notifié ; rappel prévu à 07:00 |
-| 2 | Assignation | `admin` ouvre la demande ; candidats : surveillants du 1er étage en tête, indisponibles marqués | assignation → « assignée » ; `surveillant` notifié ; `enseignante` notifiée ; le surveillant ne voit **pas** le motif |
-| 3 | Délai court | demande pour aujourd'hui dans 30 min, ne rien faire 2 min, puis 5 min | alerte URGENT à `admin`, puis escalade à `superadmin` ; demande en tête de liste |
-| 4 | Classe vide (US2) | `surveillant` déclare une classe vide sans enseignant | « en cours » immédiat ; alerte mise en évidence chez `admin` (visuelle, son facultatif) |
-| 5 | Doublon | second surveillant déclare la même classe | rattaché en renfort ; `admin` décide ; rappels toutes les 10 min, 3 au plus, puis `superadmin` |
-| 6 | Affectation directe (US3) | `admin` crée une affectation avec un surveillant déjà occupé | refus « non disponible » ; avec un disponible : « assignée » |
-| 7 | Réassignation en cours | `admin` réassigne l'affectation du scénario 4 | relève assignée ; l'ancien n'est libéré qu'à la présence du nouveau |
-| 8 | Non pourvue | demande jamais assignée, fin de créneau passée | « non pourvue » ; comptée à part dans les statistiques |
-| 9 | Droits | `reprographie` ouvre `/gardes` ; `surveillant` tente `ASSIGN` par l'API | rien de visible ; `404`/`403` journalisé |
-| 10 | Rôle | `admin` se connecte | libellé « Admin » ; espace super administrateur libellé « Administrateur » ; circuit B et catégories inchangés |
-| 11 | Statistiques (US5) | `admin` ouvre les statistiques du mois | retards par enseignant/classe, durée moyenne, taux de non pourvue, annulées et « non tranchés » à part |
+| 1 | Teacher request (US1) | `enseignante` reports lateness tomorrow 08:00–09:00, 1st-floor class, reason "RDV médical" (medical appointment) | "en attente" (pending); `admin` notified; reminder scheduled at 07:00 |
+| 2 | Assignment | `admin` opens the request; candidates: 1st-floor supervisors first, unavailable ones marked | assignment → "assignée" (assigned); `surveillant` notified; `enseignante` notified; the supervisor does **not** see the reason |
+| 3 | Short notice | request for today in 30 min, do nothing for 2 min, then 5 min | URGENT alert to `admin`, then escalation to `superadmin`; request at the top of the list |
+| 4 | Empty class (US2) | `surveillant` reports an empty class without a teacher | immediately "en cours" (in progress); highlighted alert for `admin` (visual, sound optional) |
+| 5 | Duplicate | second supervisor reports the same class | attached as backup; `admin` decides; reminders every 10 min, 3 at most, then `superadmin` |
+| 6 | Direct assignment (US3) | `admin` creates an assignment with a supervisor who is already busy | refusal "non disponible" (not available); with an available one: "assignée" |
+| 7 | Reassignment in progress | `admin` reassigns the assignment from scenario 4 | handover assigned; the former supervisor is released only when the new one is present |
+| 8 | Unfilled | request never assigned, time slot end passed | "non pourvue" (unfilled); counted separately in the statistics |
+| 9 | Rights | `reprographie` opens `/gardes`; `surveillant` tries `ASSIGN` through the API | nothing visible; `404`/`403` logged |
+| 10 | Role | `admin` logs in | label "Admin"; super administrator area labeled "Administrateur"; workflow B and categories unchanged |
+| 11 | Statistics (US5) | `admin` opens the month's statistics | lateness by teacher/class, average duration, unfilled rate, cancelled and "non tranchés" (undecided) shown separately |
 
-## Migration (préproduction)
+## Migration (pre-production)
 
-1. Copie de la base de production en préproduction.
-2. `npm run preflight:supervision -w backend` → rapport ; validations V1–V3 consignées.
-3. Déploiement (`deploy/deploy.sh`) : sauvegarde, `0008`, `0009`.
-4. Contrôles : gardes `BROADCAST` devenues « en attente » chez l'admin ; anciennes gardes
-   terminées affichées « terminée » avec badge ; aucun événement d'historique disparu
-   (décompte `RequestEvent` avant/après : seulement des ajouts).
-5. Retour arrière à blanc : `0009/down.sql`, `0008/down.sql`, contrôle de l'état initial.
+1. Copy of the production database into pre-production.
+2. `npm run preflight:supervision -w backend` → report; validations V1–V3 recorded.
+3. Deployment (`deploy/deploy.sh`): backup, `0008`, `0009`.
+4. Checks: `BROADCAST` guard duties now "en attente" for the admin; old finished guard duties
+   shown "terminée" (done) with a badge; no history event disappeared (`RequestEvent` count
+   before/after: only additions).
+5. Dry-run rollback: `0009/down.sql`, `0008/down.sql`, check of the initial state.

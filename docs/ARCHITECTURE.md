@@ -1,186 +1,186 @@
 # Architecture — La Joconde Jumelle
 
-> Analyse établie le 2026-10-15 à partir du code de la branche `002-refonte-ui-destinataires`
-> (dernier commit `595c3fc`). Les trois modifications alors non commitées (port 3000 → 3002) l'ont
-> été dans `1e6d4ee`.
+> Analysis established on 2026-10-15 from the code of the `002-refonte-ui-destinataires` branch
+> (latest commit `595c3fc`). The three changes that were then uncommitted (port 3000 → 3002) were
+> committed in `1e6d4ee`.
 >
-> **Suivi des corrections** : les constats ont été traités par la fonctionnalité 003
-> (`specs/003-corrections-audit-technique/`). Chaque constat traité porte la mention « Corrigé »
-> avec son commit ; le §12 récapitule l'état de tous les constats (A01 à A35 de la spécification
-> 003, et N1 à N3 relevés pendant sa réalisation). Le reste du document décrit l'état du commit
+> **Follow-up of the fixes**: the findings were handled by feature 003
+> (`specs/003-corrections-audit-technique/`). Each finding that was handled carries the mention "Fixed"
+> with its commit; §12 summarizes the state of all the findings (A01 to A35 of specification
+> 003, and N1 to N3 noted while it was being carried out). The rest of the document describes the state of commit
 > `595c3fc`.
 >
-> Chaque affirmation est marquée :
-> - **[VÉRIFIÉ]** : lue dans le code ou la configuration, ou constatée en exécutant une commande ;
-> - **[DÉDUIT]** : supposition ou interprétation, non prouvée par le code.
+> Each statement is marked:
+> - **[VERIFIED]**: read in the code or the configuration, or observed by running a command;
+> - **[INFERRED]**: assumption or interpretation, not proven by the code.
 >
-> Les chemins sont relatifs à la racine du dépôt.
+> Paths are relative to the repository root.
 
 ---
 
-## 1. Vue d'ensemble
+## 1. Overview
 
-### Type d'application
+### Type of application
 
-- **[VÉRIFIÉ]** L'application est un **monolithe modulaire** en deux parties :
-  - une **SPA React** (frontend) ;
-  - une **API NestJS unique**, qui sert à la fois le REST sous `/api` et Socket.IO sous `/socket.io`.
+- **[VERIFIED]** The application is a **modular monolith** in two parts:
+  - a **React SPA** (frontend);
+  - a **single NestJS API**, which serves both REST under `/api` and Socket.IO under `/socket.io`.
 
-  Le tout est exécuté dans **un seul processus API**. Sources : `backend/src/app.setup.ts` (`configureApp`, `setGlobalPrefix('api')`) et `backend/src/realtime/realtime.gateway.ts` (`@WebSocketGateway({ path: '/socket.io' })`).
-- **[VÉRIFIÉ]** C'est un dépôt npm *workspaces* qui contient `backend` et `frontend` (`package.json`, champ `workspaces`).
-- **[VÉRIFIÉ]** En production, Caddy sert la SPA en fichiers statiques et relaie `/api/*` et `/socket.io/*` vers l'API, **sur le même domaine** (`deploy/Caddyfile`).
-- **[VÉRIFIÉ]** L'application couvre deux domaines métier qui partagent la table `Request` (champ `kind`) :
-  - `WORK` : les demandes de travail (lot 1) ;
-  - `COVERAGE` : la couverture de classe, c'est-à-dire la garde ou le remplacement (lot 2).
+  The whole runs in **a single API process**. Sources: `backend/src/app.setup.ts` (`configureApp`, `setGlobalPrefix('api')`) and `backend/src/realtime/realtime.gateway.ts` (`@WebSocketGateway({ path: '/socket.io' })`).
+- **[VERIFIED]** It is an npm *workspaces* repository that contains `backend` and `frontend` (`package.json`, `workspaces` field).
+- **[VERIFIED]** In production, Caddy serves the SPA as static files and relays `/api/*` and `/socket.io/*` to the API, **on the same domain** (`deploy/Caddyfile`).
+- **[VERIFIED]** The application covers two business domains that share the `Request` table (`kind` field):
+  - `WORK`: work requests (phase 1);
+  - `COVERAGE`: class coverage, that is, duty or substitution (phase 2).
 
-  Sources : `backend/prisma/schema.prisma` (`enum RequestKind`, `model Request.kind`).
-- **[VÉRIFIÉ]** Il n'y a ni microservices, ni serverless, ni file de messages, ni cache externe (Redis absent des dépendances). L'absence de Redis est assumée dans `specs/001-demandes-travail-vocales/plan.md` (« Complexity Tracking »).
+  Sources: `backend/prisma/schema.prisma` (`enum RequestKind`, `model Request.kind`).
+- **[VERIFIED]** There are no microservices, no serverless, no message queue, no external cache (Redis is absent from the dependencies). The absence of Redis is accepted in `specs/001-demandes-travail-vocales/plan.md` ("Complexity Tracking").
 
 ### Stack
 
-Versions exactes lues dans `package-lock.json` ; Node vérifié avec `node -v` sur le poste.
+Exact versions read from `package-lock.json`; Node verified with `node -v` on the workstation.
 
-| Couche | Technologie | Version | Source |
+| Layer | Technology | Version | Source |
 |---|---|---|---|
-| Langage | TypeScript (strict) | 5.9.3 | `package.json`, `backend/tsconfig.json` |
-| Runtime | Node.js | ≥ 24 exigé (24.21.0 sur le poste) | `package.json` (`engines`), `.nvmrc` |
-| Framework API | NestJS (Express) | 11.2.7 | `backend/package.json` |
-| Temps réel | Socket.IO (serveur et client) | 4.8.4 | `backend/package.json`, `frontend/package.json` |
+| Language | TypeScript (strict) | 5.9.3 | `package.json`, `backend/tsconfig.json` |
+| Runtime | Node.js | ≥ 24 required (24.21.0 on the workstation) | `package.json` (`engines`), `.nvmrc` |
+| API framework | NestJS (Express) | 11.2.7 | `backend/package.json` |
+| Real time | Socket.IO (server and client) | 4.8.4 | `backend/package.json`, `frontend/package.json` |
 | ORM | Prisma | 6.19.3 | `backend/package.json`, `backend/prisma/schema.prisma` |
-| Base de données | PostgreSQL 17 | image `postgres:17` en prod ; `embedded-postgres` 17.10.0-beta.17 en dev | `deploy/docker-compose.yml`, `backend/scripts/dev-db.ts` |
+| Database | PostgreSQL 17 | image `postgres:17` in prod; `embedded-postgres` 17.10.0-beta.17 in dev | `deploy/docker-compose.yml`, `backend/scripts/dev-db.ts` |
 | Validation | class-validator / class-transformer | 0.15 / 0.5 | `backend/src/common/validation.pipe.ts` |
-| Mots de passe | argon2 (Argon2id) | 0.45.1 | `backend/src/auth/auth.service.ts` |
+| Passwords | argon2 (Argon2id) | 0.45.1 | `backend/src/auth/auth.service.ts` |
 | Photos | sharp | 0.35.5 | `backend/src/files/photo-processing.ts` |
-| Vocaux | ffmpeg / ffprobe (binaires système) | non figée | `backend/src/files/voice-processing.ts`, `deploy/api.Dockerfile` |
-| Envoi de fichiers | Multer | 2.x | `backend/src/files/files.controller.ts` |
-| Tâches planifiées | @nestjs/schedule (`@Interval`) | 6.x | `backend/src/scheduler/*.job.ts` |
-| Limitation de débit | @nestjs/throttler | 6.x | `backend/src/auth/login-throttler.guard.ts` |
+| Voice messages | ffmpeg / ffprobe (system binaries) | not pinned | `backend/src/files/voice-processing.ts`, `deploy/api.Dockerfile` |
+| File upload | Multer | 2.x | `backend/src/files/files.controller.ts` |
+| Scheduled tasks | @nestjs/schedule (`@Interval`) | 6.x | `backend/src/scheduler/*.job.ts` |
+| Rate limiting | @nestjs/throttler | 6.x | `backend/src/auth/login-throttler.guard.ts` |
 | UI | React | 19.3.0 | `frontend/package.json` |
-| Build front | Vite | 8.3.4 | `frontend/vite.config.ts` |
-| Routage front | React Router | 7.18.4 | `frontend/src/app/routes.tsx` |
-| État serveur (front) | TanStack Query | 5.104.2 | `frontend/src/app/providers.tsx` |
-| Composants | MUI (Material UI) + Emotion | 9.5.0 | `frontend/src/app/theme.tsx` |
-| Icônes | lucide-react | 1.x | `frontend/src/app/providers.tsx` (`LucideProvider`) |
-| Stockage local (front) | idb-keyval (IndexedDB) | 6.x | `frontend/src/features/outbox/outbox.ts` |
-| Tests | Jest 30.5.2 + Supertest ; Vitest 5.0.4 + Testing Library ; Playwright 1.64.0 + axe | — | `package.json` des trois niveaux |
-| Déploiement | Docker Compose, Caddy 2 | — | `deploy/` |
+| Frontend build | Vite | 8.3.4 | `frontend/vite.config.ts` |
+| Frontend routing | React Router | 7.18.4 | `frontend/src/app/routes.tsx` |
+| Server state (frontend) | TanStack Query | 5.104.2 | `frontend/src/app/providers.tsx` |
+| Components | MUI (Material UI) + Emotion | 9.5.0 | `frontend/src/app/theme.tsx` |
+| Icons | lucide-react | 1.x | `frontend/src/app/providers.tsx` (`LucideProvider`) |
+| Local storage (frontend) | idb-keyval (IndexedDB) | 6.x | `frontend/src/features/outbox/outbox.ts` |
+| Tests | Jest 30.5.2 + Supertest; Vitest 5.0.4 + Testing Library; Playwright 1.64.0 + axe | — | `package.json` at the three levels |
+| Deployment | Docker Compose, Caddy 2 | — | `deploy/` |
 
 ---
 
-## 2. Rôle de chaque dossier et module
+## 2. Role of each folder and module
 
-### Racine
+### Root
 
-| Dossier | Rôle | Source |
+| Folder | Role | Source |
 |---|---|---|
-| `backend/` | API NestJS, schéma et migrations Prisma, scripts d'exploitation | [VÉRIFIÉ] |
-| `frontend/` | SPA React | [VÉRIFIÉ] |
-| `e2e/` | Tests de bout en bout Playwright : 12 fichiers `*.spec.ts`, profils navigateur, contrôles axe | [VÉRIFIÉ] `e2e/playwright.config.ts` |
-| `deploy/` | Dockerfiles, docker-compose (prod et dev), Caddyfile, scripts de sauvegarde et de restauration | [VÉRIFIÉ] |
-| `specs/001-demandes-travail-vocales/` | Spécification, plan, recherche, modèle de données, contrats et tâches du **lot 1** | [VÉRIFIÉ] |
-| `docs/` | Validation manuelle (iPhone, utilisabilité) et procédure de la migration 0002 | [VÉRIFIÉ] |
-| `.specify/`, `.claude/skills/` | Outillage « spec-kit » (modèles, constitution, commandes de l'assistant) ; pas du code applicatif | [VÉRIFIÉ] |
+| `backend/` | NestJS API, Prisma schema and migrations, operations scripts | [VERIFIED] |
+| `frontend/` | React SPA | [VERIFIED] |
+| `e2e/` | Playwright end-to-end tests: 12 `*.spec.ts` files, browser profiles, axe checks | [VERIFIED] `e2e/playwright.config.ts` |
+| `deploy/` | Dockerfiles, docker-compose (prod and dev), Caddyfile, backup and restore scripts | [VERIFIED] |
+| `specs/001-demandes-travail-vocales/` | Specification, plan, research, data model, contracts and tasks of **phase 1** | [VERIFIED] |
+| `docs/` | Manual validation (iPhone, usability) and procedure for migration 0002 | [VERIFIED] |
+| `.specify/`, `.claude/skills/` | "spec-kit" tooling (templates, constitution, assistant commands); not application code | [VERIFIED] |
 
-- **[VÉRIFIÉ]** Il n'existe **aucun dossier `specs/002-…`** : le lot 2 (couverture de classe) n'a pas de spécification versionnée. Il est seulement documenté par `docs/coverage-migration.md` et par les commentaires du code.
+- **[VERIFIED]** There is **no `specs/002-…` folder**: phase 2 (class coverage) has no versioned specification. It is documented only by `docs/coverage-migration.md` and by the code comments.
 
-### Modules backend (`backend/src/`)
+### Backend modules (`backend/src/`)
 
-Les colonnes « Dépend de » et « Utilisé par » ont été établies à partir des `import '../<module>/…'` réels (commande `grep` sur `backend/src`). **[VÉRIFIÉ]**
+The "Depends on" and "Used by" columns were established from the actual `import '../<module>/…'` statements (`grep` command on `backend/src`). **[VERIFIED]**
 
-| Module | Rôle | Dépend de | Utilisé par |
+| Module | Role | Depends on | Used by |
 |---|---|---|---|
-| `config/` | Lit et valide les variables d'environnement au démarrage (`loadConfig`) ; charge `backend/.env` hors production (`loadEnvFile`) ; fournit `APP_CONFIG` (module global) | — | auth, coverage, files, realtime, scheduler |
-| `common/` | Prisma (`PrismaService`), catalogue d'erreurs (`AppException`, `ERROR_CATALOG`), filtre d'erreurs, pipe de validation, logger JSON, pagination par curseur, `SuperAdminGuard`, en-tête `X-Server-Time` | audit, auth | presque tous |
-| `audit/` | Journal d'audit en ajout seul (`AuditService.log`, `sanitizeAuditDetails`) ; consultation `/api/admin/audit` (super administrateur) | common | auth, categories, common, coverage, files, messages, realtime, requests, settings, users |
-| `auth/` | Connexion, déconnexion, changement de mot de passe (`AuthController`, `AuthService`) ; sessions serveur (`SessionService`) ; gardes globales `OriginGuard` (CSRF) et `SessionGuard` ; limitation des tentatives de connexion | audit, common, config, realtime, requests (`access-policy`), settings | presque tous (types `AuthenticatedUser`, décorateurs `@CurrentUser`, `@Public`) |
-| `settings/` | Réglages globaux en base avec valeurs par défaut (`SETTING_DEFAULTS`), permissions par rôle, administration | audit, auth, common, users | auth, cli, coverage, files, messages, requests |
-| `users/` | Administration des comptes (`/api/admin/users`) | audit, auth, common, realtime | categories, settings |
-| `categories/` | Catégories visibles par l'utilisateur et leur administration (circuit, destinataires, admins de la catégorie, délais par priorité) | audit, auth, common, requests, users | — |
-| `requests/` | Demandes de travail. Contient deux modules **purs** : `domain/request-state-machine.ts` et `domain/access-policy.ts`, ainsi que `domain/deadlines.ts` et `domain/visibility.ts`. S'y ajoutent les services `RequestsService` (création, lecture, priorité, brouillons) et `RequestTransitionsService` (actions de statut) | audit, auth, common, files, notifications, realtime, settings | auth, categories, coverage, files, messages, scheduler |
-| `messages/` | Fil de discussion d'une demande (texte, vocal, pièces jointes) | audit, auth, common, notifications, realtime, requests, settings | — |
-| `files/` | Envoi, contrôle (octets magiques, ffprobe, sharp), stockage privé sur disque (`FileStorageService`) et lecture authentifiée (`GET /api/files/:id`) | audit, auth, common, config, coverage, requests, settings | requests, scheduler |
-| `notifications/` | Écrit les notifications dans la transaction (`notifyInTx`) puis les publie après validation (`flushAfterCommit` → `SocketNotificationPublisher`) ; API de lecture | auth, common, realtime | coverage, messages, requests, scheduler |
-| `realtime/` | `RealtimeService` (émission vers les salles `user:{id}` et `session:{id}`) ; `RealtimeGateway` (authentification à la poignée de main) | audit, auth, config | auth, coverage, messages, notifications, requests, scheduler, users |
-| `scheduler/` | Tâches périodiques : clôture automatique, retards, revalidation des sessions WebSocket, fichiers orphelins | common, config, files, notifications, realtime, requests | coverage (constante `JOB_INTERVAL_MS`) |
-| `coverage/` | Lot 2 : couverture de classe, avec sa propre machine à états (`domain/coverage-state-machine.ts`), sa politique d'accès (`domain/coverage-policy.ts`), le jeton QR signé (`domain/qr-token.ts`), la disponibilité des employés, les groupes, les classes, et sa propre tâche de délais (`coverage-deadlines.job.ts`) | audit, auth, common, config, notifications, realtime, requests, scheduler, settings | files |
-| `health/` | `GET /api/health`, public, utilisé par le `HEALTHCHECK` Docker | auth (`@Public`) | Docker |
-| `cli/` | `bootstrap.ts` : création du premier super administrateur en production | settings | exploitation |
+| `config/` | Reads and validates the environment variables at startup (`loadConfig`); loads `backend/.env` outside production (`loadEnvFile`); provides `APP_CONFIG` (global module) | — | auth, coverage, files, realtime, scheduler |
+| `common/` | Prisma (`PrismaService`), error catalog (`AppException`, `ERROR_CATALOG`), error filter, validation pipe, JSON logger, cursor pagination, `SuperAdminGuard`, `X-Server-Time` header | audit, auth | almost all |
+| `audit/` | Append-only audit log (`AuditService.log`, `sanitizeAuditDetails`); `/api/admin/audit` consultation (super administrator) | common | auth, categories, common, coverage, files, messages, realtime, requests, settings, users |
+| `auth/` | Login, logout, password change (`AuthController`, `AuthService`); server sessions (`SessionService`); global guards `OriginGuard` (CSRF) and `SessionGuard`; login attempt limiting | audit, common, config, realtime, requests (`access-policy`), settings | almost all (`AuthenticatedUser` types, `@CurrentUser`, `@Public` decorators) |
+| `settings/` | Global settings in the database with default values (`SETTING_DEFAULTS`), permissions by role, administration | audit, auth, common, users | auth, cli, coverage, files, messages, requests |
+| `users/` | Account administration (`/api/admin/users`) | audit, auth, common, realtime | categories, settings |
+| `categories/` | Categories visible to the user and their administration (workflow, recipients, category admins, deadlines by priority) | audit, auth, common, requests, users | — |
+| `requests/` | Work requests. Contains two **pure** modules: `domain/request-state-machine.ts` and `domain/access-policy.ts`, as well as `domain/deadlines.ts` and `domain/visibility.ts`. Added to these are the services `RequestsService` (creation, reading, priority, drafts) and `RequestTransitionsService` (status actions) | audit, auth, common, files, notifications, realtime, settings | auth, categories, coverage, files, messages, scheduler |
+| `messages/` | Discussion thread of a request (text, voice, attachments) | audit, auth, common, notifications, realtime, requests, settings | — |
+| `files/` | Upload, checking (magic bytes, ffprobe, sharp), private storage on disk (`FileStorageService`) and authenticated reading (`GET /api/files/:id`) | audit, auth, common, config, coverage, requests, settings | requests, scheduler |
+| `notifications/` | Writes the notifications in the transaction (`notifyInTx`) then publishes them after commit (`flushAfterCommit` → `SocketNotificationPublisher`); read API | auth, common, realtime | coverage, messages, requests, scheduler |
+| `realtime/` | `RealtimeService` (emission to the `user:{id}` and `session:{id}` rooms); `RealtimeGateway` (authentication at the handshake) | audit, auth, config | auth, coverage, messages, notifications, requests, scheduler, users |
+| `scheduler/` | Periodic tasks: automatic closing, delays, revalidation of WebSocket sessions, orphan files | common, config, files, notifications, realtime, requests | coverage (`JOB_INTERVAL_MS` constant) |
+| `coverage/` | Phase 2: class coverage, with its own state machine (`domain/coverage-state-machine.ts`), its access policy (`domain/coverage-policy.ts`), the signed QR token (`domain/qr-token.ts`), employee availability, groups, classes, and its own deadlines task (`coverage-deadlines.job.ts`) | audit, auth, common, config, notifications, realtime, requests, scheduler, settings | files |
+| `health/` | `GET /api/health`, public, used by the Docker `HEALTHCHECK` | auth (`@Public`) | Docker |
+| `cli/` | `bootstrap.ts`: creation of the first super administrator in production | settings | operations |
 
-> **Mise à jour (fonctionnalité 003)** : `SuperAdminGuard` est désormais dans `audit/` ;
-> `request-info` et les règles transverses (`authorization.ts`) sont dans `common/` ; `files/` ne
-> dépend plus ni de `requests/` ni de `coverage/` (registre d'accès) ; le job des délais de
-> couverture est dans `scheduler/`. Les colonnes ci-dessus décrivent l'état du commit `595c3fc`.
+> **Updated (feature 003)**: `SuperAdminGuard` is now in `audit/`;
+> `request-info` and the cross-cutting rules (`authorization.ts`) are in `common/`; `files/` no longer
+> depends on `requests/` or `coverage/` (access registry); the coverage deadlines job
+> is in `scheduler/`. The columns above describe the state of commit `595c3fc`.
 >
-> **Mise à jour (fonctionnalité 004)** : `coverage/` devient le module **affectations des
-> surveillants** (section 13) ; `scheduler/` y ajoute `coverage-reminders.job.ts` (échéances,
-> non pourvues) et `coverage-anonymization.job.ts` ; le calcul des groupes à clé système est dans
-> `common/group-flags.ts` (utilisé par `auth/` et `coverage/`).
+> **Updated (feature 004)**: `coverage/` becomes the **supervisor assignments**
+> module (section 13); `scheduler/` adds `coverage-reminders.job.ts` (due dates,
+> unfilled) and `coverage-anonymization.job.ts`; the computation of system-key groups is in
+> `common/group-flags.ts` (used by `auth/` and `coverage/`).
 
-Scripts et données hors `src/` :
+Scripts and data outside `src/`:
 
-| Dossier | Rôle |
+| Folder | Role |
 |---|---|
-| `backend/prisma/` | `schema.prisma`, migrations `0001_init` à `0009_supervision_data` (avec `down.sql` ; `0008`/`0009` : fonctionnalité 004), `seed.ts` (données de démonstration), `seed-volume.ts` (volume de test) |
-| `backend/scripts/` | Base de dev embarquée (`dev-db.ts`), serveur e2e, génération de fixtures, et trois scripts de maintenance ponctuels : `repair-employee-recipients.ts`, `check-users.ts`, `reset-superadmin-password.ts` (supprimé : sous-commande `bootstrap.js --reset-password`, commit `5ed613d`) |
-| `backend/test/` | 15 fichiers de tests unitaires, 24 d'intégration (base PostgreSQL réelle), fixtures audio, image et PDF |
+| `backend/prisma/` | `schema.prisma`, migrations `0001_init` to `0009_supervision_data` (with `down.sql`; `0008`/`0009`: feature 004), `seed.ts` (demo data), `seed-volume.ts` (test volume) |
+| `backend/scripts/` | Embedded dev database (`dev-db.ts`), e2e server, fixture generation, and three one-off maintenance scripts: `repair-employee-recipients.ts`, `check-users.ts`, `reset-superadmin-password.ts` (deleted: `bootstrap.js --reset-password` subcommand, commit `5ed613d`) |
+| `backend/test/` | 15 unit test files, 24 integration test files (real PostgreSQL database), audio, image and PDF fixtures |
 
-### Modules frontend (`frontend/src/`)
+### Frontend modules (`frontend/src/`)
 
-| Dossier | Rôle | Dépend de | Utilisé par |
+| Folder | Role | Depends on | Used by |
 |---|---|---|---|
-| `api/` | `client.ts` (`apiFetch`, `ApiError`, `serverNow`), types partagés **écrits à la main** (`types.ts`), réglages, envois | — | toutes les features |
-| `app/` | Point d'assemblage : providers (`QueryClient`, thème, toasts), routes, `AppLayout` (monte `SocketProvider`), thème MUI | api, components, design, features | `main.tsx` |
-| `components/` | Composants génériques : badges, états vide, erreur et chargement, dialogues, comptes à rebours | design | features |
-| `design/` | Jetons de design (`tokens.ts`) | — | app, components |
-| `features/auth` | Connexion, changement de mot de passe, `RequireAuth`, `useCurrentUser` | api | app, autres features |
-| `features/requests` | Liste, création, détail, actions, filtres et historique des demandes de travail | api, thread, voice, outbox | app |
-| `features/thread` | Fil de discussion et pièces jointes | api, voice, outbox | requests |
-| `features/voice` | Enregistrement et lecture des vocaux (MediaRecorder) | api | requests, thread |
-| `features/outbox` | Boîte d'envoi locale (IndexedDB) des envois échoués | idb-keyval | requests, thread |
-| `features/notifications` | `SocketProvider` (Socket.IO → invalidation du cache TanStack Query), centre de notifications | api, requests, thread | app |
-| `features/coverage` | Écrans du lot 2 : gardes, création, présence (QR et photo), tableau de bord, administration des classes et des groupes | api | app |
-| `features/admin` | Administration : comptes, catégories, réglages, journal d'audit | api | app |
+| `api/` | `client.ts` (`apiFetch`, `ApiError`, `serverNow`), shared types **written by hand** (`types.ts`), settings, uploads | — | all features |
+| `app/` | Assembly point: providers (`QueryClient`, theme, toasts), routes, `AppLayout` (mounts `SocketProvider`), MUI theme | api, components, design, features | `main.tsx` |
+| `components/` | Generic components: badges, empty, error and loading states, dialogs, countdowns | design | features |
+| `design/` | Design tokens (`tokens.ts`) | — | app, components |
+| `features/auth` | Login, password change, `RequireAuth`, `useCurrentUser` | api | app, other features |
+| `features/requests` | List, creation, detail, actions, filters and history of work requests | api, thread, voice, outbox | app |
+| `features/thread` | Discussion thread and attachments | api, voice, outbox | requests |
+| `features/voice` | Recording and playback of voice messages (MediaRecorder) | api | requests, thread |
+| `features/outbox` | Local outbox (IndexedDB) of failed uploads | idb-keyval | requests, thread |
+| `features/notifications` | `SocketProvider` (Socket.IO → TanStack Query cache invalidation), notification center | api, requests, thread | app |
+| `features/coverage` | Phase 2 screens: duties, creation, attendance (QR and photo), dashboard, administration of classes and groups | api | app |
+| `features/admin` | Administration: accounts, categories, settings, audit log | api | app |
 
-- **[VÉRIFIÉ]** Le décompte des imports entre dossiers `features/` a été obtenu par `grep`.
-- **[DÉDUIT]** Le sens exact de chaque flèche n'a pas été vérifié fichier par fichier.
+- **[VERIFIED]** The count of imports between `features/` folders was obtained with `grep`.
+- **[INFERRED]** The exact direction of each arrow was not checked file by file.
 
 ---
 
-## 3. Schéma d'architecture globale
+## 3. Overall architecture diagram
 
-**[VÉRIFIÉ]** Sources : `deploy/docker-compose.yml`, `deploy/Caddyfile`, `backend/src/app.module.ts`, `frontend/vite.config.ts`.
+**[VERIFIED]** Sources: `deploy/docker-compose.yml`, `deploy/Caddyfile`, `backend/src/app.module.ts`, `frontend/vite.config.ts`.
 
 ```mermaid
 graph TD
-  subgraph Navigateur
-    SPA["SPA React<br/>frontend/src"]
-    IDB[("IndexedDB<br/>boîte d'envoi")]
+  subgraph Browser
+    SPA["React SPA<br/>frontend/src"]
+    IDB[("IndexedDB<br/>outbox")]
     SPA --- IDB
   end
 
   subgraph "VPS (Docker Compose)"
-    CADDY["Caddy 2<br/>HTTPS Let's Encrypt, CSP, HSTS<br/>sert /srv (SPA)"]
-    subgraph "API NestJS (1 processus)"
-      GUARDS["Gardes globales<br/>OriginGuard → SessionGuard"]
-      CTRL["Contrôleurs REST /api/*"]
+    CADDY["Caddy 2<br/>HTTPS Let's Encrypt, CSP, HSTS<br/>serves /srv (SPA)"]
+    subgraph "NestJS API (1 process)"
+      GUARDS["Global guards<br/>OriginGuard → SessionGuard"]
+      CTRL["REST controllers /api/*"]
       GW["RealtimeGateway<br/>/socket.io"]
       SVC["Services<br/>requests, coverage, messages,<br/>files, users, categories, settings"]
-      DOMAIN["Domaine pur<br/>state machines, access-policy,<br/>deadlines, qr-token"]
-      JOBS["Jobs @Interval<br/>auto-close, overdue, orphan-files,<br/>session-revalidation, coverage-deadlines"]
+      DOMAIN["Pure domain<br/>state machines, access-policy,<br/>deadlines, qr-token"]
+      JOBS["@Interval jobs<br/>auto-close, overdue, orphan-files,<br/>session-revalidation, coverage-deadlines"]
       AUDIT["AuditService"]
       NOTIF["NotificationsService<br/>+ SocketNotificationPublisher"]
-      RT["RealtimeService<br/>salles user:{id}"]
+      RT["RealtimeService<br/>user:{id} rooms"]
     end
-    DB[("PostgreSQL 17<br/>volume pgdata")]
-    FILES[("Volume files<br/>/data/files (privé)")]
-    BACKUP["Service backup<br/>pg_dump + tar, quotidien"]
-    FFMPEG["ffmpeg / ffprobe<br/>(binaires dans l'image API)"]
+    DB[("PostgreSQL 17<br/>pgdata volume")]
+    FILES[("files volume<br/>/data/files (private)")]
+    BACKUP["backup service<br/>pg_dump + tar, daily"]
+    FFMPEG["ffmpeg / ffprobe<br/>(binaries in the API image)"]
   end
 
-  OFFSITE[("Dossier hors VPS<br/>BACKUP_OFFSITE_DIR (optionnel)")]
+  OFFSITE[("Off-VPS folder<br/>BACKUP_OFFSITE_DIR (optional)")]
   LE["Let's Encrypt (ACME)"]
 
-  SPA -- "HTTPS /api/* (cookie sid)" --> CADDY
+  SPA -- "HTTPS /api/* (sid cookie)" --> CADDY
   SPA -- "WSS /socket.io" --> CADDY
   CADDY -- "reverse_proxy api:3000" --> GUARDS
   GUARDS --> CTRL
@@ -191,34 +191,34 @@ graph TD
   SVC --> NOTIF
   NOTIF --> RT
   GW --> RT
-  RT -- "événements (identifiants seulement)" --> SPA
+  RT -- "events (identifiers only)" --> SPA
   JOBS --> SVC
   SVC -- Prisma --> DB
   AUDIT -- Prisma --> DB
-  SVC -- "fichiers" --> FILES
+  SVC -- "files" --> FILES
   SVC -- "execFile" --> FFMPEG
   BACKUP --> DB
-  BACKUP -- "lecture seule" --> FILES
+  BACKUP -- "read-only" --> FILES
   BACKUP -.-> OFFSITE
   CADDY -.-> LE
 ```
 
-Points vérifiés dans le code :
+Points verified in the code:
 
-- **[VÉRIFIÉ]** L'API et la base **ne publient aucun port** (`expose` seulement, `deploy/docker-compose.yml`). Seul Caddy écoute sur 80 et 443.
-- **[VÉRIFIÉ]** Les événements Socket.IO ne transportent que des identifiants et des métadonnées. Le client relit les données par REST (commentaire de `RealtimeService` ; `SocketProvider` appelle `invalidateQueries`).
-- **[VÉRIFIÉ]** Aucune API tierce n'est appelée par l'application. Les seuls services externes sont Let's Encrypt, via Caddy, et l'éventuel dossier de sauvegarde distant.
+- **[VERIFIED]** The API and the database **publish no port** (`expose` only, `deploy/docker-compose.yml`). Only Caddy listens on 80 and 443.
+- **[VERIFIED]** The Socket.IO events carry only identifiers and metadata. The client reads the data again through REST (comment in `RealtimeService`; `SocketProvider` calls `invalidateQueries`).
+- **[VERIFIED]** No third-party API is called by the application. The only external services are Let's Encrypt, via Caddy, and the optional remote backup folder.
 
 ---
 
-## 4. Parcours d'une requête, de bout en bout
+## 4. Journey of a request, end to end
 
-### 4.1 Connexion (`POST /api/auth/login`)
+### 4.1 Login (`POST /api/auth/login`)
 
 ```mermaid
 sequenceDiagram
   autonumber
-  actor U as Utilisateur
+  actor U as User
   participant LP as LoginPage.tsx<br/>(useLogin, useCurrentUser.ts)
   participant AF as apiFetch<br/>api/client.ts
   participant C as Caddy<br/>deploy/Caddyfile
@@ -232,45 +232,45 @@ sequenceDiagram
   participant AU as AuditService.log<br/>audit/audit.service.ts
   participant DB as PostgreSQL
 
-  U->>LP: identifiant + mot de passe
+  U->>LP: username + password
   LP->>AF: POST /api/auth/login {username, password}
   AF->>C: fetch (credentials: same-origin)
   C->>OG: reverse_proxy
-  OG->>OG: en-tête Origin = APP_ORIGIN ?
+  OG->>OG: Origin header = APP_ORIGIN?
   OG->>SG: OK
-  SG->>SG: route @Public() → laisse passer
+  SG->>SG: @Public() route → lets through
   SG->>TG: 
-  TG->>TG: ≤ N tentatives / min pour (IP, identifiant)
+  TG->>TG: ≤ N attempts / min per (IP, username)
   TG->>VP: 
-  VP->>VP: LoginDto (liste blanche, longueurs)
-  VP->>AC: dto valide
+  VP->>VP: LoginDto (whitelist, lengths)
+  VP->>AC: valid dto
   AC->>AS: login(username, password, ip)
-  AS->>DB: user.findUnique(username normalisé)
-  AS->>AS: argon2.verify (haché factice si compte inconnu)
-  alt échec
-    AS->>AU: LOGIN_FAILURE (raison)
+  AS->>DB: user.findUnique(normalized username)
+  AS->>AS: argon2.verify (dummy hash if account unknown)
+  alt failure
+    AS->>AU: LOGIN_FAILURE (reason)
     AU->>DB: INSERT AuditLog
     AS-->>AC: AppException INVALID_CREDENTIALS (401)
-  else succès
+  else success
     AS->>SS: create(userId, ip)
-    SS->>SS: jeton 256 bits ; id = HMAC-SHA256(jeton)
+    SS->>SS: 256-bit token; id = HMAC-SHA256(token)
     SS->>DB: INSERT Session (expiresAt = sessionMaxHours)
     AS->>AU: LOGIN_SUCCESS
     AU->>DB: INSERT AuditLog
-    AS->>DB: rolePermission.findMany (permissions du rôle)
+    AS->>DB: rolePermission.findMany (role permissions)
     AC-->>AF: 200 {user} + Set-Cookie sid (HttpOnly, SameSite=Strict, Secure*)
   end
   AF-->>LP: Me
-  LP->>LP: navigate('/mot-de-passe' si mustChangePassword, sinon page demandée)
+  LP->>LP: navigate('/mot-de-passe' if mustChangePassword, otherwise requested page)
 ```
 
-- **[VÉRIFIÉ]** L'ordre des gardes globales (Origin, puis Session) est fixé dans `auth/auth.module.ts` (`APP_GUARD`, avec le commentaire « Ordre des gardes globales »).
-- **[DÉDUIT]** Les gardes de route, comme `LoginThrottlerGuard`, s'exécutent après les gardes globales. C'est le comportement standard de NestJS ; je ne l'ai pas tracé à l'exécution.
-- **[VÉRIFIÉ]** `Secure` est forcé en production ; en dev, il dépend de `COOKIE_SECURE` (`config/config.ts`, `cookieSecure`).
+- **[VERIFIED]** The order of the global guards (Origin, then Session) is set in `auth/auth.module.ts` (`APP_GUARD`, with the comment "Ordre des gardes globales", i.e. order of the global guards).
+- **[INFERRED]** Route guards, such as `LoginThrottlerGuard`, run after the global guards. This is standard NestJS behavior; I did not trace it at runtime.
+- **[VERIFIED]** `Secure` is forced in production; in dev, it depends on `COOKIE_SECURE` (`config/config.ts`, `cookieSecure`).
 
-### 4.2 Écriture en base : action sur une demande (`POST /api/requests/:id/actions`)
+### 4.2 Database write: action on a request (`POST /api/requests/:id/actions`)
 
-Exemple : l'employé affecté passe la demande à « Terminée » (`COMPLETE`).
+Example: the assigned employee moves the request to "Terminée" (Completed) (`COMPLETE`).
 
 ```mermaid
 sequenceDiagram
@@ -289,38 +289,38 @@ sequenceDiagram
   participant DB as PostgreSQL
 
   UI->>G: POST {action:'COMPLETE', version, proofFileIds}
-  G->>G: Origin OK, session valide → req.auth
+  G->>G: Origin OK, valid session → req.auth
   G->>VP: 
   VP->>RC: dto
   RC->>TS: perform(user, id, dto, ctx)
   TS->>DB: request.findUnique(id)
-  TS->>PL: category(categoryId) + membres
-  TS->>AP: canReadRequest ? (sinon audit ACCESS_DENIED + 404)
-  TS->>TS: dto.version == request.version ? (sinon 409 STATE_CHANGED)
+  TS->>PL: category(categoryId) + members
+  TS->>AP: canReadRequest? (otherwise audit ACCESS_DENIED + 404)
+  TS->>TS: dto.version == request.version? (otherwise 409 STATE_CHANGED)
   TS->>AP: actorsFor → ['ASSIGNEE', …]
-  TS->>DB: photos de preuve valides (validProofCount)
+  TS->>DB: valid proof photos (validProofCount)
   TS->>SM: applyAction(request, 'COMPLETE', ctx)
-  SM-->>TS: {ok, steps, to, autoCloseAt} ou {ok:false, code}
+  SM-->>TS: {ok, steps, to, autoCloseAt} or {ok:false, code}
   TS->>DL: nextDeadlineState(...)
   rect rgb(235,235,235)
   note over TS,DB: prisma.$transaction (commit)
   TS->>DB: UPDATE Request WHERE id, status=from, version=v (version+1)
-  TS->>DB: si 0 ligne → STATE_CHANGED (annulation)
+  TS->>DB: if 0 rows → STATE_CHANGED (cancel)
   TS->>DB: UPDATE File (isCompletionProof)
   TS->>DB: INSERT RequestEvent (STATUS_CHANGED…)
   TS->>NS: notifyInTx → INSERT Notification
   end
   TS->>NS: flushAfterCommit → SocketNotificationPublisher
-  NS->>RT: notification:new (salles user:{id})
-  TS->>RT: request:updated (demandeur, affecté, admins de la catégorie)
-  RC->>RC: requests.detail(...) (relecture + allowedActions)
+  NS->>RT: notification:new (user:{id} rooms)
+  TS->>RT: request:updated (requester, assignee, category admins)
+  RC->>RC: requests.detail(...) (re-read + allowedActions)
   RC-->>UI: 200 RequestDetail
 ```
 
-- **[VÉRIFIÉ]** Toutes ces étapes figurent dans `RequestTransitionsService.perform` et `commit` (`requests/request-transitions.service.ts`) et dans `RequestsController.act`.
-- **[VÉRIFIÉ]** Les notifications ne sont émises qu'**après** la transaction (`notifications.service.ts`, commentaire de `flushAfterCommit`).
+- **[VERIFIED]** All these steps appear in `RequestTransitionsService.perform` and `commit` (`requests/request-transitions.service.ts`) and in `RequestsController.act`.
+- **[VERIFIED]** Notifications are emitted only **after** the transaction (`notifications.service.ts`, comment of `flushAfterCommit`).
 
-### 4.3 Cas d'erreur : conflit de version et format d'erreur unique
+### 4.3 Error case: version conflict and single error format
 
 ```mermaid
 sequenceDiagram
@@ -334,61 +334,63 @@ sequenceDiagram
   UI->>TS: POST /actions {version: 3}
   TS->>TS: request.version = 4
   TS->>EX: throw AppException('STATE_CHANGED')
-  EX->>F: statut 409 + message FR du catalogue
+  EX->>F: status 409 + French message from the catalog
   F-->>UI: 409 {"error":{"code":"STATE_CHANGED","message":"La demande a été modifiée entre-temps…"}}
   UI->>UI: toApiError → ApiError(409, code, message)
-  UI->>QC: mutation en erreur (pas de nouvel essai : 4xx)
-  note over UI,QC: Une erreur 401 déclenche plutôt l'invalidation de /auth/me<br/>(onUnauthenticated), ce qui renvoie vers /connexion
+  UI->>QC: mutation in error (no retry: 4xx)
+  note over UI,QC: A 401 error instead triggers the invalidation of /auth/me<br/>(onUnauthenticated), which redirects to /connexion
 ```
 
-- **[VÉRIFIÉ]** `HttpExceptionFilter` transforme toute exception en `{ error: { code, message, details? } }`. Une erreur inconnue est journalisée, puis masquée en `INTERNAL_ERROR` (500).
-- **[VÉRIFIÉ]** Le frontend ne relance pas les erreurs 4xx (`shouldRetry` dans `app/providers.tsx`).
-- **[DÉDUIT]** L'affichage exact du conflit à l'écran (« la demande a été rechargée ») dépend de chaque composant ; je ne l'ai pas suivi dans `RequestActions.tsx`.
+(The message "La demande a été modifiée entre-temps…" means "The request was modified in the meantime…".)
 
-Autre cas d'erreur vérifié dans le code : une requête modifiante sans en-tête `Origin` correct passe par `OriginGuard.canActivate`, qui écrit `ACCESS_DENIED / ORIGIN_MISMATCH` dans l'audit et renvoie 403 `FORBIDDEN`. **[VÉRIFIÉ]**
+- **[VERIFIED]** `HttpExceptionFilter` turns every exception into `{ error: { code, message, details? } }`. An unknown error is logged, then masked as `INTERNAL_ERROR` (500).
+- **[VERIFIED]** The frontend does not retry 4xx errors (`shouldRetry` in `app/providers.tsx`).
+- **[INFERRED]** The exact display of the conflict on screen ("la demande a été rechargée", i.e. the request was reloaded) depends on each component; I did not follow it in `RequestActions.tsx`.
+
+Another error case verified in the code: a modifying request without a correct `Origin` header goes through `OriginGuard.canActivate`, which writes `ACCESS_DENIED / ORIGIN_MISMATCH` to the audit log and returns 403 `FORBIDDEN`. **[VERIFIED]**
 
 ---
 
-## 5. Modèle de données
+## 5. Data model
 
-**[VÉRIFIÉ]** Source : `backend/prisma/schema.prisma`. Pour la lisibilité, le diagramme ne montre que les champs principaux.
+**[VERIFIED]** Source: `backend/prisma/schema.prisma`. For readability, the diagram shows only the main fields.
 
 ```mermaid
 erDiagram
-  User ||--o{ Session : "a"
-  User ||--o{ CategoryRecipient : "destinataire de"
-  User ||--o{ CategoryManager : "admin de"
-  User ||--o{ Request : "demandeur (requesterId)"
-  User ||--o{ Request : "affecté (assigneeId)"
-  User ||--o{ Message : "auteur"
+  User ||--o{ Session : "has"
+  User ||--o{ CategoryRecipient : "recipient of"
+  User ||--o{ CategoryManager : "admin of"
+  User ||--o{ Request : "requester (requesterId)"
+  User ||--o{ Request : "assignee (assigneeId)"
+  User ||--o{ Message : "author"
   User ||--o{ File : "uploader"
-  User ||--o{ Notification : "reçoit"
-  User ||--o{ AuditLog : "acteur"
-  User ||--o{ RequestEvent : "acteur"
-  User ||--o{ EmployeeGroupMember : "membre"
-  User ||--o{ CoveragePresence : "confirme"
+  User ||--o{ Notification : "receives"
+  User ||--o{ AuditLog : "actor"
+  User ||--o{ RequestEvent : "actor"
+  User ||--o{ EmployeeGroupMember : "member"
+  User ||--o{ CoveragePresence : "confirms"
   Category ||--o{ CategoryRecipient : ""
   Category ||--o{ CategoryManager : ""
-  Category ||--o{ DeadlineRule : "délais par priorité"
-  Category ||--o{ Request : "classe"
+  Category ||--o{ DeadlineRule : "deadlines by priority"
+  Category ||--o{ Request : "classifies"
   Category }o--o| User : "autoAssignee"
-  Request ||--o{ Message : "fil"
-  Request ||--o{ File : "fichiers"
+  Request ||--o{ Message : "thread"
+  Request ||--o{ File : "files"
   Request |o--o| File : "voiceFile"
-  Request ||--o{ RequestEvent : "historique (ajout seul)"
+  Request ||--o{ RequestEvent : "history (append-only)"
   Request ||--o{ Notification : ""
-  Request ||--o| CoverageDetail : "si kind=COVERAGE"
-  Message ||--o{ File : "pièces jointes"
+  Request ||--o| CoverageDetail : "if kind=COVERAGE"
+  Message ||--o{ File : "attachments"
   Message |o--o| File : "voiceFile"
   SchoolClass ||--o{ CoverageDetail : ""
-  CoverageDetail ||--o{ CoverageTarget : "groupes ciblés"
+  CoverageDetail ||--o{ CoverageTarget : "targeted groups"
   EmployeeGroup ||--o{ CoverageTarget : ""
   EmployeeGroup ||--o{ EmployeeGroupMember : ""
   Request ||--o{ CoveragePresence : ""
-  CoveragePresence |o--o| File : "photo de présence"
+  CoveragePresence |o--o| File : "attendance photo"
 
   User { uuid id PK; string username UK; Role role; string passwordHash; bool mustChangePassword; bool active; Availability availability }
-  Session { string id PK "HMAC du jeton"; uuid userId FK; datetime lastSeenAt; datetime expiresAt }
+  Session { string id PK "HMAC of the token"; uuid userId FK; datetime lastSeenAt; datetime expiresAt }
   RolePermission { Role role PK; Permission permission PK }
   Category { uuid id PK; string name UK; RequestKind kind; Circuit circuit; ClosureMode closureMode; bool finalValidation; AssignmentMode assignmentMode; bool photoRequired; ProofMode proofMode }
   DeadlineRule { uuid id PK; uuid categoryId FK; Priority priority; int validationMinutes; int takeoverMinutes; int completionMinutes; int arrivalMinutes }
@@ -407,477 +409,476 @@ erDiagram
   CoveragePresence { uuid id PK; uuid requestId FK; PresenceMethod method; uuid fileId }
 ```
 
-Points clés :
+Key points:
 
-- **[VÉRIFIÉ]** `Request.rulesSnapshot` (JSON) copie les règles de la catégorie à la création de la demande (`RequestPolicyLoader.rulesSnapshot`). Une modification ultérieure de la catégorie n'affecte donc pas les demandes en cours.
-- **[VÉRIFIÉ]** `Request.version` sert au verrouillage optimiste (`updateMany … where version`).
-- **[VÉRIFIÉ]** Le couple `(requesterId, clientId)` est unique, comme `(authorId, clientId)` sur `Message`. Cela rend les renvois idempotents depuis la boîte d'envoi (`RequestsService.create`, gestion de l'erreur `P2002`).
-- **[VÉRIFIÉ]** `AuditLog` et `RequestEvent` sont protégées par des **triggers PostgreSQL** qui refusent `UPDATE`, `DELETE` et `TRUNCATE` (`backend/prisma/migrations/0001_init/migration.sql`, fonction `forbid_modification`).
-- **[VÉRIFIÉ]** `RequestStatus` est un enum unique qui mélange les statuts du lot 1 et ceux du lot 2 (`BROADCAST`, `ON_DUTY`, etc.). C'est le code (`isCoverageStatus`, `kind`) qui les sépare, pas la base.
+- **[VERIFIED]** `Request.rulesSnapshot` (JSON) copies the category rules when the request is created (`RequestPolicyLoader.rulesSnapshot`). A later change to the category therefore does not affect requests in progress.
+- **[VERIFIED]** `Request.version` is used for optimistic locking (`updateMany … where version`).
+- **[VERIFIED]** The pair `(requesterId, clientId)` is unique, as is `(authorId, clientId)` on `Message`. This makes resubmissions from the outbox idempotent (`RequestsService.create`, handling of the `P2002` error).
+- **[VERIFIED]** `AuditLog` and `RequestEvent` are protected by **PostgreSQL triggers** that refuse `UPDATE`, `DELETE` and `TRUNCATE` (`backend/prisma/migrations/0001_init/migration.sql`, `forbid_modification` function).
+- **[VERIFIED]** `RequestStatus` is a single enum that mixes the phase 1 and phase 2 statuses (`BROADCAST`, `ON_DUTY`, etc.). It is the code (`isCoverageStatus`, `kind`) that separates them, not the database.
 
 ### Migrations
 
-- **[VÉRIFIÉ]** Les migrations sont gérées par Prisma Migrate, dans `backend/prisma/migrations/` :
-  - `0001_init` : schéma initial et triggers d'ajout seul ;
-  - `0002_coverage` : lot 2, migration additive, accompagnée d'un `down.sql` manuel ;
-  - `0003_request_event_seq` (fonctionnalité 003, constat N3) : colonne `RequestEvent.seq`, ordre d'écriture des événements d'historique.
-- **[VÉRIFIÉ]** En dev : `npm run -w backend prisma:migrate` (`prisma migrate dev`).
-- **[VÉRIFIÉ]** En prod : `prisma migrate deploy` est exécuté **à chaque démarrage du conteneur** (`deploy/api-entrypoint.sh`).
-  → **Corrigé** (`4575b84`) : une migration en attente n'est appliquée que si une sauvegarde récente existe ; `deploy/deploy.sh` la produit.
-- **[VÉRIFIÉ]** La procédure de sauvegarde et de retour arrière du lot 2 est décrite dans `docs/coverage-migration.md`.
+- **[VERIFIED]** Migrations are managed by Prisma Migrate, in `backend/prisma/migrations/`:
+  - `0001_init`: initial schema and append-only triggers;
+  - `0002_coverage`: phase 2, additive migration, accompanied by a manual `down.sql`;
+  - `0003_request_event_seq` (feature 003, finding N3): `RequestEvent.seq` column, write order of the history events.
+- **[VERIFIED]** In dev: `npm run -w backend prisma:migrate` (`prisma migrate dev`).
+- **[VERIFIED]** In prod: `prisma migrate deploy` is run **at every container start** (`deploy/api-entrypoint.sh`).
+  → **Fixed** (`4575b84`): a pending migration is applied only if a recent backup exists; `deploy/deploy.sh` produces it.
+- **[VERIFIED]** The backup and rollback procedure for phase 2 is described in `docs/coverage-migration.md`.
 
 ---
 
-## 6. Choix techniques et justifications
+## 6. Technical choices and justifications
 
-**Origine des choix.** `specs/001-demandes-travail-vocales/research.md` (ligne 5) indique : « La pile technique a été imposée par le client. » **[VÉRIFIÉ]** (le texte est présent dans le dépôt).
+**Origin of the choices.** `specs/001-demandes-travail-vocales/research.md` (line 5) states: "La pile technique a été imposée par le client." (the technical stack was imposed by the client). **[VERIFIED]** (the text is present in the repository).
 
-Je ne peux pas vérifier **quels éléments précis** figuraient dans ta demande initiale : le message d'origine n'est pas versionné, et la spec ne cite que la description fonctionnelle. La colonne « Origine » ci-dessous reprend donc ce que disent les documents du dépôt. **À confirmer par toi.**
+I cannot verify **which specific items** were in your initial request: the original message is not versioned, and the spec cites only the functional description. The "Origin" column below therefore reproduces what the repository documents say. **To be confirmed by you.**
 
-| Choix | Pourquoi (selon le dépôt) | Alternatives écartées (selon `research.md`) | Compromis | Origine |
+| Choice | Why (according to the repository) | Alternatives rejected (according to `research.md`) | Trade-off | Origin |
 |---|---|---|---|---|
-| SPA React + API NestJS **sur le même domaine** | Cookies de session simples, pas de CORS, `<audio src="/api/files/…">` authentifié par cookie (R1) | Next.js (SSR inutile sans SEO) ; deux domaines (CORS, cookies inter-domaines) | + simplicité, sécurité ; − l'API et la SPA doivent être derrière le même proxy | « pile imposée » (R1, R12) [VÉRIFIÉ dans le texte] |
-| PostgreSQL 17 + Prisma | Données relationnelles, triggers d'ajout seul, transactions (R6, R5) | Non détaillé pour la base | + typage généré, migrations versionnées ; − requêtes complexes moins naturelles en Prisma (les listes utilisent `visibleRequestsWhere`) [DÉDUIT] | « pile imposée » [VÉRIFIÉ dans le texte] |
-| Sessions serveur en base + cookie `HttpOnly`, `SameSite=Strict` ; Argon2id | Révocation immédiate, même authentification pour REST et WebSocket, rien de sensible dans le navigateur (R7) | JWT en stockage local (vol par XSS, révocation difficile) ; SSO de l'école (non demandé) | + révocable, simple ; − une lecture en base à chaque requête (`SessionService.validate`), atténuée par un `lastSeenAt` rafraîchi au plus une fois par minute [VÉRIFIÉ] | Décidé dans le plan (R7) [VÉRIFIÉ] ; demande explicite : **inconnu** |
-| Autorisation par fonctions pures (`access-policy.ts`) | Une seule politique testée par table de cas, appliquée au REST, aux fichiers et aux sockets (R8) | CASL (superflue pour 3 rôles) | + testable sans base ; − une politique **distincte** a dû être écrite pour le lot 2 (`coverage-policy.ts`) | Décidé dans le plan ; la « contrainte imposée n° 4 » du plan exige machine à états et droits testés d'abord [VÉRIFIÉ] |
-| Machine à états maison (`request-state-machine.ts`) + verrouillage optimiste | Source de vérité unique, testable ; gère deux actions simultanées (R5) | XState (inutile pour ~20 transitions) ; `SELECT … FOR UPDATE` (verrou plus long) | + lisible, testée ; − deuxième machine séparée pour le lot 2 (`coverage-state-machine.ts`) | Décidé dans le plan [VÉRIFIÉ] |
-| Socket.IO, avec des événements contenant des **identifiants seulement** | Pas de second chemin de contrôle d'accès ; notifications persistées, donc rien n'est perdu hors ligne (R9) | Diffuser les données complètes ; SSE (« pile imposée : Socket.IO ») | + sûr ; − un aller-retour REST après chaque événement | Socket.IO : « pile imposée » [VÉRIFIÉ dans le texte] |
-| TanStack Query comme seul gestionnaire d'état serveur côté front ; pas de Redux ni Zustand | Cache, invalidation par événement temps réel | Non documenté | + peu de code d'état ; − l'état local est éparpillé dans des `useState` et deux contextes (`ToastContext`, `RealtimeContext`) [VÉRIFIÉ] | Listé dans le plan ; demande explicite : **inconnu** |
-| MUI + Emotion | Composants accessibles | Non documenté | − impose `style-src 'unsafe-inline'` dans la CSP (commentaire de `deploy/Caddyfile`) [VÉRIFIÉ] | Listé dans le plan ; demande explicite : **inconnu** |
-| ffmpeg : conversion de tous les vocaux en AAC/MP4 | Safari enregistre en MP4/AAC, Chrome et Firefox en WebM ou Ogg ; la lecture croisée n'est pas garantie (plan, « Complexity Tracking ») | Garder le format d'origine | + lecture partout ; − dépendance à un binaire système, conversion synchrone dans le processus API [DÉDUIT : non mesuré] | Décidé dans le plan [VÉRIFIÉ] |
-| sharp | Suppression des métadonnées EXIF/GPS (RGPD) | Garder les photos telles quelles | + vie privée ; − dépendance native | Décidé dans le plan [VÉRIFIÉ] |
-| Jobs `@Interval` dans le processus API, sans Redis ni file de messages | Un seul processus suffit à l'échelle d'une école (plan) | Redis (« à réévaluer si plusieurs instances ») | + simple ; − **interdit de lancer plusieurs instances de l'API** sans retravail (throttler, Socket.IO et jobs sont en mémoire) | Décidé dans le plan [VÉRIFIÉ] |
-| embedded-postgres en dev | Le poste n'avait ni Docker ni PostgreSQL (plan, ajouté le 2026-10-12) | Exiger Docker Desktop | + démarrage sans Docker ; − version bêta (`17.10.0-beta.17`) [VÉRIFIÉ] | Décidé pendant l'implémentation [VÉRIFIÉ] |
-| Docker Compose + Caddy sur un seul VPS | Pile imposée, une seule machine, restauration simple (R12) | Kubernetes, stockage objet, base gérée | + coût et exploitation faibles ; − pas de haute disponibilité | « pile imposée » [VÉRIFIÉ dans le texte] |
+| React SPA + NestJS API **on the same domain** | Simple session cookies, no CORS, `<audio src="/api/files/…">` authenticated by cookie (R1) | Next.js (SSR pointless without SEO); two domains (CORS, cross-domain cookies) | + simplicity, security; − the API and the SPA must be behind the same proxy | "imposed stack" (R1, R12) [VERIFIED in the text] |
+| PostgreSQL 17 + Prisma | Relational data, append-only triggers, transactions (R6, R5) | Not detailed for the database | + generated typing, versioned migrations; − complex queries less natural in Prisma (the lists use `visibleRequestsWhere`) [INFERRED] | "imposed stack" [VERIFIED in the text] |
+| Server sessions in the database + `HttpOnly`, `SameSite=Strict` cookie; Argon2id | Immediate revocation, same authentication for REST and WebSocket, nothing sensitive in the browser (R7) | JWT in local storage (theft by XSS, hard to revoke); school SSO (not requested) | + revocable, simple; − one database read per request (`SessionService.validate`), mitigated by a `lastSeenAt` refreshed at most once a minute [VERIFIED] | Decided in the plan (R7) [VERIFIED]; explicit request: **unknown** |
+| Authorization by pure functions (`access-policy.ts`) | A single policy tested by a table of cases, applied to REST, files and sockets (R8) | CASL (superfluous for 3 roles) | + testable without a database; − a **separate** policy had to be written for phase 2 (`coverage-policy.ts`) | Decided in the plan; the plan's "imposed constraint no. 4" requires the state machine and rights to be tested first [VERIFIED] |
+| Home-grown state machine (`request-state-machine.ts`) + optimistic locking | Single source of truth, testable; handles two simultaneous actions (R5) | XState (unnecessary for ~20 transitions); `SELECT … FOR UPDATE` (longer lock) | + readable, tested; − a second, separate machine for phase 2 (`coverage-state-machine.ts`) | Decided in the plan [VERIFIED] |
+| Socket.IO, with events containing **identifiers only** | No second access-control path; notifications are persisted, so nothing is lost offline (R9) | Broadcasting the full data; SSE ("imposed stack: Socket.IO") | + safe; − one REST round trip after each event | Socket.IO: "imposed stack" [VERIFIED in the text] |
+| TanStack Query as the only server-state manager on the frontend; no Redux or Zustand | Cache, invalidation by real-time event | Not documented | + little state code; − local state is scattered across `useState` calls and two contexts (`ToastContext`, `RealtimeContext`) [VERIFIED] | Listed in the plan; explicit request: **unknown** |
+| MUI + Emotion | Accessible components | Not documented | − requires `style-src 'unsafe-inline'` in the CSP (comment in `deploy/Caddyfile`) [VERIFIED] | Listed in the plan; explicit request: **unknown** |
+| ffmpeg: conversion of all voice messages to AAC/MP4 | Safari records in MP4/AAC, Chrome and Firefox in WebM or Ogg; cross playback is not guaranteed (plan, "Complexity Tracking") | Keeping the original format | + playback everywhere; − dependency on a system binary, synchronous conversion in the API process [INFERRED: not measured] | Decided in the plan [VERIFIED] |
+| sharp | Removal of EXIF/GPS metadata (GDPR) | Keeping photos as they are | + privacy; − native dependency | Decided in the plan [VERIFIED] |
+| `@Interval` jobs in the API process, without Redis or a message queue | A single process is enough at the scale of one school (plan) | Redis ("to be reassessed if several instances") | + simple; − **running several API instances is forbidden** without rework (throttler, Socket.IO and jobs are in memory) | Decided in the plan [VERIFIED] |
+| embedded-postgres in dev | The workstation had neither Docker nor PostgreSQL (plan, added on 2026-10-12) | Requiring Docker Desktop | + starts without Docker; − beta version (`17.10.0-beta.17`) [VERIFIED] | Decided during implementation [VERIFIED] |
+| Docker Compose + Caddy on a single VPS | Imposed stack, a single machine, simple restore (R12) | Kubernetes, object storage, managed database | + low cost and operations; − no high availability | "imposed stack" [VERIFIED in the text] |
 
 ---
 
-## 7. Patterns et conventions
+## 7. Patterns and conventions
 
-### Patterns appliqués
+### Patterns applied
 
-| Pattern | Où | Statut |
+| Pattern | Where | Status |
 |---|---|---|
-| **Architecture en couches** : contrôleur → service → domaine pur → Prisma | `requests/` (controller → `RequestsService` / `RequestTransitionsService` → `domain/*` → `PrismaService`) ; même structure dans `coverage/` | [VÉRIFIÉ] |
-| **Domaine pur, sans dépendance à la base** (« functional core, imperative shell ») | `requests/domain/*.ts`, `coverage/domain/*.ts` : n'importent que des types Prisma | [VÉRIFIÉ] |
-| **Injection de dépendances** (conteneur NestJS) | Tous les services ; jetons `APP_CONFIG` et `NOTIFICATION_PUBLISHER` | [VÉRIFIÉ] |
-| **Stratégie / port-adaptateur** pour la publication des notifications | interface `NotificationPublisher`, implémentation `SocketNotificationPublisher` (`notifications.module.ts`) | [VÉRIFIÉ] |
-| **Écrire puis publier après validation** (proche du pattern « outbox ») | `notifyInTx` puis `flushAfterCommit` | [VÉRIFIÉ] |
-| **Verrouillage optimiste** | `updateMany({ where: { id, status, version } })` dans `RequestTransitionsService.commit` et `RequestsService.changePriority` | [VÉRIFIÉ] |
-| **Idempotence par `clientId`** | `RequestsService.create`, contraintes uniques Prisma | [VÉRIFIÉ] |
-| **Sécurité par défaut** (fermé par défaut) | `SessionGuard` global + décorateur `@Public()` | [VÉRIFIÉ] |
-| **Catalogue d'erreurs centralisé** | `common/errors.ts` (`ERROR_CATALOG`) + `HttpExceptionFilter` | [VÉRIFIÉ] |
-| **Organisation par fonctionnalité** (« feature folders ») côté front | `frontend/src/features/*` (chacune avec son `api.ts` de hooks TanStack Query) | [VÉRIFIÉ] |
-| **Pas de pattern Repository** : les services appellent Prisma directement | tous les `*.service.ts` | [VÉRIFIÉ] |
-| Mappers DTO → réponse | `requests.mapper.ts`, `messages.mapper.ts`, `coverage.mapper.ts` | [VÉRIFIÉ] |
+| **Layered architecture**: controller → service → pure domain → Prisma | `requests/` (controller → `RequestsService` / `RequestTransitionsService` → `domain/*` → `PrismaService`); same structure in `coverage/` | [VERIFIED] |
+| **Pure domain, with no dependency on the database** ("functional core, imperative shell") | `requests/domain/*.ts`, `coverage/domain/*.ts`: import only Prisma types | [VERIFIED] |
+| **Dependency injection** (NestJS container) | All services; `APP_CONFIG` and `NOTIFICATION_PUBLISHER` tokens | [VERIFIED] |
+| **Strategy / port-adapter** for notification publishing | `NotificationPublisher` interface, `SocketNotificationPublisher` implementation (`notifications.module.ts`) | [VERIFIED] |
+| **Write, then publish after commit** (close to the "outbox" pattern) | `notifyInTx` then `flushAfterCommit` | [VERIFIED] |
+| **Optimistic locking** | `updateMany({ where: { id, status, version } })` in `RequestTransitionsService.commit` and `RequestsService.changePriority` | [VERIFIED] |
+| **Idempotence by `clientId`** | `RequestsService.create`, Prisma unique constraints | [VERIFIED] |
+| **Secure by default** (closed by default) | global `SessionGuard` + `@Public()` decorator | [VERIFIED] |
+| **Centralized error catalog** | `common/errors.ts` (`ERROR_CATALOG`) + `HttpExceptionFilter` | [VERIFIED] |
+| **Organization by feature** ("feature folders") on the frontend | `frontend/src/features/*` (each with its own `api.ts` of TanStack Query hooks) | [VERIFIED] |
+| **No Repository pattern**: services call Prisma directly | all `*.service.ts` | [VERIFIED] |
+| DTO → response mappers | `requests.mapper.ts`, `messages.mapper.ts`, `coverage.mapper.ts` | [VERIFIED] |
 
-### Incohérences constatées
+### Inconsistencies found
 
-1. **[VÉRIFIÉ]** **Affectation automatique hors snapshot.** `assignmentMode` est copié dans `rulesSnapshot` (`request-policy.loader.ts`), mais `RequestTransitionsService.assigneeContext` lit `category.assignmentMode` et `category.autoAssigneeId`, c'est-à-dire la catégorie **actuelle**, lors d'un `APPROVE`. Cela contredit le principe du snapshot (FR-022).
-   **[DÉDUIT]** Si l'administrateur change le mode d'affectation entre la soumission et l'approbation, c'est la nouvelle règle qui s'applique.
-   → **[VÉRIFIÉ] Confirmé**, puis **corrigé** (`3b291ee`) : le test `auto-assignment-snapshot.spec.ts`, écrit avant la correction (`0f2e97d`), affectait la demande à la nouvelle personne désignée. Le mode et la personne sont désormais figés à la soumission (décision D1), avec deux exceptions : demande antérieure (EXC-1) et personne indisponible (EXC-2).
-2. **[VÉRIFIÉ]** **`RequestPolicyLoader` déclaré dans 5 modules** (`requests`, `categories`, `messages`, `files`, `coverage`) au lieu d'être exporté une seule fois. NestJS crée donc une instance par module. Le service est sans état, donc l'impact est **[DÉDUIT]** faible ; c'est surtout une duplication de déclaration.
-   → **Corrigé** (`55a170e`) : `RequestPolicyModule` le déclare une seule fois.
-3. **[VÉRIFIÉ]** **Job de délais du lot 2 rangé hors de `scheduler/`** (`coverage/coverage-deadlines.job.ts`), alors qu'il importe `JOB_INTERVAL_MS` depuis `scheduler/auto-close.job.ts`.
-   → **Corrigé** (`5e23677`) : `scheduler/coverage-deadlines.job.ts`, `JOB_INTERVAL_MS` dans `scheduler/job-interval.ts`.
-4. **[VÉRIFIÉ]** **Commentaire périmé** dans `notifications/notifications.service.ts` : « Implémentation sans effet en Phase 2 ; remplacée par Socket.IO en US4 ». `NoopNotificationPublisher` est exporté mais n'est utilisé nulle part, ni dans `src` ni dans `test` (`grep`).
-   → **Corrigé** (`6549908`) : classe et commentaire supprimés.
-5. **[VÉRIFIÉ]** **Types frontend écrits à la main.** `frontend/src/api/types.ts` annonce leur remplacement par des types générés (`api:types` → `src/api/schema.d.ts`), mais `schema.d.ts` n'existe pas et n'est importé nulle part. Les enums (`RequestStatus`, etc.) sont donc dupliqués entre le backend et le frontend.
-   → **Corrigé** : annonce retirée (`6549908`) ; les énumérations restent écrites à la main, mais `frontend/tests/api/enums-sync.test.ts` (`0e9e213`) les compare au schéma Prisma et échoue en cas d'écart.
-6. **[VÉRIFIÉ]** **Dépendance inutilisée** : `@mui/icons-material` est déclarée dans `frontend/package.json`, mais aucun fichier de `frontend/src` ne l'importe. Les icônes viennent de `lucide-react` (49 fichiers).
-   → **Corrigé** (`6549908`) : dépendance désinstallée.
-7. **[VÉRIFIÉ]** **Style non uniforme** : `backend/scripts/check-users.ts` et `reset-superadmin-password.ts` utilisent des guillemets doubles, alors que `.prettierrc` impose `singleQuote: true`.
-   → **Corrigé** : `check-users.ts` formaté (`6549908`) ; `reset-superadmin-password.ts` supprimé (`5ed613d`).
-8. **[VÉRIFIÉ]** **Port incohérent**, voir §9 : 3002 dans `main.ts`, `config.ts`, `vite.config.ts` et `start.bat` ; 3000 dans `backend/.env.example`, le README, `deploy/Caddyfile.dev`, `api.Dockerfile`, `docker-compose.yml` et le test `config.spec.ts`.
-   → **Corrigé** (`1ae6219`, `c5c6198`) : 3002 partout en développement, vérifié par `dev-port-consistency.spec.ts` ; la production fixe explicitement 3000 (`api.Dockerfile`).
-9. **[VÉRIFIÉ]** **Script `dev` racine.** `npm run dev` lance `npm run -w backend start` (`node dist/main.js`), donc **le build déjà compilé** : pas de rechargement, et il faut avoir lancé `build` avant. Le README, lui, recommande `start:dev`.
-   → **Corrigé** (`c5c6198`) : `dev:backend` lance `start:dev`.
-
----
-
-## 8. Gestion transverse
-
-### Configuration et variables d'environnement
-
-- **[VÉRIFIÉ]** Les variables sont validées au démarrage par `loadConfig` (`backend/src/config/config.ts`) :
-  - obligatoires : `DATABASE_URL`, `SESSION_SECRET` (≥ 32 caractères), `FILES_DIR`, `APP_ORIGIN` (URL valide) ;
-  - facultatives : `PORT`, `FFMPEG_PATH`, `FFPROBE_PATH`, `COOKIE_SECURE`, `LOGIN_RATE_LIMIT` (ignorée en production), `JOBS_ENABLED`, `NODE_ENV`.
-
-  L'API refuse de démarrer si une variable obligatoire est invalide (`ConfigError`).
-- **[VÉRIFIÉ]** `TRUST_PROXY` est lue **directement** dans `app.setup.ts` (`process.env.TRUST_PROXY`), sans passer par `loadConfig`. `PORT` est également relue directement dans `main.ts`.
-  → **Corrigé** (`5ed613d`) : `TRUST_PROXY` est validée par `loadConfig` ; `app.setup.ts` et `main.ts` lisent `APP_CONFIG`.
-- **[VÉRIFIÉ]** `backend/.env` n'est chargé qu'hors production (`loadEnvFile`) et n'écrase pas les variables déjà définies. `.env` est ignoré par git (`.gitignore`, vérifié avec `git check-ignore`).
-- **[VÉRIFIÉ]** Les réglages **métier** (taille des vocaux, délais, durée de session…) sont en base (`Setting`). Les valeurs par défaut sont dans `SETTING_DEFAULTS` et les bornes dans `SETTING_RULES` (`settings/settings.service.ts`).
-- **[VÉRIFIÉ]** En production, les variables viennent de `deploy/.env` via `docker-compose.yml`, qui utilise la syntaxe `${VAR:?…}` pour bloquer le démarrage si un secret manque.
-
-### Authentification et autorisation
-
-- **[VÉRIFIÉ]** **Authentification** :
-  - identifiant et mot de passe, Argon2id ;
-  - comparaison en temps constant contre un haché factice si le compte est inconnu (`DUMMY_HASH_PROMISE`, `auth.service.ts`) ;
-  - session serveur : seul le HMAC du jeton est stocké ;
-  - expiration après inactivité (`sessionIdleMinutes`, 60 par défaut) et durée maximale (`sessionMaxHours`, 12) ;
-  - mot de passe provisoire à changer obligatoirement (`mustChangePassword`, contrôlé dans `SessionGuard`) ;
-  - 12 caractères minimum pour un nouveau mot de passe (`ChangePasswordDto`).
-- **[VÉRIFIÉ]** **CSRF** : `OriginGuard` sur toutes les méthodes autres que GET, HEAD et OPTIONS, en complément de `SameSite=Strict`.
-- **[VÉRIFIÉ]** **Limitation de débit** : 5 tentatives par minute et par couple (IP, identifiant), uniquement sur `/auth/login` (`LoginThrottlerGuard`). Stockage en mémoire, par défaut de `@nestjs/throttler`.
-- **[VÉRIFIÉ]** **WebSocket** : mêmes contrôles (Origin, cookie, `mustChangePassword`) dans `RealtimeGateway.authenticate`. Les sessions expirées sont fermées toutes les 60 s (`SessionRevalidationJob` → `RealtimeService.revalidateSessions`).
-- **[VÉRIFIÉ]** **Autorisation**, sur trois niveaux :
-  1. le rôle global : `/admin/*` est réservé au super administrateur par `SuperAdminGuard` ;
-  2. les permissions configurables par rôle (`RolePermission`, défauts dans `settings/default-permissions.ts`) ;
-  3. la relation avec la demande : `actorsFor` → `REQUESTER`, `ASSIGNEE` ou `MANAGER`.
-
-  Une ressource non visible donne un 404 avec audit `ACCESS_DENIED`.
-
-### Gestion des erreurs et logs
-
-- **[VÉRIFIÉ]** Les erreurs ont un format unique `{ error: { code, message, details } }` (`HttpExceptionFilter`). Les messages sont en français, dans `ERROR_CATALOG`. Les erreurs de validation renvoient la liste des champs (`createValidationPipe`, `flatten`).
-- **[VÉRIFIÉ]** Les logs sortent en JSON, une ligne par entrée, sur stdout et stderr (`AppLogger`, `common/app-logger.ts`). Les secrets sont masqués par motifs (argon2, cookie, token, password…). **Aucune requête HTTP n'est journalisée** (commentaire de la classe ; aucun middleware de log dans `configureApp`). Depuis `5ed613d`, logs et audit partagent la même liste de clés sensibles (`common/sensitive-keys.ts`).
-- **[VÉRIFIÉ]** Le journal d'audit filtre les champs de `details` par liste blanche et retire les clés sensibles (`sanitizeAuditDetails`).
-- **[VÉRIFIÉ]** Côté front, `ApiError` porte le statut et le code. Une erreur 401 invalide `/auth/me`, ce qui renvoie vers la connexion (`createQueryClient`).
-- **[DÉDUIT]** Il n'y a ni outil de suivi d'erreurs (Sentry ou équivalent) ni métriques : aucune dépendance de ce type n'apparaît dans les `package.json`.
-
-### Intégrations externes
-
-- **[VÉRIFIÉ]** **Aucune API tierce** n'est appelée par le code applicatif (pas de client HTTP sortant dans `backend/src`). Pas d'e-mail, pas de notifications push (contrainte du plan).
-- **[VÉRIFIÉ]** Les dépendances externes à l'exécution sont :
-  - les binaires `ffmpeg` et `ffprobe`, appelés par `execFile` (`files/voice-processing.ts`) ;
-  - Let's Encrypt, via Caddy (`deploy/Caddyfile`) ;
-  - le registre npm et Docker Hub, au moment du build.
+1. **[VERIFIED]** **Automatic assignment outside the snapshot.** `assignmentMode` is copied into `rulesSnapshot` (`request-policy.loader.ts`), but `RequestTransitionsService.assigneeContext` reads `category.assignmentMode` and `category.autoAssigneeId`, that is, the **current** category, on an `APPROVE`. This contradicts the snapshot principle (FR-022).
+   **[INFERRED]** If the administrator changes the assignment mode between submission and approval, the new rule applies.
+   → **[VERIFIED] Confirmed**, then **fixed** (`3b291ee`): the test `auto-assignment-snapshot.spec.ts`, written before the fix (`0f2e97d`), assigned the request to the newly designated person. The mode and the person are now frozen at submission (decision D1), with two exceptions: earlier request (EXC-1) and unavailable person (EXC-2).
+2. **[VERIFIED]** **`RequestPolicyLoader` declared in 5 modules** (`requests`, `categories`, `messages`, `files`, `coverage`) instead of being exported once. NestJS therefore creates one instance per module. The service is stateless, so the impact is **[INFERRED]** low; it is mostly a duplicated declaration.
+   → **Fixed** (`55a170e`): `RequestPolicyModule` declares it once.
+3. **[VERIFIED]** **Phase 2 deadlines job stored outside `scheduler/`** (`coverage/coverage-deadlines.job.ts`), although it imports `JOB_INTERVAL_MS` from `scheduler/auto-close.job.ts`.
+   → **Fixed** (`5e23677`): `scheduler/coverage-deadlines.job.ts`, `JOB_INTERVAL_MS` in `scheduler/job-interval.ts`.
+4. **[VERIFIED]** **Outdated comment** in `notifications/notifications.service.ts`: "Implémentation sans effet en Phase 2 ; remplacée par Socket.IO en US4" (implementation with no effect in Phase 2; replaced by Socket.IO in US4). `NoopNotificationPublisher` is exported but used nowhere, neither in `src` nor in `test` (`grep`).
+   → **Fixed** (`6549908`): class and comment removed.
+5. **[VERIFIED]** **Frontend types written by hand.** `frontend/src/api/types.ts` announces their replacement by generated types (`api:types` → `src/api/schema.d.ts`), but `schema.d.ts` does not exist and is imported nowhere. The enums (`RequestStatus`, etc.) are therefore duplicated between the backend and the frontend.
+   → **Fixed**: announcement removed (`6549908`); the enumerations remain hand-written, but `frontend/tests/api/enums-sync.test.ts` (`0e9e213`) compares them with the Prisma schema and fails if they differ.
+6. **[VERIFIED]** **Unused dependency**: `@mui/icons-material` is declared in `frontend/package.json`, but no file in `frontend/src` imports it. The icons come from `lucide-react` (49 files).
+   → **Fixed** (`6549908`): dependency uninstalled.
+7. **[VERIFIED]** **Non-uniform style**: `backend/scripts/check-users.ts` and `reset-superadmin-password.ts` use double quotes, whereas `.prettierrc` requires `singleQuote: true`.
+   → **Fixed**: `check-users.ts` formatted (`6549908`); `reset-superadmin-password.ts` deleted (`5ed613d`).
+8. **[VERIFIED]** **Inconsistent port**, see §9: 3002 in `main.ts`, `config.ts`, `vite.config.ts` and `start.bat`; 3000 in `backend/.env.example`, the README, `deploy/Caddyfile.dev`, `api.Dockerfile`, `docker-compose.yml` and the `config.spec.ts` test.
+   → **Fixed** (`1ae6219`, `c5c6198`): 3002 everywhere in development, verified by `dev-port-consistency.spec.ts`; production explicitly sets 3000 (`api.Dockerfile`).
+9. **[VERIFIED]** **Root `dev` script.** `npm run dev` runs `npm run -w backend start` (`node dist/main.js`), therefore **the already compiled build**: no reload, and `build` must have been run beforehand. The README, for its part, recommends `start:dev`.
+   → **Fixed** (`c5c6198`): `dev:backend` runs `start:dev`.
 
 ---
 
-## 9. Déploiement et exécution
+## 8. Cross-cutting concerns
 
-### En local
+### Configuration and environment variables
 
-**[VÉRIFIÉ]** Commandes lues dans le README, les `package.json` et `start.bat` :
+- **[VERIFIED]** The variables are validated at startup by `loadConfig` (`backend/src/config/config.ts`):
+  - required: `DATABASE_URL`, `SESSION_SECRET` (≥ 32 characters), `FILES_DIR`, `APP_ORIGIN` (valid URL);
+  - optional: `PORT`, `FFMPEG_PATH`, `FFPROBE_PATH`, `COOKIE_SECURE`, `LOGIN_RATE_LIMIT` (ignored in production), `JOBS_ENABLED`, `NODE_ENV`.
+
+  The API refuses to start if a required variable is invalid (`ConfigError`).
+- **[VERIFIED]** `TRUST_PROXY` is read **directly** in `app.setup.ts` (`process.env.TRUST_PROXY`), without going through `loadConfig`. `PORT` is also read again directly in `main.ts`.
+  → **Fixed** (`5ed613d`): `TRUST_PROXY` is validated by `loadConfig`; `app.setup.ts` and `main.ts` read `APP_CONFIG`.
+- **[VERIFIED]** `backend/.env` is loaded only outside production (`loadEnvFile`) and does not overwrite variables that are already defined. `.env` is ignored by git (`.gitignore`, verified with `git check-ignore`).
+- **[VERIFIED]** The **business** settings (voice message size, deadlines, session duration…) are in the database (`Setting`). The default values are in `SETTING_DEFAULTS` and the bounds in `SETTING_RULES` (`settings/settings.service.ts`).
+- **[VERIFIED]** In production, the variables come from `deploy/.env` via `docker-compose.yml`, which uses the `${VAR:?…}` syntax to block startup if a secret is missing.
+
+### Authentication and authorization
+
+- **[VERIFIED]** **Authentication**:
+  - username and password, Argon2id;
+  - constant-time comparison against a dummy hash if the account is unknown (`DUMMY_HASH_PROMISE`, `auth.service.ts`);
+  - server session: only the HMAC of the token is stored;
+  - expiry after inactivity (`sessionIdleMinutes`, 60 by default) and a maximum duration (`sessionMaxHours`, 12);
+  - temporary password that must be changed (`mustChangePassword`, checked in `SessionGuard`);
+  - at least 12 characters for a new password (`ChangePasswordDto`).
+- **[VERIFIED]** **CSRF**: `OriginGuard` on all methods other than GET, HEAD and OPTIONS, in addition to `SameSite=Strict`.
+- **[VERIFIED]** **Rate limiting**: 5 attempts per minute per (IP, username) pair, only on `/auth/login` (`LoginThrottlerGuard`). In-memory storage, the `@nestjs/throttler` default.
+- **[VERIFIED]** **WebSocket**: same checks (Origin, cookie, `mustChangePassword`) in `RealtimeGateway.authenticate`. Expired sessions are closed every 60 s (`SessionRevalidationJob` → `RealtimeService.revalidateSessions`).
+- **[VERIFIED]** **Authorization**, on three levels:
+  1. the global role: `/admin/*` is reserved for the super administrator by `SuperAdminGuard`;
+  2. the permissions configurable per role (`RolePermission`, defaults in `settings/default-permissions.ts`);
+  3. the relationship with the request: `actorsFor` → `REQUESTER`, `ASSIGNEE` or `MANAGER`.
+
+  A resource that is not visible gives a 404 with an `ACCESS_DENIED` audit entry.
+
+### Error handling and logs
+
+- **[VERIFIED]** Errors have a single format `{ error: { code, message, details } }` (`HttpExceptionFilter`). The messages are in French, in `ERROR_CATALOG`. Validation errors return the list of fields (`createValidationPipe`, `flatten`).
+- **[VERIFIED]** Logs are output as JSON, one line per entry, on stdout and stderr (`AppLogger`, `common/app-logger.ts`). Secrets are masked by patterns (argon2, cookie, token, password…). **No HTTP request is logged** (class comment; no log middleware in `configureApp`). Since `5ed613d`, logs and audit share the same list of sensitive keys (`common/sensitive-keys.ts`).
+- **[VERIFIED]** The audit log filters the `details` fields by whitelist and removes sensitive keys (`sanitizeAuditDetails`).
+- **[VERIFIED]** On the frontend, `ApiError` carries the status and the code. A 401 error invalidates `/auth/me`, which redirects to the login (`createQueryClient`).
+- **[INFERRED]** There is neither an error tracking tool (Sentry or equivalent) nor metrics: no dependency of this kind appears in the `package.json` files.
+
+### External integrations
+
+- **[VERIFIED]** **No third-party API** is called by the application code (no outgoing HTTP client in `backend/src`). No email, no push notifications (plan constraint).
+- **[VERIFIED]** The external runtime dependencies are:
+  - the `ffmpeg` and `ffprobe` binaries, called by `execFile` (`files/voice-processing.ts`);
+  - Let's Encrypt, via Caddy (`deploy/Caddyfile`);
+  - the npm registry and Docker Hub, at build time.
+
+---
+
+## 9. Deployment and execution
+
+### Locally
+
+**[VERIFIED]** Commands read from the README, the `package.json` files and `start.bat`:
 
 ```bash
 npm install
-cp backend/.env.example backend/.env      # renseigner SESSION_SECRET
-npm run -w backend db:dev                 # PostgreSQL embarqué, port 5433 (terminal dédié)
+cp backend/.env.example backend/.env      # fill in SESSION_SECRET
+npm run -w backend db:dev                 # embedded PostgreSQL, port 5433 (dedicated terminal)
 npm run -w backend prisma:migrate
 npm run -w backend prisma:seed
-npm run -w backend start:dev              # API avec rechargement
-npm run -w frontend dev                   # Vite sur :5173, proxy /api et /socket.io
+npm run -w backend start:dev              # API with reload
+npm run -w frontend dev                   # Vite on :5173, /api and /socket.io proxy
 ```
 
-- **[VÉRIFIÉ]** `start.bat` (commité depuis dans `1e6d4ee`) automatise ces étapes sous Windows :
-  1. il démarre la base embarquée si le port 5433 est libre ;
-  2. il refuse de continuer si le port 3002 est déjà occupé ;
-  3. il lance `npm run dev`, qui exige un backend **déjà compilé** (voir §7, point 9). → **Corrigé** (`c5c6198`) : `npm run dev` lance désormais l'API avec rechargement.
-- **[VÉRIFIÉ]** **Port de l'API en développement** : les modifications non commitées passent la valeur par défaut de 3000 à **3002** dans `main.ts`, `config.ts`, `vite.config.ts` et `frontend/package.json`. Mais :
-  - `backend/.env.example` contient toujours `PORT=3000`, ce qui ramène l'API sur 3000 pour qui copie l'exemple, alors que Vite cherche 3002 ;
-  - `deploy/Caddyfile.dev` relaie vers `host.docker.internal:3000`.
+- **[VERIFIED]** `start.bat` (committed since in `1e6d4ee`) automates these steps on Windows:
+  1. it starts the embedded database if port 5433 is free;
+  2. it refuses to continue if port 3002 is already in use;
+  3. it runs `npm run dev`, which requires an **already compiled** backend (see §7, item 9). → **Fixed** (`c5c6198`): `npm run dev` now runs the API with reload.
+- **[VERIFIED]** **API port in development**: the uncommitted changes move the default value from 3000 to **3002** in `main.ts`, `config.ts`, `vite.config.ts` and `frontend/package.json`. But:
+  - `backend/.env.example` still contains `PORT=3000`, which puts the API back on 3000 for anyone who copies the example, whereas Vite looks for 3002;
+  - `deploy/Caddyfile.dev` relays to `host.docker.internal:3000`.
 
-  → **Corrigé** (`c5c6198`) : `PORT=3002` dans `backend/.env.example`, `Caddyfile.dev` vers 3002, README à jour.
-- **[VÉRIFIÉ]** **Le test `backend/test/unit/config.spec.ts` échoue** (attendu 3000, reçu 3002). Résultat exécuté : 348 tests passent sur 349. → **Corrigé** (`1ae6219`).
+  → **Fixed** (`c5c6198`): `PORT=3002` in `backend/.env.example`, `Caddyfile.dev` to 3002, README updated.
+- **[VERIFIED]** **The test `backend/test/unit/config.spec.ts` fails** (expected 3000, received 3002). Result as run: 348 tests pass out of 349. → **Fixed** (`1ae6219`).
 
 ### Build
 
-- **[VÉRIFIÉ]** Backend : `npm run -w backend build` (`nest build` → `backend/dist`).
-- **[VÉRIFIÉ]** Frontend : `npm run -w frontend build` (`tsc -b && vite build` → `frontend/dist`).
-- **[VÉRIFIÉ]** Contrôle complet : `npm run verify` (lint, tests unitaires et d'intégration, `npm audit --audit-level=high`). E2E : `npm run test:e2e`.
+- **[VERIFIED]** Backend: `npm run -w backend build` (`nest build` → `backend/dist`).
+- **[VERIFIED]** Frontend: `npm run -w frontend build` (`tsc -b && vite build` → `frontend/dist`).
+- **[VERIFIED]** Full check: `npm run verify` (lint, unit and integration tests, `npm audit --audit-level=high`). E2E: `npm run test:e2e`.
 
-### Déploiement (VPS)
+### Deployment (VPS)
 
-**[VÉRIFIÉ]** Sources : `deploy/docker-compose.yml`, `api.Dockerfile`, `web.Dockerfile`, `api-entrypoint.sh`.
+**[VERIFIED]** Sources: `deploy/docker-compose.yml`, `api.Dockerfile`, `web.Dockerfile`, `api-entrypoint.sh`, `deploy.sh`.
 
 ```bash
 cp deploy/.env.example deploy/.env
-docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build
+deploy/deploy.sh
 docker compose -f deploy/docker-compose.yml --env-file deploy/.env exec api node dist/cli/bootstrap.js admin "Direction"
 ```
 
-→ **Mis à jour** (`4575b84`) : la deuxième commande est remplacée par `deploy/deploy.sh`, qui sauvegarde la base et les fichiers avant de reconstruire et redémarrer.
+`deploy/deploy.sh` updates the code (`git pull --ff-only`), backs up the database and files, then rebuilds and restarts the containers. `deploy/deploy.sh --no-pull` deploys the code already on the server, such as a specific commit. The backup step dates from `4575b84`.
 
-- **[VÉRIFIÉ]** Quatre services :
-  - `caddy` : image construite avec la SPA ;
-  - `api` : Node 24 + ffmpeg, utilisateur `node` non root, `HEALTHCHECK` sur `/api/health`, migrations appliquées au démarrage ;
-  - `db` : `postgres:17` ;
-  - `backup` : boucle quotidienne, `pg_dump` + `tar`, rotation sur 14 jours, copie hors du VPS seulement si `BACKUP_OFFSITE_DIR` est défini.
-- **[VÉRIFIÉ]** Swagger (`/api/docs`) n'est exposé qu'en dehors de la production (`configureApp`).
-- **[VÉRIFIÉ]** Il n'y a **pas de CI/CD** dans le dépôt (aucun dossier `.github/` ni équivalent dans l'arborescence).
-  → **Corrigé** (`b9ed428`) : `.github/workflows/ci.yml` rejoue lint, types, tests unitaires, d'intégration et d'interface et `npm audit` à chaque envoi et demande de fusion (décision D3). Le dépôt étant privé sur l'offre gratuite, la fusion n'est pas bloquée techniquement : vérification manuelle obligatoire avant fusion (`docs/procedure-fusion.md`, décision D10, `7c2af4f`).
-- **[DÉDUIT]** Les déploiements sont donc manuels. Ils le restent : `deploy/deploy.sh` est lancé à la main sur le serveur.
-
----
-
-## 10. Faiblesses d'architecture
-
-### Couplages et dépendances circulaires
-
-- **[VÉRIFIÉ]** Il y a des **cycles d'import entre dossiers** (relevés avec `grep`) :
-  - `requests ↔ files` : `requests.module` importe `FilesModule`, et `files.service` importe `requests/domain/access-policy` et `RequestPolicyLoader` ;
-  - `auth ↔ requests` : `session.service` importe `permissionsFor` depuis `requests/domain/access-policy` ;
-  - `common ↔ audit`, `common ↔ auth` : `SuperAdminGuard`, placé dans `common/`, dépend d'`AuditService` et de `auth/request-info`.
-
-  Un cycle de modules NestJS a dû être contourné explicitement : `RealtimeGatewayModule` existe « pour éviter une dépendance circulaire avec AuthModule » (commentaire dans `realtime/realtime-gateway.module.ts`).
-
-  → **Corrigé** pour les domaines cités (`e533726`, `e05ae30`, `688100e`, `5d573a1`, `5e23677`). Ordre des couches imposé : `config → common → audit → auth → files → requests → coverage → scheduler` ; un dossier ne dépend que des dossiers placés avant lui. Le test `backend/test/unit/architecture-layers.spec.ts` (`0e9e213`) le vérifie et nomme chaque import fautif ; il était rouge sur 11 imports au départ, il est vert. La séparation de `RealtimeGatewayModule` est conservée comme un découpage voulu (commentaire reformulé, `6549908`).
-  **[VÉRIFIÉ]** Cycle restant, hors périmètre (mesuré le 2026-10-16) : `auth`, `realtime`, `settings` et `users` forment encore une composante (`auth → realtime`, `auth → settings`, `realtime → auth`, `settings → auth`, `settings → users`, `users → auth`, `users → realtime`). Ces dossiers ne font pas partie de l'ordre vérifié.
-- **[VÉRIFIÉ]** Le module `files` dépend du domaine de `coverage` (`canReadPresenceProof`, `CoverageAccessLoader`). Le stockage de fichiers connaît donc la politique d'accès de **chaque** domaine métier.
-  **[DÉDUIT]** Tout nouveau type de ressource avec fichiers obligera à modifier `files.service.ts`.
-  → **[VÉRIFIÉ]** Confirmé par la lecture (une branche par `kind` dans `findReadable`), puis **corrigé** (`5d573a1`) : chaque domaine enregistre sa décision d'accès (`WorkFileAccess`, `CoverageFileAccess`) ; un type non enregistré est refusé. Décisions inchangées (suites de fichiers et de couverture vertes, attendus inchangés).
-- **[VÉRIFIÉ]** Six modules sont `@Global()` : Config, Prisma, Audit, Settings, Notifications, Realtime.
-  **[DÉDUIT]** C'est pratique, mais les dépendances réelles n'apparaissent plus dans les `imports` des modules ; le tableau du §2 a dû être reconstruit à partir des imports de fichiers.
-
-### Responsabilités mal placées ou concentrées
-
-- **[VÉRIFIÉ]** Certains services sont volumineux :
-  - `coverage/coverage-actions.service.ts` : 750 lignes ;
-  - `coverage/coverage.service.ts` : 557 lignes ;
-  - `requests/requests.service.ts` : 491 lignes, avec 8 dépendances injectées.
-
-  **[DÉDUIT]** Ce sont les zones les plus coûteuses à modifier et à relire.
-- **[VÉRIFIÉ]** `access-policy.ts`, un module de domaine des demandes, porte aussi des règles transverses : `permissionsFor`, utilisée par l'authentification, `canManageAdministration` et `canReadAudit`. → **Corrigé** (`e533726`) : `common/authorization.ts`.
-- **[VÉRIFIÉ]** `TRUST_PROXY` et `PORT` sont lues en dehors de `loadConfig` (voir §8). → **Corrigé** (`5ed613d`).
-
-### Code dupliqué
-
-- **[VÉRIFIÉ]** Il existe deux machines à états, deux politiques d'accès, deux calculs de délais et deux jobs de délais, un jeu pour chaque `kind` (`requests/domain/*` et `coverage/domain/*`). Le partage de la table `Request` n'a pas permis de mutualiser cette logique.
-  **[DÉDUIT]** Une règle transverse (par exemple « un admin peut toujours annuler ») devra être écrite deux fois.
-- **[VÉRIFIÉ]** La fonction `originOf` est dupliquée dans `auth/origin.guard.ts` et `realtime/realtime.gateway.ts`. → **Corrigé** (`5ed613d`) : règle unique `common/origin.ts`.
-- **[VÉRIFIÉ]** Les listes de clés sensibles sont dupliquées, avec des différences : `app-logger.ts` contient `authorization`, absent d'`audit.service.ts`, et `audit.service.ts` contient `^message$`, absent du logger. → **Corrigé** (`5ed613d`) : liste unique, réunion des deux.
-- **[VÉRIFIÉ]** Les types du frontend dupliquent ceux du backend à la main (voir §7, point 5).
-
-### Exploitation et évolutivité
-
-- **[VÉRIFIÉ]** L'état en mémoire (throttler, adaptateur Socket.IO, drapeau `running` des jobs) **impose une seule instance** de l'API. C'est assumé dans le plan.
-- **[VÉRIFIÉ]** **Aucune purge automatique** des données personnelles : `grep` ne trouve ni « retention » ni « purge » dans `backend/src`. Le README le confirme (« La suppression automatique à l'échéance n'est pas réalisée dans ce lot »).
-- **[VÉRIFIÉ]** Les migrations s'appliquent automatiquement à chaque démarrage du conteneur (`api-entrypoint.sh`).
-  **[DÉDUIT]** Une migration défectueuse empêcherait l'API de démarrer, sans étape de validation intermédiaire. `docs/coverage-migration.md` demande une sauvegarde manuelle avant, mais rien ne l'impose techniquement.
-  → **Corrigé** (`4575b84`) : sauvegarde imposée avant toute migration (entrypoint et `deploy/deploy.sh`, testé par `api-entrypoint.spec.ts`). Le comportement réel d'une migration défectueuse reste **[DÉDUIT]** : à exercer sur la préproduction (tâche T055).
-- **[VÉRIFIÉ]** Le script `backend/scripts/reset-superadmin-password.ts` modifie le mot de passe du super administrateur **sans entrée d'audit et sans révoquer ses sessions**, alors que `cli/bootstrap.ts` écrit dans `auditLog`. Il contourne donc le principe de traçabilité. → **Corrigé** (`5ed613d`, décision D2) : `bootstrap.js --reset-password`, audit `PASSWORD_RESET` et sessions fermées ; script supprimé.
-- **[VÉRIFIÉ]** `embedded-postgres` est en version bêta (`17.10.0-beta.17`), mais seulement pour le développement et les tests.
-
-### Testabilité
-
-- **[VÉRIFIÉ]** C'est un point fort : le domaine pur est testé sans base. Le dépôt compte 15 fichiers de tests unitaires backend, 24 d'intégration sur une vraie PostgreSQL, 17 fichiers frontend et 12 scénarios E2E.
-- **[VÉRIFIÉ]** Résultats exécutés le 2026-10-15 :
-  - backend unitaire : **348 réussis / 1 en échec** (`config.spec.ts`, port) ;
-  - frontend : **120 / 120** réussis.
-- **[DÉDUIT]** Les tests d'intégration et E2E n'ont **pas** été lancés pour ce document (voir §11).
-  → **[VÉRIFIÉ]** (fonctionnalité 003, `docs/validation/verification-003.md`) : lint, types, tests unitaires (398), d'intégration (264, dont `search-performance.spec.ts`) et d'interface (127) passent, en local et dans la CI. Les tests de bout en bout n'ont toujours **pas** été lancés (tâche T058).
-- **[DÉDUIT]** Les services qui appellent Prisma directement, sans repository, ne se testent qu'avec une base réelle. C'est le choix fait ici (tests d'intégration), mais cela rend ces tests plus lents.
+- **[VERIFIED]** Four services:
+  - `caddy`: image built with the SPA;
+  - `api`: Node 24 + ffmpeg, non-root `node` user, `HEALTHCHECK` on `/api/health`, migrations applied at startup;
+  - `db`: `postgres:17`;
+  - `backup`: daily loop, `pg_dump` + `tar`, 14-day rotation, copy off the VPS only if `BACKUP_OFFSITE_DIR` is set.
+- **[VERIFIED]** Swagger (`/api/docs`) is exposed only outside production (`configureApp`).
+- **[VERIFIED]** There was **no CI/CD** in the repository (no `.github/` folder or equivalent in the tree).
+  → **Fixed** (`b9ed428`): `.github/workflows/ci.yml` reruns lint, types, unit, integration and interface tests and `npm audit` on every push and pull request (decision D3). Because the repository is private on the free plan, merging is not technically blocked: a manual check is mandatory before merging (`docs/procedure-fusion.md`, decision D10, `7c2af4f`).
+- **[INFERRED]** Deployments are therefore manual, and they stay that way: `deploy/deploy.sh` is run by hand on the server.
 
 ---
 
-## 11. Ce que je dois vérifier moi-même
+## 10. Architecture weaknesses
 
-Points que je n'ai pas pu vérifier, ou qui demandent une décision :
+### Coupling and circular dependencies
 
-1. **Origine des choix techniques.** Le dépôt dit « pile imposée par le client », sans liste précise. Confirme quels éléments (NestJS, Prisma, MUI, TanStack Query, Caddy…) venaient de ta demande et lesquels ont été proposés dans le plan.
-2. **Port 3000 ou 3002.** Décide de la valeur, puis aligne `backend/.env.example`, le README, `deploy/Caddyfile.dev` et `test/unit/config.spec.ts`, ou annule les modifications non commitées. En l'état, un test échoue. → **Réglé** : 3002 retenu et aligné (`1ae6219`, `c5c6198`).
-3. **Tests d'intégration et E2E.** Je ne les ai pas lancés (ils demandent la base embarquée et les navigateurs Playwright). À exécuter : `npm run -w backend test:integration` et `npm run test:e2e`. → Intégration **lancée** (264 / 264) ; bout en bout **toujours à lancer** (T058).
-4. **Lint.** `npm run lint` n'a pas été lancé. → **Lancé** : aucun problème. La vérification de types (`typecheck`) a été exécutée sur le backend et le frontend : aucune erreur. [VÉRIFIÉ]
-5. **Lot 2 sans spécification.** Il n'y a pas de `specs/002-…`. Les règles de la couverture de classe (statuts, délais de 2 et 5 min, preuve QR et photo) ne sont documentées que dans le code et `docs/coverage-migration.md`. Elles doivent être validées par l'établissement.
-6. **Affectation automatique en circuit B.** Elle lit la catégorie actuelle plutôt que le snapshot (§7, point 1). Est-ce voulu ? → **Tranché** (D1) : figée à la soumission ; à faire confirmer par l'établissement.
-7. **Script `reset-superadmin-password.ts`.** Non audité, et sessions non révoquées. Faut-il le garder, le corriger ou le supprimer ? → **Tranché** (D2) : remplacé par une sous-commande tracée.
-8. **Restauration des sauvegardes.** `deploy/backup/restore.sh` existe, mais je n'ai pas vérifié qu'il fonctionne. Le README exige de le tester avant la production. → **Toujours ouvert** : restauration à exercer sur un serveur vierge (T056).
-9. **Performances.** Les objectifs du plan (notification < 5 s, recherche < 2 s sur 10 000 demandes) font l'objet de tests (`search-performance.spec.ts`, `sc001-create-timing.spec.ts`), mais je ne les ai pas exécutés. → Recherche **vérifiée** (`search-performance.spec.ts`, suite d'intégration, en local et en CI) ; chronométrage de création **toujours à lancer** (bout en bout, T058).
-10. **Décisions métier encore provisoires** (README, « À trancher ») : durées de conservation, permissions par rôle, délais, destinataires par catégorie, accusé de lecture.
-11. **Validations manuelles** non faites selon le README : test sur un vrai iPhone (`docs/validation/iphone-manuel.md`) et test d'utilisabilité avec 5 employés.
-12. **Sécurité en conditions réelles.** La CSP, HSTS et la limite de 26 Mo sont configurées dans `deploy/Caddyfile`, mais je n'ai pas vérifié leur comportement sur un déploiement réel. → **Toujours ouvert** (T057, préproduction).
+- **[VERIFIED]** There are **import cycles between folders** (found with `grep`):
+  - `requests ↔ files`: `requests.module` imports `FilesModule`, and `files.service` imports `requests/domain/access-policy` and `RequestPolicyLoader`;
+  - `auth ↔ requests`: `session.service` imports `permissionsFor` from `requests/domain/access-policy`;
+  - `common ↔ audit`, `common ↔ auth`: `SuperAdminGuard`, placed in `common/`, depends on `AuditService` and `auth/request-info`.
+
+  A NestJS module cycle had to be worked around explicitly: `RealtimeGatewayModule` exists "pour éviter une dépendance circulaire avec AuthModule" (to avoid a circular dependency with AuthModule) (comment in `realtime/realtime-gateway.module.ts`).
+
+  → **Fixed** for the domains cited (`e533726`, `e05ae30`, `688100e`, `5d573a1`, `5e23677`). Layer order enforced: `config → common → audit → auth → files → requests → coverage → scheduler`; a folder depends only on the folders placed before it. The test `backend/test/unit/architecture-layers.spec.ts` (`0e9e213`) verifies it and names each offending import; it was red on 11 imports at the start, it is green. The separation of `RealtimeGatewayModule` is kept as an intended split (comment reworded, `6549908`).
+  **[VERIFIED]** Remaining cycle, out of scope (measured on 2026-10-16): `auth`, `realtime`, `settings` and `users` still form one component (`auth → realtime`, `auth → settings`, `realtime → auth`, `settings → auth`, `settings → users`, `users → auth`, `users → realtime`). These folders are not part of the verified order.
+- **[VERIFIED]** The `files` module depends on the `coverage` domain (`canReadPresenceProof`, `CoverageAccessLoader`). File storage therefore knows the access policy of **each** business domain.
+  **[INFERRED]** Any new resource type with files will force a change to `files.service.ts`.
+  → **[VERIFIED]** Confirmed by reading (one branch per `kind` in `findReadable`), then **fixed** (`5d573a1`): each domain registers its access decision (`WorkFileAccess`, `CoverageFileAccess`); an unregistered type is refused. Decisions unchanged (files and coverage suites green, expectations unchanged).
+- **[VERIFIED]** Six modules are `@Global()`: Config, Prisma, Audit, Settings, Notifications, Realtime.
+  **[INFERRED]** This is convenient, but the real dependencies no longer appear in the modules' `imports`; the table in §2 had to be rebuilt from file imports.
+
+### Misplaced or concentrated responsibilities
+
+- **[VERIFIED]** Some services are large:
+  - `coverage/coverage-actions.service.ts`: 750 lines;
+  - `coverage/coverage.service.ts`: 557 lines;
+  - `requests/requests.service.ts`: 491 lines, with 8 injected dependencies.
+
+  **[INFERRED]** These are the areas that are most costly to modify and to review.
+- **[VERIFIED]** `access-policy.ts`, a request domain module, also carries cross-cutting rules: `permissionsFor`, used by authentication, `canManageAdministration` and `canReadAudit`. → **Fixed** (`e533726`): `common/authorization.ts`.
+- **[VERIFIED]** `TRUST_PROXY` and `PORT` are read outside `loadConfig` (see §8). → **Fixed** (`5ed613d`).
+
+### Duplicated code
+
+- **[VERIFIED]** There are two state machines, two access policies, two deadline computations and two deadline jobs, one set for each `kind` (`requests/domain/*` and `coverage/domain/*`). Sharing the `Request` table did not allow this logic to be shared.
+  **[INFERRED]** A cross-cutting rule (for example "an admin can always cancel") will have to be written twice.
+- **[VERIFIED]** The `originOf` function is duplicated in `auth/origin.guard.ts` and `realtime/realtime.gateway.ts`. → **Fixed** (`5ed613d`): single rule `common/origin.ts`.
+- **[VERIFIED]** The lists of sensitive keys are duplicated, with differences: `app-logger.ts` contains `authorization`, absent from `audit.service.ts`, and `audit.service.ts` contains `^message$`, absent from the logger. → **Fixed** (`5ed613d`): single list, union of the two.
+- **[VERIFIED]** The frontend types duplicate the backend ones by hand (see §7, item 5).
+
+### Operations and scalability
+
+- **[VERIFIED]** The in-memory state (throttler, Socket.IO adapter, `running` flag of the jobs) **imposes a single instance** of the API. This is accepted in the plan.
+- **[VERIFIED]** **No automatic purge** of personal data: `grep` finds neither "retention" nor "purge" in `backend/src`. The README confirms it ("La suppression automatique à l'échéance n'est pas réalisée dans ce lot", i.e. automatic deletion at the due date is not carried out in this phase).
+- **[VERIFIED]** Migrations are applied automatically at every container start (`api-entrypoint.sh`).
+  **[INFERRED]** A faulty migration would prevent the API from starting, with no intermediate validation step. `docs/coverage-migration.md` asks for a manual backup beforehand, but nothing enforces it technically.
+  → **Fixed** (`4575b84`): backup enforced before any migration (entrypoint and `deploy/deploy.sh`, tested by `api-entrypoint.spec.ts`). The real behavior of a faulty migration remains **[INFERRED]**: to be exercised on pre-production (task T055).
+- **[VERIFIED]** The script `backend/scripts/reset-superadmin-password.ts` changes the super administrator's password **with no audit entry and without revoking their sessions**, whereas `cli/bootstrap.ts` writes to `auditLog`. It therefore bypasses the traceability principle. → **Fixed** (`5ed613d`, decision D2): `bootstrap.js --reset-password`, `PASSWORD_RESET` audit entry and sessions closed; script deleted.
+- **[VERIFIED]** `embedded-postgres` is a beta version (`17.10.0-beta.17`), but only for development and tests.
+
+### Testability
+
+- **[VERIFIED]** This is a strength: the pure domain is tested without a database. The repository has 15 backend unit test files, 24 integration test files on a real PostgreSQL, 17 frontend files and 12 E2E scenarios.
+- **[VERIFIED]** Results as run on 2026-10-15:
+  - backend unit: **348 passed / 1 failed** (`config.spec.ts`, port);
+  - frontend: **120 / 120** passed.
+- **[INFERRED]** The integration and E2E tests were **not** run for this document (see §11).
+  → **[VERIFIED]** (feature 003, `docs/validation/verification-003.md`): lint, types, unit tests (398), integration tests (264, including `search-performance.spec.ts`) and interface tests (127) pass, locally and in the CI. The end-to-end tests have still **not** been run (task T058).
+- **[INFERRED]** Services that call Prisma directly, without a repository, can only be tested with a real database. This is the choice made here (integration tests), but it makes these tests slower.
 
 ---
 
-## 12. Suivi des corrections (fonctionnalité 003)
+## 11. What I must verify myself
 
-Identifiants du registre de `specs/003-corrections-audit-technique/spec.md`. Détail des
-exécutions : `docs/validation/verification-003.md`. État au 2026-10-16.
+Points that I could not verify, or that require a decision:
 
-| Constat | État | Commit(s) |
+1. **Origin of the technical choices.** The repository says "stack imposed by the client", without a precise list. Confirm which elements (NestJS, Prisma, MUI, TanStack Query, Caddy…) came from your request and which were proposed in the plan.
+2. **Port 3000 or 3002.** Decide the value, then align `backend/.env.example`, the README, `deploy/Caddyfile.dev` and `test/unit/config.spec.ts`, or cancel the uncommitted changes. As things stand, a test fails. → **Settled**: 3002 chosen and aligned (`1ae6219`, `c5c6198`).
+3. **Integration and E2E tests.** I did not run them (they require the embedded database and the Playwright browsers). To run: `npm run -w backend test:integration` and `npm run test:e2e`. → Integration **run** (264 / 264); end-to-end **still to run** (T058).
+4. **Lint.** `npm run lint` was not run. → **Run**: no problems. The type check (`typecheck`) was run on the backend and the frontend: no errors. [VERIFIED]
+5. **Phase 2 without a specification.** There is no `specs/002-…`. The class coverage rules (statuses, 2 and 5 min deadlines, QR and photo proof) are documented only in the code and `docs/coverage-migration.md`. They must be validated by the school.
+6. **Automatic assignment in workflow B.** It reads the current category rather than the snapshot (§7, item 1). Is this intended? → **Decided** (D1): frozen at submission; to be confirmed by the school.
+7. **Script `reset-superadmin-password.ts`.** Not audited, and sessions not revoked. Should it be kept, fixed or deleted? → **Decided** (D2): replaced by a traced subcommand.
+8. **Backup restore.** `deploy/backup/restore.sh` exists, but I did not verify that it works. The README requires testing it before production. → **Still open**: restore to be exercised on a blank server (T056).
+9. **Performance.** The plan's goals (notification < 5 s, search < 2 s on 10,000 requests) are covered by tests (`search-performance.spec.ts`, `sc001-create-timing.spec.ts`), but I did not run them. → Search **verified** (`search-performance.spec.ts`, integration suite, locally and in CI); creation timing **still to run** (end to end, T058).
+10. **Business decisions still provisional** (README, "To decide before going live"): retention periods, permissions per role, deadlines, recipients per category, read receipt.
+11. **Manual validations** not done according to the README: test on a real iPhone (`docs/validation/iphone-manuel.md`) and usability test with 5 employees.
+12. **Security in real conditions.** The CSP, HSTS and the 26 MB limit are configured in `deploy/Caddyfile`, but I did not verify their behavior on a real deployment. → **Still open** (T057, pre-production).
+
+---
+
+## 12. Follow-up of the fixes (feature 003)
+
+Identifiers from the register of `specs/003-corrections-audit-technique/spec.md`. Detail of the
+runs: `docs/validation/verification-003.md`. State as of 2026-10-16.
+
+| Finding | Status | Commit(s) |
 |---|---|---|
-| A01 Port incohérent, test en échec | Corrigé | `1ae6219`, `485eb3c`, `c5c6198` |
-| A02 Lanceur sans rechargement | Corrigé | `c5c6198` |
-| A03 Affectation lue dans la catégorie actuelle | Corrigé (décision D1) | `0f2e97d`, `3b291ee` |
-| A04 Changement de mode appliqué aux demandes soumises | [VÉRIFIÉ] confirmé par test, corrigé | `0f2e97d`, `3b291ee` |
-| A05 Réinitialisation sans audit ni fermeture des sessions | Corrigé (décision D2) | `679a34c`, `5ed613d` |
-| A06 Listes de clés sensibles divergentes | Corrigé | `5ed613d` |
-| A07 `TRUST_PROXY` et `PORT` hors validation | Corrigé | `5ed613d` |
-| A08 Contrôle d'origine écrit deux fois | Corrigé | `5ed613d` |
-| A09 Cycles entre domaines | Corrigé pour les domaines cités ; cycle `auth`/`realtime`/`settings`/`users` hors périmètre | `0e9e213`, `e533726`, `e05ae30`, `688100e`, `5d573a1`, `5e23677` |
-| A10 Stockage de fichiers dépendant des domaines | Corrigé | `5d573a1` |
-| A11 Nouveau type de fichier → modifier `files.service.ts` | [VÉRIFIÉ] confirmé, corrigé | `5d573a1` |
-| A12 Règles transverses dans le domaine des demandes | Corrigé | `e533726` |
-| A13 Chargeur de règles déclaré 5 fois | Corrigé | `55a170e` |
-| A14 Impact faible de A13 | Sans objet (A13 corrigé) | — |
-| A15 Job de délais hors de `scheduler/` | Corrigé | `5e23677` |
-| A16 Publicateur inutilisé | Corrigé | `6549908` |
-| A17 Types écrits à la main, énumérations dupliquées | Corrigé (vérification automatique) | `0e9e213`, `6549908` |
-| A18 Dépendance d'icônes inutilisée | Corrigé | `6549908` |
-| A19 Scripts hors convention de formatage | Corrigé | `5ed613d`, `6549908` |
-| A20 Intégration, bout en bout et lint non lancés | [VÉRIFIÉ] lint, intégration et bout en bout verts (T058, 2026-10-22 : 143 réussis, 0 échec, `docs/validation/verification-003.md`) | — |
-| A21 Aucune CI | Corrigé (D3) ; fusion vérifiée à la main (D10) | `b9ed428`, `7c2af4f` |
-| A22 Migrations sans sauvegarde imposée | Corrigé | `7f0b81f`, `4575b84` |
-| A23 Migration défectueuse bloquante | Couvert par la procédure ; reste **[DÉDUIT]** jusqu'à l'exercice sur préproduction (T055) | `4575b84` |
-| A24 Restauration jamais vérifiée | **Ouvert** (T056, serveur vierge) | — |
-| A25 CSP, HSTS, limite de taille non vérifiées | **Ouvert** (T057, préproduction) | — |
-| A26 Performances non mesurées | [VÉRIFIÉ] recherche (intégration et CI) ; création chronométrée (T058, SC-001 : 15,9 s iPhone 13, 14,0 s Pixel 7, limite 60 s) | — |
-| A27, A32 | Décisions de l'établissement (D4 durées de conservation, D5 spécification du lot 2) ; hors périmètre | — |
-| A28 à A31, A33 à A35 | Hors périmètre de la fonctionnalité 003 | — |
-| N1 Blocage de l'approbation après passage en mode manuel | [VÉRIFIÉ] confirmé par test, corrigé | `0f2e97d`, `3b291ee` |
-| N2 Cycles plus étendus que l'audit (11 dossiers) | [VÉRIFIÉ] ; réduit à 4 dossiers hors périmètre | voir A09 |
-| N3 Ordre aléatoire des événements de même horodatage (relevé par la CI) | Corrigé | `36d400b`, `6aac605` |
+| A01 Inconsistent port, failing test | Fixed | `1ae6219`, `485eb3c`, `c5c6198` |
+| A02 Launcher without reload | Fixed | `c5c6198` |
+| A03 Assignment read from the current category | Fixed (decision D1) | `0f2e97d`, `3b291ee` |
+| A04 Mode change applied to submitted requests | [VERIFIED] confirmed by test, fixed | `0f2e97d`, `3b291ee` |
+| A05 Reset without audit or session closing | Fixed (decision D2) | `679a34c`, `5ed613d` |
+| A06 Diverging lists of sensitive keys | Fixed | `5ed613d` |
+| A07 `TRUST_PROXY` and `PORT` outside validation | Fixed | `5ed613d` |
+| A08 Origin check written twice | Fixed | `5ed613d` |
+| A09 Cycles between domains | Fixed for the domains cited; `auth`/`realtime`/`settings`/`users` cycle out of scope | `0e9e213`, `e533726`, `e05ae30`, `688100e`, `5d573a1`, `5e23677` |
+| A10 File storage dependent on domains | Fixed | `5d573a1` |
+| A11 New file type → modify `files.service.ts` | [VERIFIED] confirmed, fixed | `5d573a1` |
+| A12 Cross-cutting rules in the request domain | Fixed | `e533726` |
+| A13 Rules loader declared 5 times | Fixed | `55a170e` |
+| A14 Low impact of A13 | Not applicable (A13 fixed) | — |
+| A15 Deadlines job outside `scheduler/` | Fixed | `5e23677` |
+| A16 Unused publisher | Fixed | `6549908` |
+| A17 Hand-written types, duplicated enumerations | Fixed (automatic check) | `0e9e213`, `6549908` |
+| A18 Unused icons dependency | Fixed | `6549908` |
+| A19 Scripts outside the formatting convention | Fixed | `5ed613d`, `6549908` |
+| A20 Integration, end-to-end and lint not run | [VERIFIED] lint, integration and end-to-end green (T058, 2026-10-22: 143 passed, 0 failed, `docs/validation/verification-003.md`) | — |
+| A21 No CI | Fixed (D3); merge checked by hand (D10) | `b9ed428`, `7c2af4f` |
+| A22 Migrations without enforced backup | Fixed | `7f0b81f`, `4575b84` |
+| A23 Faulty migration blocking | Covered by the procedure; remains **[INFERRED]** until exercised on pre-production (T055) | `4575b84` |
+| A24 Restore never verified | **Open** (T056, blank server) | — |
+| A25 CSP, HSTS, size limit not verified | **Open** (T057, pre-production) | — |
+| A26 Performance not measured | [VERIFIED] search (integration and CI); timed creation (T058, SC-001: 15.9 s iPhone 13, 14.0 s Pixel 7, limit 60 s) | — |
+| A27, A32 | School decisions (D4 retention periods, D5 phase 2 specification); out of scope | — |
+| A28 to A31, A33 to A35 | Out of scope of feature 003 | — |
+| N1 Approval blocked after switching to manual mode | [VERIFIED] confirmed by test, fixed | `0f2e97d`, `3b291ee` |
+| N2 Cycles broader than the audit (11 folders) | [VERIFIED]; reduced to 4 folders out of scope | see A09 |
+| N3 Random order of events with the same timestamp (found by the CI) | Fixed | `36d400b`, `6aac605` |
 
-## 13. Affectations des surveillants (fonctionnalité 004)
+## 13. Supervisor assignments (feature 004)
 
-Spécification, plan et contrats : `specs/004-retards-affectation-surveillants/`. Vérifications :
+Specification, plan and contracts: `specs/004-retards-affectation-surveillants/`. Verifications:
 `docs/validation/verification-004.md`.
 
-### Principe
+### Principle
 
-La diffusion des gardes (« À prendre », « Je prends ») est remplacée par l'**assignation par
-l'admin**. Trois sources d'affectation (`CoverageDetail.source`) :
+The broadcasting of duties ("À prendre" (To take), "Je prends" (I take it)) is replaced by **assignment by
+the admin**. Three assignment sources (`CoverageDetail.source`):
 
-| Source | Créée par | Naît | Route |
+| Source | Created by | Starts as | Route |
 |---|---|---|---|
-| `TEACHER_REQUEST` | enseignant (groupe Enseignants), pour aujourd'hui ou demain | `PENDING` | `POST /coverage/teacher-requests` |
-| `SUPERVISOR_REPORT` | surveillant (groupe Surveillants) : classe vide | `ON_DUTY` à son nom | `POST /coverage/empty-class` |
-| `ADMIN_DIRECT` | admin ou super administrateur | `ACCEPTED` | `POST /coverage` |
+| `TEACHER_REQUEST` | teacher (Teachers group), for today or tomorrow | `PENDING` | `POST /coverage/teacher-requests` |
+| `SUPERVISOR_REPORT` | supervisor (Supervisors group): empty class | `ON_DUTY` in their name | `POST /coverage/empty-class` |
+| `ADMIN_DIRECT` | admin or super administrator | `ACCEPTED` | `POST /coverage` |
 
-Les rôles ne changent pas de nature : `MANAGER` est renommé `ADMIN` (migration 0009) ;
-enseignants et surveillants sont des `EMPLOYEE` repérés par des **groupes à clé système**
-(`EmployeeGroup.systemKey` : `TEACHERS`, `SUPERVISORS`), jamais par leur nom (R7).
+The roles do not change nature: `MANAGER` is renamed `ADMIN` (migration 0009);
+teachers and supervisors are `EMPLOYEE`s identified by **system-key groups**
+(`EmployeeGroup.systemKey`: `TEACHERS`, `SUPERVISORS`), never by their name (R7).
 
-### Domaine pur (`backend/src/coverage/domain/`)
+### Pure domain (`backend/src/coverage/domain/`)
 
-| Fichier | Rôle |
+| File | Role |
 |---|---|
-| `coverage-state-machine.ts` | Transitions, acteurs (`ADMIN`, `ASSIGNEE`, `SUPPORT`, `REQUESTER_TEACHER`, `SUPERVISOR`, `SYSTEM`), créations ; plus de diffusion ni d'acceptation volontaire |
-| `coverage-status.ts` | **Statut principal dérivé** (`PENDING`, `ASSIGNED`, `IN_PROGRESS`, `DONE`, `CANCELLED`, `UNFILLED`) et sous-état (en route, en retard, relève demandée, clôturée) calculés depuis `Request.status`, seule source de vérité (R1) |
-| `coverage-policy.ts` | Vues (`ADMIN`, `SUPERVISOR`, `TEACHER` : le motif n'est jamais montré au surveillant), capacités du module, éligibilité à l'assignation |
-| `coverage-reminders.ts` | Échéances (`CoverageReminder`) : délai de prise en charge et escalade, rappel du matin, rappels de clôture, rappels de renfort (R2) |
-| `coverage-duplicates.ts` | Issue d'une déclaration de classe vide : création, rattachement, déjà assignée, renfort, proposition de rattachement |
-| `coverage-stats.ts` | Statistiques à la demande (annulées et doublons non tranchés à part) |
-| `common/school-time.ts` | Dates et heures locales de l'école (`SCHOOL_TIMEZONE`) |
+| `coverage-state-machine.ts` | Transitions, actors (`ADMIN`, `ASSIGNEE`, `SUPPORT`, `REQUESTER_TEACHER`, `SUPERVISOR`, `SYSTEM`), creations; no more broadcasting or voluntary acceptance |
+| `coverage-status.ts` | **Derived main status** (`PENDING`, `ASSIGNED`, `IN_PROGRESS`, `DONE`, `CANCELLED`, `UNFILLED`) and sub-state (en route, late, handover requested, closed) computed from `Request.status`, the single source of truth (R1) |
+| `coverage-policy.ts` | Views (`ADMIN`, `SUPERVISOR`, `TEACHER`: the reason is never shown to the supervisor), module capabilities, eligibility for assignment |
+| `coverage-reminders.ts` | Due dates (`CoverageReminder`): acceptance deadline and escalation, morning reminder, closing reminders, reinforcement reminders (R2) |
+| `coverage-duplicates.ts` | Outcome of an empty class report: creation, linking, already assigned, reinforcement, linking proposal |
+| `coverage-stats.ts` | On-demand statistics (cancelled and undecided duplicates counted separately) |
+| `common/school-time.ts` | Local dates and times of the school (`SCHOOL_TIMEZONE`) |
 
 ### Services
 
-| Service | Rôle |
+| Service | Role |
 |---|---|
-| `CoverageService` | Demandes des enseignants, affectation directe, listes, détail, disponibilités, surveillants proposables |
-| `CoverageActionsService` | Application des transitions en transaction : mise à jour conditionnelle (statut + version), historique en ajout seul, échéances, renforts, relève en cascade, notifications publiées après validation |
-| `CoverageDeclarationsService` | Classes vides (verrou consultatif par classe), renforts, propositions de rattachement et décisions de l'admin |
-| `CoverageStatsService` | `GET /coverage/stats` (admins, aucun export) |
-| `CoverageAnonymizationService` | Anonymisation après `coverageRetentionMonths` (FR-023a) : historique, audit et notifications jamais modifiés |
+| `CoverageService` | Teacher requests, direct assignment, lists, detail, availability, supervisors that can be proposed |
+| `CoverageActionsService` | Application of the transitions in a transaction: conditional update (status + version), append-only history, due dates, reinforcements, cascading handover, notifications published after commit |
+| `CoverageDeclarationsService` | Empty classes (advisory lock per class), reinforcements, linking proposals and admin decisions |
+| `CoverageStatsService` | `GET /coverage/stats` (admins, no export) |
+| `CoverageAnonymizationService` | Anonymization after `coverageRetentionMonths` (FR-023a): history, audit and notifications never modified |
 
 ### Jobs (`backend/src/scheduler/`)
 
-| Job | Fréquence | Rôle |
+| Job | Frequency | Role |
 |---|---|---|
-| `coverage-reminders.job.ts` | `JOB_INTERVAL_MS` | Échéances dues (`FOR UPDATE SKIP LOCKED`, condition revérifiée avant chaque envoi) ; passage « non pourvue » des demandes jamais assignées |
-| `coverage-deadlines.job.ts` | `JOB_INTERVAL_MS` | Délai d'arrivée (présence non confirmée à temps) |
-| `coverage-anonymization.job.ts` | toutes les heures | Anonymisation par lots de 200, idempotente (`anonymizedAt`) |
+| `coverage-reminders.job.ts` | `JOB_INTERVAL_MS` | Due dates reached (`FOR UPDATE SKIP LOCKED`, condition rechecked before each send); switch to "non pourvue" (unfilled) of requests never assigned |
+| `coverage-deadlines.job.ts` | `JOB_INTERVAL_MS` | Arrival deadline (attendance not confirmed in time) |
+| `coverage-anonymization.job.ts` | every hour | Anonymization in batches of 200, idempotent (`anonymizedAt`) |
 
-Chaque job prend un verrou consultatif transactionnel : une seule exécution à la fois, même
-avec plusieurs instances.
+Each job takes a transactional advisory lock: only one run at a time, even
+with several instances.
 
-### Accès
+### Access
 
-Matrice testée route par route dans `test/integration/supervision-permissions.spec.ts` :
-hors périmètre, `404` et refus journalisé `ACCESS_DENIED` ; l'administration du module
-(`/admin/coverage/*`, `/admin/floors`) reste derrière `SuperAdminGuard` (`403`).
+Matrix tested route by route in `test/integration/supervision-permissions.spec.ts`:
+out of scope, `404` and a logged `ACCESS_DENIED` refusal; the module's administration
+(`/admin/coverage/*`, `/admin/floors`) remains behind `SuperAdminGuard` (`403`).
 
 ### Frontend (`frontend/src/features/coverage/`)
 
-Menu « Gardes » visible des admins, du super administrateur et des membres des groupes
-Enseignants ou Surveillants (`canSeeCoverage`, d'après `GET /auth/me`). Écrans : file de l'admin
-(« En attente » en tête, « En cours », « Doublons », « Équipe », « Terminées »),
-`TeacherRequestPage`, `EmptyClassPage`, `CreateCoveragePage`, `CoverageStatsPage`, détail avec
-historique lisible ; alerte urgente avec signal sonore facultatif (`useUrgentSound`).
+The "Gardes" (Duties) menu is visible to admins, the super administrator and members of the
+Teachers or Supervisors groups (`canSeeCoverage`, from `GET /auth/me`). Screens: admin queue
+("En attente" (Pending) first, "En cours" (In progress), "Doublons" (Duplicates), "Équipe" (Team), "Terminées" (Completed)),
+`TeacherRequestPage`, `EmptyClassPage`, `CreateCoveragePage`, `CoverageStatsPage`, detail with a
+readable history; urgent alert with an optional sound signal (`useUrgentSound`).
 
-## 14. Assistance à la création des demandes (fonctionnalité 009)
+## 14. Assistance for creating requests (feature 009)
 
-Spécification, plan et tâches : `specs/009-assistance-ia-demandes/`.
+Specification, plan and tasks: `specs/009-assistance-ia-demandes/`.
 
-### Principe
+### Principle
 
-L'assistance **propose**, le demandeur **décide** : titre, catégorie et priorité proposés d'après
-des consignes rédigées par le super administrateur ; aucun champ n'est rempli sans clic. Toutes
-les règles existantes (droits de création, circuits, machine à états, notifications) s'appliquent
-à l'envoi comme avant. Aucun appel externe dans ce lot : fournisseurs `disabled` (par défaut) et
-`demo` (local, déterministe, refusé en production).
+The assistance **proposes**, the requester **decides**: title, category and priority proposed from
+guidelines written by the super administrator; no field is filled in without a click. All
+existing rules (creation rights, workflows, state machine, notifications) apply
+on submission as before. No external call in this phase: providers `disabled` (default) and
+`demo` (local, deterministic, refused in production).
 
-### Module `backend/src/assist/` (couche placée après `requests`, avant `coverage`)
+### Module `backend/src/assist/` (layer placed after `requests`, before `coverage`)
 
-| Élément | Rôle |
+| Element | Role |
 |---|---|
-| `providers/assist-providers.ts` | Interfaces `SuggestionProvider` et `TranscriptionProvider`, jetons d'injection, fabrique selon `config.assist` (`disabled` → `null`) ; un fournisseur réel s'ajoutera ici |
-| `domain/demo-suggest.ts` | Propositions de démonstration (fonction pure) |
-| `domain/sanitize-suggestion.ts` | Contrôle champ par champ de la réponse du fournisseur : catégories et consignes autorisées seulement, priorités du projet, longueurs bornées |
-| `guidelines.service.ts` | Consignes (CRUD audité `GUIDELINE_CHANGED`, sans le texte) et recherche plein texte PostgreSQL en français (`to_tsvector('french', …)`), filtrée par catégories autorisées, 5 résultats |
-| `assist.service.ts` | `suggest` et `transcribe` : contrôle d'accès en tête (`ACCESS_DENIED` journalisé), limite d'appels, délai `ASSIST_TIMEOUT_MS` imposé même si le fournisseur l'ignore, jeton signé ; journal applicatif sans le texte |
-| `assist-rate-limiter.ts` | Fenêtre glissante en mémoire par utilisateur (5 min), partagée par les deux routes |
+| `providers/assist-providers.ts` | `SuggestionProvider` and `TranscriptionProvider` interfaces, injection tokens, factory according to `config.assist` (`disabled` → `null`); a real provider will be added here |
+| `domain/demo-suggest.ts` | Demo suggestions (pure function) |
+| `domain/sanitize-suggestion.ts` | Field-by-field check of the provider's response: only authorized categories and guidelines, the project's priorities, bounded lengths |
+| `guidelines.service.ts` | Guidelines (audited CRUD `GUIDELINE_CHANGED`, without the text) and PostgreSQL full-text search in French (`to_tsvector('french', …)`), filtered by authorized categories, 5 results |
+| `assist.service.ts` | `suggest` and `transcribe`: access control first (`ACCESS_DENIED` logged), call limit, `ASSIST_TIMEOUT_MS` deadline enforced even if the provider ignores it, signed token; application log without the text |
+| `assist-rate-limiter.ts` | In-memory sliding window per user (5 min), shared by the two routes |
 | `assist.controller.ts`, `admin-guidelines.controller.ts` | `POST /api/assist/suggestions`, `POST /api/assist/transcriptions`, `/api/admin/guidelines` (`SuperAdminGuard`) |
 
-`common/assist-token.ts` : jeton HMAC-SHA256 (clé dérivée de `SESSION_SECRET`) portant les
-valeurs proposées ; lu par `RequestsService.create`, qui écrit `ASSIST_SUGGESTED` (proposé et
-retenu, sources) dans la transaction de création. Aucune proposition n'est conservée avant l'envoi.
-La transcription réutilise `FilesService.prepareVoice` (mêmes contrôles qu'un vocal) et
-n'enregistre ni fichier ni ligne `File`.
+`common/assist-token.ts`: HMAC-SHA256 token (key derived from `SESSION_SECRET`) carrying the
+proposed values; read by `RequestsService.create`, which writes `ASSIST_SUGGESTED` (proposed and
+kept, sources) in the creation transaction. No suggestion is kept before submission.
+The transcription reuses `FilesService.prepareVoice` (same checks as a voice message) and
+stores neither a file nor a `File` row.
 
-### Variables d'environnement
+### Environment variables
 
 `ASSIST_SUGGESTION_PROVIDER`, `ASSIST_TRANSCRIPTION_PROVIDER` (`disabled` | `demo`),
-`ASSIST_TIMEOUT_MS` (1 000 à 20 000, défaut 15 000), `ASSIST_RATE_LIMIT` (défaut 10 par
-5 minutes), `ASSIST_DEMO_TRANSCRIPT` (texte de démonstration). Voir `backend/.env.example`.
-`GET /api/settings/client` expose `assistSuggestions` et `assistTranscription`.
+`ASSIST_TIMEOUT_MS` (1,000 to 20,000, default 15,000), `ASSIST_RATE_LIMIT` (default 10 per
+5 minutes), `ASSIST_DEMO_TRANSCRIPT` (demo text). See `backend/.env.example`.
+`GET /api/settings/client` exposes `assistSuggestions` and `assistTranscription`.
 
 ### Frontend
 
-`features/assist/AssistPanel.tsx` sous les champs de « Nouvelle demande » (transcription « à
-vérifier », modifiable, distincte de la description) ; onglet « Consignes »
-(`features/admin/GuidelinesAdminPage.tsx`) ; entrée « Propositions automatiques » de l'historique
-(`HistoryTimeline.tsx`). Le jeton suit la demande dans la boîte d'envoi hors ligne.
+`features/assist/AssistPanel.tsx` under the fields of "Nouvelle demande" (New request) (transcription "à
+vérifier" (to be checked), editable, distinct from the description); "Consignes" (Guidelines) tab
+(`features/admin/GuidelinesAdminPage.tsx`); "Propositions automatiques" (Automatic suggestions) entry of the history
+(`HistoryTimeline.tsx`). The token follows the request in the offline outbox.
 
 ### Migration
 
-`0011_request_assist` (table `Guideline`, valeurs `ASSIST_SUGGESTED` et `GUIDELINE_CHANGED`),
-avec `down.sql`.
+`0011_request_assist` (`Guideline` table, values `ASSIST_SUGGESTED` and `GUIDELINE_CHANGED`),
+with `down.sql`.
 
-### Compléments de la fonctionnalité 010 (connecteurs réels, demandes similaires)
+### Additions from feature 010 (real connectors, similar requests)
 
-Spécification : `specs/010-assistance-fournisseurs-similaires/`.
+Specification: `specs/010-assistance-fournisseurs-similaires/`.
 
-- **Demandes similaires** : `assist/similar-requests.service.ts`. Recherche plein texte en français
-  sur titre et description (`kind = WORK`, hors brouillons, 20 candidats), puis filtre
-  `visibleRequestsWhere(user)` — la règle de la liste des demandes —, 3 résultats. Réponse de
-  `POST /api/assist/suggestions` : champ `similar` (référence, titre, catégorie, priorité, statut) ;
-  transmis au fournisseur réduit à titre, catégorie et priorité. Aucune migration ni index.
-- **Connecteur Whisper** (`ASSIST_TRANSCRIPTION_PROVIDER=whisper`) :
-  `assist/providers/whisper-transcription.ts`, `fetch` natif vers
-  `{ASSIST_WHISPER_URL}/v1/audio/transcriptions` (serveur de l'établissement, interface compatible
-  OpenAI), `language=fr`, clé facultative ; `https` exigé en production.
-- **Connecteur Claude** (`ASSIST_SUGGESTION_PROVIDER=claude`) :
-  `assist/providers/claude-suggestion.ts`, SDK officiel `@anthropic-ai/sdk`, modèle
-  `ASSIST_CLAUDE_MODEL` (défaut `claude-opus-5-5`), sortie structurée par schéma JSON (catégories et
-  priorités en `enum`), texte délimité par `<demande>`, repli serveur `fallbacks: "default"` en cas
-  de refus, aucune nouvelle tentative client ; la réponse passe toujours par `sanitizeSuggestion`.
-- **Désactivés par défaut** : un connecteur réel incomplet empêche l'API de démarrer
-  (`ConfigError`). Leur activation envoie des données hors de l'application et exige la décision de
-  l'établissement (accord de traitement, conservation). Les tests n'appellent aucun service
-  extérieur (`fetch` et SDK simulés).
+- **Similar requests**: `assist/similar-requests.service.ts`. Full-text search in French
+  on title and description (`kind = WORK`, excluding drafts, 20 candidates), then the filter
+  `visibleRequestsWhere(user)` — the request list rule —, 3 results. Response of
+  `POST /api/assist/suggestions`: `similar` field (reference, title, category, priority, status);
+  passed to the provider reduced to title, category and priority. No migration or index.
+- **Whisper connector** (`ASSIST_TRANSCRIPTION_PROVIDER=whisper`):
+  `assist/providers/whisper-transcription.ts`, native `fetch` to
+  `{ASSIST_WHISPER_URL}/v1/audio/transcriptions` (the school's server, OpenAI-compatible
+  interface), `language=fr`, optional key; `https` required in production.
+- **Claude connector** (`ASSIST_SUGGESTION_PROVIDER=claude`):
+  `assist/providers/claude-suggestion.ts`, official SDK `@anthropic-ai/sdk`, model
+  `ASSIST_CLAUDE_MODEL` (default `claude-opus-5-5`), structured output by JSON schema (categories and
+  priorities as `enum`), text delimited by `<demande>`, server fallback `fallbacks: "default"` on
+  refusal, no client retry; the response always goes through `sanitizeSuggestion`.
+- **Disabled by default**: an incomplete real connector prevents the API from starting
+  (`ConfigError`). Enabling them sends data outside the application and requires the school's
+  decision (processing agreement, retention). The tests call no external
+  service (`fetch` and SDK mocked).
 
-### Compléments du 29/10/2026 (branche `011-assistance-regles-whisper-local`) : sans abonnement
+### Additions of 29/10/2026 (branch `011-assistance-regles-whisper-local`): without subscription
 
-- **Propositions par règles** : `ASSIST_SUGGESTION_PROVIDER=rules` branche le moteur `demoSuggest`
-  (consignes « Priorité : … », mots des noms de catégories, première phrase comme titre) et les
-  demandes similaires, **autorisé en production**, sans service externe ni frais. `demo` reste
-  refusé en production (la transcription `demo` renvoie un texte fixe).
-- **Délai propre à la transcription** : `ASSIST_TRANSCRIPTION_TIMEOUT_MS` (1 000 à 300 000 ms, défaut
-  120 000 ms) ; `ASSIST_TIMEOUT_MS` (20 s au plus) ne concerne plus que les propositions. Plafond sous
-  le `requestTimeout` de Node (300 s) ; ni le client HTTP du navigateur ni Caddy n'imposent de délai.
-- **Whisper local en HTTPS** : service `whisper` (image `speaches` 0.8.3-cpu figée par empreinte,
-  profil `whisper` désactivé par défaut, **aucun port publié**, volume `whisper_models`) ; Caddy le
-  relaie sur `https://caddy:8444`, port interne jamais publié, certificat de son autorité interne.
-  L'API reconnaît cette autorité par `ASSIST_WHISPER_CA_FILE` (volume de Caddy monté en lecture
-  seule), relu à chaque appel par le connecteur (transport `http`/`https` natif de Node, vérification
-  TLS jamais désactivée), car Caddy démarre après l'API.
-- **Variables** transmises à l'API par `deploy/docker-compose.yml` (valeurs vides = défauts de
-  l'API) ; documentées dans `deploy/.env.example` et `backend/.env.example`.
-- **Test réel facultatif** : `backend/test/integration/assist-whisper-live.spec.ts`, ignoré sans
+- **Rule-based suggestions**: `ASSIST_SUGGESTION_PROVIDER=rules` plugs in the `demoSuggest` engine
+  (guidelines "Priorité : …", words of the category names, first sentence as title) and the similar
+  requests, **allowed in production**, with no external service or fees. `demo` remains
+  refused in production (the `demo` transcription returns a fixed text).
+- **Dedicated transcription deadline**: `ASSIST_TRANSCRIPTION_TIMEOUT_MS` (1,000 to 300,000 ms, default
+  120,000 ms); `ASSIST_TIMEOUT_MS` (20 s at most) now concerns only the suggestions. Ceiling below
+  Node's `requestTimeout` (300 s); neither the browser's HTTP client nor Caddy imposes a deadline.
+- **Local Whisper over HTTPS**: `whisper` service (`speaches` 0.8.3-cpu image pinned by digest,
+  `whisper` profile disabled by default, **no published port**, `whisper_models` volume); Caddy
+  relays it on `https://caddy:8444`, an internal port never published, certificate from its internal authority.
+  The API recognizes this authority through `ASSIST_WHISPER_CA_FILE` (Caddy's volume mounted read-only),
+  re-read on every call by the connector (native Node `http`/`https` transport, TLS
+  verification never disabled), because Caddy starts after the API.
+- **Variables** passed to the API by `deploy/docker-compose.yml` (empty values = API
+  defaults); documented in `deploy/.env.example` and `backend/.env.example`.
+- **Optional live test**: `backend/test/integration/assist-whisper-live.spec.ts`, skipped without
   `ASSIST_WHISPER_TEST_URL`.
-

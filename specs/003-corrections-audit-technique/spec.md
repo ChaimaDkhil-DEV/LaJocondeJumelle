@@ -1,7 +1,7 @@
-# Feature Specification: Corrections issues de l'audit technique
+# Feature Specification: Fixes from the technical audit
 
-> **Depuis la fonctionnalité 004, le rôle « Responsable » s'appelle « Admin » ; la terminologie de la
-> spécification courante (`specs/004-retards-affectation-surveillants/spec.md`) fait foi.**
+> **Since feature 004, the role « Responsable » (Manager) is called « Admin »; the terminology of the
+> current specification (`specs/004-retards-affectation-surveillants/spec.md`) prevails.**
 
 **Feature Branch**: `003-corrections-audit-technique`
 
@@ -9,568 +9,567 @@
 
 **Status**: Draft
 
-**Input**: User description: "Corriger les incohérences et faiblesses techniques identifiées dans
-docs/ARCHITECTURE.md, en particulier les sections 7 « Incohérences constatées » et 10 « Faiblesses
-d'architecture ». Utiliser ce rapport comme source principale sans refaire l'audit depuis zéro.
-Conserver les distinctions [VÉRIFIÉ] et [DÉDUIT]. Le périmètre couvre la configuration du port
-3002, la sécurité, les tests, les dépendances entre modules, l'affectation automatique et FR-022,
-ainsi que la préparation à la production. Ne pas considérer les décisions métier non validées comme
-des exigences définitives. Distinguer les corrections techniques réalisables des décisions
-nécessitant une validation humaine."
+**Input**: User description: "Fix the technical inconsistencies and weaknesses identified in
+docs/ARCHITECTURE.md, in particular sections 7 « Incohérences constatées » (Inconsistencies found) and 10 « Faiblesses
+d'architecture » (Architecture weaknesses). Use this report as the main source without redoing the audit from scratch.
+Keep the [VERIFIED] and [INFERRED] distinctions. The scope covers the port 3002
+configuration, security, tests, dependencies between modules, automatic assignment and FR-022,
+as well as production readiness. Do not treat unvalidated business decisions
+as final requirements. Distinguish the technical fixes that can be done from the decisions
+requiring human validation."
 
-## Source et méthode
+## Source and method
 
-- **Source unique** : `docs/ARCHITECTURE.md` (analyse du 2026-10-15, branche
-  `002-refonte-ui-destinataires`, commit `595c3fc`), en particulier §7 « Incohérences
-  constatées », §8, §9, §10 « Faiblesses d'architecture » et §11 « Ce que je dois vérifier
-  moi-même ». L'audit n'est **pas** refait ; chaque exigence renvoie au constat qui la justifie.
-- **Marquage repris tel quel** :
-  - **[VÉRIFIÉ]** : constat lu dans le code, la configuration ou le résultat d'une commande ;
-  - **[DÉDUIT]** : interprétation non prouvée. Une exigence fondée sur un constat [DÉDUIT] DOIT
-    d'abord confirmer le constat (test ou mesure) avant toute correction.
-- **Mise à jour depuis l'audit** : les trois modifications « non commitées » citées par l'audit
-  (port 3002 dans `config.ts`, `vite.config.ts`, `frontend/package.json`) et `start.bat` ont été
-  commitées le 2026-10-15 (`1e6d4ee`) ; `docs/ARCHITECTURE.md` l'a été dans `eafa1e6`. Les
-  constats restent valables : le test `config.spec.ts` échoue toujours (vérifié après commit).
-- **Classement de chaque constat** :
-  - **CT** — correction technique réalisable sans décision métier ;
-  - **DH** — décision nécessitant une validation humaine (établissement ou responsable du projet) ;
-  - **HP** — hors périmètre de cette fonctionnalité (consigné, non traité).
+- **Single source**: `docs/ARCHITECTURE.md` (analysis of 2026-10-15, branch
+  `002-refonte-ui-destinataires`, commit `595c3fc`), in particular §7 « Incohérences
+  constatées », §8, §9, §10 « Faiblesses d'architecture » and §11 « Ce que je dois vérifier
+  moi-même » (What I must verify myself). The audit is **not** redone; each requirement points to the finding that justifies it.
+- **Marking kept as is**:
+  - **[VERIFIED]**: finding read in the code, the configuration or the result of a command;
+  - **[INFERRED]**: unproven interpretation. A requirement based on an [INFERRED] finding MUST
+    first confirm the finding (test or measurement) before any fix.
+- **Update since the audit**: the three "uncommitted" changes cited by the audit (port 3002 in
+  `config.ts`, `vite.config.ts`, `frontend/package.json`) and `start.bat` were
+  committed on 2026-10-15 (`1e6d4ee`); `docs/ARCHITECTURE.md` was in `eafa1e6`. The
+  findings remain valid: the `config.spec.ts` test still fails (verified after the commit).
+- **Classification of each finding**:
+  - **CT** — technical fix achievable without a business decision;
+  - **DH** — decision requiring human validation (school or project lead);
+  - **HP** — out of scope for this feature (recorded, not handled).
 
-### Registre des constats
+### Findings register
 
-| ID | Constat (résumé) | Source | Marquage | Classe |
+| ID | Finding (summary) | Source | Marking | Class |
 |----|------------------|--------|----------|--------|
-| A01 | Le port par défaut de l'API en développement est 3002, mais l'exemple de configuration, le README, le proxy HTTPS de développement et un test unitaire indiquent encore 3000 ; ce test échoue | §7.8, §9, §11.2 | [VÉRIFIÉ] | CT |
-| A02 | Le lanceur de développement démarre la version **compilée** de l'API (pas de rechargement, compilation préalable obligatoire), alors que le README recommande le mode avec rechargement | §7.9, §9 | [VÉRIFIÉ] | CT |
-| A03 | En circuit B, l'affectation automatique lit la configuration **actuelle** de la catégorie à l'approbation, et non la règle figée à la soumission | §7.1 | [VÉRIFIÉ] | DH (règle) puis CT |
-| A04 | Conséquence : un changement de mode d'affectation entre soumission et approbation s'applique aux demandes déjà soumises | §7.1 | [DÉDUIT] | à confirmer par un test |
-| A05 | Le script de réinitialisation du mot de passe du super administrateur ne journalise pas l'action et ne ferme pas ses sessions | §10 Exploitation, §11.7 | [VÉRIFIÉ] | DH (garder ou supprimer) puis CT |
-| A06 | Les listes de clés sensibles masquées diffèrent entre journaux applicatifs et journal d'audit (`authorization` absent de l'audit, `message` absent des journaux) | §10 Code dupliqué | [VÉRIFIÉ] | CT |
-| A07 | Le réglage de confiance envers le proxy et le port sont lus hors de la validation de configuration au démarrage | §8, §10 Responsabilités | [VÉRIFIÉ] | CT |
-| A08 | Le contrôle d'origine est écrit deux fois (requêtes HTTP et connexions temps réel) | §10 Code dupliqué | [VÉRIFIÉ] | CT |
-| A09 | Cycles d'import entre domaines : demandes ↔ fichiers, authentification ↔ demandes, socle commun ↔ audit et ↔ authentification ; un module de contournement existe pour un cycle | §10 Couplages | [VÉRIFIÉ] | CT |
-| A10 | Le stockage de fichiers connaît la politique d'accès de chaque domaine métier (demandes et couverture de classe) | §10 Couplages | [VÉRIFIÉ] | CT |
-| A11 | Tout nouveau type de ressource avec fichiers obligera à modifier le service de fichiers | §10 Couplages | [DÉDUIT] | CT (conséquence de A10) |
-| A12 | Règles transverses (permissions par rôle, droits d'administration et d'audit) rangées dans la politique d'accès du domaine des demandes | §10 Responsabilités | [VÉRIFIÉ] | CT |
-| A13 | Le chargeur de règles de catégorie est déclaré dans 5 modules au lieu d'être partagé | §7.2 | [VÉRIFIÉ] | CT |
-| A14 | Impact de A13 faible (service sans état) | §7.2 | [DÉDUIT] | — |
-| A15 | Le job de délais de la couverture de classe est rangé hors du dossier des tâches planifiées | §7.3 | [VÉRIFIÉ] | CT |
-| A16 | Publicateur de notifications « sans effet » exporté mais inutilisé, commentaire périmé | §7.4 | [VÉRIFIÉ] | CT |
-| A17 | Types du frontend écrits à la main ; le fichier de types générés annoncé n'existe pas ; les énumérations sont dupliquées entre serveur et interface | §7.5, §10 Code dupliqué | [VÉRIFIÉ] | CT |
-| A18 | Dépendance d'icônes déclarée mais jamais importée | §7.6 | [VÉRIFIÉ] | CT |
-| A19 | Deux scripts d'exploitation ne respectent pas la convention de formatage du projet | §7.7 | [VÉRIFIÉ] | CT |
-| A20 | Tests d'intégration, de bout en bout et lint non exécutés par l'audit | §10 Testabilité, §11.3, §11.4 | [DÉDUIT] (non lancés) | CT |
-| A21 | Aucune intégration continue dans le dépôt ; déploiements manuels | §9 | [VÉRIFIÉ] / [DÉDUIT] | DH |
-| A22 | Migrations appliquées automatiquement à chaque démarrage, sans sauvegarde imposée techniquement | §10 Exploitation | [VÉRIFIÉ] | CT |
-| A23 | Une migration défectueuse empêcherait l'API de démarrer sans étape intermédiaire | §10 Exploitation | [DÉDUIT] | CT (à couvrir par la procédure) |
-| A24 | Restauration des sauvegardes jamais vérifiée | §11.8 | [DÉDUIT] (non testé) | CT |
-| A25 | CSP, HSTS et limite de taille configurées mais non vérifiées sur un déploiement réel | §11.12 | [DÉDUIT] (non testé) | CT |
-| A26 | Objectifs de performance couverts par des tests non exécutés par l'audit | §11.9 | [DÉDUIT] (non lancés) | CT |
-| A27 | Aucune purge automatique des données personnelles ; durées de conservation provisoires | §10 Exploitation, §11.10 | [VÉRIFIÉ] | DH |
-| A28 | Une seule instance d'API possible (état en mémoire) | §10 Exploitation | [VÉRIFIÉ] | HP (assumé par le plan du lot 1) |
-| A29 | Deux machines à états, deux politiques d'accès, deux calculs et jobs de délais (lot 1 et lot 2) | §10 Code dupliqué | [VÉRIFIÉ] | HP |
-| A30 | Services volumineux (couverture de classe, demandes) | §10 Responsabilités | [VÉRIFIÉ] | HP |
-| A31 | Six modules globaux masquent les dépendances réelles | §10 Couplages | [VÉRIFIÉ] / [DÉDUIT] | HP |
-| A32 | Lot 2 (couverture de classe) sans spécification | §11.5 | [VÉRIFIÉ] | DH / HP |
-| A33 | Aucun outil de suivi d'erreurs ni métrique | §8 | [DÉDUIT] | HP |
-| A34 | `embedded-postgres` en version bêta (développement et tests uniquement) | §10 Exploitation | [VÉRIFIÉ] | HP |
-| A35 | Validations manuelles (iPhone réel, test d'utilisabilité) non faites | §11.11 | [VÉRIFIÉ] | HP (tâches T119, T120 du lot 1) |
+| A01 | The API's default port in development is 3002, but the example configuration, the README, the development HTTPS proxy and a unit test still say 3000; this test fails | §7.8, §9, §11.2 | [VERIFIED] | CT |
+| A02 | The development launcher starts the **compiled** version of the API (no reload, prior build mandatory), while the README recommends the reload mode | §7.9, §9 | [VERIFIED] | CT |
+| A03 | In workflow B, automatic assignment reads the **current** configuration of the category at approval, and not the rule frozen at submission | §7.1 | [VERIFIED] | DH (rule) then CT |
+| A04 | Consequence: a change of assignment mode between submission and approval applies to requests already submitted | §7.1 | [INFERRED] | to be confirmed by a test |
+| A05 | The script that resets the super administrator's password does not log the action and does not close their sessions | §10 Operations, §11.7 | [VERIFIED] | DH (keep or delete) then CT |
+| A06 | The lists of masked sensitive keys differ between application logs and the audit log (`authorization` missing from the audit, `message` missing from the logs) | §10 Duplicated code | [VERIFIED] | CT |
+| A07 | The proxy trust setting and the port are read outside the startup configuration validation | §8, §10 Responsibilities | [VERIFIED] | CT |
+| A08 | The origin check is written twice (HTTP requests and real-time connections) | §10 Duplicated code | [VERIFIED] | CT |
+| A09 | Import cycles between domains: requests ↔ files, authentication ↔ requests, common base ↔ audit and ↔ authentication; a workaround module exists for one cycle | §10 Couplings | [VERIFIED] | CT |
+| A10 | File storage knows the access policy of each business domain (requests and class coverage) | §10 Couplings | [VERIFIED] | CT |
+| A11 | Any new resource type with files will force a change to the file service | §10 Couplings | [INFERRED] | CT (consequence of A10) |
+| A12 | Cross-cutting rules (permissions by role, administration and audit rights) placed in the access policy of the requests domain | §10 Responsibilities | [VERIFIED] | CT |
+| A13 | The category rules loader is declared in 5 modules instead of being shared | §7.2 | [VERIFIED] | CT |
+| A14 | Impact of A13 is low (stateless service) | §7.2 | [INFERRED] | — |
+| A15 | The class coverage deadlines job is placed outside the scheduled tasks folder | §7.3 | [VERIFIED] | CT |
+| A16 | "No-op" notification publisher exported but unused, outdated comment | §7.4 | [VERIFIED] | CT |
+| A17 | Frontend types written by hand; the announced generated types file does not exist; enums are duplicated between server and interface | §7.5, §10 Duplicated code | [VERIFIED] | CT |
+| A18 | Icons dependency declared but never imported | §7.6 | [VERIFIED] | CT |
+| A19 | Two operations scripts do not follow the project's formatting convention | §7.7 | [VERIFIED] | CT |
+| A20 | Integration tests, end-to-end tests and lint not run by the audit | §10 Testability, §11.3, §11.4 | [INFERRED] (not run) | CT |
+| A21 | No continuous integration in the repository; manual deployments | §9 | [VERIFIED] / [INFERRED] | DH |
+| A22 | Migrations applied automatically at every startup, with no technically enforced backup | §10 Operations | [VERIFIED] | CT |
+| A23 | A faulty migration would prevent the API from starting without an intermediate step | §10 Operations | [INFERRED] | CT (to be covered by the procedure) |
+| A24 | Restoring backups never verified | §11.8 | [INFERRED] (not tested) | CT |
+| A25 | CSP, HSTS and size limit configured but not verified on a real deployment | §11.12 | [INFERRED] (not tested) | CT |
+| A26 | Performance objectives covered by tests not run by the audit | §11.9 | [INFERRED] (not run) | CT |
+| A27 | No automatic purge of personal data; retention periods provisional | §10 Operations, §11.10 | [VERIFIED] | DH |
+| A28 | Only one API instance possible (in-memory state) | §10 Operations | [VERIFIED] | HP (accepted by the phase 1 plan) |
+| A29 | Two state machines, two access policies, two deadline computations and jobs (phase 1 and phase 2) | §10 Duplicated code | [VERIFIED] | HP |
+| A30 | Large services (class coverage, requests) | §10 Responsibilities | [VERIFIED] | HP |
+| A31 | Six global modules hide the real dependencies | §10 Couplings | [VERIFIED] / [INFERRED] | HP |
+| A32 | Phase 2 (class coverage) without a specification | §11.5 | [VERIFIED] | DH / HP |
+| A33 | No error tracking tool or metrics | §8 | [INFERRED] | HP |
+| A34 | `embedded-postgres` in beta version (development and tests only) | §10 Operations | [VERIFIED] | HP |
+| A35 | Manual validations (real iPhone, usability test) not done | §11.11 | [VERIFIED] | HP (tasks T119, T120 of phase 1) |
 
-### Statut de traitement (au 2026-10-16)
+### Processing status (as of 2026-10-16)
 
-Détail par constat, avec les commits : `docs/ARCHITECTURE.md` §12 ; exécutions :
+Detail per finding, with the commits: `docs/ARCHITECTURE.md` §12; runs:
 `docs/validation/verification-003.md`.
 
-- **Corrigés** : A01, A02, A03, A05 à A10, A12, A13, A15 à A19, A21 (CI ; fusion vérifiée à la
-  main, décision D10), A22 ; ainsi que N1 et N3.
-- **[DÉDUIT] confirmés puis corrigés** (re-marqués [VÉRIFIÉ]) : A04 (test écrit avant la
-  correction, FR-009) et A11 (lecture de `files.service.ts`).
-- **Partiellement vérifiés** : A20 (lint, tests d'intégration et d'interface verts ; bout en bout
-  non lancés, T058) ; A26 (recherche vérifiée par `search-performance.spec.ts` ; chronométrage de
-  création non lancé, T058).
-- **Ouverts, en attente de la préproduction** : A23 (T055), A24 (T056), A25 (T057).
-- **Sans objet** : A14 (A13 corrigé). **Décisions de l'établissement, hors périmètre** : A27 (D4),
-  A32 (D5). **Hors périmètre** : A28 à A31, A33 à A35.
-- N2 : cycle réduit de 11 dossiers à 4 (`auth`, `realtime`, `settings`, `users`), hors périmètre.
+- **Fixed**: A01, A02, A03, A05 to A10, A12, A13, A15 to A19, A21 (CI; merge verified by
+  hand, decision D10), A22; as well as N1 and N3.
+- **[INFERRED] confirmed then fixed** (re-marked [VERIFIED]): A04 (test written before the
+  fix, FR-009) and A11 (reading of `files.service.ts`).
+- **Partially verified**: A20 (lint, integration and interface tests green; end-to-end
+  not run, T058); A26 (search verified by `search-performance.spec.ts`; creation timing
+  not run, T058).
+- **Open, awaiting staging**: A23 (T055), A24 (T056), A25 (T057).
+- **Not applicable**: A14 (A13 fixed). **School decisions, out of scope**: A27 (D4),
+  A32 (D5). **Out of scope**: A28 to A31, A33 to A35.
+- N2: cycle reduced from 11 folders to 4 (`auth`, `realtime`, `settings`, `users`), out of scope.
 
 ## Clarifications
 
 ### Session 2026-10-15
 
-- Q: Quelle règle d'affectation automatique appliquer quand la catégorie change entre la
-  soumission et l'approbation (D1) ? → A: tout est figé à la soumission, mode **et** personne
-  désignée, conformément à la lettre de FR-022 (lot 1) ; si la personne figée n'est plus
-  affectable, l'approbation sans employé choisi est refusée (FR-011). Les deux seules exceptions,
-  EXC-1 et EXC-2 de FR-008, ont été tranchées ensuite (D9 et D8, session suivante).
-- Q: Que faire de l'outil de réinitialisation du mot de passe du super administrateur (D2) ?
-  → A: l'intégrer comme sous-commande de l'outil d'initialisation existant, qui journalise déjà
-  dans l'audit ; le script séparé est supprimé.
-- Q: Comment rejouer les contrôles qualité avant chaque livraison (D3) ? → A: intégration
-  continue automatique pour le lint et les tests unitaires, d'interface et d'intégration ;
-  exécution manuelle consignée pour les tests de bout en bout et de performance.
+- Q: Which automatic assignment rule applies when the category changes between
+  submission and approval (D1)? → A: everything is frozen at submission, mode **and** designated
+  person, following the letter of FR-022 (phase 1); if the frozen person is no longer
+  assignable, approval without a chosen employee is refused (FR-011). The only two exceptions,
+  EXC-1 and EXC-2 of FR-008, were settled afterwards (D9 and D8, next session).
+- Q: What to do with the super administrator password reset tool (D2)?
+  → A: integrate it as a subcommand of the existing initialization tool, which already logs
+  to the audit; the separate script is deleted.
+- Q: How to replay the quality checks before each delivery (D3)? → A: automatic continuous
+  integration for lint and the unit, interface and integration tests;
+  recorded manual execution for the end-to-end and performance tests.
 
-### Session 2026-10-15 (2) — suite de `/speckit-analyze` (constat I1)
+### Session 2026-10-15 (2) — follow-up to `/speckit-analyze` (finding I1)
 
-- Q: Quand la personne figée à la soumission n'est plus affectable à l'approbation (compte
-  désactivé, ou retirée des destinataires de la catégorie), que se passe-t-il après le refus
-  (D8) ? → A: le refus `AUTO_ASSIGNEE_UNAVAILABLE` est d'abord renvoyé ; le responsable peut
-  ensuite approuver en choisissant lui-même un employé affectable ; l'historique trace ce choix.
-- Q: Pour les demandes soumises avant la correction, dont le snapshot ne contient pas la personne
-  désignée, quelle règle appliquer à l'approbation (D9) ? → A: la personne désignée est lue
-  dans la configuration actuelle de la catégorie (comportement actuel), et l'historique l'indique.
+- Q: When the person frozen at submission is no longer assignable at approval (deactivated
+  account, or removed from the category recipients), what happens after the refusal
+  (D8)? → A: the `AUTO_ASSIGNEE_UNAVAILABLE` refusal is returned first; the manager can
+  then approve by choosing an assignable employee themselves; the history traces this choice.
+- Q: For requests submitted before the fix, whose snapshot does not contain the designated
+  person, which rule applies at approval (D9)? → A: the designated person is read
+  from the current configuration of the category (current behavior), and the history says so.
 
-### Session 2026-10-15 (3) — limite de GitHub constatée (constat G3)
+### Session 2026-10-15 (3) — GitHub limit observed (finding G3)
 
-- Q: Les règles de protection de branche ne sont pas disponibles sur le dépôt (privé, offre
-  GitHub gratuite : l'API renvoie `403 Upgrade to GitHub Pro or make this repository public`).
-  Comment garantir qu'aucune modification n'est fusionnée si la suite de tests échoue (D10) ?
-  → A: le dépôt reste privé, sans abonnement payant pour le moment ; la protection automatique de
-  branche est reportée. La CI GitHub (D3) est conservée ; une vérification **manuelle**
-  documentée est obligatoire avant chaque fusion vers `master`. Elle ne constitue pas une
-  protection technique : GitHub n'empêche pas une fusion dont les tests échouent.
+- Q: Branch protection rules are not available on the repository (private, free GitHub
+  plan: the API returns `403 Upgrade to GitHub Pro or make this repository public`).
+  How to guarantee that no change is merged if the test suite fails (D10)?
+  → A: the repository stays private, with no paid subscription for now; automatic branch
+  protection is postponed. GitHub CI (D3) is kept; a documented **manual** check
+  is mandatory before every merge into `master`. It is not a technical
+  protection: GitHub does not prevent a merge whose tests fail.
 
 ## User Scenarios & Testing *(mandatory)*
 
-Les acteurs sont : le **développeur** qui installe et fait évoluer le projet, l'**exploitant** qui
-déploie et sauvegarde l'application, le **super administrateur**, et les **utilisateurs** des
-catégories en circuit B (demandeurs, responsables, employés affectés).
+The actors are: the **developer** who installs and evolves the project, the **operator** who
+deploys and backs up the application, the **super administrator**, and the **users** of the
+categories in workflow B (requesters, managers, assigned employees).
 
-### User Story 1 - Démarrer et tester le projet sans incohérence de port (Priority: P1)
+### User Story 1 - Start and test the project without port inconsistency (Priority: P1)
 
-Un développeur récupère le dépôt, suit le README, copie la configuration d'exemple et démarre
-l'application. L'interface joint l'API du premier coup, sur le port de développement 3002, et la
-suite de tests complète passe.
+A developer fetches the repository, follows the README, copies the example configuration and starts
+the application. The interface reaches the API the first time, on development port 3002, and the
+full test suite passes.
 
-**Why this priority**: aujourd'hui un test échoue (A01) et la constitution interdit de fusionner
-quoi que ce soit tant que la suite est rouge (principe I). Tout le reste de la fonctionnalité en
-dépend.
+**Why this priority**: today a test fails (A01) and the constitution forbids merging
+anything while the suite is red (principle I). Everything else in the feature
+depends on it.
 
-**Independent Test**: sur un poste propre, suivre uniquement le README, puis lancer toutes les
-suites de tests ; aucun fichier ne doit être modifié à la main.
+**Independent Test**: on a clean workstation, follow only the README, then run all the test
+suites; no file must be modified by hand.
 
 **Acceptance Scenarios**:
 
-1. **Given** un poste sans configuration locale, **When** le développeur copie l'exemple de
-   configuration sans le modifier (hors secret) et démarre l'API puis l'interface, **Then**
-   l'interface affiche la page de connexion et ses appels à l'API aboutissent.
-2. **Given** le proxy HTTPS de développement (test du micro sur téléphone), **When** il est
-   démarré, **Then** il relaie les appels à l'API vers le port 3002, comme le proxy de
-   l'interface.
-3. **Given** la configuration du projet, **When** la suite unitaire s'exécute, **Then** le test
-   de configuration vérifie la valeur par défaut 3002 et passe.
-4. **Given** le lanceur Windows, **When** le développeur l'utilise après une modification du
-   code serveur, **Then** la modification est prise en compte sans étape de compilation manuelle
-   (A02), ou le README indique explicitement l'étape requise.
-5. **Given** l'environnement de production, **When** l'API démarre dans son conteneur, **Then**
-   elle écoute sur le port explicitement fixé par le déploiement, sans dépendre de la valeur par
-   défaut de développement.
+1. **Given** a workstation with no local configuration, **When** the developer copies the example
+   configuration without changing it (apart from the secret) and starts the API then the interface, **Then**
+   the interface shows the login page and its calls to the API succeed.
+2. **Given** the development HTTPS proxy (microphone test on a phone), **When** it is
+   started, **Then** it relays calls to the API to port 3002, like the interface's
+   proxy.
+3. **Given** the project configuration, **When** the unit suite runs, **Then** the configuration
+   test checks the default value 3002 and passes.
+4. **Given** the Windows launcher, **When** the developer uses it after a change to the
+   server code, **Then** the change is picked up without a manual build step
+   (A02), or the README explicitly states the required step.
+5. **Given** the production environment, **When** the API starts in its container, **Then**
+   it listens on the port explicitly set by the deployment, without depending on the development
+   default value.
 
 ---
 
-### User Story 2 - Garantir la traçabilité et la sécurité des opérations sensibles (Priority: P1)
+### User Story 2 - Guarantee traceability and security of sensitive operations (Priority: P1)
 
-L'exploitant peut réinitialiser l'accès du super administrateur en cas de perte de mot de passe,
-et cette opération est tracée comme toute autre action d'administration. Les journaux ne laissent
-fuir aucun secret, quelle que soit leur destination, et les mêmes contrôles d'origine
-s'appliquent à toutes les voies d'entrée.
+The operator can reset the super administrator's access in case of a lost password,
+and this operation is traced like any other administration action. The logs leak
+no secret, whatever their destination, and the same origin checks
+apply to all entry paths.
 
-**Why this priority**: la constitution (principe V) exige que toute action d'administration soit
-tracée de façon non modifiable ; le script actuel la contourne (A05). Les écarts de masquage
-(A06) et de configuration non validée (A07) touchent directement la protection des données
-(principe IV).
+**Why this priority**: the constitution (principle V) requires every administration action to be
+traced in a tamper-proof way; the current script bypasses it (A05). The masking gaps
+(A06) and unvalidated configuration (A07) directly affect data protection
+(principle IV).
 
-**Independent Test**: exécuter la réinitialisation sur une base de test et vérifier le journal
-d'audit et les sessions ; injecter des valeurs sensibles dans les deux types de journaux ;
-démarrer l'API avec une configuration de proxy invalide.
+**Independent Test**: run the reset on a test database and check the audit log and the sessions; inject sensitive values into both types of logs;
+start the API with an invalid proxy configuration.
 
 **Acceptance Scenarios**:
 
-1. **Given** un super administrateur avec deux sessions ouvertes, **When** l'exploitant
-   réinitialise son mot de passe par la sous-commande de l'outil d'initialisation (FR-010), **Then** une
-   entrée d'audit non modifiable est créée (action, cible, date, origine « outil
-   d'exploitation »), les deux sessions sont fermées et le compte doit changer son mot de passe
-   à la connexion suivante.
-2. **Given** un événement contenant un en-tête d'autorisation, un mot de passe, un jeton ou le
-   contenu d'un message, **When** il est écrit dans les journaux applicatifs ou dans le journal
-   d'audit, **Then** ces valeurs sont masquées dans les deux.
-3. **Given** une valeur de confiance envers le proxy ou un port invalide, **When** l'API
-   démarre, **Then** elle refuse de démarrer avec un message explicite, comme pour les autres
-   variables obligatoires.
-4. **Given** une requête modifiante ou une connexion temps réel provenant d'une origine
-   étrangère, **When** elle arrive, **Then** elle est refusée par une règle d'origine unique,
-   identique pour les deux voies, et le refus est journalisé.
+1. **Given** a super administrator with two open sessions, **When** the operator
+   resets their password with the initialization tool's subcommand (FR-010), **Then** a
+   tamper-proof audit entry is created (action, target, date, origin "operations
+   tool"), both sessions are closed and the account must change its password
+   at the next login.
+2. **Given** an event containing an authorization header, a password, a token or the
+   content of a message, **When** it is written to the application logs or to the audit
+   log, **Then** these values are masked in both.
+3. **Given** an invalid proxy trust value or port, **When** the API
+   starts, **Then** it refuses to start with an explicit message, like for the other
+   required variables.
+4. **Given** a modifying request or a real-time connection coming from a foreign
+   origin, **When** it arrives, **Then** it is refused by a single origin rule,
+   identical for both paths, and the refusal is logged.
 
 ---
 
-### User Story 3 - Affectation automatique conforme à la règle des snapshots (Priority: P2)
+### User Story 3 - Automatic assignment following the snapshot rule (Priority: P2)
 
-Un responsable approuve, en circuit B, une demande soumise dans une catégorie à affectation
-automatique. Le mode d'affectation **et** la personne désignée sont ceux figés à la soumission
-(décision D1, FR-022 du lot 1), même si l'administrateur a modifié la catégorie entre la
-soumission et l'approbation. Seules deux exceptions s'appliquent (FR-008) : **EXC-1**, une
-demande soumise avant la correction, dont le snapshot ne contient pas la personne désignée, est
-affectée selon la catégorie actuelle (décision D9) ; **EXC-2**, si la personne figée n'est plus
-affectable, l'approbation est refusée puis le responsable choisit un employé affectable
-(décision D8, FR-011).
+A manager approves, in workflow B, a request submitted in a category with automatic
+assignment. The assignment mode **and** the designated person are those frozen at submission
+(decision D1, FR-022 of phase 1), even if the administrator changed the category between
+submission and approval. Only two exceptions apply (FR-008): **EXC-1**, a
+request submitted before the fix, whose snapshot does not contain the designated person, is
+assigned according to the current category (decision D9); **EXC-2**, if the frozen person is no longer
+assignable, approval is refused and then the manager chooses an assignable employee
+(decision D8, FR-011).
 
-**Why this priority**: écart [VÉRIFIÉ] avec une exigence écrite (FR-022 du lot 1), mais il ne se
-produit que si la configuration d'une catégorie change pendant qu'une demande attend son
-approbation.
+**Why this priority**: [VERIFIED] gap with a written requirement (FR-022 of phase 1), but it only
+occurs if a category's configuration changes while a request is awaiting
+approval.
 
-**Independent Test**: soumettre une demande, modifier le mode ou la personne d'affectation de la
-catégorie, approuver, puis vérifier la personne affectée.
+**Independent Test**: submit a request, change the category's assignment mode or person,
+approve, then check the assigned person.
 
 **Acceptance Scenarios**:
 
-1. **Given** une demande soumise quand la catégorie désignait l'employé E1, **When**
-   l'administrateur désigne E2 puis le responsable approuve, **Then** la demande est affectée
-   à E1 (personne figée à la soumission).
-2. **Given** une demande soumise en affectation automatique, **When** l'administrateur passe la
-   catégorie en affectation manuelle avant l'approbation, **Then** la demande est quand même
-   affectée automatiquement à la personne figée à la soumission.
-3. **Given** la personne figée à la soumission n'est plus affectable à l'approbation (compte
-   désactivé ou retiré des destinataires de la catégorie), **When** le responsable approuve sans
-   choisir d'employé, **Then** l'approbation est refusée avec un message l'invitant à choisir
-   l'employé, sans rien modifier ; **When** il approuve ensuite en choisissant un employé
-   affectable, **Then** la demande est affectée à cet employé (décision D8).
-4. **Given** une demande soumise avant la correction, dont le snapshot ne contient pas la
-   personne désignée, **When** le responsable approuve, **Then** la demande est affectée à la
-   personne désignée dans la catégorie actuelle (décision D9).
-5. **Given** l'affectation effectuée, **When** on consulte l'historique de la demande, **Then**
-   l'événement d'affectation créé par l'approbation indique la personne affectée et sa source :
-   snapshot, catégorie actuelle (EXC-1, D9) ou choix du responsable (mode manuel, ou EXC-2, D8).
+1. **Given** a request submitted when the category designated employee E1, **When**
+   the administrator designates E2 and then the manager approves, **Then** the request is assigned
+   to E1 (person frozen at submission).
+2. **Given** a request submitted with automatic assignment, **When** the administrator switches the
+   category to manual assignment before approval, **Then** the request is still
+   assigned automatically to the person frozen at submission.
+3. **Given** the person frozen at submission is no longer assignable at approval (account
+   deactivated or removed from the category recipients), **When** the manager approves without
+   choosing an employee, **Then** approval is refused with a message inviting them to choose
+   the employee, without changing anything; **When** they then approve by choosing an
+   assignable employee, **Then** the request is assigned to that employee (decision D8).
+4. **Given** a request submitted before the fix, whose snapshot does not contain the
+   designated person, **When** the manager approves, **Then** the request is assigned to the
+   person designated in the current category (decision D9).
+5. **Given** the assignment done, **When** the request's history is consulted, **Then**
+   the assignment event created by the approval shows the assigned person and its source:
+   snapshot, current category (EXC-1, D9) or manager's choice (manual mode, or EXC-2, D8).
 
 ---
 
-### User Story 4 - Des dépendances internes lisibles et vérifiées automatiquement (Priority: P2)
+### User Story 4 - Readable internal dependencies, checked automatically (Priority: P2)
 
-Un développeur qui ajoute une fonctionnalité peut identifier les dépendances réelles entre
-domaines ; aucune boucle de dépendance n'existe entre les domaines cités par l'audit, et une
-vérification automatique empêche d'en réintroduire. Le code mort et les doublons signalés ont
-disparu, et toute divergence entre les statuts connus du serveur et ceux de l'interface est
-détectée avant livraison.
+A developer adding a feature can identify the real dependencies between
+domains; no dependency loop exists between the domains cited by the audit, and an
+automatic check prevents reintroducing any. The reported dead code and duplicates have
+disappeared, and any divergence between the statuses known to the server and those of the interface
+is detected before delivery.
 
-**Why this priority**: améliore la maintenabilité sans changer le comportement visible ; doit
-suivre US1 (suite verte) pour que la non-régression soit prouvable.
+**Why this priority**: improves maintainability without changing visible behavior; must
+follow US1 (green suite) so that non-regression is provable.
 
-**Independent Test**: lancer la vérification automatique des dépendances et la suite complète ;
-comparer le comportement fonctionnel avant et après (aucun test fonctionnel modifié dans son
-attendu).
+**Independent Test**: run the automatic dependency check and the full suite;
+compare functional behavior before and after (no functional test changed in its
+expectations).
 
 **Acceptance Scenarios**:
 
-1. **Given** le code après correction, **When** la vérification des dépendances s'exécute,
-   **Then** elle ne trouve aucun cycle entre les domaines demandes, fichiers, authentification,
-   audit et socle commun. La séparation du module temps réel (registre des connexions d'un
-   côté, passerelle authentifiée de l'autre) est conservée et documentée comme un découpage
-   voulu, non comme un contournement (voir research R7).
-2. **Given** un développeur qui introduit volontairement un cycle entre ces domaines, **When** la
-   vérification s'exécute, **Then** elle échoue en nommant les fichiers concernés.
-3. **Given** un fichier joint à une demande ou une preuve de présence de la couverture de
-   classe, **When** un utilisateur tente de le lire, **Then** les décisions d'accès sont
-   identiques à celles d'avant la correction (mêmes autorisations, mêmes refus journalisés), et
-   le stockage de fichiers ne contient plus de règle propre à un domaine métier.
-4. **Given** un statut ajouté ou renommé côté serveur, **When** les contrôles de qualité
-   s'exécutent, **Then** ils échouent tant que l'interface ne connaît pas ce statut.
-5. **Given** le dépôt, **When** on recherche le publicateur de notifications inutilisé, la
-   dépendance d'icônes inutilisée ou les déclarations multiples du chargeur de règles, **Then**
-   on n'en trouve plus, et les scripts d'exploitation respectent la convention de formatage.
+1. **Given** the code after the fix, **When** the dependency check runs,
+   **Then** it finds no cycle between the requests, files, authentication,
+   audit and common base domains. The split of the real-time module (connection registry on one
+   side, authenticated gateway on the other) is kept and documented as an intended split,
+   not as a workaround (see research R7).
+2. **Given** a developer who deliberately introduces a cycle between these domains, **When** the
+   check runs, **Then** it fails, naming the files concerned.
+3. **Given** a file attached to a request or an attendance proof of class
+   coverage, **When** a user tries to read it, **Then** access decisions are
+   identical to those before the fix (same authorizations, same logged refusals), and
+   file storage no longer contains any rule specific to a business domain.
+4. **Given** a status added or renamed on the server side, **When** the quality checks
+   run, **Then** they fail as long as the interface does not know this status.
+5. **Given** the repository, **When** one searches for the unused notification publisher, the
+   unused icons dependency or the multiple declarations of the rules loader, **Then**
+   none is found, and the operations scripts follow the formatting convention.
 
 ---
 
-### User Story 5 - Mettre en production en sécurité (Priority: P3)
+### User Story 5 - Go to production safely (Priority: P3)
 
-L'exploitant dispose d'une procédure de mise en production vérifiée : une sauvegarde est garantie
-avant toute migration, la restauration a été testée, les en-têtes de sécurité et limites de
-taille ont été contrôlés sur un déploiement réel, et l'ensemble des contrôles qualité est rejoué
-avant chaque livraison.
+The operator has a verified production procedure: a backup is guaranteed
+before any migration, restore has been tested, security headers and size
+limits have been checked on a real deployment, and all the quality checks are replayed
+before each delivery.
 
-**Why this priority**: indispensable avant la production, mais ne bloque pas le développement ;
-plusieurs points dépendent de décisions humaines (A21, A27).
+**Why this priority**: essential before production, but does not block development;
+several points depend on human decisions (A21, A27).
 
-**Independent Test**: dérouler la procédure sur un serveur de préproduction, y compris une
-restauration complète et une migration volontairement défectueuse.
+**Independent Test**: run the procedure on a staging server, including a full
+restore and a deliberately faulty migration.
 
 **Acceptance Scenarios**:
 
-1. **Given** une nouvelle version contenant une migration, **When** l'exploitant la déploie,
-   **Then** une sauvegarde datée de la base et des fichiers existe avant l'application de la
-   migration, sinon le déploiement s'arrête avant de toucher la base.
-2. **Given** une migration défectueuse, **When** elle échoue, **Then** la base reste dans son
-   état antérieur ou est restaurable depuis la sauvegarde précédente, et la procédure de retour
-   arrière est documentée et a été exercée.
-3. **Given** une sauvegarde réelle, **When** l'exploitant la restaure sur un serveur vierge,
-   **Then** l'application redémarre avec les demandes, vocaux, photos et journal d'audit
-   intacts, et la durée de restauration est consignée.
-4. **Given** un déploiement réel en HTTPS, **When** on contrôle les réponses, **Then** la
-   politique de sécurité du contenu, HSTS et la limite de taille des envois sont présentes et
-   conformes, et le résultat est consigné.
-5. **Given** une livraison candidate, **When** les contrôles qualité sont rejoués (lint, tests
-   unitaires, intégration, bout en bout, performance, audit des dépendances), **Then** tous
-   passent et les résultats sont consignés, automatiquement ou manuellement selon FR-019.
+1. **Given** a new version containing a migration, **When** the operator deploys it,
+   **Then** a dated backup of the database and files exists before the migration is applied,
+   otherwise the deployment stops before touching the database.
+2. **Given** a faulty migration, **When** it fails, **Then** the database stays in its
+   previous state or can be restored from the previous backup, and the rollback
+   procedure is documented and has been exercised.
+3. **Given** a real backup, **When** the operator restores it on a blank server,
+   **Then** the application restarts with the requests, voice messages, photos and audit log
+   intact, and the restore duration is recorded.
+4. **Given** a real HTTPS deployment, **When** the responses are checked, **Then** the
+   content security policy, HSTS and the upload size limit are present and
+   compliant, and the result is recorded.
+5. **Given** a candidate delivery, **When** the quality checks are replayed (lint, unit
+   tests, integration, end-to-end, performance, dependency audit), **Then** all
+   pass and the results are recorded, automatically or manually according to FR-019.
 
 ---
 
 ### Edge Cases
 
-- Un développeur a déjà un fichier de configuration local avec l'ancien port 3000 : le README
-  DOIT indiquer comment l'aligner ; l'interface ne doit pas échouer silencieusement : avec l'API
-  arrêtée, le proxy de développement répond 502 sans corps JSON et l'interface affiche « Une
-  erreur inattendue est survenue. Réessayez plus tard. » ; sans aucune réponse, elle affiche
-  « Connexion impossible. Vérifiez votre connexion internet puis réessayez. ». Ces messages
-  existants sont conservés (FR-023) et vérifiés par un test automatisé.
-- Le port 3002 est déjà occupé sur le poste : le lanceur s'arrête avec un message explicite
-  (comportement actuel à conserver).
-- Réinitialisation du mot de passe d'un super administrateur alors que la base est inaccessible :
-  l'opération échoue entièrement, sans changement de mot de passe partiel ni audit orphelin.
-- Plusieurs demandes en attente d'approbation au moment d'un changement de catégorie : la règle
-  de FR-008 s'applique à chacune, indépendamment.
-- Demande soumise **avant** le déploiement de la correction d'affectation : son snapshot contient
-  le mode d'affectation mais pas la personne désignée ; exception EXC-1 de FR-008 (décision D9).
-- Suppression du publicateur inutilisé ou du chargeur dupliqué alors qu'un test l'utilise
-  indirectement : la suite complète doit rester verte, sinon la suppression est annulée.
-- Sauvegarde impossible avant migration (disque plein) : le déploiement s'arrête et l'ancienne
-  version continue de fonctionner.
+- A developer already has a local configuration file with the old port 3000: the README
+  MUST say how to align it; the interface must not fail silently: with the API
+  stopped, the development proxy answers 502 with no JSON body and the interface shows « Une
+  erreur inattendue est survenue. Réessayez plus tard. » (An unexpected error occurred. Try again later.); with no response at all, it shows
+  « Connexion impossible. Vérifiez votre connexion internet puis réessayez. » (Unable to connect. Check your internet connection and try again.). These
+  existing messages are kept (FR-023) and verified by an automated test.
+- Port 3002 is already in use on the workstation: the launcher stops with an explicit message
+  (current behavior to keep).
+- Resetting a super administrator's password while the database is unreachable:
+  the operation fails entirely, with no partial password change or orphan audit entry.
+- Several requests awaiting approval at the time of a category change: the rule
+  of FR-008 applies to each, independently.
+- Request submitted **before** the assignment fix is deployed: its snapshot contains
+  the assignment mode but not the designated person; exception EXC-1 of FR-008 (decision D9).
+- Removal of the unused publisher or the duplicated loader while a test uses it
+  indirectly: the full suite must stay green, otherwise the removal is cancelled.
+- Backup impossible before migration (disk full): the deployment stops and the old
+  version keeps working.
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
-Chaque exigence indique les constats qu'elle traite. Le numéro FR-022 n'est pas utilisé ici, pour
-éviter toute confusion avec FR-022 de la spécification du lot 1, toujours citée « FR-022 (lot 1) ».
+Each requirement indicates the findings it addresses. Number FR-022 is not used here, to
+avoid any confusion with FR-022 of the phase 1 specification, still cited as "FR-022 (phase 1)".
 
-**Configuration et environnement de développement**
+**Configuration and development environment**
 
-- **FR-001** (A01): Toutes les sources de configuration et de documentation de l'environnement
-  de développement (exemple de configuration, README, proxy HTTPS de développement, lanceur,
-  tests) DOIVENT désigner le même port d'API, 3002.
-- **FR-002** (A01): La configuration de production DOIT fixer explicitement le port interne de
-  l'API ; elle NE DOIT PAS dépendre de la valeur par défaut de développement. Le port de
-  production actuel (3000, interne au réseau des conteneurs) PEUT être conservé.
-- **FR-003** (A02): Le lanceur de développement DOIT démarrer l'API en mode avec rechargement, ou
-  bien le README et le lanceur DOIVENT indiquer et effectuer l'étape de compilation requise ; les
-  deux documents NE DOIVENT PAS se contredire.
-- **FR-004** (A07): Toutes les variables d'environnement lues par l'API, y compris la confiance
-  envers le proxy et le port, DOIVENT être validées au démarrage par la même étape ; une valeur
-  invalide DOIT empêcher le démarrage avec un message explicite.
+- **FR-001** (A01): All configuration and documentation sources of the development
+  environment (example configuration, README, development HTTPS proxy, launcher,
+  tests) MUST designate the same API port, 3002.
+- **FR-002** (A01): The production configuration MUST explicitly set the internal port of
+  the API; it MUST NOT depend on the development default value. The current production
+  port (3000, internal to the container network) MAY be kept.
+- **FR-003** (A02): The development launcher MUST start the API in reload mode, or
+  else the README and the launcher MUST state and perform the required build step; the
+  two documents MUST NOT contradict each other.
+- **FR-004** (A07): All environment variables read by the API, including the trust
+  in the proxy and the port, MUST be validated at startup by the same step; an
+  invalid value MUST prevent startup with an explicit message.
 
-**Sécurité et traçabilité**
+**Security and traceability**
 
-- **FR-005** (A06): Les journaux applicatifs et le journal d'audit DOIVENT masquer le même
-  ensemble de clés sensibles, défini en un seul endroit et couvrant au minimum l'union des deux
-  listes actuelles (dont l'en-tête d'autorisation et le contenu des messages).
-- **FR-006** (A08): Le contrôle d'origine DOIT être défini une seule fois et appliqué de façon
-  identique aux requêtes HTTP modifiantes et aux connexions temps réel.
-- **FR-007** (A05): Toute réinitialisation du mot de passe d'un super administrateur par un outil
-  d'exploitation DOIT créer une entrée dans le journal d'audit non modifiable, fermer toutes ses
-  sessions et imposer un changement de mot de passe à la connexion suivante, de la même manière
-  que l'outil d'initialisation existant journalise ses actions.
+- **FR-005** (A06): The application logs and the audit log MUST mask the same
+  set of sensitive keys, defined in a single place and covering at least the union of the two
+  current lists (including the authorization header and the content of messages).
+- **FR-006** (A08): The origin check MUST be defined once and applied identically
+  to modifying HTTP requests and to real-time connections.
+- **FR-007** (A05): Any reset of a super administrator's password by an operations
+  tool MUST create an entry in the tamper-proof audit log, close all their
+  sessions and require a password change at the next login, in the same way
+  as the existing initialization tool logs its actions.
 
-**Affectation automatique et FR-022 (lot 1)**
+**Automatic assignment and FR-022 (phase 1)**
 
-- **FR-008** (A03, A04): Lors de l'approbation d'une demande en circuit B à affectation
-  automatique, le mode d'affectation **et** la personne désignée DOIVENT être ceux figés dans le
-  snapshot de la demande à sa soumission, conformément à FR-022 (lot 1) ; une modification
-  ultérieure de la catégorie NE DOIT PAS changer l'affectation d'une demande déjà soumise
-  (décision D1, 2026-10-15). Un employé proposé par le responsable alors que la personne figée
-  est affectable est ignoré. Seules deux exceptions existent, toutes deux validées :
-  - **EXC-1 — demande antérieure à la correction** (décision D9) : si le snapshot ne contient pas
-    la clé de la personne désignée, celle-ci est lue dans la configuration actuelle de la
-    catégorie ; le mode reste celui du snapshot ;
-  - **EXC-2 — personne figée non affectable** (décision D8) : voir FR-011.
-  La source de l'affectation (snapshot, catégorie actuelle, choix du responsable) DOIT être
-  enregistrée dans l'historique de la demande.
-- **FR-009** (A04): Avant toute correction, un test automatisé DOIT reproduire le comportement
-  actuel (changement de catégorie entre soumission et approbation), afin de confirmer le constat
-  [DÉDUIT] A04 ; la correction DOIT ensuite faire passer ce test selon FR-008.
-- **FR-010** (A05): La réinitialisation du mot de passe du super administrateur DOIT être une
-  sous-commande de l'outil d'initialisation existant, conforme à FR-007 ; le script séparé DOIT
-  être supprimé et la documentation d'exploitation mise à jour (décision D2, 2026-10-15).
-- **FR-011** (A03): Si la personne à affecter selon FR-008 (figée, ou lue selon EXC-1) est
-  inactive ou n'est plus destinataire de la catégorie à l'approbation, une approbation sans
-  employé choisi DOIT être refusée avec un message invitant le responsable à choisir l'employé,
-  sans aucune écriture. Le responsable PEUT alors approuver en choisissant un employé
-  affectable (actif et destinataire de la catégorie) ; aucun compte non affectable NE DOIT être
-  affecté (décision D8).
+- **FR-008** (A03, A04): When approving a request in workflow B with automatic
+  assignment, the assignment mode **and** the designated person MUST be those frozen in the
+  request's snapshot at its submission, in accordance with FR-022 (phase 1); a later
+  change to the category MUST NOT change the assignment of an already submitted request
+  (decision D1, 2026-10-15). An employee proposed by the manager while the frozen person
+  is assignable is ignored. Only two exceptions exist, both validated:
+  - **EXC-1 — request predating the fix** (decision D9): if the snapshot does not contain
+    the designated person's key, that person is read from the current configuration of the
+    category; the mode stays that of the snapshot;
+  - **EXC-2 — frozen person not assignable** (decision D8): see FR-011.
+  The source of the assignment (snapshot, current category, manager's choice) MUST be
+  recorded in the request's history.
+- **FR-009** (A04): Before any fix, an automated test MUST reproduce the current behavior
+  (category change between submission and approval), in order to confirm finding
+  A04 [INFERRED]; the fix MUST then make this test pass according to FR-008.
+- **FR-010** (A05): The super administrator password reset MUST be a
+  subcommand of the existing initialization tool, compliant with FR-007; the separate script MUST
+  be deleted and the operations documentation updated (decision D2, 2026-10-15).
+- **FR-011** (A03): If the person to assign according to FR-008 (frozen, or read according to EXC-1) is
+  inactive or is no longer a recipient of the category at approval, an approval without a
+  chosen employee MUST be refused with a message inviting the manager to choose the employee,
+  with no write at all. The manager MAY then approve by choosing an assignable employee
+  (active and recipient of the category); no non-assignable account MUST be
+  assigned (decision D8).
 
-**Dépendances entre modules et dette technique**
+**Dependencies between modules and technical debt**
 
-- **FR-012** (A09, A12): Il NE DOIT exister aucun cycle de dépendance entre les domaines demandes,
-  fichiers, authentification, audit et socle commun ; les règles transverses (permissions par
-  rôle, droits d'administration et d'audit) DOIVENT être placées hors du domaine des demandes.
-- **FR-013** (A09): Une vérification automatique des cycles de dépendance DOIT faire partie des
-  contrôles qualité du projet et échouer en nommant les fichiers en cause.
-- **FR-014** (A10, A11): Le stockage de fichiers NE DOIT contenir aucune règle d'accès propre à un
-  domaine métier ; chaque domaine DOIT fournir sa propre décision d'accès à ses fichiers. Les
-  décisions d'accès observables (autorisations, refus, journalisation des refus) DOIVENT rester
-  identiques, prouvé par les tests existants inchangés dans leurs attendus.
-- **FR-015** (A13, A15, A16, A18, A19): Le chargeur de règles de catégorie DOIT être déclaré une
-  seule fois et partagé ; le job de délais de la couverture de classe DOIT être rangé avec les
-  autres tâches planifiées ; le publicateur inutilisé, son commentaire périmé et la dépendance
-  d'icônes inutilisée DOIVENT être supprimés ; les scripts d'exploitation DOIVENT respecter la
-  convention de formatage du projet.
-- **FR-016** (A17): Toute divergence entre les statuts, priorités et autres énumérations du
-  contrat du serveur et celles de l'interface DOIT être détectée automatiquement par les
-  contrôles qualité ; l'annonce de types générés qui n'existent pas DOIT être retirée ou rendue
-  vraie.
+- **FR-012** (A09, A12): There MUST be no dependency cycle between the requests,
+  files, authentication, audit and common base domains; the cross-cutting rules (permissions by
+  role, administration and audit rights) MUST be placed outside the requests domain.
+- **FR-013** (A09): An automatic check for dependency cycles MUST be part of the
+  project's quality checks and fail by naming the files involved.
+- **FR-014** (A10, A11): File storage MUST NOT contain any access rule specific to a
+  business domain; each domain MUST provide its own access decision for its files. The
+  observable access decisions (authorizations, refusals, logging of refusals) MUST remain
+  identical, proven by the existing tests unchanged in their expectations.
+- **FR-015** (A13, A15, A16, A18, A19): The category rules loader MUST be declared
+  once and shared; the class coverage deadlines job MUST be placed with the
+  other scheduled tasks; the unused publisher, its outdated comment and the unused
+  icons dependency MUST be removed; the operations scripts MUST follow the
+  project's formatting convention.
+- **FR-016** (A17): Any divergence between the statuses, priorities and other enums of the
+  server contract and those of the interface MUST be detected automatically by the
+  quality checks; the announcement of generated types that do not exist MUST be removed or made
+  true.
 
-**Tests et préparation à la production**
+**Tests and production readiness**
 
-- **FR-017** (A01, A20, A26): Avant clôture de cette fonctionnalité, le lint, les tests
-  unitaires, d'intégration, de bout en bout et de performance DOIVENT être exécutés et passer ;
-  les résultats DOIVENT être consignés dans `docs/validation/`, comme pour la vérification finale
-  du lot 1.
-- **FR-018** (A22, A23): Le déploiement DOIT garantir l'existence d'une sauvegarde de la base et
-  des fichiers, datée et postérieure à la dernière modification de données, avant toute
-  application de migration ; à défaut, il DOIT s'arrêter avant de toucher la base.
-- **FR-019** (A21): Les contrôles qualité DOIVENT être rejoués avant chaque livraison
-  (décision D3, 2026-10-15) :
-  - automatiquement, à chaque envoi sur le dépôt distant et à chaque demande de fusion : lint,
-    tests unitaires, d'interface et d'intégration, audit des dépendances ; un échec DOIT être
-    visible sur la demande de fusion ;
-  - manuellement avant chaque livraison : tests de bout en bout et de performance, avec un
-    compte rendu daté dans `docs/validation/` ;
-  - manuellement avant chaque fusion vers `master` (décision D10) : la personne qui fusionne
-    DOIT vérifier et cocher le résultat de la CI sur le dernier commit, l'exécution des tests
-    requis, l'absence d'échec non résolu et l'examen du diff, selon une procédure documentée ;
-    un contrôle non satisfait interdit la fusion. Cette procédure est manuelle et NE constitue
-    PAS une protection technique : tant que la protection de branche n'est pas disponible,
-    GitHub n'empêche pas une fusion dont les tests échouent.
-- **FR-020** (A24): La procédure de restauration DOIT être exercée au moins une fois sur un
-  serveur vierge à partir d'une sauvegarde réelle, et le résultat (succès, durée, écarts)
-  consigné.
-- **FR-021** (A25): Les en-têtes de sécurité (politique de sécurité du contenu, HSTS) et la limite
-  de taille des envois DOIVENT être contrôlés sur un déploiement HTTPS réel ou de préproduction,
-  et le résultat consigné.
-- **FR-023**: Aucune correction NE DOIT modifier le comportement fonctionnel visible des
-  utilisateurs, à l'exception de la règle d'affectation de FR-008 (avec ses exceptions EXC-1 et
-  EXC-2), du refus et du choix par le responsable décrits en FR-011, de la mention de la source
-  d'affectation dans l'historique, et de l'ordre de restitution des événements de même horodatage
+- **FR-017** (A01, A20, A26): Before closing this feature, lint and the unit,
+  integration, end-to-end and performance tests MUST be run and pass;
+  the results MUST be recorded in `docs/validation/`, as for the final verification
+  of phase 1.
+- **FR-018** (A22, A23): The deployment MUST guarantee the existence of a backup of the database and
+  files, dated and later than the last data change, before any
+  migration is applied; failing that, it MUST stop before touching the database.
+- **FR-019** (A21): The quality checks MUST be replayed before each delivery
+  (decision D3, 2026-10-15):
+  - automatically, on every push to the remote repository and every pull request: lint,
+    unit, interface and integration tests, dependency audit; a failure MUST be
+    visible on the pull request;
+  - manually before each delivery: end-to-end and performance tests, with a
+    dated report in `docs/validation/`;
+  - manually before each merge into `master` (decision D10): the person who merges
+    MUST verify and tick the CI result on the latest commit, the execution of the required
+    tests, the absence of unresolved failure and the diff review, following a documented procedure;
+    an unsatisfied check forbids the merge. This procedure is manual and DOES NOT constitute
+    a technical protection: as long as branch protection is not available,
+    GitHub does not prevent a merge whose tests fail.
+- **FR-020** (A24): The restore procedure MUST be exercised at least once on a
+  blank server from a real backup, and the result (success, duration, gaps)
+  recorded.
+- **FR-021** (A25): The security headers (content security policy, HSTS) and the upload
+  size limit MUST be checked on a real HTTPS or staging deployment,
+  and the result recorded.
+- **FR-023**: No fix MUST change the functional behavior visible to
+  users, except for the assignment rule of FR-008 (with its exceptions EXC-1 and
+  EXC-2), the refusal and manager's choice described in FR-011, the mention of the assignment
+  source in the history, and the order in which events with the same timestamp are returned
   (FR-025).
-- **FR-024** (A01–A35): `docs/ARCHITECTURE.md` DOIT être mis à jour à la fin de la
-  fonctionnalité : chaque constat traité est marqué comme corrigé avec sa référence, chaque
-  constat [DÉDUIT] confirmé ou infirmé est re-marqué [VÉRIFIÉ] ou retiré.
-- **FR-025** (N3, relevé par la première exécution de la CI) : l'historique d'une demande
-  (demande de travail ou couverture de classe) DOIT restituer les événements dans leur ordre
-  d'écriture, y compris ceux écrits dans la même milliseconde ; cet ordre NE DOIT PAS dépendre
-  d'un identifiant aléatoire. Un test automatisé DOIT le vérifier de façon déterministe.
+- **FR-024** (A01–A35): `docs/ARCHITECTURE.md` MUST be updated at the end of the
+  feature: each finding handled is marked as fixed with its reference, each
+  [INFERRED] finding confirmed or refuted is re-marked [VERIFIED] or removed.
+- **FR-025** (N3, noted by the first CI run): the history of a request
+  (work request or class coverage) MUST return events in their write order,
+  including those written in the same millisecond; this order MUST NOT depend
+  on a random identifier. An automated test MUST verify it deterministically.
 
-### Décisions nécessitant une validation humaine
+### Decisions requiring human validation
 
-Ces points NE SONT PAS des exigences définitives tant qu'ils ne sont pas tranchés. D1 à D3 ont été
-tranchés (voir Clarifications), ainsi que D8, D9 et D10 ; D4 à D7 restent ouverts et hors
-périmètre.
+These points ARE NOT final requirements until they are settled. D1 to D3 have been
+settled (see Clarifications), as well as D8, D9 and D10; D4 to D7 remain open and out of
+scope.
 
-| ID | Décision | Constats | Qui | Effet sur cette fonctionnalité |
+| ID | Decision | Findings | Who | Effect on this feature |
 |----|----------|----------|-----|--------------------------------|
-| D1 | Règle d'affectation automatique à l'approbation | A03, A04 | Responsable du projet | **Tranchée le 2026-10-15** : tout figé à la soumission (FR-008). À faire confirmer par l'établissement, sans bloquer l'implémentation |
-| D2 | Sort de l'outil de réinitialisation du super administrateur | A05 | Responsable du projet | **Tranchée le 2026-10-15** : sous-commande de l'outil d'initialisation (FR-010) |
-| D3 | Intégration continue automatique ou procédure manuelle | A21 | Responsable du projet | **Tranchée le 2026-10-15** : CI pour lint et tests rapides, manuel pour bout en bout et performance (FR-019) |
-| D4 | Durées de conservation des données personnelles et purge automatique | A27 | Établissement (RGPD) | Hors périmètre ; aucune purge ne sera implémentée sans décision |
-| D5 | Spécification du lot 2 (couverture de classe : statuts, délais de 2 et 5 min, preuves) | A32 | Établissement | Hors périmètre ; FR-014 ne change aucune règle du lot 2 |
-| D6 | Autres valeurs provisoires du README « À trancher » (permissions par rôle, délais, destinataires, accusé de lecture) | §11.10 | Établissement | Hors périmètre ; aucune valeur modifiée |
-| D7 | Origine des choix techniques (pile imposée ou proposée) | §6, §11.1 | Responsable du projet | Aucun ; information documentaire |
-| D8 | Suite d'un refus quand la personne figée n'est plus affectable | A03 | Responsable du projet | **Tranchée le 2026-10-15** : le responsable choisit un employé affectable (FR-011, exception EXC-2) |
-| D9 | Règle pour les demandes antérieures sans personne figée | A03, A04 | Responsable du projet | **Tranchée le 2026-10-15** : catégorie actuelle, tracée dans l'historique (FR-008, exception EXC-1) |
-| D10 | Garantie « aucune fusion si la suite échoue » sans protection de branche | A21 | Responsable du projet | **Tranchée le 2026-10-15** : le dépôt GitHub reste privé, sans abonnement payant ; protection automatique de branche reportée ; CI conservée ; vérification manuelle obligatoire avant chaque fusion (FR-019), qui n'est pas une protection technique |
+| D1 | Automatic assignment rule at approval | A03, A04 | Project lead | **Settled on 2026-10-15**: everything frozen at submission (FR-008). To be confirmed by the school, without blocking implementation |
+| D2 | Fate of the super administrator reset tool | A05 | Project lead | **Settled on 2026-10-15**: subcommand of the initialization tool (FR-010) |
+| D3 | Automatic continuous integration or manual procedure | A21 | Project lead | **Settled on 2026-10-15**: CI for lint and fast tests, manual for end-to-end and performance (FR-019) |
+| D4 | Retention periods for personal data and automatic purge | A27 | School (GDPR) | Out of scope; no purge will be implemented without a decision |
+| D5 | Phase 2 specification (class coverage: statuses, 2 and 5 min deadlines, proofs) | A32 | School | Out of scope; FR-014 changes no phase 2 rule |
+| D6 | Other provisional values of the README "À trancher" (To be decided) section (permissions by role, deadlines, recipients, read receipt) | §11.10 | School | Out of scope; no value changed |
+| D7 | Origin of the technical choices (stack imposed or proposed) | §6, §11.1 | Project lead | None; documentary information |
+| D8 | What follows a refusal when the frozen person is no longer assignable | A03 | Project lead | **Settled on 2026-10-15**: the manager chooses an assignable employee (FR-011, exception EXC-2) |
+| D9 | Rule for earlier requests with no frozen person | A03, A04 | Project lead | **Settled on 2026-10-15**: current category, traced in the history (FR-008, exception EXC-1) |
+| D10 | Guarantee "no merge if the suite fails" without branch protection | A21 | Project lead | **Settled on 2026-10-15**: the GitHub repository stays private, with no paid subscription; automatic branch protection postponed; CI kept; mandatory manual check before every merge (FR-019), which is not a technical protection |
 
-### Hors périmètre
+### Out of scope
 
-- Fusion des deux machines à états, politiques d'accès et calculs de délais (A29) : changement
-  structurel majeur, à justifier dans une fonctionnalité dédiée (principe II).
-- Découpage des services volumineux (A30) et réduction des modules globaux (A31), sauf ce
-  qu'exige FR-012.
-- Fonctionnement multi-instances de l'API (A28), suivi d'erreurs et métriques (A33), remplacement
-  de la base embarquée de développement (A34).
-- Validations manuelles du lot 1 (A35 : tâches T119 et T120).
+- Merging the two state machines, access policies and deadline computations (A29): major
+  structural change, to be justified in a dedicated feature (principle II).
+- Splitting large services (A30) and reducing global modules (A31), except what
+  FR-012 requires.
+- Multi-instance operation of the API (A28), error tracking and metrics (A33), replacement
+  of the embedded development database (A34).
+- Manual validations of phase 1 (A35: tasks T119 and T120).
 
 ### Key Entities *(include if feature involves data)*
 
-- **Constat d'audit** : élément du registre (ID, résumé, section source, marquage [VÉRIFIÉ] /
-  [DÉDUIT], classe CT / DH / HP, statut de traitement).
-- **Règle d'affectation figée (snapshot)** : copie des règles d'une catégorie conservée avec la
-  demande à sa soumission ; elle inclut le mode d'affectation **et** la personne désignée
-  (décision D1). Un snapshot antérieur à la correction, sans la personne désignée, relève de
-  l'exception EXC-1 (décision D9).
-- **Entrée d'audit d'exploitation** : trace non modifiable d'une action faite hors interface
-  (outil d'exploitation), avec action, cible, date et origine.
-- **Rapport de vérification** : résultat consigné d'une exécution des contrôles qualité, d'une
-  restauration ou d'un contrôle des en-têtes de sécurité (date, environnement, résultats).
+- **Audit finding**: register item (ID, summary, source section, marking [VERIFIED] /
+  [INFERRED], class CT / DH / HP, processing status).
+- **Frozen assignment rule (snapshot)**: copy of a category's rules kept with the
+  request at its submission; it includes the assignment mode **and** the designated person
+  (decision D1). A snapshot predating the fix, without the designated person, falls under
+  exception EXC-1 (decision D9).
+- **Operations audit entry**: tamper-proof trace of an action done outside the interface
+  (operations tool), with action, target, date and origin.
+- **Verification report**: recorded result of a run of the quality checks, of a
+  restore or of a security headers check (date, environment, results).
 
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
 
-- **SC-001**: Un développeur qui suit uniquement le README démarre l'application et se connecte
-  en moins de 10 minutes (hors téléchargements), sans modifier aucun fichier du dépôt.
-- **SC-002**: 100 % des tests passent dans chacune des suites : unitaires, intégration, bout en
-  bout, interface, performance ; le lint ne signale aucun problème ; aucune vulnérabilité de
-  sévérité élevée ou critique.
-- **SC-003**: Aucune mention d'un autre port que 3002 ne subsiste dans la configuration et la
-  documentation de développement.
-- **SC-004**: 100 % des réinitialisations de mot de passe du super administrateur produisent une
-  entrée d'audit et ferment toutes ses sessions (vérifié par test).
-- **SC-005**: Pour chacun des cas de test d'affectation (changement de personne, changement de
-  mode, personne désactivée ou retirée des destinataires, demande antérieure), la personne
-  affectée et la source enregistrée sont celles prévues par FR-008 et FR-011 (décisions D1, D8,
-  D9) dans 100 % des cas.
-- **SC-006**: Zéro cycle de dépendance entre les domaines cités, et l'introduction volontaire
-  d'un cycle fait échouer les contrôles qualité.
-- **SC-007**: Les tests existants d'accès aux fichiers et aux demandes passent sans modification
-  de leurs attendus.
-- **SC-008**: Une restauration complète sur serveur vierge a réussi au moins une fois, avec une
-  durée consignée ; les contrôles d'en-têtes de sécurité sont consignés comme conformes.
-- **SC-009**: 100 % des constats CT du registre sont marqués corrigés dans
-  `docs/ARCHITECTURE.md`, et chaque constat [DÉDUIT] traité est confirmé ou infirmé.
+- **SC-001**: A developer who follows only the README starts the application and logs in
+  in under 10 minutes (excluding downloads), without modifying any repository file.
+- **SC-002**: 100% of tests pass in each of the suites: unit, integration, end-to-end,
+  interface, performance; lint reports no problem; no vulnerability of
+  high or critical severity.
+- **SC-003**: No mention of a port other than 3002 remains in the development configuration and
+  documentation.
+- **SC-004**: 100% of super administrator password resets produce an
+  audit entry and close all their sessions (verified by test).
+- **SC-005**: For each of the assignment test cases (person change, mode
+  change, person deactivated or removed from the recipients, earlier request), the assigned
+  person and the recorded source are those provided by FR-008 and FR-011 (decisions D1, D8,
+  D9) in 100% of cases.
+- **SC-006**: Zero dependency cycles between the cited domains, and deliberately introducing
+  a cycle makes the quality checks fail.
+- **SC-007**: The existing file and request access tests pass without any change
+  to their expectations.
+- **SC-008**: A full restore on a blank server has succeeded at least once, with a
+  recorded duration; the security headers checks are recorded as compliant.
+- **SC-009**: 100% of the register's CT findings are marked fixed in
+  `docs/ARCHITECTURE.md`, and each [INFERRED] finding handled is confirmed or refuted.
 
-### État des critères (au 2026-10-16, tâche T062)
+### Status of criteria (as of 2026-10-16, task T062)
 
-- [ ] **SC-001** — ouvert : parcours chronométré sur un poste Windows à faire (T013).
-- [x] **SC-002** — atteint le 2026-10-22 (T058, T061) : lint, tests unitaires (572),
-  d'intégration (599, dont la performance de recherche), d'interface (229) et de bout en bout
-  (143 réussis, 0 échec) à 100 %, aucune vulnérabilité élevée ou critique
+- [ ] **SC-001** — open: timed path on a Windows workstation still to do (T013).
+- [x] **SC-002** — reached on 2026-10-22 (T058, T061): lint, unit tests (572),
+  integration (599, including search performance), interface (229) and end-to-end
+  (143 passed, 0 failed) at 100%, no high or critical vulnerability
   (`docs/validation/verification-003.md`).
-- [x] **SC-003** — atteint : vérifié par `dev-port-consistency.spec.ts`.
-- [x] **SC-004** — atteint : vérifié par `bootstrap-production.spec.ts` (`resetSuperAdminPassword`).
-- [x] **SC-005** — atteint pour les cas automatisés (`auto-assignment-snapshot.spec.ts`) ; le
-  déroulé manuel du scénario 4 reste à faire (T032).
-- [x] **SC-006** — atteint : `architecture-layers.spec.ts` vert, contre-épreuve consignée (T048).
-- [x] **SC-007** — atteint : suites de fichiers et de demandes vertes sans changement d'attendus.
-- [ ] **SC-008** — ouvert : restauration et en-têtes à vérifier sur préproduction (T056, T057).
-- [ ] **SC-009** — partiel : constats corrigés marqués avec leur commit (`docs/ARCHITECTURE.md`
-  §12) ; A23 à A26 restent à confirmer ou infirmer sur préproduction (T055 à T058).
+- [x] **SC-003** — reached: verified by `dev-port-consistency.spec.ts`.
+- [x] **SC-004** — reached: verified by `bootstrap-production.spec.ts` (`resetSuperAdminPassword`).
+- [x] **SC-005** — reached for the automated cases (`auto-assignment-snapshot.spec.ts`); the
+  manual run of scenario 4 is still to do (T032).
+- [x] **SC-006** — reached: `architecture-layers.spec.ts` green, counter-test recorded (T048).
+- [x] **SC-007** — reached: file and request suites green with no change of expectations.
+- [ ] **SC-008** — open: restore and headers to verify on staging (T056, T057).
+- [ ] **SC-009** — partial: fixed findings marked with their commit (`docs/ARCHITECTURE.md`
+  §12); A23 to A26 remain to be confirmed or refuted on staging (T055 to T058).
 
 ## Assumptions
 
-- Le port de développement 3002 est acquis : il a été commité le 2026-10-15 (`1e6d4ee`). Le port
-  interne de production reste 3000, fixé explicitement par le déploiement.
-- Le rapport `docs/ARCHITECTURE.md` est exact à la date de son commit ; aucun constat n'est
-  ré-audité, seuls les constats [DÉDUIT] sont confirmés au moment de leur traitement.
-- La fonctionnalité est développée sur une branche issue de `002-refonte-ui-destinataires`, car
-  elle corrige du code de ce lot (couverture de classe). Le numéro 003 a été choisi pour laisser
-  le numéro 002 à une éventuelle spécification du lot 2 (D5).
-- L'application tourne sur une seule instance (A28) ; les corrections n'ont pas à rendre l'API
-  multi-instances.
-- Une seule migration de schéma est prévue : l'ajout de l'ordre d'écriture des événements
-  d'historique (FR-025, N3). Elle n'ajoute qu'une colonne ; la table reste en ajout seul.
-- Aucune reprise des snapshots existants n'est prévue : les demandes antérieures relèvent de
-  l'exception EXC-1 (décision D9).
-- Les décisions D1, D8 et D9 ont été prises par le responsable du projet ; elles restent à faire
-  confirmer par l'établissement, sans bloquer l'implémentation.
-- Le dépôt GitHub reste privé, sur l'offre gratuite (décision D10) : la protection de branche
-  n'y est pas disponible [VÉRIFIÉ le 2026-10-15]. Si l'offre change, la protection de `master`
-  pourra être activée (research R11) sans autre modification de cette fonctionnalité.
-- Les outils d'exploitation sont utilisés par une personne ayant accès au serveur ; ils restent
-  hors de l'interface web.
-- Le serveur de préproduction ou de production nécessaire à FR-020 et FR-021 sera fourni par
-  l'exploitant ; à défaut, ces exigences restent ouvertes et la fonctionnalité ne peut être
-  déclarée prête pour la production.
-- Aucune nouvelle donnée personnelle n'est collectée : l'entrée d'audit d'exploitation ne
-  contient que l'identifiant du compte ciblé et l'origine de l'action.
+- Development port 3002 is settled: it was committed on 2026-10-15 (`1e6d4ee`). The internal
+  production port stays 3000, explicitly set by the deployment.
+- The `docs/ARCHITECTURE.md` report is accurate as of its commit date; no finding is
+  re-audited, only the [INFERRED] findings are confirmed when they are handled.
+- The feature is developed on a branch derived from `002-refonte-ui-destinataires`, because
+  it fixes code from that phase (class coverage). Number 003 was chosen to leave
+  number 002 to a possible phase 2 specification (D5).
+- The application runs on a single instance (A28); the fixes do not have to make the API
+  multi-instance.
+- A single schema migration is planned: the addition of the write order of history
+  events (FR-025, N3). It only adds a column; the table stays append-only.
+- No backfill of existing snapshots is planned: earlier requests fall under
+  exception EXC-1 (decision D9).
+- Decisions D1, D8 and D9 were made by the project lead; they remain to be
+  confirmed by the school, without blocking implementation.
+- The GitHub repository stays private, on the free plan (decision D10): branch protection
+  is not available there [VERIFIED on 2026-10-15]. If the plan changes, protection of `master`
+  can be enabled (research R11) with no other change to this feature.
+- The operations tools are used by a person with access to the server; they remain
+  outside the web interface.
+- The staging or production server needed for FR-020 and FR-021 will be provided by
+  the operator; failing that, these requirements remain open and the feature cannot be
+  declared ready for production.
+- No new personal data is collected: the operations audit entry contains
+  only the identifier of the targeted account and the origin of the action.
 
-## Données personnelles
+## Personal data
 
-Cette fonctionnalité ne collecte aucune nouvelle donnée personnelle. Elle renforce le masquage des
-secrets et du contenu des messages dans les journaux (FR-005). Les durées de conservation
-restent celles, provisoires, du lot 1 (D4).
+This feature collects no new personal data. It strengthens the masking of
+secrets and message content in the logs (FR-005). Retention periods
+remain the provisional ones of phase 1 (D4).
