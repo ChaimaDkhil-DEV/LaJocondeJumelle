@@ -4,7 +4,7 @@ import { useState, type ReactNode } from 'react';
 import { useAvatarUrl } from '../api/avatars';
 import { avatarColors, font, fontSize, tokensOf } from '../design/tokens';
 import { illustrationUri } from './avatarIllustration';
-import { t } from '../i18n';
+import { locale, t } from '../i18n';
 
 /**
  * Avatar par défaut d'un compte sans photo : « initials » (option A : initiales sur une couleur
@@ -21,8 +21,8 @@ export type AvatarSize = keyof typeof AVATAR_SIZES | number;
 export function initials(name: string): string {
   const words = name.trim().split(/\s+/).filter(Boolean);
   if (words.length === 0) return '?';
-  if (words.length === 1) return words[0].slice(0, 2).toLocaleUpperCase('fr');
-  return (words[0][0] + words[words.length - 1][0]).toLocaleUpperCase('fr');
+  if (words.length === 1) return words[0].slice(0, 2).toLocaleUpperCase(locale());
+  return (words[0][0] + words[words.length - 1][0]).toLocaleUpperCase(locale());
 }
 
 /** Couleur douce stable pour une même personne (identifiant, sinon nom). */
