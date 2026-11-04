@@ -23,6 +23,9 @@ export default async function globalSetup(): Promise<void> {
   process.env.TRUST_PROXY = 'loopback';
   // Les jobs planifiés sont exécutés explicitement par les tests (runOnce), jamais en tâche de fond.
   process.env.JOBS_ENABLED = 'false';
+  // L'assistance est désactivée par défaut, quel que soit le backend/.env local (rules, whisper...).
+  process.env.ASSIST_SUGGESTION_PROVIDER = 'disabled';
+  process.env.ASSIST_TRANSCRIPTION_PROVIDER = 'disabled';
   process.env.NODE_ENV = 'test';
   // Complète avec backend/.env (chemins ffmpeg/ffprobe) sans écraser les valeurs ci-dessus.
   loadEnvFile(join(__dirname, '..', '..'));
