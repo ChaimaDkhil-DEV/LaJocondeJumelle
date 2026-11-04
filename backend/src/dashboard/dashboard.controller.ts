@@ -1,5 +1,7 @@
-import { Controller, Get, Header, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, Res, UseGuards } from '@nestjs/common';
+import type { Response } from 'express';
 import { SuperAdminGuard } from '../audit/super-admin.guard';
+import { setCsvDownloadHeaders } from '../common/csv';
 import { DashboardActivityQuery, DashboardQuery } from './dashboard.dto';
 import { DashboardService } from './dashboard.service';
 
@@ -30,10 +32,9 @@ export class DashboardController {
   }
 
   @Get('export.csv')
-  @Header('Content-Type', 'text/csv; charset=utf-8')
-  @Header('Content-Disposition', 'attachment; filename="demandes-de-travail.csv"')
-  @Header('Cache-Control', 'private, no-store')
-  exportCsv(@Query() query: DashboardQuery) {
-    return this.dashboard.exportCsv(query);
+  async exportCsv(@Query() query: DashboardQuery, @Res({ passthrough: true }) res: Response) {
+    const body = await this.dashboard.exportCsv(query);
+    setCsvDownloadHeaders(res, 'demandes-de-travail.csv');
+    return body;
   }
 }

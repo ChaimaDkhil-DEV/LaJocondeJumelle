@@ -235,6 +235,24 @@ describe('Tableau de bord du super administrateur', () => {
     it('n’exporte ni description, ni message', async () => {
       expect((await get('export.csv')).text).not.toMatch(/Description confidentielle|Contenu privé/);
     });
+
+    it.each([
+      ['période inversée', 'export.csv?from=2026-10-23&to=2026-10-01', 400, 'VALIDATION_ERROR'],
+      ['fuseau inconnu', 'export.csv?tz=Nulle/Part', 400, 'VALIDATION_ERROR'],
+    ])('%s : erreur JSON habituelle, jamais étiquetée CSV', async (_, path, status, code) => {
+      const res = await get(path);
+      expect(res.status).toBe(status);
+      expect(res.headers['content-type']).toContain('application/json');
+      expect(res.headers['content-disposition']).toBeUndefined();
+      expect(res.body.error.code).toBe(code);
+    });
+
+    it('refus d’accès : erreur JSON, sans nom de fichier', async () => {
+      const res = await get('export.csv', responsable);
+      expect(res.status).toBe(403);
+      expect(res.headers['content-type']).toContain('application/json');
+      expect(res.headers['content-disposition']).toBeUndefined();
+    });
   });
 
   describe('délais', () => {

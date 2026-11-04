@@ -2,6 +2,7 @@ import { Body, Controller, Get, HttpCode, Param, Patch, Post, Query, Req, Res } 
 import type { Request, Response } from 'express';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/current-user.decorator';
+import { setCsvDownloadHeaders } from '../common/csv';
 import { clientIp, requestPath } from '../common/request-info';
 import type { RequestContext } from '../requests/requests.service';
 import { CoverageActionsService } from './coverage-actions.service';
@@ -48,11 +49,7 @@ export class CoverageController {
     return this.statsService.stats(user, query, contextOf(req));
   }
 
-  /**
-   * Export CSV des statistiques affichées (spec 008) ; nom du fichier selon la période et le
-   * regroupement. En-têtes posés après la production du fichier : un refus ou une période invalide
-   * garde la réponse d'erreur JSON habituelle (`@Header` les poserait avant l'appel).
-   */
+  /** Export CSV des statistiques affichées (spec 008) ; nom du fichier selon la période et le regroupement. */
   @Get('stats/export.csv')
   async exportStats(
     @CurrentUser() user: AuthenticatedUser,
@@ -61,9 +58,7 @@ export class CoverageController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const { filename, body } = await this.statsService.exportCsv(user, query, contextOf(req));
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.setHeader('Cache-Control', 'private, no-store');
+    setCsvDownloadHeaders(res, filename);
     return body;
   }
 

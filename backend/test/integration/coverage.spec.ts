@@ -892,6 +892,15 @@ describe('Affectations : parcours conservés de la garde de classe', () => {
     expect(csv.headers['content-type']).toContain('text/csv');
     expect(csv.text).toContain('Référence;Statut;Source;Type;Priorité;Classe');
     expect(csv.text).toContain('1ère année Violet');
+    // Filtre invalide : erreur JSON habituelle, jamais étiquetée CSV ni proposée en téléchargement.
+    const invalid = await api()
+      .get('/api/admin/coverage/export.csv')
+      .query({ mainStatus: 'INCONNU' })
+      .set('Cookie', cookies.superadmin);
+    expect(invalid.status).toBe(400);
+    expect(invalid.headers['content-type']).toContain('application/json');
+    expect(invalid.headers['content-disposition']).toBeUndefined();
+    expect(invalid.body.error.code).toBe('VALIDATION_ERROR');
   });
 
   it('13. un surveillant ou un admin n’accède pas aux écrans du super admin ; le module refuse les autres employés', async () => {
