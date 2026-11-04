@@ -13,6 +13,7 @@ import { LoadingState } from '../../components/LoadingState';
 import { PageHeader } from '../../components/PageHeader';
 import { useToast } from '../../components/Toast';
 import { layout } from '../../design/tokens';
+import { t } from '../../i18n';
 import { VoicePlayer } from '../voice/VoicePlayer';
 import { VoiceRecorder } from '../voice/VoiceRecorder';
 import {
@@ -28,8 +29,8 @@ import {
 import { RequestFields, useRequestForm } from './RequestForm';
 import type { CategoryOption, RequestDetail } from './types';
 
-const BACK = { to: '/demandes?onglet=brouillons', label: 'Retour aux demandes' };
-const TITLE = 'Brouillon de demande';
+const BACK = { to: '/demandes?onglet=brouillons', label: t('Retour aux demandes') };
+const TITLE = t('Brouillon de demande');
 
 /** Reprise d'un brouillon (spec 007) : formulaire de « Nouvelle demande » pré-rempli. */
 export function DraftPage() {
@@ -38,15 +39,15 @@ export function DraftPage() {
   const request = useRequest(id);
   const categories = useCategories();
 
-  if (request.isPending || categories.isPending) return <LoadingState label="Chargement du brouillon" variant="form" />;
+  if (request.isPending || categories.isPending) return <LoadingState label={t('Chargement du brouillon')} variant="form" />;
   if (request.error) {
     const notFound = request.error instanceof ApiError && request.error.status === 404;
     return (
       <>
         <PageHeader title={TITLE} back={BACK} />
         <ErrorState
-          message={notFound ? 'Ce brouillon est introuvable ou a déjà été envoyé ou supprimé.' : 'Impossible de charger le brouillon.'}
-          actionLabel={notFound ? 'Retour aux demandes' : 'Réessayer'}
+          message={notFound ? t('Ce brouillon est introuvable ou a déjà été envoyé ou supprimé.') : t('Impossible de charger le brouillon.')}
+          actionLabel={notFound ? t('Retour aux demandes') : t('Réessayer')}
           onAction={() => (notFound ? navigate('/demandes') : void request.refetch())}
         />
       </>
@@ -56,7 +57,7 @@ export function DraftPage() {
     return (
       <>
         <PageHeader title={TITLE} back={BACK} />
-        <ErrorState message="Impossible de charger les catégories." actionLabel="Réessayer" onAction={() => void categories.refetch()} />
+        <ErrorState message={t('Impossible de charger les catégories.')} actionLabel={t('Réessayer')} onAction={() => void categories.refetch()} />
       </>
     );
   }
@@ -132,7 +133,7 @@ function DraftForm({ draft, categories }: { draft: RequestDetail; categories: Ca
     setSubmitError(
       error instanceof ApiError && !isRetryableError(error)
         ? error.message
-        : 'Connexion impossible : rien n’a été perdu, le brouillon reste enregistré. Réessayez.',
+        : t('Connexion impossible : rien n’a été perdu, le brouillon reste enregistré. Réessayez.'),
     );
   }
 
@@ -142,7 +143,7 @@ function DraftForm({ draft, categories }: { draft: RequestDetail; categories: Ca
     setBusy('save');
     try {
       await persist();
-      toast.success('Brouillon enregistré.');
+      toast.success(t('Brouillon enregistré.'));
       void queryClient.invalidateQueries({ queryKey: [...requestKeys.all, 'list'] });
     } catch (error) {
       fail(error);
@@ -161,7 +162,7 @@ function DraftForm({ draft, categories }: { draft: RequestDetail; categories: Ca
       const sent = await submitDraft(draft.id, saved.version);
       // Le détail en cache doit être celui de la demande envoyée, sinon il renverrait ici.
       queryClient.setQueryData(requestKeys.detail(draft.id), sent);
-      toast.success('Votre demande a été envoyée.');
+      toast.success(t('Votre demande a été envoyée.'));
       navigate(`/demandes/${draft.id}`);
       void queryClient.invalidateQueries({ queryKey: requestKeys.all, refetchType: 'none' });
     } catch (error) {
@@ -176,7 +177,7 @@ function DraftForm({ draft, categories }: { draft: RequestDetail; categories: Ca
     setBusy('delete');
     try {
       await deleteDraft(draft.id);
-      toast.success('Brouillon supprimé.');
+      toast.success(t('Brouillon supprimé.'));
       navigate('/demandes');
       queryClient.removeQueries({ queryKey: requestKeys.detail(draft.id) });
       void queryClient.invalidateQueries({ queryKey: requestKeys.all });
@@ -185,7 +186,7 @@ function DraftForm({ draft, categories }: { draft: RequestDetail; categories: Ca
         fail(error);
         return;
       }
-      setDeleteError(error instanceof ApiError && !isRetryableError(error) ? error.message : 'Connexion impossible : réessayez.');
+      setDeleteError(error instanceof ApiError && !isRetryableError(error) ? error.message : t('Connexion impossible : réessayez.'));
     } finally {
       setBusy(null);
     }
@@ -197,10 +198,10 @@ function DraftForm({ draft, categories }: { draft: RequestDetail; categories: Ca
         <VoicePlayer key={draft.voice.fileId} src={`/api/files/${draft.voice.fileId}`} durationSeconds={draft.voice.durationSeconds} />
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
           <Button variant="outlined" size="small" startIcon={<RefreshCw aria-hidden="true" />} onClick={() => setVoiceMode('replace')}>
-            Remplacer le message vocal
+            {t('Remplacer le message vocal')}
           </Button>
           <Button variant="outlined" size="small" color="error" startIcon={<Trash2 aria-hidden="true" />} onClick={() => setVoiceMode('removed')}>
-            Supprimer le message vocal
+            {t('Supprimer le message vocal')}
           </Button>
         </Box>
       </Box>
@@ -216,7 +217,7 @@ function DraftForm({ draft, categories }: { draft: RequestDetail; categories: Ca
               setVoiceMode('kept');
             }}
           >
-            Garder le message vocal actuel
+            {t('Garder le message vocal actuel')}
           </Button>
         </Box>
       </Box>
@@ -226,7 +227,7 @@ function DraftForm({ draft, categories }: { draft: RequestDetail; categories: Ca
     <>
       <PageHeader
         title={TITLE}
-        description="Complétez votre demande, puis envoyez-la. Tant qu’elle reste en brouillon, vous seul la voyez."
+        description={t('Complétez votre demande, puis envoyez-la. Tant qu’elle reste en brouillon, vous seul la voyez.')}
         back={BACK}
       />
       <Box component="form" noValidate onSubmit={(e: FormEvent<HTMLFormElement>) => void handleSend(e)} sx={{ maxWidth: layout.readable }}>
@@ -246,7 +247,7 @@ function DraftForm({ draft, categories }: { draft: RequestDetail; categories: Ca
             onClick={() => setConfirmDelete(true)}
             sx={{ mr: { sm: 'auto' } }}
           >
-            Supprimer le brouillon
+            {t('Supprimer le brouillon')}
           </Button>
           <Button
             variant="outlined"
@@ -256,7 +257,7 @@ function DraftForm({ draft, categories }: { draft: RequestDetail; categories: Ca
             startIcon={<Save aria-hidden="true" />}
             onClick={() => void handleSave()}
           >
-            Enregistrer le brouillon
+            {t('Enregistrer le brouillon')}
           </Button>
           <Button
             type="submit"
@@ -266,15 +267,15 @@ function DraftForm({ draft, categories }: { draft: RequestDetail; categories: Ca
             disabled={busy === 'save' || busy === 'delete'}
             startIcon={<Send aria-hidden="true" />}
           >
-            Envoyer la demande
+            {t('Envoyer la demande')}
           </Button>
         </Box>
       </Box>
 
       <ConfirmDialog
         open={confirmDelete}
-        title="Supprimer ce brouillon ?"
-        confirmLabel="Supprimer"
+        title={t('Supprimer ce brouillon ?')}
+        confirmLabel={t('Supprimer')}
         pending={busy === 'delete'}
         error={deleteError}
         onConfirm={() => void handleDelete()}
@@ -283,7 +284,7 @@ function DraftForm({ draft, categories }: { draft: RequestDetail; categories: Ca
           setDeleteError(null);
         }}
       >
-        Le brouillon et son message vocal seront définitivement supprimés. Rien n’a été envoyé.
+        {t('Le brouillon et son message vocal seront définitivement supprimés. Rien n’a été envoyé.')}
       </ConfirmDialog>
     </>
   );

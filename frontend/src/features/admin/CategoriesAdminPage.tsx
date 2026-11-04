@@ -19,13 +19,14 @@ import { LoadingState } from '../../components/LoadingState';
 import { SectionHeader } from '../../components/SectionHeader';
 import { useToast } from '../../components/Toast';
 import { font, icon } from '../../design/tokens';
+import { t } from '../../i18n';
 import { adminKeys, useAdminCategories, type AdminCategory, type DeadlineRule, type RoutingMode } from './api';
 import { CategoryFormDialog } from './CategoryFormDialog';
 import { DeadlineRulesTable, fromDraft, toDraft, type DeadlineDraft, type DeadlineErrors } from './DeadlineRulesTable';
 import { CLOSURE_LABELS, PROOF_MODE_LABELS, ROUTING_LABELS } from './labels';
 
 function names(members: Array<{ displayName: string }>): string {
-  return members.length > 0 ? members.map((m) => m.displayName).join(', ') : 'aucun';
+  return members.length > 0 ? members.map((m) => m.displayName).join(', ') : t('aucun');
 }
 
 function DeadlinesDialog({ category, onClose, onSaved }: { category: AdminCategory | null; onClose: () => void; onSaved: (message: string) => void }) {
@@ -39,7 +40,7 @@ function DeadlinesDialog({ category, onClose, onSaved }: { category: AdminCatego
       apiFetch<DeadlineRule[]>(`/api/admin/categories/${category!.id}/deadlines`, { method: 'PUT', body: { rules } }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: adminKeys.categories });
-      onSaved('Délais enregistrés. Ils s’appliquent aux demandes créées à partir de maintenant.');
+      onSaved(t('Délais enregistrés. Ils s’appliquent aux demandes créées à partir de maintenant.'));
     },
   });
 
@@ -67,29 +68,29 @@ function DeadlinesDialog({ category, onClose, onSaved }: { category: AdminCatego
         },
       }}
     >
-      <DialogTitle id={titleId}>Délais : {category?.name}</DialogTitle>
+      <DialogTitle id={titleId}>{t('Délais : {name}', { name: category?.name ?? '' })}</DialogTitle>
       <DialogContent>
         <Typography variant="body2" sx={{ mb: 2 }} color="text.secondary">
-          Durées en minutes ; laissez vide pour ne fixer aucun délai. Les demandes déjà créées gardent leurs délais.
+          {t('Durées en minutes ; laissez vide pour ne fixer aucun délai. Les demandes déjà créées gardent leurs délais.')}
         </Typography>
         {category && <DeadlineRulesTable circuit={category.circuit} kind={category.kind} value={draft} errors={errors} onChange={setDraft} />}
         {mutation.error && (
           <Alert severity="error" role="alert" sx={{ mt: 2 }}>
-            {mutation.error instanceof ApiError ? mutation.error.message : 'Enregistrement impossible.'}
+            {mutation.error instanceof ApiError ? mutation.error.message : t('Enregistrement impossible.')}
           </Alert>
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Annuler</Button>
+        <Button onClick={onClose}>{t('Annuler')}</Button>
         <Button variant="contained" loading={mutation.isPending} onClick={save}>
-          Enregistrer les délais
+          {t('Enregistrer les délais')}
         </Button>
       </DialogActions>
     </Dialog>
   );
 }
 
-const ROUTING_SHORT: Record<RoutingMode, string> = { VIA_ADMIN: 'Via l’administration', DIRECT: 'Direct', PEER: 'Entre enseignants' };
+const ROUTING_SHORT: Record<RoutingMode, string> = { VIA_ADMIN: t('Via l’administration'), DIRECT: t('Direct'), PEER: t('Entre enseignants') };
 
 /** Catégories (US8) : mode de routage, clôture, photo, destinataires, admins de la catégorie et délais. */
 export function CategoriesAdminPage() {
@@ -102,26 +103,26 @@ export function CategoriesAdminPage() {
     <Box component="section" aria-labelledby="titre-categories">
       <SectionHeader
         id="titre-categories"
-        title="Catégories"
-        description="Types de demandes : mode de routage, destinataires, admins de la catégorie et délais."
+        title={t('Catégories')}
+        description={t('Types de demandes : mode de routage, destinataires, admins de la catégorie et délais.')}
         action={
           <Button variant="contained" startIcon={<FolderPlus size={icon.sm} aria-hidden="true" />} onClick={() => setForm({ category: null })}>
-            Nouvelle catégorie
+            {t('Nouvelle catégorie')}
           </Button>
         }
       />
 
       {categories.isPending ? (
-        <LoadingState label="Chargement des catégories" />
+        <LoadingState label={t('Chargement des catégories')} />
       ) : categories.error ? (
-        <ErrorState message="Impossible de charger les catégories." actionLabel="Réessayer" onAction={() => void categories.refetch()} />
+        <ErrorState message={t('Impossible de charger les catégories.')} actionLabel={t('Réessayer')} onAction={() => void categories.refetch()} />
       ) : categories.data.length === 0 ? (
         <Paper variant="outlined">
-          <EmptyState title="Aucune catégorie" description="Créez une première catégorie, par exemple « Photocopies »." />
+          <EmptyState title={t('Aucune catégorie')} description={t('Créez une première catégorie, par exemple « Photocopies ».')} />
         </Paper>
       ) : (
         <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
-          <Box component="ul" aria-label="Catégories" sx={{ listStyle: 'none', m: 0, p: 0, '& > li + li': { borderTop: 1, borderColor: 'divider' } }}>
+          <Box component="ul" aria-label={t('Catégories')} sx={{ listStyle: 'none', m: 0, p: 0, '& > li + li': { borderTop: 1, borderColor: 'divider' } }}>
             {categories.data.map((category) => (
               <Box
                 component="li"
@@ -133,7 +134,7 @@ export function CategoriesAdminPage() {
                     <Typography sx={{ fontWeight: font.medium, overflowWrap: 'anywhere' }}>{category.name}</Typography>
                     {category.kind === 'COVERAGE' ? (
                       <Badge tone="accent" icon={School}>
-                        Couverture de classe
+                        {t('Couverture de classe')}
                       </Badge>
                     ) : (
                       <Badge tone={category.routingMode === 'VIA_ADMIN' ? 'accent' : 'neutral'} icon={Route}>
@@ -142,40 +143,43 @@ export function CategoriesAdminPage() {
                     )}
                     {!category.active && (
                       <Badge tone="neutral" icon={CircleOff}>
-                        Inactive
+                        {t('Inactive')}
                       </Badge>
                     )}
                     {category.photoRequired && (
                       <Badge tone="info" icon={Camera}>
-                        Photo obligatoire
+                        {t('Photo obligatoire')}
                       </Badge>
                     )}
                   </Box>
                   {category.kind === 'COVERAGE' ? (
                     <>
                       <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                        Preuve de présence : {PROOF_MODE_LABELS[category.proofMode].toLowerCase()}
-                        {category.finalValidation ? ' · validation finale par l’administration' : ''}
+                        {t('Preuve de présence : {mode}', { mode: PROOF_MODE_LABELS[category.proofMode].toLowerCase() })}
+                        {category.finalValidation ? t(' · validation finale par l’administration') : ''}
                       </Typography>
                       <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
-                        Admins : {names(category.managers)}
+                        {t('Admins : {names}', { names: names(category.managers) })}
                       </Typography>
                     </>
                   ) : (
                     <>
                       <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                        {ROUTING_LABELS[category.routingMode]} · Clôture : {CLOSURE_LABELS[category.closureMode].toLowerCase()}
-                        {category.finalValidation ? ' · validation finale' : ''}
+                        {t('{routing} · Clôture : {closure}', {
+                          routing: ROUTING_LABELS[category.routingMode],
+                          closure: CLOSURE_LABELS[category.closureMode].toLowerCase(),
+                        })}
+                        {category.finalValidation ? t(' · validation finale') : ''}
                       </Typography>
                       <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
-                        Destinataires : {names(category.recipients)} · Admins : {names(category.managers)}
+                        {t('Destinataires : {recipients} · Admins : {managers}', { recipients: names(category.recipients), managers: names(category.managers) })}
                       </Typography>
                     </>
                   )}
                 </Box>
                 <Box sx={{ display: 'flex', gap: 0.5, flex: 'none', ml: 'auto' }}>
-                  <IconAction icon={Pencil} label={`Modifier la catégorie ${category.name}`} tooltip="Modifier" onClick={() => setForm({ category })} />
-                  <IconAction icon={Timer} label={`Délais de ${category.name}`} tooltip="Délais" onClick={() => setDeadlines(category)} />
+                  <IconAction icon={Pencil} label={t('Modifier la catégorie {name}', { name: category.name })} tooltip={t('Modifier')} onClick={() => setForm({ category })} />
+                  <IconAction icon={Timer} label={t('Délais de {name}', { name: category.name })} tooltip={t('Délais')} onClick={() => setDeadlines(category)} />
                 </Box>
               </Box>
             ))}

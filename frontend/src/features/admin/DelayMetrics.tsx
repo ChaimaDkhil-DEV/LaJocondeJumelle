@@ -6,6 +6,7 @@ import { CircleAlert, CircleCheck, Info, TriangleAlert, type LucideIcon } from '
 import { visuallyHidden } from '../../components/a11y';
 import { Badge } from '../../components/Badge';
 import { font, fontSize, icon, tokensOf, type ToneColors } from '../../design/tokens';
+import { isPlural, t } from '../../i18n';
 import { COMPLIANCE_TARGET, complianceLevel, isLowSample, percent, type ComplianceLevel } from './delayThresholds';
 
 /** Couleurs d'un niveau de respect des délais : vert, orange ou rouge ; gris sans donnée. */
@@ -18,9 +19,9 @@ function levelColors(theme: Theme, level: ComplianceLevel | null): ToneColors {
 }
 
 const LEVEL_TEXT: Record<ComplianceLevel, { label: string; icon: LucideIcon }> = {
-  met: { label: 'Objectif atteint', icon: CircleCheck },
-  near: { label: 'Proche de l’objectif', icon: TriangleAlert },
-  below: { label: 'Sous l’objectif', icon: CircleAlert },
+  met: { label: t('Objectif atteint'), icon: CircleCheck },
+  near: { label: t('Proche de l’objectif'), icon: TriangleAlert },
+  below: { label: t('Sous l’objectif'), icon: CircleAlert },
 };
 
 /** Niveau écrit avec son icône : l'information ne passe jamais par la seule couleur. */
@@ -46,7 +47,7 @@ export function ComplianceStatus({ rate, compact = false }: { rate: number | nul
         {!compact && (
           <Box component="span" sx={{ color: 'text.secondary', fontWeight: font.regular }}>
             {' '}
-            (objectif {percent(COMPLIANCE_TARGET)})
+            {t('(objectif {target})', { target: percent(COMPLIANCE_TARGET) })}
           </Box>
         )}
       </span>
@@ -69,8 +70,12 @@ export function ComplianceGauge({ rate, size = 96 }: { rate: number | null; size
   const tick = (offset: number) => ({ x: size / 2 + (r + offset) * Math.cos(angle), y: size / 2 + (r + offset) * Math.sin(angle) });
   const label =
     rate === null
-      ? 'Respect des délais : aucune demande évaluée'
-      : `Respect des délais : ${percent(rate)}, objectif ${percent(COMPLIANCE_TARGET)}, ${LEVEL_TEXT[level!].label.toLowerCase()}`;
+      ? t('Respect des délais : aucune demande évaluée')
+      : t('Respect des délais : {rate}, objectif {target}, {level}', {
+          rate: percent(rate),
+          target: percent(COMPLIANCE_TARGET),
+          level: LEVEL_TEXT[level!].label.toLowerCase(),
+        });
   return (
     <Box
       component="svg"
@@ -117,7 +122,7 @@ export function ComplianceBar({ rate, width = 64 }: { rate: number; width?: numb
     <Box
       component="span"
       role="img"
-      aria-label={`${percent(rate)} des demandes dans les délais`}
+      aria-label={t('{rate} des demandes dans les délais', { rate: percent(rate) })}
       sx={(theme) => ({ display: 'inline-flex', width, height: 6, borderRadius: 3, overflow: 'hidden', flex: 'none', bgcolor: tokensOf(theme).surfaceMuted })}
     >
       <Box component="span" sx={(theme) => ({ width: `${Math.min(rate, 1) * 100}%`, bgcolor: levelColors(theme, level).main })} />
@@ -129,9 +134,9 @@ export function ComplianceBar({ rate, width = 64 }: { rate: number; width?: numb
  * Taille de l'échantillon (« n = 3 »). Sous le seuil, badge d'avertissement avec icône, texte et
  * infobulle (accessible au clavier) : « Échantillon faible : interpréter avec prudence ».
  */
-export function SampleSizeBadge({ count, unit = 'demande' }: { count: number; unit?: string }) {
+export function SampleSizeBadge({ count }: { count: number }) {
   const low = isLowSample(count);
-  const title = `${count} ${unit}${count > 1 ? 's' : ''} mesurée${count > 1 ? 's' : ''}`;
+  const title = t(isPlural(count) ? '{count} demandes mesurées' : '{count} demande mesurée', { count });
   if (!low) {
     return (
       <Tooltip title={title} describeChild>
@@ -142,12 +147,12 @@ export function SampleSizeBadge({ count, unit = 'demande' }: { count: number; un
     );
   }
   return (
-    <Tooltip title={`${title}. Échantillon faible : interpréter avec prudence.`} describeChild>
+    <Tooltip title={t('{title}. Échantillon faible : interpréter avec prudence.', { title })} describeChild>
       <Box component="span" tabIndex={0} sx={{ display: 'inline-flex', borderRadius: 999 }}>
         <Badge tone="warning" icon={TriangleAlert}>
           n = {count}
           <Box component="span" sx={visuallyHidden}>
-            , échantillon faible
+            {t(', échantillon faible')}
           </Box>
         </Badge>
       </Box>
@@ -161,7 +166,7 @@ export function MetricHelp({ label, text }: { label: string; text: string }) {
     <Tooltip title={text} describeChild enterTouchDelay={0} leaveTouchDelay={6000}>
       <IconButton
         size="small"
-        aria-label={`Définition : ${label}`}
+        aria-label={t('Définition : {label}', { label })}
         sx={(theme) => ({ p: 0.5, m: -0.5, color: tokensOf(theme).textSecondary, '@media (pointer: coarse)': { p: 1.25, m: -1.25 } })}
       >
         <Info size={icon.sm - 2} aria-hidden="true" />
@@ -174,11 +179,11 @@ export function MetricHelp({ label, text }: { label: string; text: string }) {
  * Absence de mesure, distincte de zéro : « Aucune donnée » en gris discret, explication au
  * survol (le texte suffit seul ; pas d'arrêt clavier supplémentaire dans les tableaux).
  */
-export function NoData({ reason = 'Aucune demande mesurable sur la période.' }: { reason?: string }) {
+export function NoData({ reason = t('Aucune demande mesurable sur la période.') }: { reason?: string }) {
   return (
     <Tooltip title={reason} placement="top">
       <Box component="span" sx={(theme) => ({ color: tokensOf(theme).textMuted, fontSize: fontSize.sm, whiteSpace: 'nowrap' })}>
-        Aucune donnée
+        {t('Aucune donnée')}
       </Box>
     </Tooltip>
   );

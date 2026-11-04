@@ -15,19 +15,20 @@ import {
 import type { RequestStatus } from '../api/types';
 import type { Tone } from '../design/tokens';
 import { Badge } from './Badge';
+import { t } from '../i18n';
 
 export const STATUS_LABELS: Record<RequestStatus, string> = {
-  DRAFT: 'Brouillon',
-  PENDING_ADMIN_VALIDATION: 'En attente de validation administrative',
-  SENT: 'Envoyée',
-  ACCEPTED: 'Acceptée',
-  IN_PROGRESS: 'En cours',
-  DONE: 'Terminée',
-  PENDING_FINAL_VALIDATION: 'En attente de validation finale',
-  TO_CORRECT: 'À corriger',
-  CLOSED: 'Clôturée',
-  REJECTED: 'Refusée',
-  CANCELLED: 'Annulée',
+  DRAFT: t('Brouillon'),
+  PENDING_ADMIN_VALIDATION: t('En attente de validation administrative'),
+  SENT: t('Envoyée'),
+  ACCEPTED: t('Acceptée'),
+  IN_PROGRESS: t('En cours'),
+  DONE: t('Terminée'),
+  PENDING_FINAL_VALIDATION: t('En attente de validation finale'),
+  TO_CORRECT: t('À corriger'),
+  CLOSED: t('Clôturée'),
+  REJECTED: t('Refusée'),
+  CANCELLED: t('Annulée'),
 };
 
 /** Ton et icône de chaque statut : en attente (orange), en cours (accent), terminé (vert), refus (rouge). */

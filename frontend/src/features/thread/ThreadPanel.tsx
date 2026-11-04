@@ -15,6 +15,7 @@ import { VoicePlayer } from '../voice/VoicePlayer';
 import { useMessages, type ThreadMessage } from './api';
 import { AttachmentList } from './AttachmentList';
 import { MessageComposer } from './MessageComposer';
+import { t } from '../../i18n';
 
 interface ThreadPanelProps {
   requestId: string;
@@ -47,9 +48,9 @@ function SystemMessage({ message }: { message: ThreadMessage }) {
       <Box sx={{ minWidth: 0 }}>
         <Typography variant="body2" sx={{ color: 'inherit', overflowWrap: 'anywhere' }}>
           <Box component="span" sx={{ fontWeight: font.medium }}>
-            Information
+            {t('Information')}
           </Box>{' '}
-          · {message.author?.displayName ?? 'Système'} ·{' '}
+          · {message.author?.displayName ?? t('Système')} ·{' '}
           <time dateTime={message.createdAt} title={formatDateTime(message.createdAt)}>
             {formatDateTime(message.createdAt)}
           </time>
@@ -68,7 +69,7 @@ function SystemMessage({ message }: { message: ThreadMessage }) {
 /** Message d'une personne : avatar, nom, heure, puis bulle sobre (à droite pour ses propres messages). */
 function MessageItem({ message, own }: { message: ThreadMessage; own: boolean }) {
   if (message.kind === 'SYSTEM') return <SystemMessage message={message} />;
-  const name = message.author?.displayName ?? 'Système';
+  const name = message.author?.displayName ?? t('Système');
   return (
     <Box
       component="li"
@@ -121,17 +122,17 @@ export function ThreadPanel({ requestId, requestTitle, canWrite, readOnly = fals
   const messages = (thread.data?.pages.flatMap((p) => p.items) ?? []).slice().reverse();
 
   return (
-    <SectionCard title="Discussion" icon={MessagesSquare} titleId="titre-discussion">
+    <SectionCard title={t('Discussion')} icon={MessagesSquare} titleId="titre-discussion">
       {thread.isPending ? (
-        <LoadingState label="Chargement des messages" rows={2} />
+        <LoadingState label={t('Chargement des messages')} rows={2} />
       ) : thread.error ? (
-        <ErrorState message="Impossible de charger la discussion." actionLabel="Réessayer" onAction={() => void thread.refetch()} />
+        <ErrorState message={t('Impossible de charger la discussion.')} actionLabel={t('Réessayer')} onAction={() => void thread.refetch()} />
       ) : (
         <>
           {thread.hasNextPage && (
             <Box sx={{ textAlign: 'center', mb: 2 }}>
               <Button size="small" onClick={() => void thread.fetchNextPage()} loading={thread.isFetchingNextPage}>
-                Afficher les messages précédents
+                {t('Afficher les messages précédents')}
               </Button>
             </Box>
           )}
@@ -139,11 +140,11 @@ export function ThreadPanel({ requestId, requestTitle, canWrite, readOnly = fals
             <EmptyState
               compact
               icon={MessagesSquare}
-              title="Aucun message"
-              description={canWrite ? 'Posez une question ou apportez une précision.' : 'Aucun message n’a été échangé sur cette demande.'}
+              title={t('Aucun message')}
+              description={canWrite ? t('Posez une question ou apportez une précision.') : t('Aucun message n’a été échangé sur cette demande.')}
             />
           ) : (
-            <Box component="ol" aria-label="Messages" sx={{ p: 0, m: 0, display: 'grid', gap: 2 }}>
+            <Box component="ol" aria-label={t('Messages')} sx={{ p: 0, m: 0, display: 'grid', gap: 2 }}>
               {messages.map((m) => (
                 <MessageItem key={m.id} message={m} own={Boolean(me.data && m.author?.id === me.data.id)} />
               ))}
@@ -158,7 +159,7 @@ export function ThreadPanel({ requestId, requestTitle, canWrite, readOnly = fals
         ) : (
           <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Lock size={icon.sm} aria-hidden="true" />
-            Vous consultez cette demande : seuls le demandeur et la personne affectée y échangent.
+            {t('Vous consultez cette demande : seuls le demandeur et la personne affectée y échangent.')}
           </Typography>
         )}
       </Box>

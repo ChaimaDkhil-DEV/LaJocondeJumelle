@@ -23,22 +23,23 @@ import { fontSize, icon } from '../../design/tokens';
 import { useCoverageProfile } from './api';
 import { formatDuration } from './labels';
 import type { CoverageStats, StatsCounters } from './types';
+import { t } from '../../i18n';
 
 type GroupBy = 'teacher' | 'class' | 'period';
 type Period = 'week' | 'month';
 
 const GROUP_LABELS: Record<GroupBy, string> = {
-  teacher: 'Enseignant',
-  class: 'Classe',
-  period: 'Période',
+  teacher: t('Enseignant'),
+  class: t('Classe'),
+  period: t('Période'),
 };
 const TABLE_TITLES: Record<GroupBy, string> = {
-  teacher: 'Par enseignant',
-  class: 'Par classe',
-  period: 'Par période',
+  teacher: t('Par enseignant'),
+  class: t('Par classe'),
+  period: t('Par période'),
 };
 
-const percent = (rate: number) => `${Math.round(rate * 100)} %`;
+const percent = (rate: number) => t('{value} %', { value: Math.round(rate * 100) });
 const duration = (minutes: number | null) => (minutes === null ? '—' : formatDuration(minutes));
 
 /** Paires terme / valeur (liste de définitions) : lisibles par les lecteurs d'écran. */
@@ -89,20 +90,20 @@ function Figures({ label, items }: { label: string; items: Array<[string, string
 function StatsTable({ stats }: { stats: CoverageStats }) {
   const groupBy = stats.groupBy as GroupBy;
   const columns: Array<[string, (r: StatsCounters) => string]> = [
-    ['Événements', (r) => String(r.events)],
-    ['Retards', (r) => String(r.lateness)],
-    ['Absences', (r) => String(r.absence)],
-    ['Classes vides', (r) => String(r.emptyClass)],
-    ['Non pourvues', (r) => String(r.unfilled)],
-    ['Annulées', (r) => String(r.cancelled)],
-    ['Durée moyenne', (r) => duration(r.averageDurationMinutes)],
+    [t('Événements'), (r) => String(r.events)],
+    [t('Retards'), (r) => String(r.lateness)],
+    [t('Absences'), (r) => String(r.absence)],
+    [t('Classes vides'), (r) => String(r.emptyClass)],
+    [t('Non pourvues'), (r) => String(r.unfilled)],
+    [t('Annulées'), (r) => String(r.cancelled)],
+    [t('Durée moyenne'), (r) => duration(r.averageDurationMinutes)],
   ];
   if (stats.rows.length === 0) {
     return (
       <EmptyState
         icon={BarChart3}
-        title="Aucune affectation sur la période"
-        description="Choisissez une autre période."
+        title={t('Aucune affectation sur la période')}
+        description={t('Choisissez une autre période.')}
       />
     );
   }
@@ -151,8 +152,8 @@ function StatsTable({ stats }: { stats: CoverageStats }) {
 export function CoverageStatsPage() {
   const profile = useCoverageProfile();
   if (profile.isPending)
-    return <LoadingState label="Chargement des statistiques" variant="detail" />;
-  if (profile.error) return <ErrorState message="Impossible de charger les statistiques." />;
+    return <LoadingState label={t('Chargement des statistiques')} variant="detail" />;
+  if (profile.error) return <ErrorState message={t('Impossible de charger les statistiques.')} />;
   const today = profile.data.schoolDates.today;
   return <StatsView defaultFrom={`${today.slice(0, 7)}-01`} defaultTo={today} />;
 }
@@ -179,9 +180,9 @@ function StatsView({ defaultFrom, defaultTo }: { defaultFrom: string; defaultTo:
   return (
     <>
       <PageHeader
-        title="Statistiques des affectations"
-        description="Retards, absences et classes vides de la période, dans le fuseau de l’école. Les annulées et les doublons non tranchés sont comptés à part."
-        back={{ to: '/gardes', label: 'Gardes' }}
+        title={t('Statistiques des affectations')}
+        description={t('Retards, absences et classes vides de la période, dans le fuseau de l’école. Les annulées et les doublons non tranchés sont comptés à part.')}
+        back={{ to: '/gardes', label: t('Gardes') }}
       />
       <Box sx={{ display: 'grid', gap: 2 }}>
         <SectionCard>
@@ -194,7 +195,7 @@ function StatsView({ defaultFrom, defaultTo }: { defaultFrom: string; defaultTo:
           >
             <TextField
               id="stats-du"
-              label="Du"
+              label={t('Du')}
               type="date"
               value={from}
               onChange={(e) => setFrom(e.target.value)}
@@ -202,7 +203,7 @@ function StatsView({ defaultFrom, defaultTo }: { defaultFrom: string; defaultTo:
             />
             <TextField
               id="stats-au"
-              label="Au"
+              label={t('Au')}
               type="date"
               value={to}
               onChange={(e) => setTo(e.target.value)}
@@ -211,7 +212,7 @@ function StatsView({ defaultFrom, defaultTo }: { defaultFrom: string; defaultTo:
             <TextField
               select
               id="stats-regroupement"
-              label="Regrouper par"
+              label={t('Regrouper par')}
               value={groupBy}
               onChange={(e) => setGroupBy(e.target.value as GroupBy)}
             >
@@ -225,12 +226,12 @@ function StatsView({ defaultFrom, defaultTo }: { defaultFrom: string; defaultTo:
               <TextField
                 select
                 id="stats-periode"
-                label="Période"
+                label={t('Période')}
                 value={period}
                 onChange={(e) => setPeriod(e.target.value as Period)}
               >
-                <MenuItem value="week">Semaine</MenuItem>
-                <MenuItem value="month">Mois</MenuItem>
+                <MenuItem value="week">{t('Semaine')}</MenuItem>
+                <MenuItem value="month">{t('Mois')}</MenuItem>
               </TextField>
             )}
           </Box>
@@ -240,10 +241,10 @@ function StatsView({ defaultFrom, defaultTo }: { defaultFrom: string; defaultTo:
           <Alert severity="error" role="alert">
             {stats.error instanceof ApiError
               ? stats.error.message
-              : 'Impossible de calculer les statistiques.'}
+              : t('Impossible de calculer les statistiques.')}
           </Alert>
         ) : !stats.data ? (
-          <LoadingState label="Calcul des statistiques" />
+          <LoadingState label={t('Calcul des statistiques')} />
         ) : (
           <>
             {/* Seulement sur des statistiques à jour : ni date incomplète, ni recalcul (anciennes valeurs affichées). */}
@@ -255,29 +256,29 @@ function StatsView({ defaultFrom, defaultTo }: { defaultFrom: string; defaultTo:
                   download
                   startIcon={<Download size={icon.sm} aria-hidden="true" />}
                 >
-                  Exporter en CSV
+                  {t('Exporter en CSV')}
                 </Button>
               </Box>
             )}
             <SectionCard>
               <Figures
-                label="Totaux de la période"
+                label={t('Totaux de la période')}
                 items={[
-                  ['Retards et absences', String(stats.data.totals.events)],
-                  ['Retards', String(stats.data.totals.lateness)],
-                  ['Absences', String(stats.data.totals.absence)],
-                  ['Classes vides', String(stats.data.totals.emptyClass)],
-                  ['Non pourvues', String(stats.data.totals.unfilled)],
-                  ['Taux de non pourvue', percent(stats.data.totals.unfilledRate)],
-                  ['Durée moyenne', duration(stats.data.totals.averageDurationMinutes)],
+                  [t('Retards et absences'), String(stats.data.totals.events)],
+                  [t('Retards'), String(stats.data.totals.lateness)],
+                  [t('Absences'), String(stats.data.totals.absence)],
+                  [t('Classes vides'), String(stats.data.totals.emptyClass)],
+                  [t('Non pourvues'), String(stats.data.totals.unfilled)],
+                  [t('Taux de non pourvue'), percent(stats.data.totals.unfilledRate)],
+                  [t('Durée moyenne'), duration(stats.data.totals.averageDurationMinutes)],
                 ]}
               />
               <Figures
-                label="Comptés à part"
+                label={t('Comptés à part')}
                 items={[
-                  ['Annulées (non comptées comme retards)', String(stats.data.totals.cancelled)],
+                  [t('Annulées (non comptées comme retards)'), String(stats.data.totals.cancelled)],
                   [
-                    'Doublons non tranchés (comptés une fois)',
+                    t('Doublons non tranchés (comptés une fois)'),
                     String(stats.data.totals.undecidedDuplicates),
                   ],
                 ]}

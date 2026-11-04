@@ -19,6 +19,7 @@ import { ErrorState } from '../../components/ErrorState';
 import { PriorityBadge } from '../../components/PriorityBadge';
 import { SectionCard } from '../../components/SectionCard';
 import { font, fontSize, icon, tokensOf } from '../../design/tokens';
+import { isPlural, t } from '../../i18n';
 import { DashboardSkeleton } from './DashboardSkeleton';
 import { formatDurationMs, useDashboardPerformance, type Compliance, type DashboardPerformance, type DurationStats } from './dashboardApi';
 import { COMPLIANCE_TARGET, LOW_SAMPLE_THRESHOLD, percent } from './delayThresholds';
@@ -30,13 +31,17 @@ import { KpiCard } from './KpiCard';
  * (backend/src/dashboard/domain/dashboard-metrics.ts) : infobulles et bloc d'aide.
  */
 const DEFINITIONS = {
-  firstReply:
+  firstReply: t(
     'De la soumission au premier message, texte ou vocal, d’une autre personne que le demandeur (messages système exclus). Distincte de la prise en charge.',
-  takeover: 'Du premier passage à « Envoyée » à la première acceptation.',
-  resolution:
+  ),
+  takeover: t('Du premier passage à « Envoyée » à la première acceptation.'),
+  resolution: t(
     'Du premier « Envoyée » au dernier « Terminée », en ne comptant que le temps passé « Envoyée », « Acceptée » et « En cours ».',
-  grossResolution: 'Même intervalle que le traitement net, suspensions (« À corriger », attentes de validation) comprises.',
-  compliance: `Part des demandes terminées, avec au moins une étape soumise à délai, qui n’ont jamais été en retard. Objectif : ${percent(COMPLIANCE_TARGET)}.`,
+  ),
+  grossResolution: t('Même intervalle que le traitement net, suspensions (« À corriger », attentes de validation) comprises.'),
+  compliance: t('Part des demandes terminées, avec au moins une étape soumise à délai, qui n’ont jamais été en retard. Objectif : {target}.', {
+    target: percent(COMPLIANCE_TARGET),
+  }),
 } as const;
 
 /** Tableau défilant (mobile) : atteignable au clavier et nommé pour les lecteurs d'écran. */
@@ -59,8 +64,8 @@ function ComplianceHero({ compliance: c }: { compliance: Compliance }) {
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}>
-        <Box sx={{ fontSize: fontSize.sm, fontWeight: font.semibold, lineHeight: 1.35 }}>Respect des délais</Box>
-        <MetricHelp label="Respect des délais" text={DEFINITIONS.compliance} />
+        <Box sx={{ fontSize: fontSize.sm, fontWeight: font.semibold, lineHeight: 1.35 }}>{t('Respect des délais')}</Box>
+        <MetricHelp label={t('Respect des délais')} text={DEFINITIONS.compliance} />
       </Box>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0 }}>
         <ComplianceGauge rate={c.rate} size={104} />
@@ -76,15 +81,18 @@ function ComplianceHero({ compliance: c }: { compliance: Compliance }) {
               fontVariantNumeric: 'tabular-nums',
             }}
           >
-            {c.rate === null ? 'Aucune donnée' : percent(c.rate)}
+            {c.rate === null ? t('Aucune donnée') : percent(c.rate)}
           </Typography>
         </Box>
       </Box>
       <ComplianceStatus rate={c.rate} />
       <Typography variant="caption" color="text.secondary">
         {c.evaluated === 0
-          ? 'Aucune demande terminée avec délai sur la période.'
-          : `${c.onTime} sur ${c.evaluated} demande${c.evaluated > 1 ? 's' : ''} terminée${c.evaluated > 1 ? 's' : ''} sans retard`}
+          ? t('Aucune demande terminée avec délai sur la période.')
+          : t(isPlural(c.evaluated) ? '{onTime} sur {evaluated} demandes terminées sans retard' : '{onTime} sur {evaluated} demande terminée sans retard', {
+              onTime: c.onTime,
+              evaluated: c.evaluated,
+            })}
       </Typography>
       <Box>
         <SampleSizeBadge count={c.evaluated} />
@@ -98,7 +106,7 @@ function DurationCard({ label, stats, hint, help, icon: Icon }: { label: string;
   return (
     <KpiCard
       label={label}
-      value={none ? 'Aucune donnée' : formatDurationMs(stats.avgMs)}
+      value={none ? t('Aucune donnée') : formatDurationMs(stats.avgMs)}
       muted={none}
       icon={Icon}
       tone="neutral"
@@ -126,7 +134,7 @@ function DurationCell({ stats }: { stats: DurationStats }) {
 }
 
 function ComplianceCell({ compliance: c }: { compliance: Compliance }) {
-  if (c.evaluated === 0 || c.rate === null) return <NoData reason="Aucune demande terminée avec délai sur la période." />;
+  if (c.evaluated === 0 || c.rate === null) return <NoData reason={t('Aucune demande terminée avec délai sur la période.')} />;
   return (
     <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 1 }}>
       <ComplianceBar rate={c.rate} />
@@ -141,7 +149,7 @@ function ComplianceCell({ compliance: c }: { compliance: Compliance }) {
   );
 }
 
-const NUMERIC_COLUMNS = ['Demandes', 'Validation', 'Première réponse', 'Prise en charge', 'Traitement net', 'Respect des délais'] as const;
+const NUMERIC_COLUMNS = [t('Demandes'), t('Validation'), t('Première réponse'), t('Prise en charge'), t('Traitement net'), t('Respect des délais')] as const;
 
 /**
  * Délais par priorité : colonnes chiffrées alignées à droite (en-têtes compris), chiffres
@@ -152,11 +160,11 @@ function DelaysByPriorityTable({ rows }: { rows: DashboardPerformance['byPriorit
   return (
     // position: relative : les textes masqués (position absolue) des cellules restent dans la zone
     // défilante au lieu d'élargir la page sur mobile.
-    <TableContainer sx={{ position: 'relative', maxHeight: { md: 560 } }} {...scrollRegion('Délais par priorité')}>
+    <TableContainer sx={{ position: 'relative', maxHeight: { md: 560 } }} {...scrollRegion(t('Délais par priorité'))}>
       <Table
         size="small"
         stickyHeader
-        aria-label="Délais par priorité"
+        aria-label={t('Délais par priorité')}
         sx={(theme) => {
           const t = tokensOf(theme);
           return {
@@ -177,7 +185,7 @@ function DelaysByPriorityTable({ rows }: { rows: DashboardPerformance['byPriorit
         </colgroup>
         <TableHead>
           <TableRow>
-            <TableCell>Priorité</TableCell>
+            <TableCell>{t('Priorité')}</TableCell>
             {NUMERIC_COLUMNS.map((name) => (
               <TableCell key={name} align="right">
                 {name}
@@ -225,13 +233,29 @@ function DelaysHelp() {
   const [open, setOpen] = useState(false);
   const id = useId();
   const items: Array<[string, string]> = [
-    ['Moyennes', `Seules les demandes mesurables comptent ; leur nombre est indiqué (n). Sous ${LOW_SAMPLE_THRESHOLD} mesures, l’échantillon est signalé faible.`],
-    ['Première réponse', DEFINITIONS.firstReply],
-    ['Prise en charge', `${DEFINITIONS.takeover} À ne pas confondre avec la première réponse.`],
-    ['Validation', 'De l’entrée en « À valider » au statut suivant (catégories à validation administrative).'],
-    ['Traitement net', `${DEFINITIONS.resolution} Les périodes « À corriger » et d’attente de validation sont exclues.`],
-    ['Traitement brut', DEFINITIONS.grossResolution],
-    ['Respect des délais', `${DEFINITIONS.compliance} Une demande encore en cours n’entre pas dans le taux.`],
+    [
+      t('Moyennes'),
+      t('Seules les demandes mesurables comptent ; leur nombre est indiqué (n). Sous {threshold} mesures, l’échantillon est signalé faible.', {
+        threshold: LOW_SAMPLE_THRESHOLD,
+      }),
+    ],
+    [t('Première réponse'), DEFINITIONS.firstReply],
+    [t('Prise en charge'), t('Du premier passage à « Envoyée » à la première acceptation. À ne pas confondre avec la première réponse.')],
+    [t('Validation'), t('De l’entrée en « À valider » au statut suivant (catégories à validation administrative).')],
+    [
+      t('Traitement net'),
+      t(
+        'Du premier « Envoyée » au dernier « Terminée », en ne comptant que le temps passé « Envoyée », « Acceptée » et « En cours ». Les périodes « À corriger » et d’attente de validation sont exclues.',
+      ),
+    ],
+    [t('Traitement brut'), DEFINITIONS.grossResolution],
+    [
+      t('Respect des délais'),
+      t(
+        'Part des demandes terminées, avec au moins une étape soumise à délai, qui n’ont jamais été en retard. Objectif : {target}. Une demande encore en cours n’entre pas dans le taux.',
+        { target: percent(COMPLIANCE_TARGET) },
+      ),
+    ],
   ];
   return (
     <Paper variant="elevated" sx={{ px: { xs: 2, sm: 3 }, py: 0.5 }}>
@@ -245,7 +269,7 @@ function DelaysHelp() {
         endIcon={<ChevronDown size={icon.sm} aria-hidden="true" style={{ transform: open ? 'rotate(180deg)' : undefined, transition: 'transform 150ms' }} />}
         sx={{ justifyContent: 'flex-start', textAlign: 'left', minHeight: 44, px: 0, fontWeight: font.medium, '& .MuiButton-endIcon': { ml: 'auto', pl: 1 } }}
       >
-        Comment sont calculés ces indicateurs ?
+        {t('Comment sont calculés ces indicateurs ?')}
       </Button>
       <Collapse in={open} id={id}>
         <Box component="dl" sx={{ m: 0, pb: 2, display: 'grid', gap: 1.25 }}>
@@ -278,15 +302,15 @@ function isEmpty(perf: DashboardPerformance): boolean {
 /** Onglet « Délais » du tableau de bord : respect des délais en tête, durées moyennes, détail par priorité. */
 export function DelaysView({ qs }: { qs: string }) {
   const perf = useDashboardPerformance(qs);
-  if (perf.isPending) return <DashboardSkeleton label="Chargement des délais" shape="performance" />;
-  if (perf.error) return <ErrorState message={loadErrorMessage(perf.error, 'les délais')} actionLabel="Réessayer" onAction={() => void perf.refetch()} />;
+  if (perf.isPending) return <DashboardSkeleton label={t('Chargement des délais')} shape="performance" />;
+  if (perf.error) return <ErrorState message={loadErrorMessage(perf.error, t('les délais'))} actionLabel={t('Réessayer')} onAction={() => void perf.refetch()} />;
   if (isEmpty(perf.data)) {
     return (
       <Paper variant="elevated">
         <EmptyState
           icon={SearchX}
-          title="Aucun délai à mesurer"
-          description="Aucune demande prise en charge ni terminée sur cette période et avec ces filtres. Élargissez la période pour voir les délais."
+          title={t('Aucun délai à mesurer')}
+          description={t('Aucune demande prise en charge ni terminée sur cette période et avec ces filtres. Élargissez la période pour voir les délais.')}
         />
       </Paper>
     );
@@ -305,23 +329,23 @@ export function DelaysView({ qs }: { qs: string }) {
         }}
       >
         <ComplianceHero compliance={o.compliance} />
-        <DurationCard label="Première réponse moyenne" stats={o.firstReply} hint="Soumission → premier message" help={DEFINITIONS.firstReply} icon={MessageSquare} />
-        <DurationCard label="Prise en charge moyenne" stats={o.takeover} hint="Envoi → acceptation" help={DEFINITIONS.takeover} icon={Timer} />
-        <DurationCard label="Traitement net moyen" stats={o.resolution} hint="Hors suspensions" help={DEFINITIONS.resolution} icon={Play} />
-        <DurationCard label="Traitement brut moyen" stats={o.grossResolution} hint="Suspensions comprises" help={DEFINITIONS.grossResolution} icon={Hourglass} />
+        <DurationCard label={t('Première réponse moyenne')} stats={o.firstReply} hint={t('Soumission → premier message')} help={DEFINITIONS.firstReply} icon={MessageSquare} />
+        <DurationCard label={t('Prise en charge moyenne')} stats={o.takeover} hint={t('Envoi → acceptation')} help={DEFINITIONS.takeover} icon={Timer} />
+        <DurationCard label={t('Traitement net moyen')} stats={o.resolution} hint={t('Hors suspensions')} help={DEFINITIONS.resolution} icon={Play} />
+        <DurationCard label={t('Traitement brut moyen')} stats={o.grossResolution} hint={t('Suspensions comprises')} help={DEFINITIONS.grossResolution} icon={Hourglass} />
       </Box>
 
       <SectionCard
         elevated
         flush
-        title="Par priorité"
+        title={t('Par priorité')}
         description={
           <>
-            Délais attendus : règles de chaque catégorie (
+            {t('Délais attendus : règles de chaque catégorie (')}
             <Link component={RouterLink} to="/admin/categories">
-              Administration › Catégories
+              {t('Administration › Catégories')}
             </Link>
-            ).
+            {t(').')}
           </>
         }
       >

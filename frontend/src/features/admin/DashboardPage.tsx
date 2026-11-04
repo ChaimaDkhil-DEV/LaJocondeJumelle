@@ -45,6 +45,7 @@ import { SectionCard } from '../../components/SectionCard';
 import { STATUS_LABELS } from '../../components/StatusBadge';
 import { Person } from '../../components/UserAvatar';
 import { cardShadow, font, fontSize, icon, radius, tokensOf, type AccentName } from '../../design/tokens';
+import { locale, isPlural, t } from '../../i18n';
 import { useRequestList } from '../requests/api';
 import type { RequestSummary } from '../requests/types';
 import { describeEvent, EVENT_ICONS } from '../requests/HistoryTimeline';
@@ -69,12 +70,12 @@ import {
 } from './dashboardApi';
 
 const GROUP_LABELS: Record<StatusGroup, string> = {
-  pendingValidation: 'À valider',
-  pendingTakeover: 'En attente de prise en charge',
-  inProgress: 'En cours',
-  done: 'Terminées',
-  rejected: 'Refusées',
-  cancelled: 'Annulées',
+  pendingValidation: t('À valider'),
+  pendingTakeover: t('En attente de prise en charge'),
+  inProgress: t('En cours'),
+  done: t('Terminées'),
+  rejected: t('Refusées'),
+  cancelled: t('Annulées'),
 };
 
 const GROUP_ICONS: Record<StatusGroup, LucideIcon> = {
@@ -87,20 +88,20 @@ const GROUP_ICONS: Record<StatusGroup, LucideIcon> = {
 };
 
 const GROUP_HINTS: Record<StatusGroup, string> = {
-  pendingValidation: 'En attente de validation administrative',
-  pendingTakeover: 'Envoyées, pas encore acceptées',
-  inProgress: 'Acceptées, en cours ou à corriger',
-  done: 'Terminées, en validation finale ou clôturées',
-  rejected: 'Refusées par l’administration ou l’employé',
-  cancelled: 'Annulées par le demandeur',
+  pendingValidation: t('En attente de validation administrative'),
+  pendingTakeover: t('Envoyées, pas encore acceptées'),
+  inProgress: t('Acceptées, en cours ou à corriger'),
+  done: t('Terminées, en validation finale ou clôturées'),
+  rejected: t('Refusées par l’administration ou l’employé'),
+  cancelled: t('Annulées par le demandeur'),
 };
 
 const VIEWS = [
-  { key: 'general', label: 'Vue générale' },
-  { key: 'delais', label: 'Délais' },
-  { key: 'employes', label: 'Employés' },
-  { key: 'demandes', label: 'Demandes' },
-  { key: 'activite', label: 'Activité' },
+  { key: 'general', label: t('Vue générale') },
+  { key: 'delais', label: t('Délais') },
+  { key: 'employes', label: t('Employés') },
+  { key: 'demandes', label: t('Demandes') },
+  { key: 'activite', label: t('Activité') },
 ] as const;
 
 type ViewKey = (typeof VIEWS)[number]['key'];
@@ -118,7 +119,7 @@ function scrollRegion(label: string) {
  */
 const stickyArea = { maxHeight: { md: 560 } } as const;
 
-const SUBJECT = 'le tableau de bord';
+const SUBJECT = t('le tableau de bord');
 
 /**
  * Onglets de vue en contrôle segmenté, pour ne pas les confondre avec la navigation soulignée des
@@ -159,7 +160,7 @@ function PeriodSelect({ value, onChange }: { value: DashboardFilters; onChange: 
     <TextField
       select
       id="tdb-periode"
-      label="Période"
+      label={t('Période')}
       size="small"
       fullWidth={false}
       value={value.preset}
@@ -167,16 +168,16 @@ function PeriodSelect({ value, onChange }: { value: DashboardFilters; onChange: 
       slotProps={{ inputLabel: { sx: visuallyHidden } }}
       sx={{ minWidth: 176 }}
     >
-      <MenuItem value="7">7 derniers jours</MenuItem>
-      <MenuItem value="30">30 derniers jours</MenuItem>
-      <MenuItem value="90">90 derniers jours</MenuItem>
-      <MenuItem value="custom">Personnalisée</MenuItem>
+      <MenuItem value="7">{t('7 derniers jours')}</MenuItem>
+      <MenuItem value="30">{t('30 derniers jours')}</MenuItem>
+      <MenuItem value="90">{t('90 derniers jours')}</MenuItem>
+      <MenuItem value="custom">{t('Personnalisée')}</MenuItem>
     </TextField>
   );
 }
 
-const dayMonth = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short' });
-const dayMonthYear = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+const dayMonth = new Intl.DateTimeFormat(locale(), { day: 'numeric', month: 'short' });
+const dayMonthYear = new Intl.DateTimeFormat(locale(), { day: 'numeric', month: 'short', year: 'numeric' });
 
 /** « 29 sept. – 29 oct. 2026 » (année répétée si elle change) ; null tant qu'une date manque. */
 function periodLabel(f: DashboardFilters): string | null {
@@ -206,7 +207,7 @@ function FiltersPanel({ value, onChange }: { value: DashboardFilters; onChange: 
       variant="elevated"
       id="tdb-filtres"
       role="group"
-      aria-label="Filtres du tableau de bord"
+      aria-label={t('Filtres du tableau de bord')}
       sx={{
         p: { xs: 1.5, sm: 2 },
         mb: 2,
@@ -218,28 +219,28 @@ function FiltersPanel({ value, onChange }: { value: DashboardFilters; onChange: 
     >
       {value.preset === 'custom' && (
         <>
-          <TextField id="tdb-du" label="Du" type="date" size="small" sx={wide} value={value.from} onChange={(e) => onChange({ from: e.target.value })} />
-          <TextField id="tdb-au" label="Au" type="date" size="small" sx={{ ...wide, gridColumn: { xs: '1 / -1', sm: 'auto', md: 'span 2' } }} value={value.to} onChange={(e) => onChange({ to: e.target.value })} />
+          <TextField id="tdb-du" label={t('Du')} type="date" size="small" sx={wide} value={value.from} onChange={(e) => onChange({ from: e.target.value })} />
+          <TextField id="tdb-au" label={t('Au')} type="date" size="small" sx={{ ...wide, gridColumn: { xs: '1 / -1', sm: 'auto', md: 'span 2' } }} value={value.to} onChange={(e) => onChange({ to: e.target.value })} />
         </>
       )}
-      <TextField select id="tdb-categorie" label="Catégorie (service)" size="small" sx={wide} value={value.categoryId} onChange={(e) => onChange({ categoryId: e.target.value })} slotProps={{ select: { displayEmpty: true } }}>
-        <MenuItem value="">Toutes</MenuItem>
+      <TextField select id="tdb-categorie" label={t('Catégorie (service)')} size="small" sx={wide} value={value.categoryId} onChange={(e) => onChange({ categoryId: e.target.value })} slotProps={{ select: { displayEmpty: true } }}>
+        <MenuItem value="">{t('Toutes')}</MenuItem>
         {workCategories.map((c) => (
           <MenuItem key={c.id} value={c.id}>
             {c.name}
           </MenuItem>
         ))}
       </TextField>
-      <TextField select id="tdb-priorite" label="Priorité" size="small" value={value.priority} onChange={(e) => onChange({ priority: e.target.value })} slotProps={{ select: { displayEmpty: true } }}>
-        <MenuItem value="">Toutes</MenuItem>
+      <TextField select id="tdb-priorite" label={t('Priorité')} size="small" value={value.priority} onChange={(e) => onChange({ priority: e.target.value })} slotProps={{ select: { displayEmpty: true } }}>
+        <MenuItem value="">{t('Toutes')}</MenuItem>
         {PRIORITIES.map((p) => (
           <MenuItem key={p} value={p}>
             {PRIORITY_LABELS[p]}
           </MenuItem>
         ))}
       </TextField>
-      <TextField select id="tdb-employe" label="Employé" size="small" value={value.employeeId} onChange={(e) => onChange({ employeeId: e.target.value })} slotProps={{ select: { displayEmpty: true } }}>
-        <MenuItem value="">Tous</MenuItem>
+      <TextField select id="tdb-employe" label={t('Employé')} size="small" value={value.employeeId} onChange={(e) => onChange({ employeeId: e.target.value })} slotProps={{ select: { displayEmpty: true } }}>
+        <MenuItem value="">{t('Tous')}</MenuItem>
         {(users.data ?? []).map((u) => (
           <MenuItem key={u.id} value={u.id}>
             {u.displayName}
@@ -260,10 +261,10 @@ const GROUP_ACCENTS: Partial<Record<StatusGroup, AccentName>> = {
 
 function GeneralView({ qs }: { qs: string }) {
   const theme = useTheme();
-  const t = tokensOf(theme);
+  const tk = tokensOf(theme);
   const summary = useDashboardSummary(qs);
-  if (summary.isPending) return <DashboardSkeleton label="Chargement des indicateurs" shape="general" />;
-  if (summary.error) return <ErrorState message={loadErrorMessage(summary.error, SUBJECT)} actionLabel="Réessayer" onAction={() => void summary.refetch()} />;
+  if (summary.isPending) return <DashboardSkeleton label={t('Chargement des indicateurs')} shape="general" />;
+  if (summary.error) return <ErrorState message={loadErrorMessage(summary.error, SUBJECT)} actionLabel={t('Réessayer')} onAction={() => void summary.refetch()} />;
   const s = summary.data;
   const groups = Object.keys(GROUP_LABELS) as StatusGroup[];
   const empty = s.counts.total === 0 && s.daily.every((d) => d.completed === 0);
@@ -273,16 +274,16 @@ function GeneralView({ qs }: { qs: string }) {
       {/* Rangée d'indicateurs : tuile colorée, valeur et mini-graphique de la période. */}
       <Box component="section" aria-labelledby="tdb-periode-titre" sx={{ display: 'grid', gap: 1.5 }}>
         <Typography id="tdb-periode-titre" component="h2" variant="h6">
-          Demandes créées sur la période
+          {t('Demandes créées sur la période')}
         </Typography>
         <Box sx={kpiGrid}>
           <KpiCard
-            label="Total"
+            label={t('Total')}
             value={s.counts.total}
             icon={Inbox}
             accent="indigo"
-            hint="Hors brouillons"
-            trend={<Sparkline values={s.daily.map((d) => d.created)} color={t.accents.indigo.main} />}
+            hint={t('Hors brouillons')}
+            trend={<Sparkline values={s.daily.map((d) => d.created)} color={tk.accents.indigo.main} />}
           />
           {groups.map((g) => (
             <KpiCard
@@ -293,52 +294,52 @@ function GeneralView({ qs }: { qs: string }) {
               accent={GROUP_ACCENTS[g]}
               tone="neutral"
               hint={GROUP_HINTS[g]}
-              trend={g === 'done' ? <Sparkline kind="bars" values={s.daily.map((d) => d.completed)} color={t.accents.green.main} /> : undefined}
+              trend={g === 'done' ? <Sparkline kind="bars" values={s.daily.map((d) => d.completed)} color={tk.accents.green.main} /> : undefined}
             />
           ))}
           <KpiCard
-            label="Hors délai"
+            label={t('Hors délai')}
             value={s.counts.overdueInPeriod}
             tone={s.counts.overdueInPeriod > 0 ? 'error' : 'neutral'}
             accent={s.counts.overdueInPeriod > 0 ? undefined : 'orange'}
             icon={AlarmClock}
-            hint="Au moins une étape en retard"
-            trend={s.byCategory.length > 1 ? <Sparkline kind="bars" values={s.byCategory.map((c) => c.overdue)} color={t.accents.orange.main} /> : undefined}
+            hint={t('Au moins une étape en retard')}
+            trend={s.byCategory.length > 1 ? <Sparkline kind="bars" values={s.byCategory.map((c) => c.overdue)} color={tk.accents.orange.main} /> : undefined}
           />
         </Box>
       </Box>
 
       {empty ? (
         <Paper variant="elevated">
-          <EmptyState icon={SearchX} title="Aucune demande" description="Aucune demande ne correspond à cette période et à ces filtres." />
+          <EmptyState icon={SearchX} title={t('Aucune demande')} description={t('Aucune demande ne correspond à cette période et à ces filtres.')} />
         </Paper>
       ) : (
         <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 2fr) minmax(0, 1fr)' } }}>
           <SectionCard
             elevated
-            title="Évolution quotidienne"
-            description="Créées : jour de création. Terminées : jour de la première fin de traitement, même pour une demande créée avant la période."
+            title={t('Évolution quotidienne')}
+            description={t('Créées : jour de création. Terminées : jour de la première fin de traitement, même pour une demande créée avant la période.')}
           >
             <DailyChart data={s.daily} />
           </SectionCard>
-          <SectionCard elevated title="Répartition par état">
+          <SectionCard elevated title={t('Répartition par état')}>
             <StatusDonut data={groups.map((g) => ({ label: GROUP_LABELS[g], count: s.counts[g] }))} />
           </SectionCard>
         </Box>
       )}
 
-      <SectionCard elevated title="À traiter maintenant" description="Situation actuelle, toutes périodes confondues (les autres filtres s’appliquent)." contentGap={3}>
+      <SectionCard elevated title={t('À traiter maintenant')} description={t('Situation actuelle, toutes périodes confondues (les autres filtres s’appliquent).')} contentGap={3}>
         <Figures
-          label="Situation actuelle"
+          label={t('Situation actuelle')}
           items={[
-            { label: 'En retard', value: s.current.overdueNow, hint: 'Échéance de l’étape en cours dépassée', alert: 'error' },
-            { label: 'Urgentes en cours', value: s.current.urgentActive, hint: 'Priorité urgente, non terminées', alert: 'warning' },
-            { label: 'Sans employé affecté', value: s.current.unassigned, hint: 'Envoyées ou en cours sans employé affecté' },
+            { label: t('En retard'), value: s.current.overdueNow, hint: t('Échéance de l’étape en cours dépassée'), alert: 'error' },
+            { label: t('Urgentes en cours'), value: s.current.urgentActive, hint: t('Priorité urgente, non terminées'), alert: 'warning' },
+            { label: t('Sans employé affecté'), value: s.current.unassigned, hint: t('Envoyées ou en cours sans employé affecté') },
           ]}
         />
         {s.alerts.length === 0 ? (
           <Typography variant="body2" color="text.secondary">
-            Aucune alerte : aucune demande en retard ni urgente en cours.
+            {t('Aucune alerte : aucune demande en retard ni urgente en cours.')}
           </Typography>
         ) : (
           <AlertTable alerts={s.alerts} />
@@ -346,13 +347,13 @@ function GeneralView({ qs }: { qs: string }) {
       </SectionCard>
 
       <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 2fr) minmax(0, 1fr)' } }}>
-        <SectionCard elevated title="Par catégorie (service)" flush>
+        <SectionCard elevated title={t('Par catégorie (service)')} flush>
           {s.byCategory.length === 0 ? (
-            <EmptyState compact title="Aucune donnée" description="Aucune demande sur la période." />
+            <EmptyState compact title={t('Aucune donnée')} description={t('Aucune demande sur la période.')} />
           ) : (
             <Box
               component="ul"
-              aria-label="Demandes par catégorie"
+              aria-label={t('Demandes par catégorie')}
               sx={(theme) => ({ listStyle: 'none', m: 0, p: 0, pb: 1, '& > li + li': { borderTop: `1px solid ${tokensOf(theme).border}` } })}
             >
               {s.byCategory.map((c) => (
@@ -361,12 +362,12 @@ function GeneralView({ qs }: { qs: string }) {
             </Box>
           )}
         </SectionCard>
-        <SectionCard elevated title="Échanges" description="Messages sur les demandes de la période (nombre seulement, jamais le contenu).">
+        <SectionCard elevated title={t('Échanges')} description={t('Messages sur les demandes de la période (nombre seulement, jamais le contenu).')}>
           <Figures
-            label="Échanges"
+            label={t('Échanges')}
             items={[
-              { label: 'Écrits', value: s.messages.text },
-              { label: 'Vocaux', value: s.messages.voice },
+              { label: t('Écrits'), value: s.messages.text },
+              { label: t('Vocaux'), value: s.messages.voice },
             ]}
             stackOnMobile={false}
           />
@@ -468,11 +469,12 @@ function DueText({ alert: a }: { alert: DashboardAlert }) {
     // Le marqueur de retard porte sur l'étape en cours : son échéance est la date dépassée.
     const dueAt = a.currentStage === a.overdueStage ? a.currentDueAt : null;
     const lateness = dueAt ? formatLateness(dueAt) : null;
-    const detail = `En retard (${STAGE_LABELS[a.overdueStage]})${dueAt ? `, échéance le ${formatDateTime(dueAt)}` : ''}`;
+    const stage = STAGE_LABELS[a.overdueStage];
+    const detail = dueAt ? t('En retard ({stage}), échéance le {date}', { stage, date: formatDateTime(dueAt) }) : t('En retard ({stage})', { stage });
     return (
       <Tooltip title={detail} describeChild placement="bottom-start">
         <Box component="span" tabIndex={0} sx={(theme) => ({ color: tokensOf(theme).error.text, fontWeight: font.medium, borderRadius: '2px' })}>
-          {lateness ?? 'En retard'}
+          {lateness ?? t('En retard')}
         </Box>
       </Tooltip>
     );
@@ -491,11 +493,11 @@ function DueText({ alert: a }: { alert: DashboardAlert }) {
  */
 function AlertTable({ alerts }: { alerts: DashboardAlert[] }) {
   return (
-    <TableContainer sx={stickyArea} {...scrollRegion('Demandes à traiter en priorité')}>
+    <TableContainer sx={stickyArea} {...scrollRegion(t('Demandes à traiter en priorité'))}>
       <Table
         size="small"
         stickyHeader
-        aria-label="Demandes à traiter en priorité"
+        aria-label={t('Demandes à traiter en priorité')}
         sx={(theme) => {
           const t = tokensOf(theme);
           return {
@@ -512,10 +514,10 @@ function AlertTable({ alerts }: { alerts: DashboardAlert[] }) {
       >
         <TableHead>
           <TableRow>
-            <TableCell>Demande</TableCell>
-            <TableCell>Priorité</TableCell>
-            <TableCell>Échéance</TableCell>
-            <TableCell>Affectée à</TableCell>
+            <TableCell>{t('Demande')}</TableCell>
+            <TableCell>{t('Priorité')}</TableCell>
+            <TableCell>{t('Échéance')}</TableCell>
+            <TableCell>{t('Affectée à')}</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -549,7 +551,7 @@ function AlertTable({ alerts }: { alerts: DashboardAlert[] }) {
                   <Person name={a.assignee.displayName} id={a.assignee.id} size={24} neutral />
                 ) : (
                   <Box component="span" sx={{ color: 'text.secondary' }}>
-                    Personne
+                    {t('Personne')}
                   </Box>
                 )}
               </TableCell>
@@ -569,10 +571,10 @@ type CategoryStats = DashboardSummary['byCategory'][number];
  */
 function CategoryRow({ row: c }: { row: CategoryStats }) {
   const detail = [
-    `${c.total} au total`,
-    c.active > 0 && `${c.active} à traiter`,
-    c.done > 0 && `${c.done} ${c.done > 1 ? 'terminées' : 'terminée'}`,
-    c.overdue > 0 && `${c.overdue} hors délai`,
+    t('{count} au total', { count: c.total }),
+    c.active > 0 && t('{count} à traiter', { count: c.active }),
+    c.done > 0 && t(isPlural(c.done) ? '{count} terminées' : '{count} terminée', { count: c.done }),
+    c.overdue > 0 && t('{count} hors délai', { count: c.overdue }),
   ]
     .filter(Boolean)
     .join(' · ');
@@ -613,7 +615,7 @@ function CategoryRow({ row: c }: { row: CategoryStats }) {
               </Box>
               <Box component="span" sx={visuallyHidden}>
                 {' '}
-                hors délai sur
+                {t('hors délai sur')}
               </Box>
               <span aria-hidden="true"> / </span>
               {c.total}
@@ -623,7 +625,7 @@ function CategoryRow({ row: c }: { row: CategoryStats }) {
               {c.total}
               <Box component="span" sx={visuallyHidden}>
                 {' '}
-                au total
+                {t('au total')}
               </Box>
             </>
           )}
@@ -640,7 +642,7 @@ function shortNumber(reference: string): string {
 }
 
 /** Date et heure sans l'année (« 13 oct., 14:12 ») : la liste couvre une période récente. */
-const shortDateTime = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+const shortDateTime = new Intl.DateTimeFormat(locale(), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
 /** Une seule couleur d'alerte : rouge pour l'urgence (et le retard), ambre pour « Haute », gris sinon. */
 function priorityColor(theme: Theme, priority: Priority): string {
@@ -651,17 +653,17 @@ function priorityColor(theme: Theme, priority: Priority): string {
 /** Détails au survol (ou au focus) d'une ligne : numéro complet, statut entier, catégorie, échéance. */
 function RequestRowDetails({ r }: { r: RequestSummary }) {
   const due = r.overdueStage
-    ? `dépassée (${STAGE_LABELS[r.overdueStage]})`
+    ? t('dépassée ({stage})', { stage: STAGE_LABELS[r.overdueStage] })
     : r.currentDueAt
       ? formatDateTime(r.currentDueAt)
-      : 'aucune';
+      : t('aucune');
   return (
     <Box sx={{ display: 'grid', gap: 0.25 }}>
       <span>{r.reference}</span>
-      <span>Statut : {STATUS_LABELS[r.status]}</span>
-      <span>Catégorie : {r.category.name}</span>
-      <span>Échéance : {due}</span>
-      <span>Historique complet : ouvrir la demande</span>
+      <span>{t('Statut : {status}', { status: STATUS_LABELS[r.status] })}</span>
+      <span>{t('Catégorie : {category}', { category: r.category.name })}</span>
+      <span>{t('Échéance : {due}', { due })}</span>
+      <span>{t('Historique complet : ouvrir la demande')}</span>
     </Box>
   );
 }
@@ -669,23 +671,23 @@ function RequestRowDetails({ r }: { r: RequestSummary }) {
 function RequestsView({ filters }: { filters: string }) {
   const list = useRequestList('all', [], filters);
   const items = list.data?.pages.flatMap((p) => p.items) ?? [];
-  if (list.isPending) return <DashboardSkeleton label="Chargement des demandes" shape="table" />;
-  if (list.error) return <ErrorState message={loadErrorMessage(list.error, 'les demandes')} actionLabel="Réessayer" onAction={() => void list.refetch()} />;
+  if (list.isPending) return <DashboardSkeleton label={t('Chargement des demandes')} shape="table" />;
+  if (list.error) return <ErrorState message={loadErrorMessage(list.error, t('les demandes'))} actionLabel={t('Réessayer')} onAction={() => void list.refetch()} />;
   if (items.length === 0) {
     return (
       <Paper variant="elevated">
-        <EmptyState icon={SearchX} title="Aucune demande" description="Aucune demande ne correspond à ces filtres." />
+        <EmptyState icon={SearchX} title={t('Aucune demande')} description={t('Aucune demande ne correspond à ces filtres.')} />
       </Paper>
     );
   }
   return (
     <Box sx={{ display: 'grid', gap: 1.5 }}>
-      <TableContainer component={Paper} variant="elevated" sx={stickyArea} {...scrollRegion('Demandes de la période')}>
+      <TableContainer component={Paper} variant="elevated" sx={stickyArea} {...scrollRegion(t('Demandes de la période'))}>
         {/* Version allégée : 5 colonnes, lignes de hauteur fixe, texte simple (sans pilule). */}
         <Table
           size="small"
           stickyHeader
-          aria-label="Demandes de la période"
+          aria-label={t('Demandes de la période')}
           sx={(theme) => ({
             tableLayout: 'fixed',
             minWidth: 760,
@@ -703,18 +705,18 @@ function RequestsView({ filters }: { filters: string }) {
           </colgroup>
           <TableHead>
             <TableRow>
-              <TableCell>Demande</TableCell>
-              <TableCell>Priorité</TableCell>
-              <TableCell>Statut</TableCell>
+              <TableCell>{t('Demande')}</TableCell>
+              <TableCell>{t('Priorité')}</TableCell>
+              <TableCell>{t('Statut')}</TableCell>
               <TableCell>
-                Demandeur{' '}
+                {t('Demandeur')}{' '}
                 <span aria-hidden="true">→</span>
                 <Box component="span" sx={visuallyHidden}>
-                  et
+                  {t('et')}
                 </Box>{' '}
-                Affecté
+                {t('Affecté')}
               </TableCell>
-              <TableCell>Créée</TableCell>
+              <TableCell>{t('Créée')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -740,13 +742,13 @@ function RequestsView({ filters }: { filters: string }) {
                   </TableCell>
                   {/* « En retard » remplace le statut quand une étape a dépassé son échéance. */}
                   <TableCell sx={(theme) => (r.overdueStage ? { color: tokensOf(theme).error.text, fontWeight: font.medium } : { color: tokensOf(theme).textSecondary })}>
-                    {r.overdueStage ? 'En retard' : STATUS_LABELS[r.status]}
+                    {r.overdueStage ? t('En retard') : STATUS_LABELS[r.status]}
                   </TableCell>
                   <TableCell>
                     {r.requester.displayName}
                     <span aria-hidden="true"> → </span>
                     <Box component="span" sx={visuallyHidden}>
-                      , affectée à{' '}
+                      {t(', affectée à')}{' '}
                     </Box>
                     {r.assignee?.displayName ?? '—'}
                   </TableCell>
@@ -758,12 +760,12 @@ function RequestsView({ filters }: { filters: string }) {
         </Table>
       </TableContainer>
       <Typography variant="body2" color="text.secondary">
-        Survol d’une ligne : numéro complet, catégorie et échéance. Historique complet : ouvrir la demande.
+        {t('Survol d’une ligne : numéro complet, catégorie et échéance. Historique complet : ouvrir la demande.')}
       </Typography>
       {list.hasNextPage && (
         <Box sx={{ textAlign: 'center' }}>
           <Button variant="outlined" loading={list.isFetchingNextPage} onClick={() => void list.fetchNextPage()}>
-            Afficher plus de demandes
+            {t('Afficher plus de demandes')}
           </Button>
         </Box>
       )}
@@ -789,12 +791,12 @@ function describeActivity(item: ActivityItem): string {
 function ActivityView({ qs }: { qs: string }) {
   const activity = useDashboardActivity(qs);
   const items = activity.data?.pages.flatMap((p) => p.items) ?? [];
-  if (activity.isPending) return <DashboardSkeleton label="Chargement de l’activité" shape="timeline" />;
-  if (activity.error) return <ErrorState message={loadErrorMessage(activity.error, 'l’activité')} actionLabel="Réessayer" onAction={() => void activity.refetch()} />;
+  if (activity.isPending) return <DashboardSkeleton label={t('Chargement de l’activité')} shape="timeline" />;
+  if (activity.error) return <ErrorState message={loadErrorMessage(activity.error, t('l’activité'))} actionLabel={t('Réessayer')} onAction={() => void activity.refetch()} />;
   if (items.length === 0) {
     return (
       <Paper variant="elevated">
-        <EmptyState icon={SearchX} title="Aucune activité" description="Aucune action sur cette période." />
+        <EmptyState icon={SearchX} title={t('Aucune activité')} description={t('Aucune action sur cette période.')} />
       </Paper>
     );
   }
@@ -802,7 +804,7 @@ function ActivityView({ qs }: { qs: string }) {
     <Box sx={{ display: 'grid', gap: 2 }}>
       <Paper variant="elevated" sx={{ px: { xs: 2, md: 2.5 }, py: { xs: 2, md: 2.5 } }}>
         {/* Chronologie : pastille d'icône par type d'action, reliée à la suivante par un filet. */}
-        <Box component="ul" aria-label="Dernières actions" sx={{ listStyle: 'none', m: 0, p: 0 }}>
+        <Box component="ul" aria-label={t('Dernières actions')} sx={{ listStyle: 'none', m: 0, p: 0 }}>
           {items.map((item, index) => {
             const Icon = EVENT_ICONS[item.type] ?? RefreshCw;
             const late = item.type === 'OVERDUE';
@@ -843,7 +845,7 @@ function ActivityView({ qs }: { qs: string }) {
                     </Box>
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {item.actor ? item.actor.displayName : 'Système'} · <time dateTime={item.createdAt}>{formatDateTime(item.createdAt)}</time>
+                    {item.actor ? item.actor.displayName : t('Système')} · <time dateTime={item.createdAt}>{formatDateTime(item.createdAt)}</time>
                   </Typography>
                 </Box>
               </Box>
@@ -854,7 +856,7 @@ function ActivityView({ qs }: { qs: string }) {
       {activity.hasNextPage && (
         <Box sx={{ textAlign: 'center' }}>
           <Button variant="outlined" loading={activity.isFetchingNextPage} onClick={() => void activity.fetchNextPage()}>
-            Afficher plus d’actions
+            {t('Afficher plus d’actions')}
           </Button>
         </Box>
       )}
@@ -881,7 +883,7 @@ export function DashboardPage() {
     <Box>
       {/* En-tête allégé : période visible, autres filtres derrière « Filtres », export. */}
       <PageHeader
-        title="Tableau de bord"
+        title={t('Tableau de bord')}
         description={periodLabel(filters) ?? undefined}
         breadcrumb={false}
         actions={
@@ -894,7 +896,7 @@ export function DashboardPage() {
               startIcon={<SlidersHorizontal size={icon.sm} aria-hidden="true" />}
               onClick={() => setFiltersOpen((open) => !open)}
             >
-              {activeCount > 0 ? `Filtres (${activeCount})` : 'Filtres'}
+              {activeCount > 0 ? t('Filtres ({count})', { count: activeCount }) : t('Filtres')}
             </Button>
             <Button
               variant="outlined"
@@ -904,7 +906,7 @@ export function DashboardPage() {
               disabled={customIncomplete}
               startIcon={<Download size={icon.sm} aria-hidden="true" />}
             >
-              Exporter en CSV
+              {t('Exporter en CSV')}
             </Button>
           </>
         }
@@ -921,7 +923,7 @@ export function DashboardPage() {
           }}
           variant="scrollable"
           allowScrollButtonsMobile
-          aria-label="Vues du tableau de bord"
+          aria-label={t('Vues du tableau de bord')}
           sx={segmentedTabs}
         >
           {VIEWS.map((v) => (
@@ -933,7 +935,7 @@ export function DashboardPage() {
       <Box id="tdb-contenu" role="tabpanel" aria-labelledby={`tdb-onglet-${view}`}>
         {customIncomplete ? (
           <Paper variant="elevated">
-            <EmptyState icon={CalendarRange} title="Période incomplète" description="Choisissez une date de début et une date de fin." />
+            <EmptyState icon={CalendarRange} title={t('Période incomplète')} description={t('Choisissez une date de début et une date de fin.')} />
           </Paper>
         ) : view === 'general' ? (
           <GeneralView qs={qs} />

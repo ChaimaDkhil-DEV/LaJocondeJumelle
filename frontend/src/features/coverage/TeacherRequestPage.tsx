@@ -30,6 +30,7 @@ import {
 import { CoverageActions } from './CoverageActions';
 import { CoverageStatusBadge, TYPE_LABELS, formatTime } from './labels';
 import type { CoverageDetail } from './types';
+import { locale, t } from '../../i18n';
 
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -67,7 +68,7 @@ function schoolParts(iso: string, timeZone: string): { date: string; time: strin
 
 /** « mercredi 21 octobre » pour une date locale AAAA-MM-JJ. */
 function longDate(date: string): string {
-  return new Intl.DateTimeFormat('fr-FR', {
+  return new Intl.DateTimeFormat(locale(), {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -77,12 +78,12 @@ function longDate(date: string): string {
 
 function validate(v: Values): Record<string, string> {
   const errors: Record<string, string> = {};
-  if (!v.classId) errors.classId = 'Choisissez la classe.';
-  if (!TIME.test(v.startTime.trim())) errors.startTime = 'Indiquez l’heure de début.';
+  if (!v.classId) errors.classId = t('Choisissez la classe.');
+  if (!TIME.test(v.startTime.trim())) errors.startTime = t('Indiquez l’heure de début.');
   if (v.endMode === 'END' && !TIME.test(v.endTime.trim()))
-    errors.endTime = 'Indiquez l’heure de fin ou une durée.';
+    errors.endTime = t('Indiquez l’heure de fin ou une durée.');
   if (v.endMode === 'DURATION' && !/^\d+$/.test(v.duration.trim()))
-    errors.durationMinutes = 'Indiquez l’heure de fin ou une durée.';
+    errors.durationMinutes = t('Indiquez l’heure de fin ou une durée.');
   return errors;
 }
 
@@ -106,15 +107,15 @@ export function TeacherRequestPage() {
   const { id } = useParams();
   const profile = useCoverageProfile();
   const existing = useCoverage(id ?? '', Boolean(id));
-  const back = { to: '/gardes?onglet=mes-signalements', label: 'Mes signalements' };
+  const back = { to: '/gardes?onglet=mes-signalements', label: t('Mes signalements') };
 
   if (profile.isPending || (id && existing.isPending))
-    return <LoadingState label="Chargement du signalement" variant="detail" />;
+    return <LoadingState label={t('Chargement du signalement')} variant="detail" />;
   if (profile.error || (id && existing.error)) {
     return (
       <>
-        <PageHeader title="Signalement" back={back} />
-        <ErrorState message="Ce signalement n’existe pas ou vous n’y avez pas accès." />
+        <PageHeader title={t('Signalement')} back={back} />
+        <ErrorState message={t('Ce signalement n’existe pas ou vous n’y avez pas accès.')} />
       </>
     );
   }
@@ -141,37 +142,43 @@ function ReadOnlyRequest({ detail, timeZone }: { detail: CoverageDetail; timeZon
   return (
     <>
       <PageHeader
-        title="Mon signalement"
+        title={t('Mon signalement')}
         eyebrow={detail.reference}
-        back={{ to: '/gardes?onglet=mes-signalements', label: 'Mes signalements' }}
+        back={{ to: '/gardes?onglet=mes-signalements', label: t('Mes signalements') }}
       />
       <SectionCard>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
           <Typography component="h2" variant="h6">
-            {detail.type ? `${TYPE_LABELS[detail.type]} — ` : ''}
-            {detail.class.name}
+            {detail.type
+              ? t('{type} — {name}', { type: TYPE_LABELS[detail.type], name: detail.class.name })
+              : detail.class.name}
           </Typography>
           <CoverageStatusBadge mainStatus={detail.mainStatus} subState={detail.subState} />
         </Box>
         <Typography variant="body2" color="text.secondary">
-          {longDate(start.date)}, de {start.time}
-          {detail.plannedEndAt ? ` à ${schoolParts(detail.plannedEndAt, timeZone).time}` : ''}
+          {detail.plannedEndAt
+            ? t('{date}, de {start} à {end}', {
+                date: longDate(start.date),
+                start: start.time,
+                end: schoolParts(detail.plannedEndAt, timeZone).time,
+              })
+            : t('{date}, de {start}', { date: longDate(start.date), start: start.time })}
         </Typography>
         {detail.assignee ? (
           <Typography variant="body2">
-            Surveillant assigné : {detail.assignee.displayName}
+            {t('Surveillant assigné : {name}', { name: detail.assignee.displayName })}
           </Typography>
         ) : (
           <Typography variant="body2" color="text.secondary">
-            Aucun surveillant assigné.
+            {t('Aucun surveillant assigné.')}
           </Typography>
         )}
         {detail.timestamps.relievedAt && (
           <Typography variant="body2" color="text.secondary">
-            Classe reprise à {formatTime(detail.timestamps.relievedAt)}.
+            {t('Classe reprise à {time}.', { time: formatTime(detail.timestamps.relievedAt) })}
           </Typography>
         )}
-        {detail.reason && <Typography variant="body2">Motif : {detail.reason}</Typography>}
+        {detail.reason && <Typography variant="body2">{t('Motif : {reason}', { reason: detail.reason })}</Typography>}
       </SectionCard>
     </>
   );
@@ -232,7 +239,7 @@ function RequestForm({
     save.mutate(body, {
       onSuccess: () => {
         toast.success(
-          detail ? 'Signalement modifié.' : 'Signalement envoyé : l’admin est prévenue.',
+          detail ? t('Signalement modifié.') : t('Signalement envoyé : l’admin est prévenue.'),
         );
         navigate('/gardes?onglet=mes-signalements');
       },
@@ -244,21 +251,21 @@ function RequestForm({
     save.error && !(save.error instanceof ApiError && save.error.code === 'VALIDATION_ERROR')
       ? save.error instanceof ApiError
         ? save.error.message
-        : 'Envoi impossible. Réessayez.'
+        : t('Envoi impossible. Réessayez.')
       : null;
 
   return (
     <>
       <PageHeader
-        title={detail ? 'Modifier le signalement' : 'Signaler un retard ou une absence'}
+        title={detail ? t('Modifier le signalement') : t('Signaler un retard ou une absence')}
         eyebrow={detail?.reference}
-        description="Pour aujourd’hui ou demain, une classe et un créneau par signalement. L’admin assigne un surveillant."
-        back={{ to: '/gardes?onglet=mes-signalements', label: 'Mes signalements' }}
+        description={t('Pour aujourd’hui ou demain, une classe et un créneau par signalement. L’admin assigne un surveillant.')}
+        back={{ to: '/gardes?onglet=mes-signalements', label: t('Mes signalements') }}
       />
       <SectionCard component="form" noValidate onSubmit={submit} contentGap={2.5}>
         <FormControl component="fieldset">
           <FormLabel component="legend" id={ids.type}>
-            Type
+            {t('Type')}
           </FormLabel>
           <RadioGroup
             row
@@ -266,15 +273,15 @@ function RequestForm({
             value={values.type}
             onChange={(e) => set({ type: e.target.value as Values['type'] })}
           >
-            <FormControlLabel value="LATENESS" control={<Radio />} label="Retard" />
-            <FormControlLabel value="ABSENCE" control={<Radio />} label="Absence" />
+            <FormControlLabel value="LATENESS" control={<Radio />} label={t('Retard')} />
+            <FormControlLabel value="ABSENCE" control={<Radio />} label={t('Absence')} />
           </RadioGroup>
         </FormControl>
 
         <TextField
           select
           id="signalement-classe"
-          label="Classe"
+          label={t('Classe')}
           required
           value={values.classId}
           onChange={(e) => set({ classId: e.target.value })}
@@ -290,7 +297,7 @@ function RequestForm({
 
         <FormControl component="fieldset" error={Boolean(errors.date)}>
           <FormLabel component="legend" id={ids.date}>
-            Date
+            {t('Date')}
           </FormLabel>
           <RadioGroup
             row
@@ -301,12 +308,12 @@ function RequestForm({
             <FormControlLabel
               value={schoolDates.today}
               control={<Radio />}
-              label={`Aujourd’hui (${longDate(schoolDates.today)})`}
+              label={t('Aujourd’hui ({date})', { date: longDate(schoolDates.today) })}
             />
             <FormControlLabel
               value={schoolDates.tomorrow}
               control={<Radio />}
-              label={`Demain (${longDate(schoolDates.tomorrow)})`}
+              label={t('Demain ({date})', { date: longDate(schoolDates.tomorrow) })}
             />
           </RadioGroup>
           {errors.date && <FormHelperText>{errors.date}</FormHelperText>}
@@ -314,18 +321,18 @@ function RequestForm({
 
         <TextField
           id="signalement-debut"
-          label="Heure de début (HH:MM)"
+          label={t('Heure de début (HH:MM)')}
           required
           value={values.startTime}
           onChange={(e) => set({ startTime: e.target.value })}
           error={Boolean(errors.startTime)}
-          helperText={errors.startTime ?? 'Par exemple 08:30.'}
+          helperText={errors.startTime ?? t('Par exemple 08:30.')}
           slotProps={{ htmlInput: { inputMode: 'numeric', maxLength: 5, autoComplete: 'off' } }}
         />
 
         <FormControl component="fieldset">
           <FormLabel component="legend" id={ids.end}>
-            Fin du créneau
+            {t('Fin du créneau')}
           </FormLabel>
           <RadioGroup
             row
@@ -333,14 +340,14 @@ function RequestForm({
             value={values.endMode}
             onChange={(e) => set({ endMode: e.target.value as Values['endMode'] })}
           >
-            <FormControlLabel value="END" control={<Radio />} label="Jusqu’à une heure précise" />
-            <FormControlLabel value="DURATION" control={<Radio />} label="Durée" />
+            <FormControlLabel value="END" control={<Radio />} label={t('Jusqu’à une heure précise')} />
+            <FormControlLabel value="DURATION" control={<Radio />} label={t('Durée')} />
           </RadioGroup>
         </FormControl>
         {values.endMode === 'END' ? (
           <TextField
             id="signalement-fin"
-            label="Heure de fin (HH:MM)"
+            label={t('Heure de fin (HH:MM)')}
             required
             value={values.endTime}
             onChange={(e) => set({ endTime: e.target.value })}
@@ -351,26 +358,26 @@ function RequestForm({
         ) : (
           <TextField
             id="signalement-duree"
-            label="Durée en minutes"
+            label={t('Durée en minutes')}
             required
             value={values.duration}
             onChange={(e) => set({ duration: e.target.value })}
             error={Boolean(errors.durationMinutes)}
-            helperText={errors.durationMinutes ?? 'Par exemple 55.'}
+            helperText={errors.durationMinutes ?? t('Par exemple 55.')}
             slotProps={{ htmlInput: { inputMode: 'numeric', maxLength: 3 } }}
           />
         )}
 
         <TextField
           id="signalement-motif"
-          label="Motif (facultatif)"
+          label={t('Motif (facultatif)')}
           multiline
           minRows={2}
           value={values.reason}
           onChange={(e) => set({ reason: e.target.value })}
           error={Boolean(errors.reason)}
           helperText={
-            errors.reason ?? 'Visible seulement de l’admin. Le surveillant ne le voit pas.'
+            errors.reason ?? t('Visible seulement de l’admin. Le surveillant ne le voit pas.')
           }
           slotProps={{ htmlInput: { maxLength: 1000 } }}
         />
@@ -388,7 +395,7 @@ function RequestForm({
             loading={save.isPending}
             startIcon={<Send size={icon.md} aria-hidden="true" />}
           >
-            {detail ? 'Enregistrer les modifications' : 'Envoyer le signalement'}
+            {detail ? t('Enregistrer les modifications') : t('Envoyer le signalement')}
           </Button>
         </Box>
       </SectionCard>

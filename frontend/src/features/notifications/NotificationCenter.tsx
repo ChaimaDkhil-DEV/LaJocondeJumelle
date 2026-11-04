@@ -57,6 +57,7 @@ import {
 } from './api';
 import { useRealtime } from './SocketProvider';
 import { useUrgentSound } from './useUrgentSound';
+import { isPlural, t } from '../../i18n';
 
 const NOTIFICATION_ICONS: Record<NotificationType, LucideIcon> = {
   REQUEST_NEW: FilePlus,
@@ -106,7 +107,7 @@ function UrgentMark() {
       })}
     >
       <Siren size={icon.sm - 2} aria-hidden="true" />
-      Urgent
+      {t('Urgent')}
     </Box>
   );
 }
@@ -184,7 +185,7 @@ export function NotificationCenter() {
   const total = unread.data?.unreadTotal ?? 0;
   const items = unread.data?.items ?? [];
   const latestUrgent = latest?.priority === 'URGENT';
-  const latestText = latest ? `${NOTIFICATION_LABELS[latest.type]} : ${latest.title}` : '';
+  const latestText = latest ? t('{label} : {title}', { label: NOTIFICATION_LABELS[latest.type], title: latest.title }) : '';
 
   function open(item: NotificationItem): void {
     setAnchor(null);
@@ -194,9 +195,9 @@ export function NotificationCenter() {
 
   return (
     <>
-      <Tooltip title="Notifications">
+      <Tooltip title={t('Notifications')}>
         <IconButton
-          aria-label={`Notifications (${total} non lue${total > 1 ? 's' : ''})`}
+          aria-label={t(isPlural(total) ? 'Notifications ({total} non lues)' : 'Notifications ({total} non lue)', { total })}
           aria-haspopup="menu"
           aria-controls={anchor ? menuId : undefined}
           onClick={(e) => setAnchor(e.currentTarget)}
@@ -215,7 +216,7 @@ export function NotificationCenter() {
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
         slotProps={{
-          list: { 'aria-label': 'Notifications' },
+          list: { 'aria-label': t('Notifications') },
           paper: { sx: { width: 380, maxWidth: 'calc(100vw - 16px)' } },
         }}
       >
@@ -223,7 +224,7 @@ export function NotificationCenter() {
           <MenuItem disabled sx={{ '&.Mui-disabled': { opacity: 1 } }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary' }}>
               <BellOff size={icon.sm} aria-hidden="true" />
-              Aucune notification non lue
+              {t('Aucune notification non lue')}
             </Box>
           </MenuItem>
         )}
@@ -248,7 +249,7 @@ export function NotificationCenter() {
           ) : (
             <VolumeX size={icon.sm} aria-hidden="true" />
           )}
-          Signal sonore des urgences : {sound.enabled ? 'activé' : 'désactivé'}
+          {sound.enabled ? t('Signal sonore des urgences : activé') : t('Signal sonore des urgences : désactivé')}
         </MenuItem>
         {items.length > 0 && (
           <MenuItem
@@ -259,7 +260,7 @@ export function NotificationCenter() {
             sx={{ color: 'text.secondary', gap: 1 }}
           >
             <CheckCheck size={icon.sm} aria-hidden="true" />
-            Tout marquer comme lu
+            {t('Tout marquer comme lu')}
           </MenuItem>
         )}
       </Menu>
@@ -300,7 +301,7 @@ export function NotificationCenter() {
                   '&:hover': { bgcolor: 'transparent', textDecoration: 'underline' },
                 }}
               >
-                Voir
+                {t('Voir')}
               </Button>
             }
             sx={{
@@ -310,8 +311,8 @@ export function NotificationCenter() {
               ...(!latestUrgent && { bgcolor: 'background.paper' }),
             }}
           >
-            {latestUrgent && <strong>Urgent — </strong>}
-            {NOTIFICATION_LABELS[latest.type]} : {latest.title}
+            {latestUrgent && <strong>{t('Urgent — ')}</strong>}
+            {latestText}
           </Alert>
         ) : undefined}
       </Snackbar>

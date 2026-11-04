@@ -13,6 +13,7 @@ import { useCoverageProfile } from './api';
 import { MyGuardTab, PersonalHistoryTab } from './EmployeeViews';
 import { ManagedCoverageTab, MergeProposalsTab, TeamTab } from './ManagerViews';
 import { MyRequestsTab } from './TeacherViews';
+import { t } from '../../i18n';
 
 interface TabDef {
   key: string;
@@ -22,20 +23,20 @@ interface TabDef {
 
 /** File de l'admin : demandes en attente d'abord (délais expirés en tête, FR-011e). */
 const ADMIN_TABS: TabDef[] = [
-  { key: 'en-attente', label: 'En attente', render: () => <ManagedCoverageTab scope="pending" /> },
-  { key: 'en-cours', label: 'En cours', render: () => <ManagedCoverageTab scope="active" /> },
-  { key: 'doublons', label: 'Doublons', render: () => <MergeProposalsTab /> },
-  { key: 'equipe', label: 'Équipe', render: () => <TeamTab /> },
-  { key: 'terminees', label: 'Terminées', render: () => <ManagedCoverageTab scope="finished" /> },
+  { key: 'en-attente', label: t('En attente'), render: () => <ManagedCoverageTab scope="pending" /> },
+  { key: 'en-cours', label: t('En cours'), render: () => <ManagedCoverageTab scope="active" /> },
+  { key: 'doublons', label: t('Doublons'), render: () => <MergeProposalsTab /> },
+  { key: 'equipe', label: t('Équipe'), render: () => <TeamTab /> },
+  { key: 'terminees', label: t('Terminées'), render: () => <ManagedCoverageTab scope="finished" /> },
 ];
 
 const TEACHER_TABS: TabDef[] = [
-  { key: 'mes-signalements', label: 'Mes signalements', render: () => <MyRequestsTab /> },
+  { key: 'mes-signalements', label: t('Mes signalements'), render: () => <MyRequestsTab /> },
 ];
 
 const SUPERVISOR_TABS: TabDef[] = [
-  { key: 'mes-affectations', label: 'Mes affectations', render: () => <MyGuardTab /> },
-  { key: 'historique', label: 'Historique', render: () => <PersonalHistoryTab /> },
+  { key: 'mes-affectations', label: t('Mes affectations'), render: () => <MyGuardTab /> },
+  { key: 'historique', label: t('Historique'), render: () => <PersonalHistoryTab /> },
 ];
 
 /**
@@ -48,12 +49,12 @@ export function CoveragePage() {
   const [params, setParams] = useSearchParams();
 
   if (profile.isPending)
-    return <LoadingState label="Chargement des affectations" variant="detail" />;
+    return <LoadingState label={t('Chargement des affectations')} variant="detail" />;
   if (profile.error) {
     return (
       <ErrorState
-        message="Impossible de charger les affectations."
-        actionLabel="Réessayer"
+        message={t('Impossible de charger les affectations.')}
+        actionLabel={t('Réessayer')}
         onAction={() => void profile.refetch()}
       />
     );
@@ -71,13 +72,13 @@ export function CoveragePage() {
   return (
     <>
       <PageHeader
-        title="Gardes de classe"
+        title={t('Gardes de classe')}
         description={
           canManage
-            ? 'Assignez un surveillant aux retards et absences signalés, et suivez chaque affectation en direct.'
+            ? t('Assignez un surveillant aux retards et absences signalés, et suivez chaque affectation en direct.')
             : isTeacher
-              ? 'Signalez à l’avance un retard ou une absence : l’admin assigne un surveillant à votre classe.'
-              : 'Vos affectations en cours, vos renforts et votre historique.'
+              ? t('Signalez à l’avance un retard ou une absence : l’admin assigne un surveillant à votre classe.')
+              : t('Vos affectations en cours, vos renforts et votre historique.')
         }
         actions={
           (canManage || isTeacher || canDeclare) && (
@@ -89,7 +90,7 @@ export function CoveragePage() {
                   variant="contained"
                   startIcon={<UserPlus aria-hidden="true" />}
                 >
-                  Nouvelle affectation
+                  {t('Nouvelle affectation')}
                 </Button>
               )}
               {canManage && (
@@ -99,7 +100,7 @@ export function CoveragePage() {
                   variant="outlined"
                   startIcon={<BarChart3 aria-hidden="true" />}
                 >
-                  Statistiques
+                  {t('Statistiques')}
                 </Button>
               )}
               {canDeclare && (
@@ -109,7 +110,7 @@ export function CoveragePage() {
                   variant={canManage ? 'outlined' : 'contained'}
                   startIcon={<DoorOpen aria-hidden="true" />}
                 >
-                  Déclarer une classe vide
+                  {t('Déclarer une classe vide')}
                 </Button>
               )}
               {isTeacher && (
@@ -119,7 +120,7 @@ export function CoveragePage() {
                   variant={canManage || canDeclare ? 'outlined' : 'contained'}
                   startIcon={<CalendarPlus aria-hidden="true" />}
                 >
-                  Signaler un retard ou une absence
+                  {t('Signaler un retard ou une absence')}
                 </Button>
               )}
             </>
@@ -132,8 +133,8 @@ export function CoveragePage() {
         >
           <EmptyState
             icon={School}
-            title="Aucune affectation pour vous"
-            description="Le super administrateur peut vous ajouter au groupe Surveillants ou Enseignants."
+            title={t('Aucune affectation pour vous')}
+            description={t('Le super administrateur peut vous ajouter au groupe Surveillants ou Enseignants.')}
           />
         </Box>
       ) : (
@@ -145,7 +146,7 @@ export function CoveragePage() {
               next.set('onglet', key);
               setParams(next, { replace: true });
             }}
-            aria-label="Gardes"
+            aria-label={t('Gardes')}
             variant="scrollable"
             scrollButtons={false}
             sx={{ mb: 2 }}

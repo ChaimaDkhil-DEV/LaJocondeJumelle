@@ -3,12 +3,13 @@ import { ChevronsUp, ChevronUp, Minus, Siren, type LucideIcon } from 'lucide-rea
 import type { Priority } from '../api/types';
 import { fontSize, type Tone } from '../design/tokens';
 import { Badge } from './Badge';
+import { t } from '../i18n';
 
 export const PRIORITY_LABELS: Record<Priority, string> = {
-  NORMAL: 'Normale',
-  MEDIUM: 'Moyenne',
-  HIGH: 'Haute',
-  URGENT: 'Urgente',
+  NORMAL: t('Normale'),
+  MEDIUM: t('Moyenne'),
+  HIGH: t('Haute'),
+  URGENT: t('Urgente'),
 };
 
 /** Gradation discrète : trait, un chevron, deux chevrons, puis sirène rouge pour l'urgence. */

@@ -15,6 +15,7 @@ import { SectionCard } from '../../components/SectionCard';
 import { StatusBadge } from '../../components/StatusBadge';
 import { Person } from '../../components/UserAvatar';
 import { icon } from '../../design/tokens';
+import { t } from '../../i18n';
 import { ThreadPanel } from '../thread/ThreadPanel';
 import { VoicePlayer } from '../voice/VoicePlayer';
 import { useRequest } from './api';
@@ -22,7 +23,7 @@ import { HistoryTimeline } from './HistoryTimeline';
 import { isReadOnlyStatus, readOnlyNotice } from './readOnly';
 import { RequestActions } from './RequestActions';
 
-const BACK = { to: '/demandes', label: 'Retour aux demandes' };
+const BACK = { to: '/demandes', label: t('Retour aux demandes') };
 
 function InfoRow({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -42,15 +43,15 @@ export function RequestDetailPage() {
   const navigate = useNavigate();
   const request = useRequest(id);
 
-  if (request.isPending) return <LoadingState label="Chargement de la demande" variant="detail" />;
+  if (request.isPending) return <LoadingState label={t('Chargement de la demande')} variant="detail" />;
   if (request.error) {
     const notFound = request.error instanceof ApiError && request.error.status === 404;
     return (
       <>
-        <PageHeader title="Demande" back={BACK} />
+        <PageHeader title={t('Demande')} back={BACK} />
         <ErrorState
-          message={notFound ? 'Cette demande est introuvable ou vous n’y avez pas accès.' : 'Impossible de charger la demande.'}
-          actionLabel={notFound ? 'Retour aux demandes' : 'Réessayer'}
+          message={notFound ? t('Cette demande est introuvable ou vous n’y avez pas accès.') : t('Impossible de charger la demande.')}
+          actionLabel={notFound ? t('Retour aux demandes') : t('Réessayer')}
           onAction={() => (notFound ? navigate('/demandes') : void request.refetch())}
         />
       </>
@@ -82,8 +83,9 @@ export function RequestDetailPage() {
       </Box>
       {r.autoCloseAt && r.status === 'DONE' && (
         <Alert severity="info" sx={{ mb: 3 }}>
-          Cette demande sera clôturée automatiquement le {formatDateTime(r.autoCloseAt)}, sauf si elle est renvoyée à
-          corriger d’ici là.
+          {t('Cette demande sera clôturée automatiquement le {date}, sauf si elle est renvoyée à corriger d’ici là.', {
+            date: formatDateTime(r.autoCloseAt),
+          })}
         </Alert>
       )}
 
@@ -100,24 +102,24 @@ export function RequestDetailPage() {
         <Box sx={{ gridArea: 'main', display: 'grid', gap: 3, minWidth: 0 }}>
           {r.rejectionReason && (
             <Alert severity="warning">
-              <strong>Motif du refus :</strong> {r.rejectionReason}
+              <strong>{t('Motif du refus :')}</strong> {r.rejectionReason}
             </Alert>
           )}
 
           {r.voice && (
-            <SectionCard title="Message vocal" icon={Mic} titleId="titre-vocal">
+            <SectionCard title={t('Message vocal')} icon={Mic} titleId="titre-vocal">
               <VoicePlayer key={r.voice.fileId} src={`/api/files/${r.voice.fileId}`} durationSeconds={r.voice.durationSeconds} />
             </SectionCard>
           )}
 
           {r.description && (
-            <SectionCard title="Description" icon={AlignLeft} titleId="titre-description">
+            <SectionCard title={t('Description')} icon={AlignLeft} titleId="titre-description">
               <Typography sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{r.description}</Typography>
             </SectionCard>
           )}
 
           {r.proofPhotos.length > 0 && (
-            <SectionCard title="Photos de preuve" icon={Camera} titleId="titre-preuves">
+            <SectionCard title={t('Photos de preuve')} icon={Camera} titleId="titre-preuves">
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                 {r.proofPhotos.map((photo, index) => (
                   <Box
@@ -126,13 +128,13 @@ export function RequestDetailPage() {
                     href={`/api/files/${photo.fileId}`}
                     target="_blank"
                     rel="noopener"
-                    aria-label={`Ouvrir la photo de preuve ${index + 1} en grand`}
+                    aria-label={t('Ouvrir la photo de preuve {n} en grand', { n: index + 1 })}
                     sx={{ display: 'block', borderRadius: 1, overflow: 'hidden', border: 1, borderColor: 'divider' }}
                   >
                     <Box
                       component="img"
                       src={`/api/files/${photo.fileId}`}
-                      alt={`Photo de preuve ${index + 1}`}
+                      alt={t('Photo de preuve {n}', { n: index + 1 })}
                       sx={{ width: 140, height: 140, objectFit: 'cover', display: 'block' }}
                     />
                   </Box>
@@ -145,21 +147,21 @@ export function RequestDetailPage() {
         </Box>
 
         <Box sx={{ gridArea: 'info', minWidth: 0 }}>
-          <SectionCard title="Informations" icon={Info}>
+          <SectionCard title={t('Informations')} icon={Info}>
             <Box component="dl" sx={{ m: 0, display: 'grid', gap: 2 }}>
-              <InfoRow label="Demandeur">
+              <InfoRow label={t('Demandeur')}>
                 <Person name={r.requester.displayName} id={r.requester.id} />
               </InfoRow>
-              <InfoRow label="Réalisée par">
+              <InfoRow label={t('Réalisée par')}>
                 {r.assignee ? (
                   <Person name={r.assignee.displayName} id={r.assignee.id} />
                 ) : (
                   <Box component="span" sx={{ color: 'text.secondary' }}>
-                    En attente d’affectation
+                    {t('En attente d’affectation')}
                   </Box>
                 )}
               </InfoRow>
-              <InfoRow label="Créée le">
+              <InfoRow label={t('Créée le')}>
                 <time dateTime={r.createdAt}>{formatDateTime(r.createdAt)}</time>
               </InfoRow>
             </Box>

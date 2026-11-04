@@ -7,6 +7,7 @@ import { useState, type FormEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { ApiError } from '../../api/client';
 import { fieldIcon } from '../../components/fieldIcon';
+import { t } from '../../i18n';
 import { AuthLayout } from './AuthLayout';
 import { useLogin } from './useCurrentUser';
 
@@ -28,8 +29,8 @@ export function LoginPage() {
   function handleSubmit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
     const nextErrors: FieldErrors = {
-      username: username.trim() ? undefined : 'Saisissez votre identifiant.',
-      password: password ? undefined : 'Saisissez votre mot de passe.',
+      username: username.trim() ? undefined : t('Saisissez votre identifiant.'),
+      password: password ? undefined : t('Saisissez votre mot de passe.'),
     };
     setErrors(nextErrors);
     if (nextErrors.username || nextErrors.password) return;
@@ -44,16 +45,16 @@ export function LoginPage() {
   }
 
   const apiMessage =
-    login.error instanceof ApiError ? login.error.message : login.error ? 'Connexion impossible.' : null;
+    login.error instanceof ApiError ? login.error.message : login.error ? t('Connexion impossible.') : null;
 
   return (
-    <AuthLayout title="Connexion" description="Connectez-vous avec l’identifiant fourni par votre établissement.">
+    <AuthLayout title={t('Connexion')} description={t('Connectez-vous avec l’identifiant fourni par votre établissement.')}>
       <form noValidate onSubmit={handleSubmit}>
         <Stack spacing={2.5}>
           {apiMessage && <Alert severity="error">{apiMessage}</Alert>}
           <TextField
             id="login-username"
-            label="Identifiant"
+            label={t('Identifiant')}
             name="username"
             autoComplete="username"
             autoCapitalize="none"
@@ -65,7 +66,7 @@ export function LoginPage() {
           />
           <TextField
             id="login-password"
-            label="Mot de passe"
+            label={t('Mot de passe')}
             name="password"
             type="password"
             autoComplete="current-password"
@@ -76,7 +77,7 @@ export function LoginPage() {
             slotProps={{ htmlInput: { 'aria-required': true }, input: fieldIcon(KeyRound) }}
           />
           <Button type="submit" variant="contained" size="large" fullWidth loading={login.isPending} endIcon={<LogIn aria-hidden="true" />}>
-            Se connecter
+            {t('Se connecter')}
           </Button>
         </Stack>
       </form>

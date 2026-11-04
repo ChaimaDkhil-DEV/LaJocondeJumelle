@@ -45,6 +45,7 @@ import { useToast } from '../../components/Toast';
 import { UserAvatar } from '../../components/UserAvatar';
 import { visuallyHidden } from '../../components/a11y';
 import { font, fontSize, icon, tokensOf } from '../../design/tokens';
+import { locale, isPlural, t } from '../../i18n';
 import { useCurrentUser } from '../auth/useCurrentUser';
 import { AvatarDialog } from '../avatar/AvatarDialog';
 import { adminKeys, useAdminUsers, type AdminUser } from './api';
@@ -67,7 +68,7 @@ const ROWS_PER_PAGE = [10, 25, 50];
 
 /** Recherche sans accents ni casse, sur le nom, la fonction et le rôle. */
 function normalize(text: string): string {
-  return text.normalize('NFD').replace(/\p{M}/gu, '').toLocaleLowerCase('fr');
+  return text.normalize('NFD').replace(/\p{M}/gu, '').toLocaleLowerCase(locale());
 }
 
 function matches(e: EmployeeStats, query: string, role: Role | '', status: StatusFilter): boolean {
@@ -86,19 +87,19 @@ function matches(e: EmployeeStats, query: string, role: Role | '', status: Statu
 /** Export CSV des employés sélectionnés (indicateurs de la période ; séparateur « ; », tableur français). */
 function downloadCsv(rows: EmployeeStats[]): void {
   const header = [
-    'Employé',
-    'Fonction',
-    'Rôle',
-    'Statut',
-    'Créées',
-    'Reçues',
-    'À prendre en charge',
-    'En cours',
-    'Terminées',
-    'En retard',
-    'Prise en charge moy.',
-    'Traitement net moy.',
-    'Dernière action',
+    t('Employé'),
+    t('Fonction'),
+    t('Rôle'),
+    t('Statut'),
+    t('Créées'),
+    t('Reçues'),
+    t('À prendre en charge'),
+    t('En cours'),
+    t('Terminées'),
+    t('En retard'),
+    t('Prise en charge moy.'),
+    t('Traitement net moy.'),
+    t('Dernière action'),
   ];
   const cell = (value: string | number) => `"${String(value).replace(/"/g, '""')}"`;
   const lines = rows.map((e) =>
@@ -106,7 +107,7 @@ function downloadCsv(rows: EmployeeStats[]): void {
       e.user.displayName,
       e.user.jobTitle ?? '',
       ROLE_LABELS[e.user.role],
-      e.user.active ? 'Actif' : 'Désactivé',
+      e.user.active ? t('Actif') : t('Désactivé'),
       e.created,
       e.assigned,
       e.pendingTakeover,
@@ -127,7 +128,7 @@ function downloadCsv(rows: EmployeeStats[]): void {
   const link = document.createElement('a');
   link.href = url;
   // Date du jour dans le fuseau du navigateur (AAAA-MM-JJ) : toISOString donnerait la veille après minuit.
-  link.download = `employes-${new Intl.DateTimeFormat('en-CA').format(new Date())}.csv`;
+  link.download = t('employes-{date}.csv', { date: new Intl.DateTimeFormat('en-CA').format(new Date()) });
   link.click();
   URL.revokeObjectURL(url);
 }
@@ -161,19 +162,19 @@ function Workload({ e }: { e: EmployeeStats }) {
         color: tokensOf(theme).textSecondary,
       })}
     >
-      {part(e.pendingTakeover, 'à prendre')}
+      {part(e.pendingTakeover, t('à prendre'))}
       <span aria-hidden="true">·</span>
-      {part(e.inProgress, 'en cours')}
+      {part(e.inProgress, t('en cours'))}
       <span aria-hidden="true">·</span>
-      {part(e.done, e.done > 1 ? 'terminées' : 'terminée')}
+      {part(e.done, t(isPlural(e.done) ? 'terminées' : 'terminée'))}
     </Box>
   );
 }
 
 const statusBadge = (active: boolean) => (
-  <Badge tone={active ? 'success' : 'error'}>{active ? 'Actif' : 'Désactivé'}</Badge>
+  <Badge tone={active ? 'success' : 'error'}>{active ? t('Actif') : t('Désactivé')}</Badge>
 );
-const overdueBadge = (n: number) => (n > 0 ? <Badge tone="error">{n} en retard</Badge> : null);
+const overdueBadge = (n: number) => (n > 0 ? <Badge tone="error">{t('{count} en retard', { count: n })}</Badge> : null);
 
 /**
  * Onglet « Employés » du tableau de bord : liste épurée (employé, rôle, charge, alertes, statut),
@@ -207,12 +208,12 @@ export function EmployeesView({ qs }: { qs: string }) {
   const [actionError, setActionError] = useState<string | null>(null);
 
   if (employees.isPending)
-    return <DashboardSkeleton label="Chargement des employés" shape="table" />;
+    return <DashboardSkeleton label={t('Chargement des employés')} shape="table" />;
   if (employees.error) {
     return (
       <ErrorState
-        message={loadErrorMessage(employees.error, 'l’activité des employés')}
-        actionLabel="Réessayer"
+        message={loadErrorMessage(employees.error, t('l’activité des employés'))}
+        actionLabel={t('Réessayer')}
         onAction={() => void employees.refetch()}
       />
     );
@@ -264,7 +265,7 @@ export function EmployeesView({ qs }: { qs: string }) {
       } catch (error) {
         failed.push(
           error instanceof ApiError
-            ? `${person.displayName} : ${error.message}`
+            ? t('{name} : {message}', { name: person.displayName, message: error.message })
             : person.displayName,
         );
       }
@@ -272,18 +273,18 @@ export function EmployeesView({ qs }: { qs: string }) {
     await refresh();
     setPending(false);
     if (failed.length > 0) {
-      setActionError(`Certains comptes n’ont pas été modifiés. ${failed.join(' ')}`);
+      setActionError(t('Certains comptes n’ont pas été modifiés. {details}', { details: failed.join(' ') }));
       return;
     }
     setDeactivate(null);
     setSelected(new Set());
-    const done =
-      people.length === 1 ? `Compte de ${people[0].displayName}` : `${people.length} comptes`;
-    toast.success(
-      active
-        ? `${done} réactivé${people.length > 1 ? 's' : ''}.`
-        : `${done} désactivé${people.length > 1 ? 's' : ''}.`,
-    );
+    const name = people[0]?.displayName ?? '';
+    const count = people.length;
+    if (active) {
+      toast.success(count === 1 ? t('Compte de {name} réactivé.', { name }) : t('{count} comptes réactivés.', { count }));
+    } else {
+      toast.success(count === 1 ? t('Compte de {name} désactivé.', { name }) : t('{count} comptes désactivés.', { count }));
+    }
   }
 
   const openMenu = (event: MouseEvent<HTMLElement>, employee: EmployeeStats) => {
@@ -293,7 +294,7 @@ export function EmployeesView({ qs }: { qs: string }) {
 
   const actionsButton = (e: EmployeeStats) => (
     <IconButton
-      aria-label={`Actions pour ${e.user.displayName}`}
+      aria-label={t('Actions pour {name}', { name: e.user.displayName })}
       aria-haspopup="menu"
       onClick={(event) => openMenu(event, e)}
       size="small"
@@ -308,7 +309,7 @@ export function EmployeesView({ qs }: { qs: string }) {
    */
   const nameButton = (e: EmployeeStats) => (
     <ButtonBase
-      aria-label={`${e.user.displayName}, voir le détail`}
+      aria-label={t('{name}, voir le détail', { name: e.user.displayName })}
       onClick={(event) => {
         event.stopPropagation();
         setDetailId(e.user.id);
@@ -362,10 +363,12 @@ export function EmployeesView({ qs }: { qs: string }) {
       >
         <Box>
           <Typography id="tdb-employes-titre" component="h2" variant="h6">
-            Employés
+            {t('Employés')}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            {all.length} compte{all.length > 1 ? 's' : ''} · indicateurs de la période choisie
+            {t(isPlural(all.length) ? '{count} comptes · indicateurs de la période choisie' : '{count} compte · indicateurs de la période choisie', {
+              count: all.length,
+            })}
           </Typography>
         </Box>
         <Button
@@ -378,7 +381,7 @@ export function EmployeesView({ qs }: { qs: string }) {
             '&:hover': { bgcolor: tokensOf(theme).textSecondary },
           })}
         >
-          Nouvel employé
+          {t('Nouvel employé')}
         </Button>
       </Box>
 
@@ -396,7 +399,7 @@ export function EmployeesView({ qs }: { qs: string }) {
         {selected.size > 0 ? (
           <Box
             role="region"
-            aria-label="Actions sur la sélection"
+            aria-label={t('Actions sur la sélection')}
             sx={(theme) => ({
               flex: 1,
               display: 'flex',
@@ -416,7 +419,7 @@ export function EmployeesView({ qs }: { qs: string }) {
                 mr: 'auto',
               })}
             >
-              {selected.size} sélectionné{selected.size > 1 ? 's' : ''}
+              {t(isPlural(selected.size) ? '{count} sélectionnés' : '{count} sélectionné', { count: selected.size })}
             </Typography>
             <Button
               size="small"
@@ -431,17 +434,17 @@ export function EmployeesView({ qs }: { qs: string }) {
                 )
               }
             >
-              Désactiver
+              {t('Désactiver')}
             </Button>
             <Button
               size="small"
               startIcon={<Download size={icon.sm} aria-hidden="true" />}
               onClick={() => downloadCsv(selectedRows)}
             >
-              Exporter
+              {t('Exporter')}
             </Button>
             <Button size="small" color="inherit" onClick={() => setSelected(new Set())}>
-              Annuler la sélection
+              {t('Annuler la sélection')}
             </Button>
           </Box>
         ) : (
@@ -449,7 +452,7 @@ export function EmployeesView({ qs }: { qs: string }) {
             <TextField
               id="tdb-employes-recherche"
               size="small"
-              placeholder="Rechercher un employé…"
+              placeholder={t('Rechercher un employé…')}
               value={query}
               onChange={(e) => {
                 setQuery(e.target.value);
@@ -457,7 +460,7 @@ export function EmployeesView({ qs }: { qs: string }) {
               }}
               sx={{ flex: '1 1 240px', maxWidth: { sm: 360 } }}
               slotProps={{
-                htmlInput: { 'aria-label': 'Rechercher un employé' },
+                htmlInput: { 'aria-label': t('Rechercher un employé') },
                 input: {
                   startAdornment: (
                     <InputAdornment position="start">
@@ -471,14 +474,14 @@ export function EmployeesView({ qs }: { qs: string }) {
               variant="outlined"
               sx={{ ml: 'auto' }}
               aria-label={
-                filterCount > 0 ? `Filtres des employés (${filterCount})` : 'Filtres des employés'
+                filterCount > 0 ? t('Filtres des employés ({count})', { count: filterCount }) : t('Filtres des employés')
               }
               aria-haspopup="dialog"
               aria-expanded={Boolean(filtersAnchor)}
               startIcon={<SlidersHorizontal size={icon.sm} aria-hidden="true" />}
               onClick={(e) => setFiltersAnchor(e.currentTarget)}
             >
-              {filterCount > 0 ? `Filtres (${filterCount})` : 'Filtres'}
+              {filterCount > 0 ? t('Filtres ({count})', { count: filterCount }) : t('Filtres')}
             </Button>
           </>
         )}
@@ -492,7 +495,7 @@ export function EmployeesView({ qs }: { qs: string }) {
         slotProps={{
           paper: {
             role: 'dialog',
-            'aria-label': 'Filtres des employés',
+            'aria-label': t('Filtres des employés'),
             sx: { p: 2, display: 'grid', gap: 2, width: 260 },
           },
         }}
@@ -501,12 +504,12 @@ export function EmployeesView({ qs }: { qs: string }) {
           select
           size="small"
           id="tdb-employes-role"
-          label="Rôle"
+          label={t('Rôle')}
           value={role}
           onChange={(e) => (setRole(e.target.value as Role | ''), setPage(0))}
           slotProps={{ select: { displayEmpty: true } }}
         >
-          <MenuItem value="">Tous</MenuItem>
+          <MenuItem value="">{t('Tous')}</MenuItem>
           {(Object.keys(ROLE_LABELS) as Role[]).map((r) => (
             <MenuItem key={r} value={r}>
               {ROLE_LABELS[r]}
@@ -517,37 +520,37 @@ export function EmployeesView({ qs }: { qs: string }) {
           select
           size="small"
           id="tdb-employes-statut"
-          label="Statut"
+          label={t('Statut')}
           value={status}
           onChange={(e) => (setStatus(e.target.value as StatusFilter), setPage(0))}
           slotProps={{ select: { displayEmpty: true } }}
         >
-          <MenuItem value="">Tous</MenuItem>
-          <MenuItem value="active">Actif</MenuItem>
-          <MenuItem value="inactive">Désactivé</MenuItem>
+          <MenuItem value="">{t('Tous')}</MenuItem>
+          <MenuItem value="active">{t('Actif')}</MenuItem>
+          <MenuItem value="inactive">{t('Désactivé')}</MenuItem>
         </TextField>
         <Button
           size="small"
           disabled={filterCount === 0}
           onClick={() => (setRole(''), setStatus(''), setPage(0))}
         >
-          Réinitialiser les filtres
+          {t('Réinitialiser les filtres')}
         </Button>
       </Popover>
 
       {filtered.length === 0 ? (
         <EmptyState
           icon={SearchX}
-          title="Aucun employé trouvé"
+          title={t('Aucun employé trouvé')}
           description={
             all.length === 0
-              ? 'Aucun compte actif et aucune demande sur cette période.'
-              : 'Aucun employé ne correspond à cette recherche ou à ces filtres.'
+              ? t('Aucun compte actif et aucune demande sur cette période.')
+              : t('Aucun employé ne correspond à cette recherche ou à ces filtres.')
           }
           action={
             all.length > 0 ? (
               <Button variant="outlined" onClick={clearFilters}>
-                Effacer la recherche et les filtres
+                {t('Effacer la recherche et les filtres')}
               </Button>
             ) : undefined
           }
@@ -558,7 +561,7 @@ export function EmployeesView({ qs }: { qs: string }) {
           {desktop ? (
             <TableContainer>
               <Table
-                aria-label="Employés"
+                aria-label={t('Employés')}
                 sx={(theme) => {
                   const t = tokensOf(theme);
                   return {
@@ -586,18 +589,18 @@ export function EmployeesView({ qs }: { qs: string }) {
                         indeterminate={pageSelected > 0 && pageSelected < pageIds.length}
                         onChange={togglePage}
                         slotProps={{
-                          input: { 'aria-label': 'Sélectionner les employés de la page' },
+                          input: { 'aria-label': t('Sélectionner les employés de la page') },
                         }}
                       />
                     </TableCell>
-                    <TableCell>Employé</TableCell>
-                    <TableCell>Fonction / Rôle</TableCell>
-                    <TableCell>Charge de travail</TableCell>
-                    <TableCell>Alertes</TableCell>
-                    <TableCell>Statut</TableCell>
+                    <TableCell>{t('Employé')}</TableCell>
+                    <TableCell>{t('Fonction / Rôle')}</TableCell>
+                    <TableCell>{t('Charge de travail')}</TableCell>
+                    <TableCell>{t('Alertes')}</TableCell>
+                    <TableCell>{t('Statut')}</TableCell>
                     <TableCell align="right">
                       <Box component="span" sx={visuallyHidden}>
-                        Actions
+                        {t('Actions')}
                       </Box>
                     </TableCell>
                   </TableRow>
@@ -616,7 +619,7 @@ export function EmployeesView({ qs }: { qs: string }) {
                           checked={selected.has(e.user.id)}
                           onChange={() => toggle(e.user.id)}
                           slotProps={{
-                            input: { 'aria-label': `Sélectionner ${e.user.displayName}` },
+                            input: { 'aria-label': t('Sélectionner {name}', { name: e.user.displayName }) },
                           }}
                         />
                       </TableCell>
@@ -662,7 +665,7 @@ export function EmployeesView({ qs }: { qs: string }) {
             /* Mobile : une carte par employé (avatar, nom, statut, retard). */
             <Box
               component="ul"
-              aria-label="Employés"
+              aria-label={t('Employés')}
               sx={(theme) => ({
                 display: 'grid',
                 listStyle: 'none',
@@ -692,7 +695,7 @@ export function EmployeesView({ qs }: { qs: string }) {
                       size="small"
                       checked={selected.has(e.user.id)}
                       onChange={() => toggle(e.user.id)}
-                      slotProps={{ input: { 'aria-label': `Sélectionner ${e.user.displayName}` } }}
+                      slotProps={{ input: { 'aria-label': t('Sélectionner {name}', { name: e.user.displayName }) } }}
                     />
                   </Box>
                   <UserAvatar user={{ id: e.user.id, displayName: e.user.displayName }} size="lg" />
@@ -720,16 +723,16 @@ export function EmployeesView({ qs }: { qs: string }) {
               setRowsPerPage(Number(e.target.value));
               setPage(0);
             }}
-            labelRowsPerPage="Lignes par page :"
-            labelDisplayedRows={({ from, to, count }) => `${from}–${to} sur ${count}`}
+            labelRowsPerPage={t('Lignes par page :')}
+            labelDisplayedRows={({ from, to, count }) => t('{from}–{to} sur {count}', { from, to, count })}
             getItemAriaLabel={(type) =>
               type === 'next'
-                ? 'Page suivante'
+                ? t('Page suivante')
                 : type === 'previous'
-                  ? 'Page précédente'
+                  ? t('Page précédente')
                   : type === 'first'
-                    ? 'Première page'
-                    : 'Dernière page'
+                    ? t('Première page')
+                    : t('Dernière page')
             }
           />
         </>
@@ -750,7 +753,7 @@ export function EmployeesView({ qs }: { qs: string }) {
             <ListItemIcon>
               <Eye size={icon.sm} aria-hidden="true" />
             </ListItemIcon>
-            Voir le détail
+            {t('Voir le détail')}
           </MenuItem>,
           <MenuItem
             key="edit"
@@ -760,13 +763,13 @@ export function EmployeesView({ qs }: { qs: string }) {
             <ListItemIcon>
               <Pencil size={icon.sm} aria-hidden="true" />
             </ListItemIcon>
-            Modifier
+            {t('Modifier')}
           </MenuItem>,
           <MenuItem key="photo" onClick={() => (setPhotoFor(menu.employee.user), setMenu(null))}>
             <ListItemIcon>
               <Camera size={icon.sm} aria-hidden="true" />
             </ListItemIcon>
-            Changer la photo
+            {t('Changer la photo')}
           </MenuItem>,
           menu.employee.user.id !== me.data?.id &&
             (menu.employee.user.active ? (
@@ -778,7 +781,7 @@ export function EmployeesView({ qs }: { qs: string }) {
                 <ListItemIcon sx={{ color: 'inherit' }}>
                   <UserX size={icon.sm} aria-hidden="true" />
                 </ListItemIcon>
-                Désactiver
+                {t('Désactiver')}
               </MenuItem>
             ) : (
               <MenuItem
@@ -788,7 +791,7 @@ export function EmployeesView({ qs }: { qs: string }) {
                 <ListItemIcon>
                   <UserCheck size={icon.sm} aria-hidden="true" />
                 </ListItemIcon>
-                Réactiver
+                {t('Réactiver')}
               </MenuItem>
             )),
         ]}
@@ -833,11 +836,11 @@ export function EmployeesView({ qs }: { qs: string }) {
         open={deactivate !== null}
         title={
           deactivate && deactivate.length > 1
-            ? `Désactiver ${deactivate.length} comptes ?`
-            : 'Désactiver ce compte ?'
+            ? t('Désactiver {count} comptes ?', { count: deactivate.length })
+            : t('Désactiver ce compte ?')
         }
         confirmLabel={
-          deactivate && deactivate.length > 1 ? 'Désactiver les comptes' : 'Désactiver le compte'
+          deactivate && isPlural(deactivate.length) ? t('Désactiver les comptes') : t('Désactiver le compte')
         }
         pending={pending}
         error={actionError}
@@ -848,8 +851,12 @@ export function EmployeesView({ qs }: { qs: string }) {
         }}
       >
         {deactivate && deactivate.length > 1
-          ? `${deactivate.map((p) => p.displayName).join(', ')} seront déconnectés immédiatement et ne pourront plus se connecter. Leurs demandes et leur historique sont conservés.`
-          : `${deactivate?.[0]?.displayName ?? ''} sera déconnecté immédiatement et ne pourra plus se connecter. Ses demandes et son historique sont conservés.`}
+          ? t('{names} seront déconnectés immédiatement et ne pourront plus se connecter. Leurs demandes et leur historique sont conservés.', {
+              names: deactivate.map((p) => p.displayName).join(', '),
+            })
+          : t('{name} sera déconnecté immédiatement et ne pourra plus se connecter. Ses demandes et son historique sont conservés.', {
+              name: deactivate?.[0]?.displayName ?? '',
+            })}
       </ConfirmDialog>
     </Paper>
   );

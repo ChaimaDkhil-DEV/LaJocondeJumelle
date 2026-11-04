@@ -30,6 +30,7 @@ import { LoadingState } from '../../components/LoadingState';
 import { SectionHeader } from '../../components/SectionHeader';
 import { useToast } from '../../components/Toast';
 import { font, icon } from '../../design/tokens';
+import { isPlural, t } from '../../i18n';
 import { MEAL_SERVICE_LABELS, useLevels, useSaveStudent, useStudents, type GradeLevel, type MealService, type Student } from './api';
 
 const ROWS_PER_PAGE = [25, 50, 100];
@@ -75,11 +76,11 @@ function StudentFormDialog({
   function submit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
     const next: Errors = {
-      ...(firstName.trim() ? {} : { firstName: 'Le prénom est obligatoire.' }),
-      ...(lastName.trim() ? {} : { lastName: 'Le nom est obligatoire.' }),
-      ...(classId ? {} : { classId: 'Choisissez la classe de l’élève.' }),
-      ...(PHONE_RE.test(parentPhone.trim().replace(/\s+/g, ' ')) ? {} : { parentPhone: 'Numéro invalide : chiffres et espaces, « + » possible au début.' }),
-      ...(mealService ? {} : { mealService: 'Choisissez le service de restauration : cantine ou panier.' }),
+      ...(firstName.trim() ? {} : { firstName: t('Le prénom est obligatoire.') }),
+      ...(lastName.trim() ? {} : { lastName: t('Le nom est obligatoire.') }),
+      ...(classId ? {} : { classId: t('Choisissez la classe de l’élève.') }),
+      ...(PHONE_RE.test(parentPhone.trim().replace(/\s+/g, ' ')) ? {} : { parentPhone: t('Numéro invalide : chiffres et espaces, « + » possible au début.') }),
+      ...(mealService ? {} : { mealService: t('Choisissez le service de restauration : cantine ou panier.') }),
     };
     setErrors(next);
     if (Object.keys(next).length > 0 || !mealService) return;
@@ -93,19 +94,19 @@ function StudentFormDialog({
         mealService,
         ...(student ? { active } : {}),
       },
-      { onSuccess: () => onSaved(student ? 'Élève enregistré.' : 'Élève ajouté.') },
+      { onSuccess: () => onSaved(student ? t('Élève enregistré.') : t('Élève ajouté.')) },
     );
   }
 
   return (
     <Dialog open onClose={onClose} aria-labelledby={titleId} fullWidth maxWidth="sm">
       <Box component="form" noValidate onSubmit={submit}>
-        <DialogTitle id={titleId}>{student ? `Modifier : ${student.firstName} ${student.lastName}` : 'Nouvel élève'}</DialogTitle>
+        <DialogTitle id={titleId}>{student ? t('Modifier : {name}', { name: `${student.firstName} ${student.lastName}` }) : t('Nouvel élève')}</DialogTitle>
         <DialogContent sx={{ display: 'grid', gap: 2.5, pt: '8px !important' }}>
           <Box sx={{ display: 'grid', gap: 2.5, gridTemplateColumns: { sm: '1fr 1fr' } }}>
             <TextField
               id="eleve-prenom"
-              label="Prénom"
+              label={t('Prénom')}
               required
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
@@ -115,7 +116,7 @@ function StudentFormDialog({
             />
             <TextField
               id="eleve-nom"
-              label="Nom"
+              label={t('Nom')}
               required
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
@@ -127,42 +128,42 @@ function StudentFormDialog({
           <TextField
             id="eleve-classe"
             select
-            label="Classe"
+            label={t('Classe')}
             required
             value={classId}
             onChange={(e) => setClassId(e.target.value)}
             error={Boolean(errors.classId)}
-            helperText={errors.classId ?? 'Le niveau scolaire se déduit de la classe.'}
+            helperText={errors.classId ?? t('Le niveau scolaire se déduit de la classe.')}
           >
             {classOptions(levels)}
           </TextField>
           <TextField
             id="eleve-telephone"
-            label="Téléphone d’un parent"
+            label={t('Téléphone d’un parent')}
             required
             type="tel"
             value={parentPhone}
             onChange={(e) => setParentPhone(e.target.value)}
             error={Boolean(errors.parentPhone)}
-            helperText={errors.parentPhone ?? 'Par exemple : 06 12 34 56 78.'}
+            helperText={errors.parentPhone ?? t('Par exemple : 06 12 34 56 78.')}
             slotProps={{ htmlInput: { maxLength: 20, inputMode: 'tel', autoComplete: 'off' } }}
           />
           {/* Un seul service : boutons radio, jamais deux cases à cocher indépendantes. */}
           <FormControl required error={Boolean(errors.mealService)}>
-            <FormLabel id={mealLabelId}>Service de restauration</FormLabel>
+            <FormLabel id={mealLabelId}>{t('Service de restauration')}</FormLabel>
             <RadioGroup row aria-labelledby={mealLabelId} name="eleve-restauration" value={mealService} onChange={(e) => setMealService(e.target.value as MealService)}>
-              <FormControlLabel value="CANTINE" control={<Radio />} label="Cantine" />
-              <FormControlLabel value="PANIER" control={<Radio />} label="Panier" />
+              <FormControlLabel value="CANTINE" control={<Radio />} label={t('Cantine')} />
+              <FormControlLabel value="PANIER" control={<Radio />} label={t('Panier')} />
             </RadioGroup>
             {errors.mealService && <FormHelperText>{errors.mealService}</FormHelperText>}
           </FormControl>
-          {student && <FormControlLabel control={<Checkbox checked={active} onChange={(e) => setActive(e.target.checked)} />} label="Élève inscrit (actif)" />}
-          {save.error && <Alert severity="error">{save.error instanceof ApiError ? save.error.message : 'Enregistrement impossible.'}</Alert>}
+          {student && <FormControlLabel control={<Checkbox checked={active} onChange={(e) => setActive(e.target.checked)} />} label={t('Élève inscrit (actif)')} />}
+          {save.error && <Alert severity="error">{save.error instanceof ApiError ? save.error.message : t('Enregistrement impossible.')}</Alert>}
         </DialogContent>
         <DialogActions>
-          <Button onClick={onClose}>Annuler</Button>
+          <Button onClick={onClose}>{t('Annuler')}</Button>
           <Button type="submit" variant="contained" loading={save.isPending}>
-            Enregistrer l’élève
+            {t('Enregistrer l’élève')}
           </Button>
         </DialogActions>
       </Box>
@@ -206,30 +207,30 @@ export function StudentsAdminPage() {
     <Box component="section" aria-labelledby="titre-eleves">
       <SectionHeader
         id="titre-eleves"
-        title="Élèves"
-        description="Élèves par niveau et par classe, avec le téléphone d’un parent et le service de restauration (cantine ou panier)."
+        title={t('Élèves')}
+        description={t('Élèves par niveau et par classe, avec le téléphone d’un parent et le service de restauration (cantine ou panier).')}
         action={
           <Button variant="contained" startIcon={<UserPlus size={icon.sm} aria-hidden="true" />} disabled={!levels.data} onClick={() => setForm({ student: null })}>
-            Nouvel élève
+            {t('Nouvel élève')}
           </Button>
         }
       />
       {students.isPending || levels.isPending ? (
-        <LoadingState label="Chargement des élèves" />
+        <LoadingState label={t('Chargement des élèves')} />
       ) : students.error || levels.error ? (
-        <ErrorState message="Impossible de charger les élèves." actionLabel="Réessayer" onAction={() => void Promise.all([students.refetch(), levels.refetch()])} />
+        <ErrorState message={t('Impossible de charger les élèves.')} actionLabel={t('Réessayer')} onAction={() => void Promise.all([students.refetch(), levels.refetch()])} />
       ) : (
         <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, p: 2 }}>
             <TextField
               id="eleves-recherche"
               size="small"
-              placeholder="Rechercher un élève…"
+              placeholder={t('Rechercher un élève…')}
               value={query}
               onChange={(e) => (setQuery(e.target.value), resetPage())}
               sx={{ flex: '1 1 220px' }}
               slotProps={{
-                htmlInput: { 'aria-label': 'Rechercher un élève' },
+                htmlInput: { 'aria-label': t('Rechercher un élève') },
                 input: {
                   startAdornment: (
                     <InputAdornment position="start">
@@ -243,13 +244,13 @@ export function StudentsAdminPage() {
               id="eleves-niveau"
               select
               size="small"
-              label="Niveau"
+              label={t('Niveau')}
               value={levelId}
               onChange={(e) => (setLevelId(e.target.value), setClassId(''), resetPage())}
               sx={{ flex: '1 1 180px' }}
               slotProps={{ select: { displayEmpty: true }, inputLabel: { shrink: true } }}
             >
-              <MenuItem value="">Tous</MenuItem>
+              <MenuItem value="">{t('Tous')}</MenuItem>
               {levels.data.map((l) => (
                 <MenuItem key={l.id} value={l.id}>
                   {l.name}
@@ -260,13 +261,13 @@ export function StudentsAdminPage() {
               id="eleves-classe"
               select
               size="small"
-              label="Classe"
+              label={t('Classe')}
               value={classId}
               onChange={(e) => (setClassId(e.target.value), resetPage())}
               sx={{ flex: '1 1 200px' }}
               slotProps={{ select: { displayEmpty: true }, inputLabel: { shrink: true } }}
             >
-              <MenuItem value="">Toutes</MenuItem>
+              <MenuItem value="">{t('Toutes')}</MenuItem>
               {levelClasses.map((c) => (
                 <MenuItem key={c.id} value={c.id}>
                   {c.name}
@@ -277,29 +278,33 @@ export function StudentsAdminPage() {
               id="eleves-service"
               select
               size="small"
-              label="Restauration"
+              label={t('Restauration')}
               value={meal}
               onChange={(e) => (setMeal(e.target.value as MealService | ''), resetPage())}
               sx={{ flex: '1 1 150px' }}
               slotProps={{ select: { displayEmpty: true }, inputLabel: { shrink: true } }}
             >
-              <MenuItem value="">Tous</MenuItem>
-              <MenuItem value="CANTINE">Cantine</MenuItem>
-              <MenuItem value="PANIER">Panier</MenuItem>
+              <MenuItem value="">{t('Tous')}</MenuItem>
+              <MenuItem value="CANTINE">{t('Cantine')}</MenuItem>
+              <MenuItem value="PANIER">{t('Panier')}</MenuItem>
             </TextField>
           </Box>
           <Typography variant="body2" color="text.secondary" aria-live="polite" sx={{ px: 2, pb: 1.5 }}>
-            {filtered.length} élève{filtered.length > 1 ? 's' : ''} · {cantine} à la cantine · {filtered.length - cantine} au panier
+            {t(isPlural(filtered.length) ? '{count} élèves · {cantine} à la cantine · {basket} au panier' : '{count} élève · {cantine} à la cantine · {basket} au panier', {
+              count: filtered.length,
+              cantine,
+              basket: filtered.length - cantine,
+            })}
           </Typography>
           {filtered.length === 0 ? (
             <EmptyState
               icon={students.data.length === 0 ? GraduationCap : SearchX}
-              title={students.data.length === 0 ? 'Aucun élève' : 'Aucun élève trouvé'}
-              description={students.data.length === 0 ? 'Ajoutez les élèves de chaque classe.' : 'Aucun élève ne correspond à cette recherche ou à ces filtres.'}
+              title={students.data.length === 0 ? t('Aucun élève') : t('Aucun élève trouvé')}
+              description={students.data.length === 0 ? t('Ajoutez les élèves de chaque classe.') : t('Aucun élève ne correspond à cette recherche ou à ces filtres.')}
             />
           ) : (
             <>
-              <Box component="ul" aria-label="Élèves" sx={{ listStyle: 'none', m: 0, p: 0, borderTop: 1, borderColor: 'divider', '& > li + li': { borderTop: 1, borderColor: 'divider' } }}>
+              <Box component="ul" aria-label={t('Élèves')} sx={{ listStyle: 'none', m: 0, p: 0, borderTop: 1, borderColor: 'divider', '& > li + li': { borderTop: 1, borderColor: 'divider' } }}>
                 {rows.map((s) => (
                   <Box component="li" key={s.id} sx={{ display: 'flex', gap: 2, alignItems: 'center', px: { xs: 2, md: 2.5 }, py: 1.25 }}>
                     <Box sx={{ minWidth: 0, flex: '1 1 auto' }}>
@@ -310,7 +315,7 @@ export function StudentsAdminPage() {
                         <Badge tone={s.mealService === 'CANTINE' ? 'info' : 'warning'}>{MEAL_SERVICE_LABELS[s.mealService]}</Badge>
                         {!s.active && (
                           <Badge tone="neutral" icon={CircleOff}>
-                            Inactif
+                            {t('Inactif')}
                           </Badge>
                         )}
                       </Box>
@@ -318,7 +323,7 @@ export function StudentsAdminPage() {
                         {s.class.name} · {s.parentPhone}
                       </Typography>
                     </Box>
-                    <IconAction icon={Pencil} label={`Modifier l’élève ${s.firstName} ${s.lastName}`} tooltip="Modifier" onClick={() => setForm({ student: s })} />
+                    <IconAction icon={Pencil} label={t('Modifier l’élève {name}', { name: `${s.firstName} ${s.lastName}` })} tooltip={t('Modifier')} onClick={() => setForm({ student: s })} />
                   </Box>
                 ))}
               </Box>
@@ -330,9 +335,9 @@ export function StudentsAdminPage() {
                 rowsPerPageOptions={ROWS_PER_PAGE}
                 onPageChange={(_e, next) => setPage(next)}
                 onRowsPerPageChange={(e) => (setRowsPerPage(Number(e.target.value)), resetPage())}
-                labelRowsPerPage="Lignes par page :"
-                labelDisplayedRows={({ from, to, count }) => `${from}–${to} sur ${count}`}
-                getItemAriaLabel={(type) => (type === 'next' ? 'Page suivante' : type === 'previous' ? 'Page précédente' : type === 'first' ? 'Première page' : 'Dernière page')}
+                labelRowsPerPage={t('Lignes par page :')}
+                labelDisplayedRows={({ from, to, count }) => t('{from}–{to} sur {count}', { from, to, count })}
+                getItemAriaLabel={(type) => (type === 'next' ? t('Page suivante') : type === 'previous' ? t('Page précédente') : type === 'first' ? t('Première page') : t('Dernière page'))}
               />
             </>
           )}

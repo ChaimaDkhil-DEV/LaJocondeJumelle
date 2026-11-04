@@ -19,6 +19,7 @@ import { fontSize, tokensOf } from '../../design/tokens';
 import { useCoverageList, useDecideMerge, useMergeProposals, useSetAvailability, useTeam } from './api';
 import { AVAILABILITY_LABELS, CoverageDeadline, CoverageStatusBadge, Elapsed, TYPE_LABELS, UNAVAILABLE_REASONS, formatStart } from './labels';
 import type { Availability, CoverageSummary, MergeProposal } from './types';
+import { t } from '../../i18n';
 
 /** Alertes d'une affectation (FR-015h, FR-015j) : icône et libellé, jamais la seule couleur. */
 export function CoverageAlertBadges({ alerts }: { alerts: string[] }) {
@@ -26,12 +27,12 @@ export function CoverageAlertBadges({ alerts }: { alerts: string[] }) {
     <>
       {alerts.includes('DOUBLE_ASSIGNMENT') && (
         <Badge tone="error" icon={Split}>
-          Surveillant sur deux affectations
+          {t('Surveillant sur deux affectations')}
         </Badge>
       )}
       {alerts.includes('POSSIBLE_DUPLICATE') && (
         <Badge tone="warning" icon={Copy}>
-          Doublon possible
+          {t('Doublon possible')}
         </Badge>
       )}
     </>
@@ -40,11 +41,11 @@ export function CoverageAlertBadges({ alerts }: { alerts: string[] }) {
 
 /** Temps écoulé pertinent selon l'étape : depuis la création, l'assignation ou la présence. */
 function stageElapsed(c: CoverageSummary) {
-  const t = c.timestamps;
-  if (c.mainStatus === 'PENDING') return <Elapsed since={t.createdAt} prefix="En attente depuis" />;
-  if (c.mainStatus === 'ASSIGNED' && t.acceptedAt) return <Elapsed since={t.acceptedAt} prefix="Assignée il y a" />;
-  if (c.mainStatus === 'IN_PROGRESS' && t.presenceAt) return <Elapsed since={t.presenceAt} prefix="En classe depuis" />;
-  return <span>{formatDateTime(t.createdAt)}</span>;
+  const stamps = c.timestamps;
+  if (c.mainStatus === 'PENDING') return <Elapsed since={stamps.createdAt} prefix={t('En attente depuis')} />;
+  if (c.mainStatus === 'ASSIGNED' && stamps.acceptedAt) return <Elapsed since={stamps.acceptedAt} prefix={t('Assignée il y a')} />;
+  if (c.mainStatus === 'IN_PROGRESS' && stamps.presenceAt) return <Elapsed since={stamps.presenceAt} prefix={t('En classe depuis')} />;
+  return <span>{formatDateTime(stamps.createdAt)}</span>;
 }
 
 /** Ligne d'affectation (file de l'admin, tableau du super administrateur). */
@@ -80,12 +81,12 @@ export function CoverageRow({ item }: { item: CoverageSummary }) {
           )}
           {item.reliefForId && (
             <Typography variant="caption" color="text.secondary">
-              (relève)
+              {t('(relève)')}
             </Typography>
           )}
         </Box>
         <Typography variant="caption" color="text.secondary" noWrap>
-          {[item.class.room, item.floor?.name, formatStart(item.startAt), teacher && `Enseignant : ${teacher}`].filter(Boolean).join(' · ')}
+          {[item.class.room, item.floor?.name, formatStart(item.startAt), teacher && t('Enseignant : {name}', { name: teacher })].filter(Boolean).join(' · ')}
         </Typography>
       </Box>
       <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
@@ -98,12 +99,12 @@ export function CoverageRow({ item }: { item: CoverageSummary }) {
           <Person name={item.assignee.displayName} id={item.assignee.id} size={24} />
         ) : (
           <Typography variant="body2" color="text.secondary">
-            Sans surveillant
+            {t('Sans surveillant')}
           </Typography>
         )}
         {item.supports.length > 0 && (
           <Typography variant="caption" color="text.secondary">
-            Renfort : {item.supports.map((s) => s.user.displayName).join(', ')}
+            {t('Renfort : {names}', { names: item.supports.map((s) => s.user.displayName).join(', ') })}
           </Typography>
         )}
       </Box>
@@ -112,7 +113,7 @@ export function CoverageRow({ item }: { item: CoverageSummary }) {
         {takeoverExpired ? (
           <Box component="span" sx={(theme) => ({ display: 'inline-flex', gap: 0.5, alignItems: 'center', color: tokensOf(theme).error.text })}>
             <AlarmClock size={14} aria-hidden="true" />
-            <span>Délai d’assignation dépassé</span>
+            <span>{t('Délai d’assignation dépassé')}</span>
           </Box>
         ) : (
           <CoverageDeadline summary={item} />
@@ -126,7 +127,7 @@ export function CoverageRows({ items, empty }: { items: CoverageSummary[]; empty
   if (items.length === 0) {
     return (
       <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1.5, bgcolor: 'background.paper' }}>
-        <EmptyState icon={School} title="Aucune affectation" description={empty} />
+        <EmptyState icon={School} title={t('Aucune affectation')} description={empty} />
       </Box>
     );
   }
@@ -144,15 +145,15 @@ export function CoverageRows({ items, empty }: { items: CoverageSummary[]; empty
 const SCOPES = {
   pending: {
     query: 'mainStatus=PENDING',
-    empty: 'Les retards et absences signalés par les enseignants apparaîtront ici.',
+    empty: t('Les retards et absences signalés par les enseignants apparaîtront ici.'),
   },
   active: {
     query: 'mainStatus=ASSIGNED&mainStatus=IN_PROGRESS',
-    empty: 'Les affectations assignées et en cours apparaîtront ici.',
+    empty: t('Les affectations assignées et en cours apparaîtront ici.'),
   },
   finished: {
     query: 'mainStatus=DONE&mainStatus=CANCELLED&mainStatus=UNFILLED',
-    empty: 'Les affectations terminées, annulées ou non pourvues apparaîtront ici.',
+    empty: t('Les affectations terminées, annulées ou non pourvues apparaîtront ici.'),
   },
 } as const;
 
@@ -162,8 +163,8 @@ const SCOPES = {
  */
 export function ManagedCoverageTab({ scope }: { scope: keyof typeof SCOPES }) {
   const list = useCoverageList(SCOPES[scope].query);
-  if (list.isPending) return <LoadingState label="Chargement des affectations" />;
-  if (list.error) return <ErrorState message="Impossible de charger les affectations." actionLabel="Réessayer" onAction={() => void list.refetch()} />;
+  if (list.isPending) return <LoadingState label={t('Chargement des affectations')} />;
+  if (list.error) return <ErrorState message={t('Impossible de charger les affectations.')} actionLabel={t('Réessayer')} onAction={() => void list.refetch()} />;
   return <CoverageRows items={list.data} empty={SCOPES[scope].empty} />;
 }
 
@@ -183,8 +184,8 @@ function ProposalSide({ title, item }: { title: string; item: CoverageSummary })
       <Typography variant="caption" color="text.secondary">
         {[
           formatStart(item.startAt),
-          item.assignee ? `Surveillant : ${item.assignee.displayName}` : 'Sans surveillant',
-          item.teacher && `Enseignant : ${item.teacher.displayName}`,
+          item.assignee ? t('Surveillant : {name}', { name: item.assignee.displayName }) : t('Sans surveillant'),
+          item.teacher && t('Enseignant : {name}', { name: item.teacher.displayName }),
         ]
           .filter(Boolean)
           .join(' · ')}
@@ -202,17 +203,17 @@ export function MergeProposalsTab() {
   const toast = useToast();
   const proposals = useMergeProposals();
   const decide = useDecideMerge();
-  if (proposals.isPending) return <LoadingState label="Chargement des doublons possibles" />;
+  if (proposals.isPending) return <LoadingState label={t('Chargement des doublons possibles')} />;
   if (proposals.error) {
-    return <ErrorState message="Impossible de charger les doublons possibles." actionLabel="Réessayer" onAction={() => void proposals.refetch()} />;
+    return <ErrorState message={t('Impossible de charger les doublons possibles.')} actionLabel={t('Réessayer')} onAction={() => void proposals.refetch()} />;
   }
   if (proposals.data.length === 0) {
     return (
       <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1.5, bgcolor: 'background.paper' }}>
         <EmptyState
           icon={Copy}
-          title="Aucun doublon à trancher"
-          description="Quand un surveillant déclare une classe déjà signalée sans préciser l’enseignant, la paire apparaît ici."
+          title={t('Aucun doublon à trancher')}
+          description={t('Quand un surveillant déclare une classe déjà signalée sans préciser l’enseignant, la paire apparaît ici.')}
         />
       </Box>
     );
@@ -221,15 +222,15 @@ export function MergeProposalsTab() {
     decide.mutate(
       { id: p.id, decision },
       {
-        onSuccess: () => toast.success(decision === 'CONFIRM' ? 'Rattachement confirmé.' : 'Affectations gardées distinctes.'),
-        onError: (err) => toast.error(err instanceof ApiError ? err.message : 'Décision impossible.'),
+        onSuccess: () => toast.success(decision === 'CONFIRM' ? t('Rattachement confirmé.') : t('Affectations gardées distinctes.')),
+        onError: (err) => toast.error(err instanceof ApiError ? err.message : t('Décision impossible.')),
       },
     );
   }
   return (
     <Box
       component="ul"
-      aria-label="Doublons possibles"
+      aria-label={t('Doublons possibles')}
       sx={{ listStyle: 'none', m: 0, p: 0, border: 1, borderColor: 'divider', borderRadius: 1.5, bgcolor: 'background.paper', overflow: 'hidden' }}
     >
       {proposals.data.map((p) => (
@@ -241,20 +242,20 @@ export function MergeProposalsTab() {
           {p.unresolved && (
             <Box>
               <Badge tone="warning" icon={AlarmClock}>
-                Non tranché
+                {t('Non tranché')}
               </Badge>
             </Box>
           )}
           <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
-            <ProposalSide title="Déclaration du surveillant" item={p.source} />
-            <ProposalSide title={p.target.source === 'TEACHER_REQUEST' ? 'Demande de l’enseignant' : 'Affectation existante'} item={p.target} />
+            <ProposalSide title={t('Déclaration du surveillant')} item={p.source} />
+            <ProposalSide title={p.target.source === 'TEACHER_REQUEST' ? t('Demande de l’enseignant') : t('Affectation existante')} item={p.target} />
           </Box>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
             <Button variant="contained" size="small" disabled={decide.isPending} onClick={() => send(p, 'CONFIRM')}>
-              Confirmer le rattachement
+              {t('Confirmer le rattachement')}
             </Button>
             <Button size="small" disabled={decide.isPending} onClick={() => send(p, 'REJECT')}>
-              Garder distinctes
+              {t('Garder distinctes')}
             </Button>
           </Box>
         </Box>
@@ -268,17 +269,17 @@ export function TeamTab() {
   const toast = useToast();
   const team = useTeam();
   const setAvailability = useSetAvailability();
-  if (team.isPending) return <LoadingState label="Chargement de l’équipe" />;
-  if (team.error) return <ErrorState message="Impossible de charger l’équipe." actionLabel="Réessayer" onAction={() => void team.refetch()} />;
+  if (team.isPending) return <LoadingState label={t('Chargement de l’équipe')} />;
+  if (team.error) return <ErrorState message={t('Impossible de charger l’équipe.')} actionLabel={t('Réessayer')} onAction={() => void team.refetch()} />;
   if (team.data.length === 0) {
     return (
       <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1.5, bgcolor: 'background.paper' }}>
-        <EmptyState icon={UsersRound} title="Aucun surveillant" description="Le super administrateur compose le groupe Surveillants dans l’administration." />
+        <EmptyState icon={UsersRound} title={t('Aucun surveillant')} description={t('Le super administrateur compose le groupe Surveillants dans l’administration.')} />
       </Box>
     );
   }
   return (
-    <SectionCard title="Disponibilités" icon={UsersRound} flush>
+    <SectionCard title={t('Disponibilités')} icon={UsersRound} flush>
       <Box component="ul" sx={{ listStyle: 'none', m: 0, p: 0 }}>
         {team.data.map((m) => (
           <Box
@@ -296,14 +297,14 @@ export function TeamTab() {
             }}
           >
             <Box sx={{ display: 'grid', gap: 0.5, minWidth: 0 }}>
-              <Person name={m.displayName} id={m.id} size={32} secondary={m.floor?.name ?? 'Sans étage'} />
+              <Person name={m.displayName} id={m.id} size={32} secondary={m.floor?.name ?? t('Sans étage')} />
               <Typography variant="caption" color={m.available ? 'text.secondary' : 'warning.main'}>
-                {m.available ? 'Disponible maintenant' : UNAVAILABLE_REASONS[m.reason ?? 'UNAVAILABLE']}
+                {m.available ? t('Disponible maintenant') : UNAVAILABLE_REASONS[m.reason ?? 'UNAVAILABLE']}
                 {m.guardRequestId && (
                   <>
                     {' · '}
                     <Box component={RouterLink} to={`/gardes/${m.guardRequestId}`} sx={{ color: 'inherit' }}>
-                      voir l’affectation
+                      {t('voir l’affectation')}
                     </Box>
                   </>
                 )}
@@ -312,15 +313,15 @@ export function TeamTab() {
             <TextField
               select
               size="small"
-              label={`Statut de ${m.displayName}`}
+              label={t('Statut de {name}', { name: m.displayName })}
               value={m.availability}
               disabled={setAvailability.isPending}
               onChange={(e) =>
                 setAvailability.mutate(
                   { userId: m.id, availability: e.target.value as Availability },
                   {
-                    onSuccess: () => toast.success(`${m.displayName} : ${AVAILABILITY_LABELS[e.target.value as Availability].toLowerCase()}.`),
-                    onError: (err) => toast.error(err instanceof ApiError ? err.message : 'Modification impossible.'),
+                    onSuccess: () => toast.success(t('{name} : {status}.', { name: m.displayName, status: AVAILABILITY_LABELS[e.target.value as Availability].toLowerCase() })),
+                    onError: (err) => toast.error(err instanceof ApiError ? err.message : t('Modification impossible.')),
                   },
                 )
               }

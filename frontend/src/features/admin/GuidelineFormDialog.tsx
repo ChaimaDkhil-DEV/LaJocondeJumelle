@@ -12,6 +12,7 @@ import TextField from '@mui/material/TextField';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useId, useState, type FormEvent } from 'react';
 import { ApiError, fieldErrors } from '../../api/client';
+import { locale, t } from '../../i18n';
 import { adminKeys, saveGuideline, useAdminCategories, type AdminGuideline, type GuidelineInput } from './api';
 
 const TITLE_MAX = 120;
@@ -37,8 +38,8 @@ function initialValues(guideline: AdminGuideline | null | undefined): Values {
 
 function validate(v: Values): Record<string, string> {
   const errors: Record<string, string> = {};
-  if (!v.title.trim()) errors.title = 'Le titre est obligatoire.';
-  if (!v.body.trim()) errors.body = 'Le texte est obligatoire.';
+  if (!v.title.trim()) errors.title = t('Le titre est obligatoire.');
+  if (!v.body.trim()) errors.body = t('Le texte est obligatoire.');
   return errors;
 }
 
@@ -71,7 +72,7 @@ export function GuidelineFormDialog({ open, guideline, onClose, onSaved }: Guide
     mutationFn: (v: Values) => saveGuideline(guideline?.id ?? null, toInput(v)),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: adminKeys.guidelines });
-      onSaved(guideline ? 'Consigne enregistrée.' : 'Consigne créée.');
+      onSaved(guideline ? t('Consigne enregistrée.') : t('Consigne créée.'));
     },
     onError: (error) => setErrors(fieldErrors(error)),
   });
@@ -89,7 +90,7 @@ export function GuidelineFormDialog({ open, guideline, onClose, onSaved }: Guide
         ? null
         : mutation.error.message
       : mutation.error
-        ? 'Enregistrement impossible.'
+        ? t('Enregistrement impossible.')
         : null;
 
   return (
@@ -110,11 +111,11 @@ export function GuidelineFormDialog({ open, guideline, onClose, onSaved }: Guide
       }}
     >
       <Box component="form" noValidate onSubmit={submit}>
-        <DialogTitle id={titleId}>{guideline ? `Modifier : ${guideline.title}` : 'Nouvelle consigne'}</DialogTitle>
+        <DialogTitle id={titleId}>{guideline ? t('Modifier : {title}', { title: guideline.title }) : t('Nouvelle consigne')}</DialogTitle>
         <DialogContent sx={{ display: 'grid', gap: 2.5, pt: '8px !important' }}>
           <TextField
             id="consigne-titre"
-            label="Titre"
+            label={t('Titre')}
             required
             value={values.title}
             onChange={(e) => set({ title: e.target.value })}
@@ -124,7 +125,7 @@ export function GuidelineFormDialog({ open, guideline, onClose, onSaved }: Guide
           />
           <TextField
             id="consigne-texte"
-            label="Texte"
+            label={t('Texte')}
             required
             multiline
             minRows={4}
@@ -133,20 +134,23 @@ export function GuidelineFormDialog({ open, guideline, onClose, onSaved }: Guide
             error={Boolean(errors.body)}
             helperText={
               errors.body ??
-              `Vous pouvez indiquer une priorité sous la forme « Priorité : Haute ». ${values.body.length} / ${BODY_MAX.toLocaleString('fr-FR')}`
+              t('Vous pouvez indiquer une priorité sous la forme « Priorité : Haute ». {count} / {max}', {
+                count: values.body.length,
+                max: BODY_MAX.toLocaleString(locale()),
+              })
             }
             slotProps={{ htmlInput: { maxLength: BODY_MAX } }}
           />
           <TextField
             select
             id="consigne-portee"
-            label="Portée"
+            label={t('Portée')}
             value={values.categoryId}
             onChange={(e) => set({ categoryId: e.target.value })}
             error={Boolean(errors.categoryId)}
-            helperText={errors.categoryId ?? 'Une consigne générale s’applique à toutes les demandes de travail.'}
+            helperText={errors.categoryId ?? t('Une consigne générale s’applique à toutes les demandes de travail.')}
           >
-            <MenuItem value={GENERAL}>Générale</MenuItem>
+            <MenuItem value={GENERAL}>{t('Générale')}</MenuItem>
             {scopes.map((c) => (
               <MenuItem key={c.id} value={c.id}>
                 {c.name}
@@ -155,7 +159,7 @@ export function GuidelineFormDialog({ open, guideline, onClose, onSaved }: Guide
           </TextField>
           <FormControlLabel
             control={<Checkbox checked={values.active} onChange={(e) => set({ active: e.target.checked })} />}
-            label="Active (utilisée pour les propositions automatiques)"
+            label={t('Active (utilisée pour les propositions automatiques)')}
           />
 
           {generalError && (
@@ -165,9 +169,9 @@ export function GuidelineFormDialog({ open, guideline, onClose, onSaved }: Guide
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={onClose}>Annuler</Button>
+          <Button onClick={onClose}>{t('Annuler')}</Button>
           <Button type="submit" variant="contained" loading={mutation.isPending}>
-            Enregistrer la consigne
+            {t('Enregistrer la consigne')}
           </Button>
         </DialogActions>
       </Box>

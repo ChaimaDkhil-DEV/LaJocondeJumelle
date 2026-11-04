@@ -3,6 +3,7 @@ import LinearProgress from '@mui/material/LinearProgress';
 import Skeleton from '@mui/material/Skeleton';
 import Typography from '@mui/material/Typography';
 import { visuallyHidden } from './a11y';
+import { t } from '../i18n';
 
 type LoadingVariant = 'list' | 'detail' | 'form' | 'inline';
 
@@ -63,7 +64,7 @@ function FormSkeleton() {
 }
 
 /** Chargement : squelettes à la forme du contenu plutôt qu'un indicateur tournant. */
-export function LoadingState({ label = 'Chargement…', variant = 'list', rows = 3 }: LoadingStateProps) {
+export function LoadingState({ label = t('Chargement…'), variant = 'list', rows = 3 }: LoadingStateProps) {
   if (variant === 'inline') {
     return (
       <Box role="status" aria-live="polite" sx={{ py: 1, display: 'grid', gap: 1 }}>

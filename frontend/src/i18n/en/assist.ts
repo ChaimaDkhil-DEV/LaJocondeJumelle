@@ -1,0 +1,16 @@
+export const assist: Record<string, string> = {
+  'Votre message vocal est conservé : remplissez les champs vous-même ou relancez l’analyse.': 'Your voice message is kept: fill in the fields yourself or run the analysis again.',
+  'La transcription du message vocal n’a pas abouti.': 'The voice message could not be transcribed.',
+  'Les propositions ne sont pas disponibles pour le moment.': 'Suggestions are not available right now.',
+  'Transcription du message vocal…': 'Transcribing the voice message…',
+  'Recherche de propositions…': 'Looking for suggestions…',
+  'Aucune suggestion fiable : remplissez les champs vous-même.': 'No reliable suggestion: fill in the fields yourself.',
+  'Destinataire : {reason}': 'Recipient: {reason}',
+  'Relancer l’analyse': 'Run the analysis again',
+  'Proposer une catégorie et une priorité': 'Suggest a category and a priority',
+  'Voir pourquoi': 'See why',
+  '1 demande similaire': '1 similar request',
+  '{n} demandes similaires': '{n} similar requests',
+  'Demandes similaires': 'Similar requests',
+  '(nouvel onglet)': '(new tab)',
+};

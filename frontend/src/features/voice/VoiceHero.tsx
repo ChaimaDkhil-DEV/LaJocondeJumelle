@@ -12,14 +12,17 @@ import { visuallyHidden } from '../../components/a11y';
 import { font, fontSize, tokensOf } from '../../design/tokens';
 import { formatDuration } from './recorderFormat';
 import { useVoiceRecorder, type VoiceRecording } from './useVoiceRecorder';
+import { t } from '../../i18n';
 
-const DENIED_MESSAGE =
-  'L’accès au micro a été refusé. Autorisez le micro pour ce site dans les réglages de votre navigateur, ' +
-  'ou écrivez votre demande dans la description écrite.';
-const UNSUPPORTED_MESSAGE =
-  'Votre navigateur ne permet pas d’enregistrer un message vocal. Écrivez votre demande dans la description.';
-const ERROR_MESSAGE =
-  'Impossible d’accéder au micro. Vérifiez qu’il est branché et disponible, ou écrivez votre demande dans la description.';
+const DENIED_MESSAGE = t(
+  'L’accès au micro a été refusé. Autorisez le micro pour ce site dans les réglages de votre navigateur, ou écrivez votre demande dans la description écrite.',
+);
+const UNSUPPORTED_MESSAGE = t(
+  'Votre navigateur ne permet pas d’enregistrer un message vocal. Écrivez votre demande dans la description.',
+);
+const ERROR_MESSAGE = t(
+  'Impossible d’accéder au micro. Vérifiez qu’il est branché et disponible, ou écrivez votre demande dans la description.',
+);
 
 /** Nombre de barres de la forme d'onde (elles se partagent la largeur disponible). */
 const BARS = 36;
@@ -128,7 +131,7 @@ function usePlayback(recording: VoiceRecording, onDiscard: () => void): Playback
     setPlaying(true);
     audio.play().catch(() => {
       setPlaying(false);
-      setPlayError('Lecture impossible sur cet appareil. Essayez depuis un autre navigateur.');
+      setPlayError(t('Lecture impossible sur cet appareil. Essayez depuis un autre navigateur.'));
     });
   }
 
@@ -164,8 +167,8 @@ function usePlayback(recording: VoiceRecording, onDiscard: () => void): Playback
             step={0.1}
             value={Math.min(position, duration)}
             onChange={(_e, value) => seek(value as number)}
-            aria-label="Position dans le message vocal"
-            getAriaValueText={(v) => `${formatDuration(v)} sur ${formatDuration(duration)}`}
+            aria-label={t('Position dans le message vocal')}
+            getAriaValueText={(v) => t('{position} sur {total}', { position: formatDuration(v), total: formatDuration(duration) })}
             sx={{
               position: 'absolute',
               inset: 0,
@@ -185,19 +188,19 @@ function usePlayback(recording: VoiceRecording, onDiscard: () => void): Playback
         <Button
           size="small"
           color="error"
-          aria-label="Supprimer le message vocal"
+          aria-label={t('Supprimer le message vocal')}
           onClick={onDiscard}
           // Rouge foncé : contraste ≥ 4,5:1 sur le fond indigo clair du bloc.
           sx={(theme) => ({ alignSelf: 'flex-start', minHeight: 44, px: 0.5, ml: -0.5, fontWeight: font.medium, color: tokensOf(theme).error.text })}
         >
-          Supprimer
+          {t('Supprimer')}
         </Button>
       </>
     ),
     play: (
       <IconButton
         onClick={toggle}
-        aria-label={playing ? 'Mettre en pause le message vocal' : 'Lire le message vocal'}
+        aria-label={playing ? t('Mettre en pause le message vocal') : t('Lire le message vocal')}
         sx={(theme) => ({
           flex: 'none',
           width: ROUND,
@@ -262,12 +265,12 @@ export function VoiceHero({ maxSeconds, value, onChange }: VoiceHeroProps) {
   });
 
   const left = recording ? (
-    <IconButton aria-label="Arrêter l’enregistrement" onClick={() => recorder.stop()} sx={bigButton}>
+    <IconButton aria-label={t('Arrêter l’enregistrement')} onClick={() => recorder.stop()} sx={bigButton}>
       <Square size={24} fill="currentColor" aria-hidden="true" />
     </IconButton>
   ) : value ? (
     <IconButton
-      aria-label="Refaire l’enregistrement"
+      aria-label={t('Refaire l’enregistrement')}
       onClick={discard}
       sx={(theme) => ({
         flex: 'none',
@@ -284,7 +287,7 @@ export function VoiceHero({ maxSeconds, value, onChange }: VoiceHeroProps) {
     </IconButton>
   ) : (
     <IconButton
-      aria-label="Enregistrer un message vocal"
+      aria-label={t('Enregistrer un message vocal')}
       disabled={recorder.state === 'requesting'}
       onClick={() => {
         recorder.clearError();
@@ -301,25 +304,25 @@ export function VoiceHero({ maxSeconds, value, onChange }: VoiceHeroProps) {
     recording ? (
       <>
         <Typography sx={(theme) => ({ ...titleSx, color: tokensOf(theme).error.text, fontVariantNumeric: 'tabular-nums' })}>
-          Enregistrement · {formatDuration(recorder.elapsedSeconds)} / {formatDuration(maxSeconds)}
+          {t('Enregistrement · {elapsed} / {max}', { elapsed: formatDuration(recorder.elapsedSeconds), max: formatDuration(maxSeconds) })}
         </Typography>
         <Bars peaks={recordingPeaks} animated />
         {recorder.nearLimit && (
           <Typography variant="body2" sx={(theme) => ({ color: tokensOf(theme).warning.text, fontWeight: font.medium })}>
-            Plus que {recorder.remainingSeconds} secondes
+            {t('Plus que {n} secondes', { n: recorder.remainingSeconds })}
           </Typography>
         )}
       </>
     ) : value && play ? (
       <>
-        <Typography sx={{ ...titleSx, fontVariantNumeric: 'tabular-nums' }}>Message vocal · {formatDuration(value.durationSeconds)}</Typography>
+        <Typography sx={{ ...titleSx, fontVariantNumeric: 'tabular-nums' }}>{t('Message vocal · {duration}', { duration: formatDuration(value.durationSeconds) })}</Typography>
         {play.center}
       </>
     ) : (
       <>
-        <Typography sx={titleSx}>Appuyez pour enregistrer</Typography>
+        <Typography sx={titleSx}>{t('Appuyez pour enregistrer')}</Typography>
         <Typography variant="body2" color="text.secondary">
-          Durée maximale {formatDuration(maxSeconds)}
+          {t('Durée maximale {duration}', { duration: formatDuration(maxSeconds) })}
         </Typography>
       </>
     );

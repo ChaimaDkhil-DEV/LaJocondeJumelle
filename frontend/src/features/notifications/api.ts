@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../../api/client';
 import type { Priority } from '../../api/types';
+import { t } from '../../i18n';
 
 export type NotificationType =
   | 'REQUEST_NEW'
@@ -64,38 +65,38 @@ export interface NotificationEvent {
 }
 
 export const NOTIFICATION_LABELS: Record<NotificationType, string> = {
-  REQUEST_NEW: 'Nouvelle demande',
-  MESSAGE_NEW: 'Nouveau message',
-  ASSIGNED: 'Demande affectée',
-  STATUS_CHANGED: 'Statut modifié',
-  URGENT: 'Demande urgente',
-  TO_CORRECT: 'Demande à corriger',
-  REJECTED: 'Demande refusée',
-  CANCELLED: 'Demande annulée',
-  OVERDUE: 'Demande en retard',
-  CLOSED: 'Demande clôturée',
-  COVERAGE_NEW: 'Garde à prendre',
-  COVERAGE_TAKEN: 'Garde déjà prise',
-  COVERAGE_ACCEPTED: 'Garde acceptée',
-  COVERAGE_PRESENCE: 'Présence confirmée en classe',
-  COVERAGE_RELEASED: 'Désistement',
-  COVERAGE_RELIEF_REQUESTED: 'Relève demandée',
-  COVERAGE_LATE: 'Garde en retard',
-  COVERAGE_UNFILLED: 'Garde non pourvue',
-  COVERAGE_EXTENDED: 'Garde prolongée',
-  COVERAGE_RELIEVED: 'Garde terminée',
-  COVERAGE_REQUESTED: 'Retard ou absence signalé',
-  COVERAGE_EMPTY_CLASS: 'Classe vide signalée',
-  COVERAGE_TAKEOVER_EXPIRED: 'Demande en attente d’assignation',
-  COVERAGE_ESCALATED: 'Alerte non traitée',
-  COVERAGE_MORNING_REMINDER: 'Rappel : demande du jour en attente',
-  COVERAGE_CLOSE_REMINDER: 'Affectation à clôturer',
-  COVERAGE_DUPLICATE: 'Doublon possible',
-  COVERAGE_SUPPORT_REMINDER: 'Renfort à décider',
-  COVERAGE_DOUBLE_ASSIGNMENT: 'Surveillant sur deux affectations',
-  COVERAGE_LIFTED: 'Affectation levée',
-  COVERAGE_UPDATED: 'Affectation modifiée',
-  UNASSIGNED: 'Demande sans employé affecté',
+  REQUEST_NEW: t('Nouvelle demande'),
+  MESSAGE_NEW: t('Nouveau message'),
+  ASSIGNED: t('Demande affectée'),
+  STATUS_CHANGED: t('Statut modifié'),
+  URGENT: t('Demande urgente'),
+  TO_CORRECT: t('Demande à corriger'),
+  REJECTED: t('Demande refusée'),
+  CANCELLED: t('Demande annulée'),
+  OVERDUE: t('Demande en retard'),
+  CLOSED: t('Demande clôturée'),
+  COVERAGE_NEW: t('Garde à prendre'),
+  COVERAGE_TAKEN: t('Garde déjà prise'),
+  COVERAGE_ACCEPTED: t('Garde acceptée'),
+  COVERAGE_PRESENCE: t('Présence confirmée en classe'),
+  COVERAGE_RELEASED: t('Désistement'),
+  COVERAGE_RELIEF_REQUESTED: t('Relève demandée'),
+  COVERAGE_LATE: t('Garde en retard'),
+  COVERAGE_UNFILLED: t('Garde non pourvue'),
+  COVERAGE_EXTENDED: t('Garde prolongée'),
+  COVERAGE_RELIEVED: t('Garde terminée'),
+  COVERAGE_REQUESTED: t('Retard ou absence signalé'),
+  COVERAGE_EMPTY_CLASS: t('Classe vide signalée'),
+  COVERAGE_TAKEOVER_EXPIRED: t('Demande en attente d’assignation'),
+  COVERAGE_ESCALATED: t('Alerte non traitée'),
+  COVERAGE_MORNING_REMINDER: t('Rappel : demande du jour en attente'),
+  COVERAGE_CLOSE_REMINDER: t('Affectation à clôturer'),
+  COVERAGE_DUPLICATE: t('Doublon possible'),
+  COVERAGE_SUPPORT_REMINDER: t('Renfort à décider'),
+  COVERAGE_DOUBLE_ASSIGNMENT: t('Surveillant sur deux affectations'),
+  COVERAGE_LIFTED: t('Affectation levée'),
+  COVERAGE_UPDATED: t('Affectation modifiée'),
+  UNASSIGNED: t('Demande sans employé affecté'),
 };
 
 /** Page de la demande liée : les couvertures ont leurs propres écrans. */

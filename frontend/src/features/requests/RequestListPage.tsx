@@ -16,6 +16,7 @@ import { RelativeTime } from '../../components/RelativeTime';
 import { StatusBadge } from '../../components/StatusBadge';
 import { UserAvatar } from '../../components/UserAvatar';
 import { font, fontSize, icon, motion, tokensOf } from '../../design/tokens';
+import { isPlural, t } from '../../i18n';
 import { OutboxPanel } from '../outbox/OutboxPanel';
 import { useCurrentUser } from '../auth/useCurrentUser';
 import { useHasDrafts, useRequestList } from './api';
@@ -34,21 +35,21 @@ interface TabDefinition {
 }
 
 const TABS: TabDefinition[] = [
-  { key: 'recues', label: 'Reçues', scope: 'assigned', empty: 'Vous n’avez reçu aucune demande.' },
-  { key: 'envoyees', label: 'Envoyées', scope: 'mine', empty: 'Vous n’avez envoyé aucune demande.' },
+  { key: 'recues', label: t('Reçues'), scope: 'assigned', empty: t('Vous n’avez reçu aucune demande.') },
+  { key: 'envoyees', label: t('Envoyées'), scope: 'mine', empty: t('Vous n’avez envoyé aucune demande.') },
   // Spec 007 : affiché seulement s'il existe au moins un brouillon.
-  { key: 'brouillons', label: 'Brouillons', scope: 'drafts', empty: 'Vous n’avez aucun brouillon.' },
+  { key: 'brouillons', label: t('Brouillons'), scope: 'drafts', empty: t('Vous n’avez aucun brouillon.') },
   {
     key: 'a-valider',
-    label: 'À valider',
+    label: t('À valider'),
     scope: 'managed',
     statuses: ['PENDING_ADMIN_VALIDATION', 'PENDING_FINAL_VALIDATION'],
-    empty: 'Aucune demande ne vous attend.',
+    empty: t('Aucune demande ne vous attend.'),
     managersOnly: true,
   },
   // Administration : toutes les demandes qu'elle peut voir, dont celles qu'elle consulte en lecture seule
   // (modes direct et entre enseignants).
-  { key: 'suivi', label: 'Suivi', scope: 'all', empty: 'Aucune demande à suivre.', managersOnly: true },
+  { key: 'suivi', label: t('Suivi'), scope: 'all', empty: t('Aucune demande à suivre.'), managersOnly: true },
 ];
 
 /** Avatar de l'interlocuteur, ou pastille « en attente » quand personne n'est encore affecté. */
@@ -78,12 +79,12 @@ function RequestRow({ request, received }: { request: RequestSummary; received: 
   const person = received ? request.requester : request.assignee;
   const isDraft = request.status === 'DRAFT';
   const counterpart = received
-    ? `De : ${request.requester.displayName}`
+    ? t('De : {name}', { name: request.requester.displayName })
     : request.assignee
-      ? `Pour : ${request.assignee.displayName}`
+      ? t('Pour : {name}', { name: request.assignee.displayName })
       : isDraft
-        ? 'Pas encore envoyée'
-        : 'En attente d’affectation';
+        ? t('Pas encore envoyée')
+        : t('En attente d’affectation');
   const unread = request.unreadCount;
 
   return (
@@ -132,7 +133,7 @@ function RequestRow({ request, received }: { request: RequestSummary; received: 
             >
               {unread}
               <Box component="span" sx={visuallyHidden}>
-                {` notification${unread > 1 ? 's' : ''} non lue${unread > 1 ? 's' : ''}`}
+                {` ${t(isPlural(unread) ? 'notifications non lues' : 'notification non lue')}`}
               </Box>
             </Box>
           )}
@@ -153,7 +154,7 @@ function RequestRow({ request, received }: { request: RequestSummary; received: 
               color="text.secondary"
               sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}
             >
-              <Mic size={icon.sm - 2} aria-hidden="true" /> Message vocal
+              <Mic size={icon.sm - 2} aria-hidden="true" /> {t('Message vocal')}
             </Typography>
           )}
         </Box>
@@ -181,15 +182,19 @@ export function RequestListPage() {
   const filtered = activeFilterCount(filters) > 0;
   const requests = list.data?.pages.flatMap((p) => p.items) ?? [];
   const count = `${requests.length}${list.hasNextPage ? '+' : ''}`;
+  const plural = requests.length > 1 || list.hasNextPage;
+  const countLabel = filtered
+    ? t(plural ? '{count} demandes correspondant aux filtres' : '{count} demande correspondant aux filtres', { count })
+    : t(plural ? '{count} demandes' : '{count} demande', { count });
 
   return (
     <>
       <PageHeader
-        title="Mes demandes"
-        description="Les demandes que vous avez reçues, celles que vous avez envoyées et celles qui attendent votre validation."
+        title={t('Mes demandes')}
+        description={t('Les demandes que vous avez reçues, celles que vous avez envoyées et celles qui attendent votre validation.')}
         actions={
           <Button component={RouterLink} to="/demandes/nouvelle" variant="contained" startIcon={<Plus aria-hidden="true" />}>
-            Nouvelle demande
+            {t('Nouvelle demande')}
           </Button>
         }
       />
@@ -203,7 +208,7 @@ export function RequestListPage() {
           next.set('onglet', key);
           setParams(next, { replace: true });
         }}
-        aria-label="Type de demandes"
+        aria-label={t('Type de demandes')}
         variant="scrollable"
         scrollButtons={false}
         sx={{ mb: 2 }}
@@ -217,19 +222,19 @@ export function RequestListPage() {
 
       <Box id="liste-demandes" role="tabpanel" aria-labelledby={`onglet-${tab.key}`}>
         {list.isPending ? (
-          <LoadingState label="Chargement des demandes" />
+          <LoadingState label={t('Chargement des demandes')} />
         ) : list.error ? (
-          <ErrorState message="Impossible de charger les demandes." actionLabel="Réessayer" onAction={() => void list.refetch()} />
+          <ErrorState message={t('Impossible de charger les demandes.')} actionLabel={t('Réessayer')} onAction={() => void list.refetch()} />
         ) : requests.length === 0 ? (
           <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1.5, bgcolor: 'background.paper' }}>
             <EmptyState
               icon={filtered ? SearchX : tab.scope === 'mine' ? Send : tab.scope === 'drafts' ? FilePen : Inbox}
-              title="Aucune demande"
-              description={filtered ? 'Aucune demande ne correspond à ces filtres.' : tab.empty}
+              title={t('Aucune demande')}
+              description={filtered ? t('Aucune demande ne correspond à ces filtres.') : tab.empty}
               action={
                 !filtered && tab.scope === 'mine' ? (
                   <Button component={RouterLink} to="/demandes/nouvelle" variant="outlined" startIcon={<Plus aria-hidden="true" />}>
-                    Créer une demande
+                    {t('Créer une demande')}
                   </Button>
                 ) : undefined
               }
@@ -238,8 +243,7 @@ export function RequestListPage() {
         ) : (
           <>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              {count} demande{requests.length > 1 || list.hasNextPage ? 's' : ''}
-              {filtered ? ' correspondant aux filtres' : ''}
+              {countLabel}
             </Typography>
             <Box
               component="ul"
@@ -264,7 +268,7 @@ export function RequestListPage() {
             {list.hasNextPage && (
               <Box sx={{ mt: 2, textAlign: 'center' }}>
                 <Button variant="outlined" onClick={() => void list.fetchNextPage()} loading={list.isFetchingNextPage}>
-                  Afficher plus de demandes
+                  {t('Afficher plus de demandes')}
                 </Button>
               </Box>
             )}

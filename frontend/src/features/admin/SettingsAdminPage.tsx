@@ -16,6 +16,7 @@ import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
 import { SectionCard } from '../../components/SectionCard';
 import { icon } from '../../design/tokens';
+import { t } from '../../i18n';
 import { adminKeys, useAdminSettings, useRolePermissions, type AdminSettings, type ConfigurableRole, type RolePermissions } from './api';
 import { PERMISSION_LABELS, ROLE_LABELS } from './labels';
 
@@ -28,21 +29,21 @@ type NumberKey = Exclude<
 
 /** Réglages numériques : libellé, et conversion pour les tailles saisies en Mo. */
 const NUMBER_FIELDS: Array<{ key: NumberKey; label: string; megabytes?: boolean }> = [
-  { key: 'voiceMaxSeconds', label: 'Durée maximale d’un vocal (secondes)' },
-  { key: 'voiceMaxBytes', label: 'Taille maximale d’un vocal (Mo)', megabytes: true },
-  { key: 'attachmentMaxBytes', label: 'Taille maximale d’une pièce jointe (Mo)', megabytes: true },
-  { key: 'attachmentMaxPerMessage', label: 'Pièces jointes par message' },
-  { key: 'deadlineWarnPercent', label: 'Alerte d’échéance proche (% du délai restant)' },
-  { key: 'sessionIdleMinutes', label: 'Déconnexion après inactivité (minutes)' },
-  { key: 'sessionMaxHours', label: 'Durée maximale d’une session (heures)' },
+  { key: 'voiceMaxSeconds', label: t('Durée maximale d’un vocal (secondes)') },
+  { key: 'voiceMaxBytes', label: t('Taille maximale d’un vocal (Mo)'), megabytes: true },
+  { key: 'attachmentMaxBytes', label: t('Taille maximale d’une pièce jointe (Mo)'), megabytes: true },
+  { key: 'attachmentMaxPerMessage', label: t('Pièces jointes par message') },
+  { key: 'deadlineWarnPercent', label: t('Alerte d’échéance proche (% du délai restant)') },
+  { key: 'sessionIdleMinutes', label: t('Déconnexion après inactivité (minutes)') },
+  { key: 'sessionMaxHours', label: t('Durée maximale d’une session (heures)') },
   // Affectations des surveillants (004).
-  { key: 'coverageUrgencyThresholdMinutes', label: 'Affectations : seuil d’urgence avant le début du créneau (minutes)' },
-  { key: 'coverageEscalationMinutes', label: 'Affectations : escalade au super administrateur après l’alerte (minutes)' },
-  { key: 'coverageCloseReminderMinutes', label: 'Affectations : rappel de clôture après la fin du créneau (minutes)' },
-  { key: 'coverageCloseEscalationMinutes', label: 'Affectations : rappel de clôture à l’admin ensuite (minutes)' },
-  { key: 'coverageSupportReminderMinutes', label: 'Affectations : intervalle des rappels de renfort (minutes)' },
-  { key: 'coverageSupportReminderMax', label: 'Affectations : nombre maximal de rappels de renfort' },
-  { key: 'coverageRetentionMonths', label: 'Affectations : durée de conservation avant anonymisation (mois)' },
+  { key: 'coverageUrgencyThresholdMinutes', label: t('Affectations : seuil d’urgence avant le début du créneau (minutes)') },
+  { key: 'coverageEscalationMinutes', label: t('Affectations : escalade au super administrateur après l’alerte (minutes)') },
+  { key: 'coverageCloseReminderMinutes', label: t('Affectations : rappel de clôture après la fin du créneau (minutes)') },
+  { key: 'coverageCloseEscalationMinutes', label: t('Affectations : rappel de clôture à l’admin ensuite (minutes)') },
+  { key: 'coverageSupportReminderMinutes', label: t('Affectations : intervalle des rappels de renfort (minutes)') },
+  { key: 'coverageSupportReminderMax', label: t('Affectations : nombre maximal de rappels de renfort') },
+  { key: 'coverageRetentionMonths', label: t('Affectations : durée de conservation avant anonymisation (mois)') },
 ];
 
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -79,7 +80,7 @@ function changes(draft: Draft, current: AdminSettings): { body: Partial<AdminSet
     const raw = draft[field.key].trim().replace(',', '.');
     const valid = field.megabytes ? /^\d+(\.\d+)?$/.test(raw) : /^\d+$/.test(raw);
     if (!valid) {
-      errors[field.key] = field.megabytes ? 'Nombre attendu (ex. 10 ou 2,5).' : 'Nombre entier attendu.';
+      errors[field.key] = field.megabytes ? t('Nombre attendu (ex. 10 ou 2,5).') : t('Nombre entier attendu.');
       continue;
     }
     const value = field.megabytes ? Math.round(Number(raw) * MB) : Number(raw);
@@ -90,7 +91,7 @@ function changes(draft: Draft, current: AdminSettings): { body: Partial<AdminSet
   }
   if (draft.draftsEnabled !== current.draftsEnabled) body.draftsEnabled = draft.draftsEnabled;
   const morning = draft.coverageMorningReminderTime.trim();
-  if (!TIME_PATTERN.test(morning)) errors.coverageMorningReminderTime = 'Heure au format HH:MM attendue (ex. 07:00).';
+  if (!TIME_PATTERN.test(morning)) errors.coverageMorningReminderTime = t('Heure au format HH:MM attendue (ex. 07:00).');
   else if (morning !== current.coverageMorningReminderTime) body.coverageMorningReminderTime = morning;
   return { body, errors };
 }
@@ -137,7 +138,7 @@ function SettingsForm({ settings }: { settings: AdminSettings }) {
       queryClient.setQueryData(adminKeys.settings, saved);
       void queryClient.invalidateQueries({ queryKey: ['settings', 'client'] });
       setDraft(toDraft(saved));
-      setFeedback('Réglages enregistrés.');
+      setFeedback(t('Réglages enregistrés.'));
     },
     onError: (error) => setErrors(fieldErrors(error)),
   });
@@ -148,7 +149,7 @@ function SettingsForm({ settings }: { settings: AdminSettings }) {
     const { body, errors: found } = changes(draft, settings);
     setErrors(found);
     if (Object.keys(found).length > 0) return;
-    if (Object.keys(body).length === 0) setFeedback('Aucune modification à enregistrer.');
+    if (Object.keys(body).length === 0) setFeedback(t('Aucune modification à enregistrer.'));
     else mutation.mutate(body);
   }
 
@@ -156,7 +157,7 @@ function SettingsForm({ settings }: { settings: AdminSettings }) {
     mutation.error && !(mutation.error instanceof ApiError && mutation.error.code === 'VALIDATION_ERROR')
       ? mutation.error instanceof ApiError
         ? mutation.error.message
-        : 'Enregistrement impossible.'
+        : t('Enregistrement impossible.')
       : null;
 
   return (
@@ -164,10 +165,10 @@ function SettingsForm({ settings }: { settings: AdminSettings }) {
       component="form"
       noValidate
       onSubmit={submit}
-      title="Réglages"
+      title={t('Réglages')}
       titleId="titre-reglages"
       icon={SlidersHorizontal}
-      description="Valeurs par défaut provisoires, à ajuster avec l’établissement."
+      description={t('Valeurs par défaut provisoires, à ajuster avec l’établissement.')}
       contentGap={3}
     >
       <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' } }}>
@@ -185,7 +186,7 @@ function SettingsForm({ settings }: { settings: AdminSettings }) {
         ))}
         <TextField
           id="reglage-coverageMorningReminderTime"
-          label="Affectations : heure du rappel du matin (HH:MM)"
+          label={t('Affectations : heure du rappel du matin (HH:MM)')}
           value={draft.coverageMorningReminderTime}
           onChange={(e) => set({ coverageMorningReminderTime: e.target.value })}
           error={Boolean(errors.coverageMorningReminderTime)}
@@ -194,14 +195,14 @@ function SettingsForm({ settings }: { settings: AdminSettings }) {
         />
       </Box>
       <TypeChoices
-        legend="Types de photo acceptés"
+        legend={t('Types de photo acceptés')}
         options={PHOTO_TYPES}
         value={draft.allowedPhotoTypes}
         error={errors.allowedPhotoTypes}
         onChange={(allowedPhotoTypes) => set({ allowedPhotoTypes })}
       />
       <TypeChoices
-        legend="Types de document acceptés"
+        legend={t('Types de document acceptés')}
         options={DOCUMENT_TYPES}
         value={draft.allowedDocumentTypes}
         error={errors.allowedDocumentTypes}
@@ -209,7 +210,7 @@ function SettingsForm({ settings }: { settings: AdminSettings }) {
       />
       <FormControlLabel
         control={<Checkbox checked={draft.draftsEnabled} onChange={(e) => set({ draftsEnabled: e.target.checked })} />}
-        label="Autoriser les brouillons de demande"
+        label={t('Autoriser les brouillons de demande')}
       />
       {generalError && (
         <Alert severity="error" role="alert">
@@ -218,7 +219,7 @@ function SettingsForm({ settings }: { settings: AdminSettings }) {
       )}
       {mutation.error instanceof ApiError && mutation.error.code === 'VALIDATION_ERROR' && (
         <Alert severity="error" role="alert">
-          Certains réglages sont invalides : corrigez les champs signalés.
+          {t('Certains réglages sont invalides : corrigez les champs signalés.')}
         </Alert>
       )}
       {feedback && (
@@ -228,7 +229,7 @@ function SettingsForm({ settings }: { settings: AdminSettings }) {
       )}
       <Box>
         <Button type="submit" variant="contained" loading={mutation.isPending} startIcon={<Save size={icon.sm} aria-hidden="true" />}>
-          Enregistrer les réglages
+          {t('Enregistrer les réglages')}
         </Button>
       </Box>
     </SectionCard>
@@ -247,7 +248,7 @@ function RolePermissionsForm({ permissions }: { permissions: RolePermissions }) 
     onSuccess: (saved) => {
       queryClient.setQueryData(adminKeys.rolePermissions, saved);
       setDraft(saved);
-      setFeedback('Permissions enregistrées.');
+      setFeedback(t('Permissions enregistrées.'));
     },
   });
 
@@ -258,10 +259,10 @@ function RolePermissionsForm({ permissions }: { permissions: RolePermissions }) 
 
   return (
     <SectionCard
-      title="Permissions par rôle"
+      title={t('Permissions par rôle')}
       titleId="titre-permissions"
       icon={ShieldCheck}
-      description="Le super administrateur dispose toujours de toutes les permissions."
+      description={t('Le super administrateur dispose toujours de toutes les permissions.')}
       contentGap={3}
     >
       <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' } }}>
@@ -282,7 +283,7 @@ function RolePermissionsForm({ permissions }: { permissions: RolePermissions }) 
       </Box>
       {mutation.error && (
         <Alert severity="error" role="alert">
-          {mutation.error instanceof ApiError ? mutation.error.message : 'Enregistrement impossible.'}
+          {mutation.error instanceof ApiError ? mutation.error.message : t('Enregistrement impossible.')}
         </Alert>
       )}
       {feedback && (
@@ -292,7 +293,7 @@ function RolePermissionsForm({ permissions }: { permissions: RolePermissions }) 
       )}
       <Box>
         <Button variant="outlined" loading={mutation.isPending} onClick={() => mutation.mutate(draft)} startIcon={<Save size={icon.sm} aria-hidden="true" />}>
-          Enregistrer les permissions
+          {t('Enregistrer les permissions')}
         </Button>
       </Box>
     </SectionCard>
@@ -307,16 +308,16 @@ export function SettingsAdminPage() {
   return (
     <Box sx={{ display: 'grid', gap: 3 }}>
       {settings.isPending ? (
-        <LoadingState label="Chargement des réglages" variant="form" />
+        <LoadingState label={t('Chargement des réglages')} variant="form" />
       ) : settings.error ? (
-        <ErrorState message="Impossible de charger les réglages." actionLabel="Réessayer" onAction={() => void settings.refetch()} />
+        <ErrorState message={t('Impossible de charger les réglages.')} actionLabel={t('Réessayer')} onAction={() => void settings.refetch()} />
       ) : (
         <SettingsForm settings={settings.data} />
       )}
       {permissions.isPending ? (
-        <LoadingState label="Chargement des permissions" />
+        <LoadingState label={t('Chargement des permissions')} />
       ) : permissions.error ? (
-        <ErrorState message="Impossible de charger les permissions." actionLabel="Réessayer" onAction={() => void permissions.refetch()} />
+        <ErrorState message={t('Impossible de charger les permissions.')} actionLabel={t('Réessayer')} onAction={() => void permissions.refetch()} />
       ) : (
         <RolePermissionsForm permissions={permissions.data} />
       )}

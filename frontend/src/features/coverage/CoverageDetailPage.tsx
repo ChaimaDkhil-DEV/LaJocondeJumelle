@@ -29,26 +29,27 @@ import {
   schoolClock,
 } from './labels';
 import type { CoverageDetail, CoverageHistoryEntry, CoverageSource, CoverageStatus } from './types';
+import { isPlural, t } from '../../i18n';
 
 const EVENT_LABELS: Record<string, string> = {
-  CREATED: 'Affectation créée',
-  ASSIGNED: 'Surveillant assigné',
-  REASSIGNED: 'Affectation réassignée',
-  RELEASED: 'Surveillant libéré',
-  RELIEF_REQUESTED: 'Relève demandée',
-  PRESENCE_CONFIRMED: 'Présence confirmée',
-  EXTENDED: 'Affectation prolongée',
-  GROUP_ADDED: 'Demande élargie',
-  OVERDUE: 'Délai dépassé',
-  UPDATED: 'Affectation modifiée',
-  TEACHER_SET: 'Enseignant corrigé',
-  SUPPORT_JOINED: 'Renfort arrivé',
-  SUPPORT_RELEASED: 'Renfort libéré',
-  MERGE_PROPOSED: 'Doublon possible',
-  MERGE_DECIDED: 'Doublon tranché',
-  REMINDER_SENT: 'Rappel envoyé',
-  ESCALATED: 'Alerte transmise au super administrateur',
-  ANONYMIZED: 'Données personnelles anonymisées',
+  CREATED: t('Affectation créée'),
+  ASSIGNED: t('Surveillant assigné'),
+  REASSIGNED: t('Affectation réassignée'),
+  RELEASED: t('Surveillant libéré'),
+  RELIEF_REQUESTED: t('Relève demandée'),
+  PRESENCE_CONFIRMED: t('Présence confirmée'),
+  EXTENDED: t('Affectation prolongée'),
+  GROUP_ADDED: t('Demande élargie'),
+  OVERDUE: t('Délai dépassé'),
+  UPDATED: t('Affectation modifiée'),
+  TEACHER_SET: t('Enseignant corrigé'),
+  SUPPORT_JOINED: t('Renfort arrivé'),
+  SUPPORT_RELEASED: t('Renfort libéré'),
+  MERGE_PROPOSED: t('Doublon possible'),
+  MERGE_DECIDED: t('Doublon tranché'),
+  REMINDER_SENT: t('Rappel envoyé'),
+  ESCALATED: t('Alerte transmise au super administrateur'),
+  ANONYMIZED: t('Données personnelles anonymisées'),
 };
 
 /**
@@ -58,7 +59,7 @@ const EVENT_LABELS: Record<string, string> = {
 function updatedText(from: Record<string, unknown>, to: Record<string, unknown>, timeZone: string): string {
   const changes: string[] = [];
   if (typeof from.classId === 'string' && typeof to.classId === 'string' && from.classId !== to.classId) {
-    changes.push(`classe ${String(from.className ?? '?')} → ${String(to.className ?? '?')}`);
+    changes.push(t('classe {from} → {to}', { from: String(from.className ?? '?'), to: String(to.className ?? '?') }));
   }
   if (typeof from.startAt === 'string' && typeof to.startAt === 'string') {
     const slot = (v: Record<string, unknown>) => {
@@ -71,56 +72,60 @@ function updatedText(from: Record<string, unknown>, to: Record<string, unknown>,
     if (before.day !== after.day) changes.push(`${before.day} ${before.text} → ${after.day} ${after.text}`);
     else if (before.text !== after.text) changes.push(`${before.text} → ${after.text}`);
   }
-  return changes.length > 0 ? `${EVENT_LABELS.UPDATED} : ${changes.join(' ; ')}` : EVENT_LABELS.UPDATED;
+  return changes.length > 0
+    ? t('{label} : {changes}', { label: EVENT_LABELS.UPDATED, changes: changes.join(' ; ') })
+    : EVENT_LABELS.UPDATED;
 }
 
 function eventText(e: CoverageHistoryEntry, timeZone: string): string {
   const to = e.toValue ?? {};
   const from = e.fromValue ?? {};
   const teacherName = (v: Record<string, unknown>) =>
-    v.teacherId ? String(v.teacherName ?? 'enseignant inconnu') : 'non précisé';
+    v.teacherId ? String(v.teacherName ?? t('enseignant inconnu')) : t('non précisé');
   switch (e.type) {
     case 'CREATED':
       return to.source
-        ? `Affectation créée — ${SOURCE_LABELS[to.source as CoverageSource].toLowerCase()}`
+        ? t('Affectation créée — {source}', { source: SOURCE_LABELS[to.source as CoverageSource].toLowerCase() })
         : EVENT_LABELS.CREATED;
     case 'STATUS_CHANGED':
-      return `Statut : ${COVERAGE_STATUS_LABELS[to.status as CoverageStatus] ?? String(to.status)}`;
+      return t('Statut : {status}', { status: COVERAGE_STATUS_LABELS[to.status as CoverageStatus] ?? String(to.status) });
     case 'ASSIGNED':
       // Garde antérieure à 004 : prise par un volontaire ou affectation forcée.
       return to.selfAccepted
-        ? `Garde prise par ${String(to.assigneeName ?? '')}`
-        : `Assignée à ${String(to.assigneeName ?? '')}${to.forced ? ' (affectation forcée)' : ''}`;
+        ? t('Garde prise par {name}', { name: String(to.assigneeName ?? '') })
+        : t(to.forced ? 'Assignée à {name} (affectation forcée)' : 'Assignée à {name}', { name: String(to.assigneeName ?? '') });
     case 'REASSIGNED':
       return from.assigneeName
-        ? `Réassignée de ${String(from.assigneeName)} à ${String(to.assigneeName ?? '')}`
-        : `Réassignée à ${String(to.assigneeName ?? '')}${to.forced ? ' (affectation forcée)' : ''}`;
+        ? t('Réassignée de {from} à {to}', { from: String(from.assigneeName), to: String(to.assigneeName ?? '') })
+        : t(to.forced ? 'Réassignée à {name} (affectation forcée)' : 'Réassignée à {name}', { name: String(to.assigneeName ?? '') });
     case 'SUPPORT_JOINED':
-      return `Renfort arrivé : ${String(to.userName ?? '')}`;
+      return t('Renfort arrivé : {name}', { name: String(to.userName ?? '') });
     case 'SUPPORT_RELEASED':
-      return `Renfort libéré : ${String(to.userName ?? '')}`;
+      return t('Renfort libéré : {name}', { name: String(to.userName ?? '') });
     case 'TEACHER_SET':
-      return `Enseignant : ${teacherName(from)} → ${teacherName(to)}`;
+      return t('Enseignant : {from} → {to}', { from: teacherName(from), to: teacherName(to) });
     case 'MERGE_DECIDED':
       return to.decision === 'CONFIRM'
-        ? 'Doublon tranché : rattachement confirmé'
-        : 'Doublon tranché : affectations gardées distinctes';
+        ? t('Doublon tranché : rattachement confirmé')
+        : t('Doublon tranché : affectations gardées distinctes');
     case 'UPDATED':
       return to.declaration
-        ? 'Classe déclarée vide par un surveillant : demande prise en charge'
+        ? t('Classe déclarée vide par un surveillant : demande prise en charge')
         : updatedText(from, to, timeZone);
     case 'RELEASED':
-      return to.byManager ? 'Surveillant libéré par un admin' : 'Désistement (garde antérieure)';
+      return to.byManager ? t('Surveillant libéré par un admin') : t('Désistement (garde antérieure)');
     case 'PRESENCE_CONFIRMED':
-      return `Présence confirmée (${((to.methods as string[] | undefined) ?? []).map((m) => (m === 'QR' ? 'QR code' : 'photo')).join(' + ')})`;
+      return t('Présence confirmée ({methods})', {
+        methods: ((to.methods as string[] | undefined) ?? []).map((m) => (m === 'QR' ? t('QR code') : t('photo'))).join(' + '),
+      });
     case 'EXTENDED':
-      return `Prolongée de ${String(to.minutes ?? '')} min`;
+      return t('Prolongée de {minutes} min', { minutes: String(to.minutes ?? '') });
     case 'GROUP_ADDED':
-      return `Élargie au groupe ${String(to.groupName ?? '')}`;
+      return t('Élargie au groupe {group}', { group: String(to.groupName ?? '') });
     case 'OVERDUE':
       return to.stage === 'ARRIVAL'
-        ? 'Présence non confirmée à temps'
-        : 'Délai de prise en charge dépassé';
+        ? t('Présence non confirmée à temps')
+        : t('Délai de prise en charge dépassé');
     default:
       return EVENT_LABELS[e.type] ?? e.type;
   }
@@ -132,7 +137,7 @@ function Timeline({ entries }: { entries: CoverageHistoryEntry[] }) {
   return (
     <Box
       component="ol"
-      aria-label="Historique de l’affectation"
+      aria-label={t('Historique de l’affectation')}
       sx={{ listStyle: 'none', m: 0, p: 0, display: 'grid', gap: 1.5 }}
     >
       {entries.map((e) => (
@@ -143,8 +148,8 @@ function Timeline({ entries }: { entries: CoverageHistoryEntry[] }) {
         >
           <Typography variant="body2">{eventText(e, timeZone)}</Typography>
           <Typography variant="caption" color="text.secondary">
-            {formatDateTime(e.createdAt)} · {e.actor ? e.actor.displayName : 'Système'}
-            {e.comment && ` — « ${e.comment} »`}
+            {formatDateTime(e.createdAt)} · {e.actor ? e.actor.displayName : t('Système')}
+            {e.comment && ` — ${t('« {comment} »', { comment: e.comment })}`}
           </Typography>
         </Box>
       ))}
@@ -153,15 +158,15 @@ function Timeline({ entries }: { entries: CoverageHistoryEntry[] }) {
 }
 
 function Times({ detail }: { detail: CoverageDetail }) {
-  const t = detail.timestamps;
+  const stamps = detail.timestamps;
   const rows: Array<[string, string | null]> = [
-    ['Création', t.createdAt],
-    ['Assignation', t.acceptedAt],
-    ['Départ', t.departedAt],
-    ['Présence confirmée', t.presenceAt],
-    ['Fin', t.relievedAt],
-    ['Clôture', t.closedAt],
-    ['Annulation', t.cancelledAt],
+    [t('Création'), stamps.createdAt],
+    [t('Assignation'), stamps.acceptedAt],
+    [t('Départ'), stamps.departedAt],
+    [t('Présence confirmée'), stamps.presenceAt],
+    [t('Fin'), stamps.relievedAt],
+    [t('Clôture'), stamps.closedAt],
+    [t('Annulation'), stamps.cancelledAt],
   ];
   return (
     <Box
@@ -190,7 +195,7 @@ function Times({ detail }: { detail: CoverageDetail }) {
       {detail.durationMinutes !== null && (
         <Box sx={{ display: 'contents' }}>
           <Box component="dt" sx={{ color: 'text.secondary' }}>
-            Durée
+            {t('Durée')}
           </Box>
           <Box component="dd" sx={{ m: 0 }}>
             {formatDuration(detail.durationMinutes)}
@@ -205,19 +210,19 @@ function Times({ detail }: { detail: CoverageDetail }) {
 export function CoverageDetailPage() {
   const { id = '' } = useParams();
   const coverage = useCoverage(id);
-  const back = { to: '/gardes', label: 'Gardes' };
+  const back = { to: '/gardes', label: t('Gardes') };
 
-  if (coverage.isPending) return <LoadingState label="Chargement de la garde" variant="detail" />;
+  if (coverage.isPending) return <LoadingState label={t('Chargement de la garde')} variant="detail" />;
   if (coverage.error) {
     const notFound = coverage.error instanceof ApiError && coverage.error.status === 404;
     return (
       <>
-        <PageHeader title="Garde" back={back} />
+        <PageHeader title={t('Garde')} back={back} />
         <ErrorState
           message={
             notFound
-              ? 'Cette garde n’existe pas ou vous n’y avez pas accès.'
-              : 'Impossible de charger la garde.'
+              ? t('Cette garde n’existe pas ou vous n’y avez pas accès.')
+              : t('Impossible de charger la garde.')
           }
         />
       </>
@@ -227,7 +232,7 @@ export function CoverageDetailPage() {
   const d = data;
   return (
     <>
-      <PageHeader title={`Garde — ${d.class.name}`} eyebrow={d.reference} back={back} />
+      <PageHeader title={t('Garde — {name}', { name: d.class.name })} eyebrow={d.reference} back={back} />
       <Box
         sx={{
           display: 'grid',
@@ -241,28 +246,26 @@ export function CoverageDetailPage() {
             <ClassHeading summary={d} level={2} />
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, fontSize: fontSize.sm }}>
               {d.timestamps.presenceAt && ['ON_DUTY', 'RELIEF_PENDING'].includes(d.status) && (
-                <Elapsed since={d.timestamps.presenceAt} prefix="En classe depuis" />
+                <Elapsed since={d.timestamps.presenceAt} prefix={t('En classe depuis')} />
               )}
               <CoverageDeadline summary={d} />
             </Box>
             {d.status === 'CANCELLED' && d.cancelReason && (
-              <Alert severity="info">Annulée : {d.cancelReason}</Alert>
+              <Alert severity="info">{t('Annulée : {reason}', { reason: d.cancelReason })}</Alert>
             )}
             {d.status === 'RELIEF_PENDING' && (
               <Alert severity="warning">
-                Relève demandée : le surveillant reste en charge de la classe jusqu’à l’arrivée du
-                remplaçant.
+                {t('Relève demandée : le surveillant reste en charge de la classe jusqu’à l’arrivée du remplaçant.')}
               </Alert>
             )}
             {d.alerts.includes('TAKEOVER_EXPIRED') && d.isManager && (
               <Alert severity="error">
-                Délai d’assignation dépassé : assignez un surveillant disponible.
+                {t('Délai d’assignation dépassé : assignez un surveillant disponible.')}
               </Alert>
             )}
             {d.alerts.includes('DOUBLE_ASSIGNMENT') && d.isManager && (
               <Alert severity="error">
-                Ce surveillant a une autre affectation en cours sur ce créneau : réassignez l’une
-                des deux si nécessaire.
+                {t('Ce surveillant a une autre affectation en cours sur ce créneau : réassignez l’une des deux si nécessaire.')}
               </Alert>
             )}
             {d.alerts.includes('POSSIBLE_DUPLICATE') && d.isManager && (
@@ -274,25 +277,24 @@ export function CoverageDetailPage() {
                     to="/gardes?onglet=doublons"
                     sx={{ color: 'inherit', alignSelf: 'center', mr: 1 }}
                   >
-                    Trancher
+                    {t('Trancher')}
                   </Box>
                 }
               >
-                Doublon possible : une autre affectation concerne cette classe sur le même créneau.
+                {t('Doublon possible : une autre affectation concerne cette classe sur le même créneau.')}
               </Alert>
             )}
             {d.status === 'UNFILLED' && d.isManager && (
-              <Alert severity="info">Créneau passé sans surveillant assigné.</Alert>
+              <Alert severity="info">{t('Créneau passé sans surveillant assigné.')}</Alert>
             )}
             {d.status === 'LATE' && d.isManager && (
               <Alert severity="error">
-                Présence non confirmée dans le délai : contactez le surveillant ou réassignez
-                l’affectation.
+                {t('Présence non confirmée dans le délai : contactez le surveillant ou réassignez l’affectation.')}
               </Alert>
             )}
             {d.reason && (
               <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                Motif : {d.reason}
+                {t('Motif : {reason}', { reason: d.reason })}
               </Typography>
             )}
             {d.note && (
@@ -311,7 +313,7 @@ export function CoverageDetailPage() {
           </SectionCard>
 
           {d.presences.length > 0 && (
-            <SectionCard title="Preuves de présence" icon={Camera}>
+            <SectionCard title={t('Preuves de présence')} icon={Camera}>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
                 {d.presences.map((p) => (
                   <Box key={`${p.method}-${p.at}`} sx={{ display: 'grid', gap: 0.75 }}>
@@ -321,12 +323,12 @@ export function CoverageDetailPage() {
                         href={`/api/files/${p.fileId}`}
                         target="_blank"
                         rel="noopener"
-                        aria-label={`Ouvrir la photo de présence de ${p.by.displayName}`}
+                        aria-label={t('Ouvrir la photo de présence de {name}', { name: p.by.displayName })}
                       >
                         <Box
                           component="img"
                           src={`/api/files/${p.fileId}`}
-                          alt={`Photo de présence prise par ${p.by.displayName}`}
+                          alt={t('Photo de présence prise par {name}', { name: p.by.displayName })}
                           sx={{
                             width: 200,
                             height: 150,
@@ -356,12 +358,12 @@ export function CoverageDetailPage() {
                           <Camera size={icon.md} aria-hidden="true" />
                         )}
                         <Typography variant="body2">
-                          {p.method === 'QR' ? 'QR code de la classe scanné' : 'Photo transmise'}
+                          {p.method === 'QR' ? t('QR code de la classe scanné') : t('Photo transmise')}
                         </Typography>
                       </Box>
                     )}
                     <Typography variant="caption" color="text.secondary">
-                      {p.by.displayName} · {formatTime(p.at)} (heure serveur)
+                      {p.by.displayName} · {t('{time} (heure serveur)', { time: formatTime(p.at) })}
                     </Typography>
                   </Box>
                 ))}
@@ -370,28 +372,28 @@ export function CoverageDetailPage() {
           )}
 
           {d.history && (
-            <SectionCard title="Historique" icon={History}>
+            <SectionCard title={t('Historique')} icon={History}>
               <Timeline entries={d.history} />
             </SectionCard>
           )}
         </Box>
 
         <Box sx={{ display: 'grid', gap: 2 }}>
-          <SectionCard title="Informations" icon={Info}>
+          <SectionCard title={t('Informations')} icon={Info}>
             <Box sx={{ display: 'grid', gap: 1.5 }}>
               <Box>
                 <Typography variant="caption" color="text.secondary">
-                  Surveillant
+                  {t('Surveillant')}
                 </Typography>
                 {d.assignee ? (
                   <Person name={d.assignee.displayName} id={d.assignee.id} size={28} />
                 ) : (
-                  <Typography variant="body2">Aucun pour l’instant</Typography>
+                  <Typography variant="body2">{t('Aucun pour l’instant')}</Typography>
                 )}
               </Box>
               <Box>
                 <Typography variant="caption" color="text.secondary">
-                  Demandée par
+                  {t('Demandée par')}
                 </Typography>
                 <Person name={d.requester.displayName} id={d.requester.id} size={28} />
               </Box>
@@ -402,7 +404,7 @@ export function CoverageDetailPage() {
                 <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
                   <Users size={icon.sm} aria-hidden="true" style={{ marginTop: 3 }} />
                   <Typography variant="body2">
-                    Renfort : {d.supports.map((s) => s.user.displayName).join(', ')}
+                    {t('Renfort : {names}', { names: d.supports.map((s) => s.user.displayName).join(', ') })}
                   </Typography>
                 </Box>
               )}
@@ -412,17 +414,18 @@ export function CoverageDetailPage() {
                   .join(' · ')}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Preuve demandée : {PROOF_LABELS[d.proofMode]}
-                {d.finalValidation ? ' · validation finale par un admin' : ''}
+                {d.finalValidation
+                  ? t('Preuve demandée : {proof} · validation finale par un admin', { proof: PROOF_LABELS[d.proofMode] })
+                  : t('Preuve demandée : {proof}', { proof: PROOF_LABELS[d.proofMode] })}
               </Typography>
               {d.extensionCount > 0 && (
                 <Typography variant="body2" color="text.secondary">
-                  {`${d.extensionCount} prolongation${d.extensionCount > 1 ? 's' : ''}`}
+                  {t(isPlural(d.extensionCount) ? '{count} prolongations' : '{count} prolongation', { count: d.extensionCount })}
                 </Typography>
               )}
             </Box>
           </SectionCard>
-          <SectionCard title="Horodatages">
+          <SectionCard title={t('Horodatages')}>
             <Times detail={d} />
           </SectionCard>
         </Box>

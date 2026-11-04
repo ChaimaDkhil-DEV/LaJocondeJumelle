@@ -30,6 +30,7 @@ import { visuallyHidden } from '../../components/a11y';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { STATUS_LABELS } from '../../components/StatusBadge';
 import { icon } from '../../design/tokens';
+import { t } from '../../i18n';
 import { PhotoCapture, type UploadedPhoto } from '../thread/PhotoCapture';
 import { useCurrentUser } from '../auth/useCurrentUser';
 import { requestKeys } from './api';
@@ -42,19 +43,19 @@ import type { RequestDetail } from './types';
 
 /** Actions proposées (le changement de priorité arrive avec US7). */
 const ACTION_LABELS: Record<string, string> = {
-  SUBMIT: 'Envoyer la demande',
-  APPROVE: 'Approuver',
-  ACCEPT: 'Accepter la demande',
-  START: 'Commencer',
-  COMPLETE: 'Marquer comme terminée',
-  RESUME: 'Reprendre',
-  CLOSE: 'Clôturer',
-  VALIDATE_FINAL: 'Valider et clôturer',
-  REQUEST_CORRECTION: 'Renvoyer à corriger',
-  DECLINE: 'Refuser',
-  REJECT: 'Refuser',
-  CANCEL: 'Annuler la demande',
-  REASSIGN: 'Réaffecter',
+  SUBMIT: t('Envoyer la demande'),
+  APPROVE: t('Approuver'),
+  ACCEPT: t('Accepter la demande'),
+  START: t('Commencer'),
+  COMPLETE: t('Marquer comme terminée'),
+  RESUME: t('Reprendre'),
+  CLOSE: t('Clôturer'),
+  VALIDATE_FINAL: t('Valider et clôturer'),
+  REQUEST_CORRECTION: t('Renvoyer à corriger'),
+  DECLINE: t('Refuser'),
+  REJECT: t('Refuser'),
+  CANCEL: t('Annuler la demande'),
+  REASSIGN: t('Réaffecter'),
 };
 
 const ACTION_ICONS: Record<string, LucideIcon> = {
@@ -109,7 +110,7 @@ export function RequestActions({ request }: { request: RequestDetail }) {
     onSuccess: async (updated) => {
       queryClient.setQueryData(detailKey, updated);
       setDialog(null);
-      setFeedback('Priorité enregistrée.');
+      setFeedback(t('Priorité enregistrée.'));
       await queryClient.invalidateQueries({ queryKey: requestKeys.all, refetchType: 'active' });
     },
   });
@@ -121,7 +122,7 @@ export function RequestActions({ request }: { request: RequestDetail }) {
       queryClient.setQueryData(detailKey, updated);
       setDialog(null);
       setPhotos([]);
-      setFeedback(`Action enregistrée. Statut : ${STATUS_LABELS[updated.status]}.`);
+      setFeedback(t('Action enregistrée. Statut : {status}.', { status: STATUS_LABELS[updated.status] }));
       await queryClient.invalidateQueries({ queryKey: requestKeys.all, refetchType: 'active' });
     },
     onError: (error) => {
@@ -162,7 +163,7 @@ export function RequestActions({ request }: { request: RequestDetail }) {
   const canChangePriority = request.allowedActions.includes('CHANGE_PRIORITY');
   const refuseAction = actions.includes('REJECT') ? 'REJECT' : 'DECLINE';
   const anyError = mutation.error ?? priorityMutation.error;
-  const error = anyError instanceof ApiError ? anyError.message : anyError ? 'Action impossible.' : null;
+  const error = anyError instanceof ApiError ? anyError.message : anyError ? t('Action impossible.') : null;
   // Un seul bouton principal : la première action « positive » permise ; les autres restent secondaires.
   const primaryAction = actions.find((a) => PRIMARY.has(a));
   // Demande en lecture seule : le demandeur voit ses actions d'édition, désactivées (le serveur les refuse).
@@ -197,16 +198,16 @@ export function RequestActions({ request }: { request: RequestDetail }) {
           })}
           {canChangePriority && (
             <Button variant="outlined" startIcon={<Flag size={icon.sm} aria-hidden="true" />} onClick={() => setDialog('priority')}>
-              Changer la priorité
+              {t('Changer la priorité')}
             </Button>
           )}
           {frozenForRequester && (
             <>
               <Button variant="outlined" disabled startIcon={<Flag size={icon.sm} aria-hidden="true" />}>
-                Changer la priorité
+                {t('Changer la priorité')}
               </Button>
               <Button variant="outlined" color="error" disabled startIcon={<Ban size={icon.sm} aria-hidden="true" />}>
-                Annuler la demande
+                {t('Annuler la demande')}
               </Button>
             </>
           )}
@@ -239,20 +240,20 @@ export function RequestActions({ request }: { request: RequestDetail }) {
       />
       <ReasonDialog
         open={dialog === 'refuse'}
-        title="Refuser la demande"
-        label="Motif du refus"
-        requiredMessage="Indiquez le motif du refus."
-        confirmLabel="Confirmer le refus"
+        title={t('Refuser la demande')}
+        label={t('Motif du refus')}
+        requiredMessage={t('Indiquez le motif du refus.')}
+        confirmLabel={t('Confirmer le refus')}
         pending={mutation.isPending}
         onConfirm={(reason) => send(refuseAction, { reason })}
         onClose={() => setDialog(null)}
       />
       <ReasonDialog
         open={dialog === 'correction'}
-        title="Renvoyer à corriger"
-        label="Ce qu’il faut corriger"
-        requiredMessage="Indiquez ce qu’il faut corriger."
-        confirmLabel="Renvoyer à corriger"
+        title={t('Renvoyer à corriger')}
+        label={t('Ce qu’il faut corriger')}
+        requiredMessage={t('Indiquez ce qu’il faut corriger.')}
+        confirmLabel={t('Renvoyer à corriger')}
         pending={mutation.isPending}
         onConfirm={(reason) => send('REQUEST_CORRECTION', { reason })}
         onClose={() => setDialog(null)}
@@ -260,14 +261,14 @@ export function RequestActions({ request }: { request: RequestDetail }) {
 
       <ConfirmDialog
         open={dialog === 'cancel'}
-        title="Annuler cette demande ?"
-        confirmLabel="Oui, annuler la demande"
-        cancelLabel="Retour"
+        title={t('Annuler cette demande ?')}
+        confirmLabel={t('Oui, annuler la demande')}
+        cancelLabel={t('Retour')}
         pending={mutation.isPending}
         onConfirm={() => send('CANCEL')}
         onClose={() => setDialog(null)}
       >
-        La demande sera définitivement annulée et le destinataire en sera informé.
+        {t('La demande sera définitivement annulée et le destinataire en sera informé.')}
       </ConfirmDialog>
 
       <Dialog
@@ -277,10 +278,10 @@ export function RequestActions({ request }: { request: RequestDetail }) {
         fullWidth
         maxWidth="sm"
       >
-        <DialogTitle id={completeTitleId}>Terminer la demande</DialogTitle>
+        <DialogTitle id={completeTitleId}>{t('Terminer la demande')}</DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ mb: 2 }}>
-            Une photo de preuve est obligatoire pour cette catégorie : photographiez le travail réalisé.
+            {t('Une photo de preuve est obligatoire pour cette catégorie : photographiez le travail réalisé.')}
           </DialogContentText>
           <PhotoCapture value={photos} onChange={setPhotos} />
           {error && dialog === 'complete' && (
@@ -290,7 +291,7 @@ export function RequestActions({ request }: { request: RequestDetail }) {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDialog(null)}>Retour</Button>
+          <Button onClick={() => setDialog(null)}>{t('Retour')}</Button>
           <Button
             variant="contained"
             startIcon={<CircleCheck size={icon.sm} aria-hidden="true" />}
@@ -298,7 +299,7 @@ export function RequestActions({ request }: { request: RequestDetail }) {
             loading={mutation.isPending}
             onClick={() => send('COMPLETE', { proofFileIds: photos.map((p) => p.id) })}
           >
-            Confirmer la fin
+            {t('Confirmer la fin')}
           </Button>
         </DialogActions>
       </Dialog>

@@ -3,11 +3,13 @@ import Link from '@mui/material/Link';
 import { Download, FileText } from 'lucide-react';
 import { font, fontSize, icon, motion, tokensOf } from '../../design/tokens';
 import type { Attachment } from './api';
+import { language, t } from '../../i18n';
 
 export function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} o`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} Ko`;
-  return `${(bytes / (1024 * 1024)).toFixed(1).replace('.', ',')} Mo`;
+  if (bytes < 1024) return t('{n} o', { n: bytes });
+  if (bytes < 1024 * 1024) return t('{n} Ko', { n: Math.round(bytes / 1024) });
+  const megabytes = (bytes / (1024 * 1024)).toFixed(1);
+  return t('{n} Mo', { n: language() === 'en' ? megabytes : megabytes.replace('.', ',') });
 }
 
 /** Pièces jointes d'un message : vignettes des photos (texte alternatif), fiches de téléchargement des documents. */
@@ -26,13 +28,13 @@ export function AttachmentList({ attachments }: { attachments: Attachment[] }) {
               href={`/api/files/${photo.fileId}`}
               target="_blank"
               rel="noopener"
-              aria-label={`Ouvrir ${photo.originalName} en grand`}
+              aria-label={t('Ouvrir {name} en grand', { name: photo.originalName })}
               sx={{ display: 'block', borderRadius: 1, overflow: 'hidden', border: 1, borderColor: 'divider' }}
             >
               <Box
                 component="img"
                 src={`/api/files/${photo.fileId}`}
-                alt={`Photo jointe : ${photo.originalName}`}
+                alt={t('Photo jointe : {name}', { name: photo.originalName })}
                 sx={{ width: 112, height: 112, objectFit: 'cover', display: 'block' }}
               />
             </Link>
@@ -66,7 +68,7 @@ export function AttachmentList({ attachments }: { attachments: Attachment[] }) {
             <FileText size={icon.md} aria-hidden="true" />
           </Box>
           <Box component="span" sx={{ minWidth: 0, overflowWrap: 'anywhere' }}>
-            Télécharger {doc.originalName}{' '}
+            {t('Télécharger {name}', { name: doc.originalName })}{' '}
             <Box component="span" sx={{ color: 'text.secondary', fontWeight: font.regular }}>
               ({formatSize(doc.sizeBytes)})
             </Box>

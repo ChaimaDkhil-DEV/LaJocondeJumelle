@@ -26,6 +26,7 @@ import { SectionHeader } from '../../components/SectionHeader';
 import { useToast } from '../../components/Toast';
 import { font, icon } from '../../design/tokens';
 import { useAdminClasses, useAdminFloors, useClassQr, useRevokeQr, useSaveClass, type AdminClass } from './adminApi';
+import { t } from '../../i18n';
 
 function ClassFormDialog({ schoolClass, onClose, onSaved }: { schoolClass: AdminClass | null; onClose: () => void; onSaved: (message: string) => void }) {
   const titleId = useId();
@@ -40,41 +41,41 @@ function ClassFormDialog({ schoolClass, onClose, onSaved }: { schoolClass: Admin
 
   function submit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
-    setNameError(name.trim() ? null : 'Le nom est obligatoire.');
+    setNameError(name.trim() ? null : t('Le nom est obligatoire.'));
     // Étage obligatoire à la création et à la modification (FR-006).
-    setFloorError(floorId ? null : 'Choisissez l’étage de la classe.');
+    setFloorError(floorId ? null : t('Choisissez l’étage de la classe.'));
     if (!name.trim() || !floorId) return;
     save.mutate(
       { id: schoolClass?.id, name: name.trim(), ...(room.trim() ? { room: room.trim() } : {}), active, floorId },
-      { onSuccess: () => onSaved(schoolClass ? 'Classe enregistrée.' : 'Classe créée.') },
+      { onSuccess: () => onSaved(schoolClass ? t('Classe enregistrée.') : t('Classe créée.')) },
     );
   }
 
   return (
     <Dialog open onClose={onClose} aria-labelledby={titleId} fullWidth maxWidth="sm">
       <Box component="form" noValidate onSubmit={submit}>
-        <DialogTitle id={titleId}>{schoolClass ? `Modifier : ${schoolClass.name}` : 'Nouvelle classe'}</DialogTitle>
+        <DialogTitle id={titleId}>{schoolClass ? t('Modifier : {name}', { name: schoolClass.name }) : t('Nouvelle classe')}</DialogTitle>
         <DialogContent sx={{ display: 'grid', gap: 2.5, pt: '8px !important' }}>
           <TextField
             id="classe-nom"
-            label="Nom de la classe"
+            label={t('Nom de la classe')}
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
             error={Boolean(nameError)}
-            helperText={nameError ?? 'Par exemple : 1ère année Violet.'}
+            helperText={nameError ?? t('Par exemple : 1ère année Violet.')}
             slotProps={{ htmlInput: { maxLength: 80 } }}
           />
-          <TextField id="classe-salle" label="Salle ou lieu (facultatif)" value={room} onChange={(e) => setRoom(e.target.value)} slotProps={{ htmlInput: { maxLength: 80 } }} />
+          <TextField id="classe-salle" label={t('Salle ou lieu (facultatif)')} value={room} onChange={(e) => setRoom(e.target.value)} slotProps={{ htmlInput: { maxLength: 80 } }} />
           <TextField
             id="classe-etage"
             select
-            label="Étage"
+            label={t('Étage')}
             required
             value={floorId}
             onChange={(e) => setFloorId(e.target.value)}
             error={Boolean(floorError)}
-            helperText={floorError ?? 'Les surveillants de cet étage sont proposés en premier.'}
+            helperText={floorError ?? t('Les surveillants de cet étage sont proposés en premier.')}
           >
             {(floors.data ?? [])
               .filter((f) => f.active || f.id === floorId)
@@ -84,13 +85,13 @@ function ClassFormDialog({ schoolClass, onClose, onSaved }: { schoolClass: Admin
                 </MenuItem>
               ))}
           </TextField>
-          {schoolClass && <FormControlLabel control={<Checkbox checked={active} onChange={(e) => setActive(e.target.checked)} />} label="Classe active" />}
-          {save.error && <Alert severity="error">{save.error instanceof ApiError ? save.error.message : 'Enregistrement impossible.'}</Alert>}
+          {schoolClass && <FormControlLabel control={<Checkbox checked={active} onChange={(e) => setActive(e.target.checked)} />} label={t('Classe active')} />}
+          {save.error && <Alert severity="error">{save.error instanceof ApiError ? save.error.message : t('Enregistrement impossible.')}</Alert>}
         </DialogContent>
         <DialogActions>
-          <Button onClick={onClose}>Annuler</Button>
+          <Button onClick={onClose}>{t('Annuler')}</Button>
           <Button type="submit" variant="contained" loading={save.isPending}>
-            Enregistrer la classe
+            {t('Enregistrer la classe')}
           </Button>
         </DialogActions>
       </Box>
@@ -133,41 +134,41 @@ function QrDialog({ schoolClass, onClose }: { schoolClass: AdminClass; onClose: 
           },
         }}
       />
-      <DialogTitle id={titleId}>QR code : {schoolClass.name}</DialogTitle>
+      <DialogTitle id={titleId}>{t('QR code : {name}', { name: schoolClass.name })}</DialogTitle>
       <DialogContent sx={{ display: 'grid', gap: 2 }}>
         {qr.error ? (
-          <Alert severity="error">Impossible de générer le QR code.</Alert>
+          <Alert severity="error">{t('Impossible de générer le QR code.')}</Alert>
         ) : qr.isPending || !image ? (
-          <LoadingState label="Génération du QR code" variant="inline" />
+          <LoadingState label={t('Génération du QR code')} variant="inline" />
         ) : (
           <Box className="qr-print" sx={{ display: 'grid', justifyItems: 'center', gap: 1.5, textAlign: 'center' }}>
             <Typography sx={{ fontWeight: font.medium, fontSize: 24 }}>{schoolClass.name}</Typography>
             {schoolClass.room && <Typography color="text.secondary">{schoolClass.room}</Typography>}
-            <Box component="img" src={image} alt={`QR code de la classe ${schoolClass.name}`} sx={{ width: 280, maxWidth: '100%', height: 'auto' }} />
-            <Typography variant="body2">Garde : scannez ce code avec l’appareil photo de votre téléphone pour confirmer votre présence.</Typography>
+            <Box component="img" src={image} alt={t('QR code de la classe {name}', { name: schoolClass.name })} sx={{ width: 280, maxWidth: '100%', height: 'auto' }} />
+            <Typography variant="body2">{t('Garde : scannez ce code avec l’appareil photo de votre téléphone pour confirmer votre présence.')}</Typography>
             <Typography variant="caption" color="text.secondary">
-              Version {qr.data.version}
+              {t('Version {version}', { version: qr.data.version })}
             </Typography>
           </Box>
         )}
         <Alert severity="info">
-          Ce code n’enregistre rien à lui seul : l’employé confirme ensuite sa présence, et le serveur vérifie la classe et sa garde.
+          {t('Ce code n’enregistre rien à lui seul : l’employé confirme ensuite sa présence, et le serveur vérifie la classe et sa garde.')}
         </Alert>
       </DialogContent>
       <DialogActions sx={{ flexWrap: 'wrap', gap: 1 }}>
         <Button color="error" startIcon={<RefreshCcw size={icon.sm} aria-hidden="true" />} onClick={() => setConfirmRevoke(true)}>
-          Révoquer et régénérer
+          {t('Révoquer et régénérer')}
         </Button>
         <Box sx={{ flex: 1 }} />
-        <Button onClick={onClose}>Fermer</Button>
+        <Button onClick={onClose}>{t('Fermer')}</Button>
         <Button variant="contained" startIcon={<Printer size={icon.sm} aria-hidden="true" />} disabled={!image} onClick={() => window.print()}>
-          Imprimer
+          {t('Imprimer')}
         </Button>
       </DialogActions>
       <ConfirmDialog
         open={confirmRevoke}
-        title="Révoquer le QR code ?"
-        confirmLabel="Révoquer"
+        title={t('Révoquer le QR code ?')}
+        confirmLabel={t('Révoquer')}
         pending={revoke.isPending}
         error={revoke.error instanceof ApiError ? revoke.error.message : null}
         onClose={() => setConfirmRevoke(false)}
@@ -176,12 +177,12 @@ function QrDialog({ schoolClass, onClose }: { schoolClass: AdminClass; onClose: 
             onSuccess: () => {
               setConfirmRevoke(false);
               setImage(null);
-              toast.success('Ancien QR code révoqué. Imprimez le nouveau et remplacez-le dans la classe.');
+              toast.success(t('Ancien QR code révoqué. Imprimez le nouveau et remplacez-le dans la classe.'));
             },
           })
         }
       >
-        Les QR codes déjà imprimés pour cette classe ne fonctionneront plus. Il faudra imprimer et afficher le nouveau.
+        {t('Les QR codes déjà imprimés pour cette classe ne fonctionneront plus. Il faudra imprimer et afficher le nouveau.')}
       </ConfirmDialog>
     </Dialog>
   );
@@ -198,25 +199,25 @@ export function ClassesAdminPage() {
     <Box component="section" aria-labelledby="titre-classes">
       <SectionHeader
         id="titre-classes"
-        title="Classes et QR codes"
-        description="Chaque classe a un QR code unique, à afficher près de la porte, pour confirmer la présence en garde."
+        title={t('Classes et QR codes')}
+        description={t('Chaque classe a un QR code unique, à afficher près de la porte, pour confirmer la présence en garde.')}
         action={
           <Button variant="contained" startIcon={<School size={icon.sm} aria-hidden="true" />} onClick={() => setForm({ schoolClass: null })}>
-            Nouvelle classe
+            {t('Nouvelle classe')}
           </Button>
         }
       />
       {classes.isPending ? (
-        <LoadingState label="Chargement des classes" />
+        <LoadingState label={t('Chargement des classes')} />
       ) : classes.error ? (
-        <ErrorState message="Impossible de charger les classes." actionLabel="Réessayer" onAction={() => void classes.refetch()} />
+        <ErrorState message={t('Impossible de charger les classes.')} actionLabel={t('Réessayer')} onAction={() => void classes.refetch()} />
       ) : classes.data.length === 0 ? (
         <Paper variant="outlined">
-          <EmptyState icon={School} title="Aucune classe" description="Ajoutez les classes et salles à couvrir, par exemple « 1ère année Violet »." />
+          <EmptyState icon={School} title={t('Aucune classe')} description={t('Ajoutez les classes et salles à couvrir, par exemple « 1ère année Violet ».')} />
         </Paper>
       ) : (
         <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
-          <Box component="ul" aria-label="Classes" sx={{ listStyle: 'none', m: 0, p: 0, '& > li + li': { borderTop: 1, borderColor: 'divider' } }}>
+          <Box component="ul" aria-label={t('Classes')} sx={{ listStyle: 'none', m: 0, p: 0, '& > li + li': { borderTop: 1, borderColor: 'divider' } }}>
             {classes.data.map((c) => (
               <Box component="li" key={c.id} sx={{ display: 'flex', gap: 2, alignItems: 'center', px: { xs: 2, md: 2.5 }, py: 1.5 }}>
                 <Box sx={{ minWidth: 0, flex: '1 1 auto' }}>
@@ -224,17 +225,17 @@ export function ClassesAdminPage() {
                     <Typography sx={{ fontWeight: font.medium }}>{c.name}</Typography>
                     {!c.active && (
                       <Badge tone="neutral" icon={CircleOff}>
-                        Inactive
+                        {t('Inactive')}
                       </Badge>
                     )}
                   </Box>
                   <Typography variant="body2" color="text.secondary">
-                    {[c.room, c.floor?.name ?? 'Sans étage', `QR version ${c.qrVersion}`].filter(Boolean).join(' · ')}
+                    {[c.room, c.floor?.name ?? t('Sans étage'), t('QR version {version}', { version: c.qrVersion })].filter(Boolean).join(' · ')}
                   </Typography>
                 </Box>
                 <Box sx={{ display: 'flex', gap: 0.5, flex: 'none' }}>
-                  <IconAction icon={QrCode} label={`QR code de la classe ${c.name}`} tooltip="QR code" onClick={() => setQr(c)} />
-                  <IconAction icon={Pencil} label={`Modifier la classe ${c.name}`} tooltip="Modifier" onClick={() => setForm({ schoolClass: c })} />
+                  <IconAction icon={QrCode} label={t('QR code de la classe {name}', { name: c.name })} tooltip={t('QR code')} onClick={() => setQr(c)} />
+                  <IconAction icon={Pencil} label={t('Modifier la classe {name}', { name: c.name })} tooltip={t('Modifier')} onClick={() => setForm({ schoolClass: c })} />
                 </Box>
               </Box>
             ))}

@@ -17,19 +17,20 @@ import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
 import { PageHeader } from '../../components/PageHeader';
 import { font, fontSize, icon, motion, tokensOf } from '../../design/tokens';
+import { t } from '../../i18n';
 import { useCurrentUser } from '../auth/useCurrentUser';
 
 const SECTIONS: Array<{ to: string; label: string; icon: LucideIcon }> = [
-  { to: '/admin/suivi', label: 'Suivi des gardes', icon: Activity },
-  { to: '/admin/comptes', label: 'Comptes', icon: Users },
-  { to: '/admin/categories', label: 'Catégories', icon: Tags },
-  { to: '/admin/consignes', label: 'Consignes', icon: BookOpen },
-  { to: '/admin/groupes', label: 'Groupes', icon: UsersRound },
-  { to: '/admin/etages', label: 'Étages', icon: Building2 },
-  { to: '/admin/classes', label: 'Classes', icon: School },
-  { to: '/admin/eleves', label: 'Élèves', icon: GraduationCap },
-  { to: '/admin/reglages', label: 'Réglages', icon: SlidersHorizontal },
-  { to: '/admin/journal', label: 'Journal d’audit', icon: ScrollText },
+  { to: '/admin/suivi', label: t('Suivi des gardes'), icon: Activity },
+  { to: '/admin/comptes', label: t('Comptes'), icon: Users },
+  { to: '/admin/categories', label: t('Catégories'), icon: Tags },
+  { to: '/admin/consignes', label: t('Consignes'), icon: BookOpen },
+  { to: '/admin/groupes', label: t('Groupes'), icon: UsersRound },
+  { to: '/admin/etages', label: t('Étages'), icon: Building2 },
+  { to: '/admin/classes', label: t('Classes'), icon: School },
+  { to: '/admin/eleves', label: t('Élèves'), icon: GraduationCap },
+  { to: '/admin/reglages', label: t('Réglages'), icon: SlidersHorizontal },
+  { to: '/admin/journal', label: t('Journal d’audit'), icon: ScrollText },
 ];
 
 /** Espace « Administrateur » (US8, FR-004c) : réservé au super administrateur ; le serveur refuse aussi tout autre rôle. */
@@ -37,18 +38,18 @@ export function AdminLayout() {
   const me = useCurrentUser();
   if (me.isPending) return <LoadingState />;
   if (me.data?.role !== 'SUPER_ADMIN') {
-    return <ErrorState message="Accès réservé au super administrateur." />;
+    return <ErrorState message={t('Accès réservé au super administrateur.')} />;
   }
 
   return (
     <Box>
       <PageHeader
-        title="Administrateur"
-        description="Suivi des gardes, comptes, catégories, consignes, groupes, étages, classes, élèves, réglages et journal d’audit de l’établissement."
+        title={t('Administrateur')}
+        description={t('Suivi des gardes, comptes, catégories, consignes, groupes, étages, classes, élèves, réglages et journal d’audit de l’établissement.')}
       />
       <Box
         component="nav"
-        aria-label="Sections de l’espace Administrateur"
+        aria-label={t('Sections de l’espace Administrateur')}
         sx={{
           mb: 3,
           borderBottom: 1,

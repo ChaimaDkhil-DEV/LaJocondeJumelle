@@ -8,6 +8,7 @@ import { Pause, Play } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { icon, tokensOf } from '../../design/tokens';
 import { formatDuration } from './recorderFormat';
+import { t } from '../../i18n';
 
 interface VoicePlayerProps {
   src: string;
@@ -40,7 +41,7 @@ export function VoicePlayer({ src, durationSeconds }: VoicePlayerProps) {
       audio.play().catch(() => {
         setPlaying(false);
         setPlayError(
-          'Lecture impossible sur cet appareil. Vérifiez votre connexion ou essayez depuis un autre navigateur.',
+          t('Lecture impossible sur cet appareil. Vérifiez votre connexion ou essayez depuis un autre navigateur.'),
         );
       });
     }
@@ -52,7 +53,7 @@ export function VoicePlayer({ src, durationSeconds }: VoicePlayerProps) {
     setPosition(value);
   }
 
-  const valueText = (value: number) => `${formatDuration(value)} sur ${formatDuration(duration)}`;
+  const valueText = (value: number) => t('{position} sur {total}', { position: formatDuration(value), total: formatDuration(duration) });
   const Icon = playing ? Pause : Play;
 
   return (
@@ -89,10 +90,10 @@ export function VoicePlayer({ src, durationSeconds }: VoicePlayerProps) {
           }}
           onPause={() => setPlaying(false)}
         />
-        <Tooltip title={playing ? 'Pause' : 'Lire'}>
+        <Tooltip title={playing ? t('Pause') : t('Lire')}>
           <IconButton
             onClick={toggle}
-            aria-label={playing ? 'Mettre en pause le message vocal' : 'Lire le message vocal'}
+            aria-label={playing ? t('Mettre en pause le message vocal') : t('Lire le message vocal')}
             sx={(theme) => ({
               flex: 'none',
               borderRadius: '50%',
@@ -111,7 +112,7 @@ export function VoicePlayer({ src, durationSeconds }: VoicePlayerProps) {
           step={0.1}
           value={Math.min(position, duration)}
           onChange={(_e, value) => seek(value as number)}
-          aria-label="Position dans le message vocal"
+          aria-label={t('Position dans le message vocal')}
           getAriaValueText={valueText}
           sx={{ flexGrow: 1, minWidth: 60 }}
         />

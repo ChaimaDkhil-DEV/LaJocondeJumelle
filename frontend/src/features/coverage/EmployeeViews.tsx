@@ -20,6 +20,7 @@ import { useCoverageHistory, useMyGuards, useSetOwnAvailability } from './api';
 import { CoverageActions } from './CoverageActions';
 import { AVAILABILITY_LABELS, CoverageDeadline, CoverageStatusBadge, Elapsed, TYPE_LABELS, formatDuration, formatStart, formatTime } from './labels';
 import type { CoverageProfile, CoverageSummary } from './types';
+import { t } from '../../i18n';
 
 /** Ligne d'information : icône + texte. */
 export function Fact({ icon: Icon, children }: { icon: typeof Clock; children: React.ReactNode }) {
@@ -59,10 +60,10 @@ export function ClassHeading({ summary, level = 3 }: { summary: CoverageSummary;
         <Fact icon={Clock}>{formatStart(summary.startAt)}</Fact>
         <Fact icon={Timer}>{formatDuration(summary.estimatedMinutes)}</Fact>
         {(summary.teacher || summary.absentTeacher) && (
-          <Fact icon={UserRound}>Remplace {summary.teacher?.displayName ?? summary.absentTeacher}</Fact>
+          <Fact icon={UserRound}>{t('Remplace {name}', { name: summary.teacher?.displayName ?? summary.absentTeacher ?? '' })}</Fact>
         )}
-        {summary.hasNote && <Fact icon={NotebookText}>Consigne</Fact>}
-        {summary.hasVoice && <Fact icon={Mic}>Message vocal</Fact>}
+        {summary.hasNote && <Fact icon={NotebookText}>{t('Consigne')}</Fact>}
+        {summary.hasVoice && <Fact icon={Mic}>{t('Message vocal')}</Fact>}
       </Box>
     </Box>
   );
@@ -74,7 +75,7 @@ export function AvailabilitySwitch({ profile }: { profile: CoverageProfile }) {
   const mutation = useSetOwnAvailability();
   if (profile.availability === 'ABSENT') {
     return (
-      <Alert severity="info">Vous êtes déclaré absent. Seul un admin peut modifier ce statut.</Alert>
+      <Alert severity="info">{t('Vous êtes déclaré absent. Seul un admin peut modifier ce statut.')}</Alert>
     );
   }
   const available = profile.availability === 'AVAILABLE';
@@ -86,13 +87,13 @@ export function AvailabilitySwitch({ profile }: { profile: CoverageProfile }) {
           disabled={mutation.isPending}
           onChange={(e) =>
             mutation.mutate(e.target.checked ? 'AVAILABLE' : 'UNAVAILABLE', {
-              onSuccess: (p) => toast.success(`Vous êtes ${AVAILABILITY_LABELS[p.availability].toLowerCase()}.`),
-              onError: (err) => toast.error(err instanceof ApiError ? err.message : 'Modification impossible.'),
+              onSuccess: (p) => toast.success(t('Vous êtes {status}.', { status: AVAILABILITY_LABELS[p.availability].toLowerCase() })),
+              onError: (err) => toast.error(err instanceof ApiError ? err.message : t('Modification impossible.')),
             })
           }
         />
       }
-      label={available ? 'Je suis disponible pour les affectations' : 'Je suis indisponible'}
+      label={available ? t('Je suis disponible pour les affectations') : t('Je suis indisponible')}
     />
   );
 }
@@ -100,14 +101,14 @@ export function AvailabilitySwitch({ profile }: { profile: CoverageProfile }) {
 /** Onglet « Mes affectations » : affectations et renforts du surveillant, chronomètre et actions. */
 export function MyGuardTab() {
   const mine = useMyGuards();
-  if (mine.isPending) return <LoadingState label="Chargement de vos affectations" variant="detail" />;
-  if (mine.error) return <ErrorState message="Impossible de charger vos affectations." actionLabel="Réessayer" onAction={() => void mine.refetch()} />;
+  if (mine.isPending) return <LoadingState label={t('Chargement de vos affectations')} variant="detail" />;
+  if (mine.error) return <ErrorState message={t('Impossible de charger vos affectations.')} actionLabel={t('Réessayer')} onAction={() => void mine.refetch()} />;
   return (
     <Box sx={{ display: 'grid', gap: 2 }}>
       <AvailabilitySwitch profile={mine.data.availability} />
       {mine.data.items.length === 0 && (
         <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1.5, bgcolor: 'background.paper' }}>
-          <EmptyState icon={DoorOpen} title="Aucune affectation en cours" description="Quand l’admin vous assigne une classe, elle apparaît ici avec les étapes à suivre." />
+          <EmptyState icon={DoorOpen} title={t('Aucune affectation en cours')} description={t('Quand l’admin vous assigne une classe, elle apparaît ici avec les étapes à suivre.')} />
         </Box>
       )}
       {mine.data.items.map((guard) => (
@@ -126,9 +127,9 @@ export function MyGuardTab() {
             })}
           >
             {guard.timestamps.presenceAt ? (
-              <Elapsed since={guard.timestamps.presenceAt} prefix="En classe depuis" />
+              <Elapsed since={guard.timestamps.presenceAt} prefix={t('En classe depuis')} />
             ) : guard.timestamps.acceptedAt ? (
-              <Elapsed since={guard.timestamps.acceptedAt} prefix="Assignée il y a" />
+              <Elapsed since={guard.timestamps.acceptedAt} prefix={t('Assignée il y a')} />
             ) : null}
             <CoverageDeadline summary={guard} />
           </Box>
@@ -139,16 +140,16 @@ export function MyGuardTab() {
           )}
           {guard.voice && <VoicePlayer src={`/api/files/${guard.voice.fileId}`} durationSeconds={guard.voice.durationSeconds} />}
           {guard.status === 'RELIEF_PENDING' && (
-            <Alert severity="warning">Relève demandée : restez en classe jusqu’à ce que votre remplaçant confirme sa présence.</Alert>
+            <Alert severity="warning">{t('Relève demandée : restez en classe jusqu’à ce que votre remplaçant confirme sa présence.')}</Alert>
           )}
           {guard.view === 'SUPERVISOR' && guard.supports.length > 0 && guard.allowedActions.length === 0 && (
-            <Alert severity="info">Vous êtes en renfort dans cette classe jusqu’à la décision de l’admin.</Alert>
+            <Alert severity="info">{t('Vous êtes en renfort dans cette classe jusqu’à la décision de l’admin.')}</Alert>
           )}
-          {guard.status === 'DONE' && <Alert severity="info">Affectation terminée, en attente de validation par l’admin.</Alert>}
+          {guard.status === 'DONE' && <Alert severity="info">{t('Affectation terminée, en attente de validation par l’admin.')}</Alert>}
           <CoverageActions detail={guard} />
           <Box>
             <Button component={RouterLink} to={`/gardes/${guard.id}`} size="small">
-              Voir le détail et l’historique
+              {t('Voir le détail et l’historique')}
             </Button>
           </Box>
         </SectionCard>
@@ -160,18 +161,18 @@ export function MyGuardTab() {
 /** Onglet « Historique » : affectations effectuées ou annulées. */
 export function PersonalHistoryTab() {
   const history = useCoverageHistory();
-  if (history.isPending) return <LoadingState label="Chargement de l’historique" />;
-  if (history.error) return <ErrorState message="Impossible de charger l’historique." actionLabel="Réessayer" onAction={() => void history.refetch()} />;
+  if (history.isPending) return <LoadingState label={t('Chargement de l’historique')} />;
+  if (history.error) return <ErrorState message={t('Impossible de charger l’historique.')} actionLabel={t('Réessayer')} onAction={() => void history.refetch()} />;
   const { guards } = history.data;
   if (guards.length === 0) {
     return (
       <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1.5, bgcolor: 'background.paper' }}>
-        <EmptyState icon={History} title="Aucune affectation pour l’instant" description="Vos affectations terminées ou annulées apparaîtront ici." />
+        <EmptyState icon={History} title={t('Aucune affectation pour l’instant')} description={t('Vos affectations terminées ou annulées apparaîtront ici.')} />
       </Box>
     );
   }
   return (
-    <SectionCard title="Mes affectations" icon={History} flush>
+    <SectionCard title={t('Mes affectations')} icon={History} flush>
       <Box component="ul" sx={{ listStyle: 'none', m: 0, p: 0 }}>
         {guards.map((g) => (
           <Box component="li" key={g.id} sx={{ borderTop: 1, borderColor: 'divider', '&:first-of-type': { borderTop: 0 } }}>
@@ -184,7 +185,7 @@ export function PersonalHistoryTab() {
                 <Typography variant="subtitle2">{g.class.name}</Typography>
                 <Typography variant="caption" color="text.secondary">
                   {formatDateTime(g.timestamps.createdAt)}
-                  {g.timestamps.presenceAt && ` · en classe à ${formatTime(g.timestamps.presenceAt)}`}
+                  {g.timestamps.presenceAt && ` · ${t('en classe à {time}', { time: formatTime(g.timestamps.presenceAt) })}`}
                   {g.durationMinutes !== null && ` · ${formatDuration(g.durationMinutes)}`}
                 </Typography>
               </Box>

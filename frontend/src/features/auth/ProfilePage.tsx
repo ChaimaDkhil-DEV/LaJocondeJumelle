@@ -13,11 +13,12 @@ import { UserAvatar } from '../../components/UserAvatar';
 import { ROLE_LABELS } from '../admin/labels';
 import { AvatarDialog } from '../avatar/AvatarDialog';
 import { useCurrentUser } from './useCurrentUser';
+import { t } from '../../i18n';
 
 /** Groupes d'affectation (groupes à clé système) dont le compte est membre. */
 function assignmentGroups(me: Me): string {
-  const groups = [me.isSupervisor && 'Surveillants', me.isTeacher && 'Enseignants'].filter(Boolean);
-  return groups.length > 0 ? groups.join(', ') : 'Aucun';
+  const groups = [me.isSupervisor && t('Surveillants'), me.isTeacher && t('Enseignants')].filter(Boolean);
+  return groups.length > 0 ? groups.join(', ') : t('Aucun');
 }
 
 /**
@@ -33,20 +34,20 @@ export function ProfilePage() {
   if (!me.data) return null;
 
   const rows: Array<[string, string]> = [
-    ['Nom', me.data.displayName],
-    ['Identifiant de connexion', me.data.username],
-    ['Fonction', me.data.jobTitle ?? 'Non renseignée'],
-    ['Rôle', ROLE_LABELS[me.data.role]],
-    ['Groupes d’affectation', assignmentGroups(me.data)],
+    [t('Nom'), me.data.displayName],
+    [t('Identifiant de connexion'), me.data.username],
+    [t('Fonction'), me.data.jobTitle ?? t('Non renseignée')],
+    [t('Rôle'), ROLE_LABELS[me.data.role]],
+    [t('Groupes d’affectation'), assignmentGroups(me.data)],
   ];
 
   return (
     <>
-      <PageHeader title="Mon profil" />
+      <PageHeader title={t('Mon profil')} />
       <Box sx={{ display: 'grid', gap: 2 }}>
         {passwordChanged && (
           <Alert severity="success" role="status">
-            Mot de passe modifié. Vos autres sessions ont été fermées.
+            {t('Mot de passe modifié. Vos autres sessions ont été fermées.')}
           </Alert>
         )}
         {/* Photo de profil : chacun change la sienne (avatar par défaut tant qu'il n'en a pas). */}
@@ -56,11 +57,11 @@ export function ProfilePage() {
             <Box sx={{ flex: '1 1 200px', minWidth: 0 }}>
               <Typography sx={{ fontWeight: font.medium, overflowWrap: 'anywhere' }}>{me.data.displayName}</Typography>
               <Typography variant="body2" color="text.secondary">
-                Votre photo apparaît dans les demandes, les messages et l’historique.
+                {t('Votre photo apparaît dans les demandes, les messages et l’historique.')}
               </Typography>
             </Box>
             <Button variant="outlined" startIcon={<Camera size={icon.sm} aria-hidden="true" />} onClick={() => setAvatarOpen(true)}>
-              Changer la photo
+              {t('Changer la photo')}
             </Button>
           </Box>
         </SectionCard>
@@ -88,7 +89,7 @@ export function ProfilePage() {
             ))}
           </Box>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-            Pour modifier ces informations, adressez-vous à l’administration.
+            {t('Pour modifier ces informations, adressez-vous à l’administration.')}
           </Typography>
         </SectionCard>
         {/* Libellé identique au message de refus du serveur (users.service.ts, FR-013). */}
@@ -99,7 +100,7 @@ export function ProfilePage() {
             variant="outlined"
             startIcon={<KeyRound size={icon.sm} aria-hidden="true" />}
           >
-            Changer mon mot de passe
+            {t('Changer mon mot de passe')}
           </Button>
         </Box>
       </Box>

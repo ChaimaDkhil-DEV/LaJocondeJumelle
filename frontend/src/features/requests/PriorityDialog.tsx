@@ -13,6 +13,7 @@ import type { Priority } from '../../api/types';
 import Box from '@mui/material/Box';
 import { PRIORITY_LABELS, PRIORITY_STYLE } from '../../components/PriorityBadge';
 import { icon } from '../../design/tokens';
+import { t } from '../../i18n';
 
 interface PriorityDialogProps {
   open: boolean;
@@ -34,10 +35,10 @@ export function PriorityDialog({ open, current, pending, onConfirm, onClose }: P
       aria-labelledby={titleId}
       slotProps={{ transition: { onEnter: () => setPriority(current) } }}
     >
-      <DialogTitle id={titleId}>Changer la priorité</DialogTitle>
+      <DialogTitle id={titleId}>{t('Changer la priorité')}</DialogTitle>
       <DialogContent>
         <FormControl component="fieldset">
-          <FormLabel component="legend">Priorité</FormLabel>
+          <FormLabel component="legend">{t('Priorité')}</FormLabel>
           <RadioGroup value={priority} onChange={(e) => setPriority(e.target.value as Priority)}>
             {(Object.keys(PRIORITY_LABELS) as Priority[]).map((p) => {
               const Icon = PRIORITY_STYLE[p].icon;
@@ -59,9 +60,9 @@ export function PriorityDialog({ open, current, pending, onConfirm, onClose }: P
         </FormControl>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Retour</Button>
+        <Button onClick={onClose}>{t('Retour')}</Button>
         <Button variant="contained" disabled={priority === current} loading={pending} onClick={() => onConfirm(priority)}>
-          Enregistrer la priorité
+          {t('Enregistrer la priorité')}
         </Button>
       </DialogActions>
     </Dialog>

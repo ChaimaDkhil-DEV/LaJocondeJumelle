@@ -53,6 +53,11 @@ describe('LoginPage', () => {
     expect(screen.getByRole('button', { name: 'Se connecter' })).toBeInTheDocument();
   });
 
+  it('propose le choix de la langue avant la connexion', () => {
+    renderAt('/connexion', () => json(401));
+    expect(screen.getByRole('group', { name: 'Langue' })).toBeVisible();
+  });
+
   it('signale les champs vides sans appeler l’API', async () => {
     const handler = vi.fn(() => json(200, { user: me }));
     renderAt('/connexion', handler);

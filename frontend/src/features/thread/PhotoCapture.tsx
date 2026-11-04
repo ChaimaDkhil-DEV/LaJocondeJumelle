@@ -9,6 +9,7 @@ import { IconAction } from '../../components/IconAction';
 import { LoadingState } from '../../components/LoadingState';
 import { icon } from '../../design/tokens';
 import { FilePickerButton } from './FilePickerButton';
+import { t } from '../../i18n';
 
 export interface UploadedPhoto {
   id: string;
@@ -31,7 +32,7 @@ interface PhotoCaptureProps {
  * Prise de photo (appareil) ou choix dans la galerie, téléversement immédiat (kind=PHOTO).
  * Le serveur retire les métadonnées (dont la position GPS) et refuse les formats non acceptés.
  */
-export function PhotoCapture({ value, onChange, requestId, max = 5, altPrefix = 'Photo de preuve', disabled = false }: PhotoCaptureProps) {
+export function PhotoCapture({ value, onChange, requestId, max = 5, altPrefix = t('Photo de preuve'), disabled = false }: PhotoCaptureProps) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,7 +46,7 @@ export function PhotoCapture({ value, onChange, requestId, max = 5, altPrefix = 
       const uploaded = await uploadFile('PHOTO', file, file.name, requestId);
       onChange([...value, { id: uploaded.id, previewUrl: URL.createObjectURL(file) }]);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'La photo n’a pas pu être envoyée. Réessayez.');
+      setError(e instanceof ApiError ? e.message : t('La photo n’a pas pu être envoyée. Réessayez.'));
     } finally {
       setUploading(false);
     }
@@ -62,7 +63,7 @@ export function PhotoCapture({ value, onChange, requestId, max = 5, altPrefix = 
     <Stack spacing={1.5}>
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
         <FilePickerButton
-          label="Prendre une photo"
+          label={t('Prendre une photo')}
           icon={<Camera size={icon.md} aria-hidden="true" />}
           accept="image/*"
           capture="environment"
@@ -70,14 +71,14 @@ export function PhotoCapture({ value, onChange, requestId, max = 5, altPrefix = 
           onChange={(e) => void handleFile(e)}
         />
         <FilePickerButton
-          label="Choisir dans la galerie"
+          label={t('Choisir dans la galerie')}
           icon={<Images size={icon.md} aria-hidden="true" />}
           accept="image/*"
           disabled={disabled || full || uploading}
           onChange={(e) => void handleFile(e)}
         />
       </Box>
-      {uploading && <LoadingState label="Envoi de la photo…" variant="inline" />}
+      {uploading && <LoadingState label={t('Envoi de la photo…')} variant="inline" />}
       {error && <Alert severity="error">{error}</Alert>}
       {value.length > 0 && (
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
@@ -92,8 +93,8 @@ export function PhotoCapture({ value, onChange, requestId, max = 5, altPrefix = 
               <IconAction
                 icon={X}
                 size="small"
-                label={`Retirer la photo ${index + 1}`}
-                tooltip="Retirer"
+                label={t('Retirer la photo {n}', { n: index + 1 })}
+                tooltip={t('Retirer')}
                 onClick={() => remove(index)}
                 sx={{
                   position: 'absolute',

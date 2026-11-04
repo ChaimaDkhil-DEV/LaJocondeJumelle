@@ -8,6 +8,7 @@ import { font, icon, tokensOf } from '../../design/tokens';
 import { formatDuration } from './recorderFormat';
 import { useVoiceRecorder, type VoiceRecording } from './useVoiceRecorder';
 import { VoicePlayer } from './VoicePlayer';
+import { t } from '../../i18n';
 
 export type { VoiceRecording } from './useVoiceRecorder';
 
@@ -19,13 +20,15 @@ interface VoiceRecorderProps {
   disabled?: boolean;
 }
 
-const DENIED_MESSAGE =
-  'L’accès au micro a été refusé. Autorisez le micro pour ce site dans les réglages de votre navigateur, ' +
-  'ou écrivez votre demande dans la description écrite.';
-const UNSUPPORTED_MESSAGE =
-  'Votre navigateur ne permet pas d’enregistrer un message vocal. Écrivez votre demande dans la description.';
-const ERROR_MESSAGE =
-  'Impossible d’accéder au micro. Vérifiez qu’il est branché et disponible, ou écrivez votre demande dans la description.';
+const DENIED_MESSAGE = t(
+  'L’accès au micro a été refusé. Autorisez le micro pour ce site dans les réglages de votre navigateur, ou écrivez votre demande dans la description écrite.',
+);
+const UNSUPPORTED_MESSAGE = t(
+  'Votre navigateur ne permet pas d’enregistrer un message vocal. Écrivez votre demande dans la description.',
+);
+const ERROR_MESSAGE = t(
+  'Impossible d’accéder au micro. Vérifiez qu’il est branché et disponible, ou écrivez votre demande dans la description.',
+);
 
 /** Pastille rouge « enregistrement en cours » (immobile si l'utilisateur réduit les animations). */
 const pulse = keyframes`
@@ -57,10 +60,10 @@ export function VoiceRecorder({ maxSeconds, value, onChange, disabled = false }:
           <VoicePlayer key={value.url} src={value.url} durationSeconds={value.durationSeconds} />
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
             <Button variant="outlined" startIcon={<RotateCcw size={icon.sm} aria-hidden="true" />} disabled={disabled} onClick={discard}>
-              Refaire l’enregistrement
+              {t('Refaire l’enregistrement')}
             </Button>
             <Button color="error" startIcon={<Trash2 size={icon.sm} aria-hidden="true" />} disabled={disabled} onClick={discard}>
-              Supprimer le message vocal
+              {t('Supprimer le message vocal')}
             </Button>
           </Box>
         </>
@@ -90,7 +93,7 @@ export function VoiceRecorder({ maxSeconds, value, onChange, disabled = false }:
             </Typography>
             {recorder.nearLimit && (
               <Typography variant="body2" sx={(theme) => ({ color: tokensOf(theme).warning.text, fontWeight: font.medium })}>
-                Plus que {recorder.remainingSeconds} secondes
+                {t('Plus que {n} secondes', { n: recorder.remainingSeconds })}
               </Typography>
             )}
           </Box>
@@ -101,7 +104,7 @@ export function VoiceRecorder({ maxSeconds, value, onChange, disabled = false }:
             startIcon={<Square size={icon.sm} fill="currentColor" aria-hidden="true" />}
             onClick={recorder.stop}
           >
-            Arrêter l’enregistrement
+            {t('Arrêter l’enregistrement')}
           </Button>
         </Box>
       ) : (
@@ -123,10 +126,10 @@ export function VoiceRecorder({ maxSeconds, value, onChange, disabled = false }:
               '&:hover': { bgcolor: tokensOf(theme).accent.soft, borderColor: tokensOf(theme).accent.main },
             })}
           >
-            Enregistrer un message vocal
+            {t('Enregistrer un message vocal')}
           </Button>
           <Typography variant="body2" color="text.secondary">
-            Durée maximale : {formatDuration(maxSeconds)}
+            {t('Durée maximale : {duration}', { duration: formatDuration(maxSeconds) })}
           </Typography>
         </Box>
       )}

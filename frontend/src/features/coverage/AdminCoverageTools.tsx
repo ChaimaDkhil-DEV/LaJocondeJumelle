@@ -16,6 +16,7 @@ import { icon } from '../../design/tokens';
 import { useCoverageAction, useCoverageTeachers } from './api';
 import { formatTime } from './labels';
 import type { CoverageDetail } from './types';
+import { t } from '../../i18n';
 
 const NO_TEACHER = 'none';
 
@@ -31,11 +32,11 @@ export function SupportsList({ detail }: { detail: CoverageDetail }) {
   return (
     <Box sx={{ display: 'grid', gap: 0.5 }}>
       <Typography variant="caption" color="text.secondary">
-        Renfort
+        {t('Renfort')}
       </Typography>
       <Box
         component="ul"
-        aria-label="Renforts"
+        aria-label={t('Renforts')}
         sx={{ listStyle: 'none', m: 0, p: 0, display: 'grid', gap: 1 }}
       >
         {detail.supports.map((s) => (
@@ -54,29 +55,29 @@ export function SupportsList({ detail }: { detail: CoverageDetail }) {
               name={s.user.displayName}
               id={s.user.id}
               size={28}
-              secondary={`En renfort depuis ${formatTime(s.joinedAt)}`}
+              secondary={t('En renfort depuis {time}', { time: formatTime(s.joinedAt) })}
             />
             {canRelease && (
               <Button
                 size="small"
                 startIcon={<UserMinus size={icon.sm} aria-hidden="true" />}
-                aria-label={`Libérer ${s.user.displayName}`}
+                aria-label={t('Libérer {name}', { name: s.user.displayName })}
                 disabled={action.isPending}
                 onClick={() =>
                   action.mutate(
                     { action: 'RELEASE_SUPPORT', supportId: s.id, version: detail.version },
                     {
                       onSuccess: () =>
-                        toast.success(`${s.user.displayName} est libéré(e) et reprend sa tournée.`),
+                        toast.success(t('{name} est libéré(e) et reprend sa tournée.', { name: s.user.displayName })),
                       onError: (err) =>
                         toast.error(
-                          err instanceof ApiError ? err.message : 'Libération impossible.',
+                          err instanceof ApiError ? err.message : t('Libération impossible.'),
                         ),
                     },
                   )
                 }
               >
-                Libérer
+                {t('Libérer')}
               </Button>
             )}
           </Box>
@@ -93,11 +94,11 @@ export function TeacherField({ detail }: { detail: CoverageDetail }) {
   return (
     <Box sx={{ display: 'grid', gap: 0.5 }}>
       <Typography variant="caption" color="text.secondary">
-        Enseignant
+        {t('Enseignant')}
       </Typography>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
         <Typography variant="body2">
-          {detail.teacher?.displayName ?? detail.absentTeacher ?? 'Enseignant non précisé'}
+          {detail.teacher?.displayName ?? detail.absentTeacher ?? t('Enseignant non précisé')}
         </Typography>
         {canSet && (
           <Button
@@ -105,7 +106,7 @@ export function TeacherField({ detail }: { detail: CoverageDetail }) {
             startIcon={<Pencil size={icon.sm} aria-hidden="true" />}
             onClick={() => setOpen(true)}
           >
-            Corriger l’enseignant
+            {t('Corriger l’enseignant')}
           </Button>
         )}
       </Box>
@@ -132,29 +133,29 @@ function TeacherDialog({ detail, onClose }: { detail: CoverageDetail; onClose: (
       },
       {
         onSuccess: () => {
-          toast.success('Enseignant enregistré.');
+          toast.success(t('Enseignant enregistré.'));
           onClose();
         },
         onError: (err) =>
-          setError(err instanceof ApiError ? err.message : 'Enregistrement impossible.'),
+          setError(err instanceof ApiError ? err.message : t('Enregistrement impossible.')),
       },
     );
   }
 
   return (
     <Dialog open onClose={onClose} aria-labelledby={titleId} fullWidth maxWidth="xs">
-      <DialogTitle id={titleId}>Corriger l’enseignant</DialogTitle>
+      <DialogTitle id={titleId}>{t('Corriger l’enseignant')}</DialogTitle>
       <DialogContent sx={{ display: 'grid', gap: 2, pt: '8px !important' }}>
         <TextField
           select
           id="correction-enseignant"
-          label="Enseignant"
+          label={t('Enseignant')}
           value={teacherId}
           onChange={(e) => setTeacherId(e.target.value)}
           error={Boolean(error)}
-          helperText={error ?? 'Membre du groupe Enseignants, ou « Non précisé ».'}
+          helperText={error ?? t('Membre du groupe Enseignants, ou « Non précisé ».')}
         >
-          <MenuItem value={NO_TEACHER}>Non précisé</MenuItem>
+          <MenuItem value={NO_TEACHER}>{t('Non précisé')}</MenuItem>
           {(teachers.data ?? []).map((t) => (
             <MenuItem key={t.id} value={t.id}>
               {t.displayName}
@@ -163,9 +164,9 @@ function TeacherDialog({ detail, onClose }: { detail: CoverageDetail; onClose: (
         </TextField>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Annuler</Button>
+        <Button onClick={onClose}>{t('Annuler')}</Button>
         <Button variant="contained" onClick={save} loading={action.isPending}>
-          Enregistrer
+          {t('Enregistrer')}
         </Button>
       </DialogActions>
     </Dialog>

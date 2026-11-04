@@ -22,8 +22,10 @@ import { SectionHeader } from '../../components/SectionHeader';
 import { useToast } from '../../components/Toast';
 import { font, icon } from '../../design/tokens';
 import { useAdminFloors, useSaveFloor, type AdminFloor } from './adminApi';
+import { isPlural, t } from '../../i18n';
 
-const plural = (n: number, word: string) => `${n} ${word}${n > 1 ? 's' : ''}`;
+const supervisorsText = (n: number) => t(isPlural(n) ? '{n} surveillants' : '{n} surveillant', { n });
+const classesText = (n: number) => t(isPlural(n) ? '{n} classes' : '{n} classe', { n });
 
 function FloorFormDialog({
   floor,
@@ -46,48 +48,48 @@ function FloorFormDialog({
   function submit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
     const found: typeof errors = {};
-    if (!name.trim()) found.name = 'Le nom est obligatoire.';
-    if (!/^\d+$/.test(position.trim())) found.position = 'Nombre entier attendu (ex. 1).';
+    if (!name.trim()) found.name = t('Le nom est obligatoire.');
+    if (!/^\d+$/.test(position.trim())) found.position = t('Nombre entier attendu (ex. 1).');
     setErrors(found);
     if (Object.keys(found).length > 0) return;
     save.mutate(
       { id: floor?.id, name: name.trim(), position: Number(position), ...(floor ? { active } : {}) },
-      { onSuccess: () => onSaved(floor ? 'Étage enregistré.' : 'Étage créé.') },
+      { onSuccess: () => onSaved(floor ? t('Étage enregistré.') : t('Étage créé.')) },
     );
   }
 
   return (
     <Dialog open onClose={onClose} aria-labelledby={titleId} fullWidth maxWidth="sm">
       <Box component="form" noValidate onSubmit={submit}>
-        <DialogTitle id={titleId}>{floor ? `Modifier : ${floor.name}` : 'Nouvel étage'}</DialogTitle>
+        <DialogTitle id={titleId}>{floor ? t('Modifier : {name}', { name: floor.name }) : t('Nouvel étage')}</DialogTitle>
         <DialogContent sx={{ display: 'grid', gap: 2.5, pt: '8px !important' }}>
           <TextField
             id="etage-nom"
-            label="Nom de l’étage"
+            label={t('Nom de l’étage')}
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
             error={Boolean(errors.name)}
-            helperText={errors.name ?? 'Par exemple : 1er étage, rez-de-chaussée.'}
+            helperText={errors.name ?? t('Par exemple : 1er étage, rez-de-chaussée.')}
             slotProps={{ htmlInput: { maxLength: 60 } }}
           />
           <TextField
             id="etage-position"
-            label="Ordre d’affichage"
+            label={t('Ordre d’affichage')}
             required
             value={position}
             onChange={(e) => setPosition(e.target.value)}
             error={Boolean(errors.position)}
-            helperText={errors.position ?? 'Les étages sont listés du plus petit au plus grand.'}
+            helperText={errors.position ?? t('Les étages sont listés du plus petit au plus grand.')}
             slotProps={{ htmlInput: { inputMode: 'numeric' } }}
           />
-          {floor && <FormControlLabel control={<Checkbox checked={active} onChange={(e) => setActive(e.target.checked)} />} label="Étage actif" />}
-          {save.error && <Alert severity="error">{save.error instanceof ApiError ? save.error.message : 'Enregistrement impossible.'}</Alert>}
+          {floor && <FormControlLabel control={<Checkbox checked={active} onChange={(e) => setActive(e.target.checked)} />} label={t('Étage actif')} />}
+          {save.error && <Alert severity="error">{save.error instanceof ApiError ? save.error.message : t('Enregistrement impossible.')}</Alert>}
         </DialogContent>
         <DialogActions>
-          <Button onClick={onClose}>Annuler</Button>
+          <Button onClick={onClose}>{t('Annuler')}</Button>
           <Button type="submit" variant="contained" loading={save.isPending}>
-            Enregistrer l’étage
+            {t('Enregistrer l’étage')}
           </Button>
         </DialogActions>
       </Box>
@@ -109,25 +111,25 @@ export function FloorsAdminPage() {
     <Box component="section" aria-labelledby="titre-etages">
       <SectionHeader
         id="titre-etages"
-        title="Étages"
-        description="Rattachez chaque classe et chaque surveillant à un étage : les surveillants de l’étage sont proposés en premier."
+        title={t('Étages')}
+        description={t('Rattachez chaque classe et chaque surveillant à un étage : les surveillants de l’étage sont proposés en premier.')}
         action={
           <Button variant="contained" startIcon={<Building2 size={icon.sm} aria-hidden="true" />} onClick={() => setForm({ floor: null })}>
-            Nouvel étage
+            {t('Nouvel étage')}
           </Button>
         }
       />
       {floors.isPending ? (
-        <LoadingState label="Chargement des étages" />
+        <LoadingState label={t('Chargement des étages')} />
       ) : floors.error ? (
-        <ErrorState message="Impossible de charger les étages." actionLabel="Réessayer" onAction={() => void floors.refetch()} />
+        <ErrorState message={t('Impossible de charger les étages.')} actionLabel={t('Réessayer')} onAction={() => void floors.refetch()} />
       ) : floors.data.length === 0 ? (
         <Paper variant="outlined">
-          <EmptyState icon={Building2} title="Aucun étage" description="Créez les étages de l’école, par exemple « 1er étage »." />
+          <EmptyState icon={Building2} title={t('Aucun étage')} description={t('Créez les étages de l’école, par exemple « 1er étage ».')} />
         </Paper>
       ) : (
         <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
-          <Box component="ul" aria-label="Étages" sx={{ listStyle: 'none', m: 0, p: 0, '& > li + li': { borderTop: 1, borderColor: 'divider' } }}>
+          <Box component="ul" aria-label={t('Étages')} sx={{ listStyle: 'none', m: 0, p: 0, '& > li + li': { borderTop: 1, borderColor: 'divider' } }}>
             {floors.data.map((f) => (
               <Box component="li" key={f.id} sx={{ display: 'flex', gap: 2, alignItems: 'center', px: { xs: 2, md: 2.5 }, py: 1.5 }}>
                 <Box sx={{ minWidth: 0, flex: '1 1 auto' }}>
@@ -135,20 +137,20 @@ export function FloorsAdminPage() {
                     <Typography sx={{ fontWeight: font.medium }}>{f.name}</Typography>
                     {!f.active && (
                       <Badge tone="neutral" icon={CircleOff}>
-                        Inactif
+                        {t('Inactif')}
                       </Badge>
                     )}
                     {f.active && f.warning === 'NO_SUPERVISOR' && (
                       <Badge tone="warning" icon={TriangleAlert}>
-                        Étage sans surveillant
+                        {t('Étage sans surveillant')}
                       </Badge>
                     )}
                   </Box>
                   <Typography variant="body2" color="text.secondary">
-                    {plural(f.supervisorCount, 'surveillant')} · {plural(f.classCount, 'classe')}
+                    {supervisorsText(f.supervisorCount)} · {classesText(f.classCount)}
                   </Typography>
                 </Box>
-                <IconAction icon={Pencil} label={`Modifier l’étage ${f.name}`} tooltip="Modifier" onClick={() => setForm({ floor: f })} />
+                <IconAction icon={Pencil} label={t('Modifier l’étage {name}', { name: f.name })} tooltip={t('Modifier')} onClick={() => setForm({ floor: f })} />
               </Box>
             ))}
           </Box>

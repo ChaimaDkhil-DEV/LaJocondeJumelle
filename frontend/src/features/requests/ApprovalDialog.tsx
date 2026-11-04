@@ -9,20 +9,21 @@ import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import { useEffect, useId, useRef, useState } from 'react';
 import { LoadingState } from '../../components/LoadingState';
+import { t } from '../../i18n';
 import { useAssignees } from './api';
 
 const TEXTS = {
   approve: {
-    title: 'Approuver la demande',
-    selectLabel: 'Employé chargé de la demande',
-    required: 'Choisissez l’employé qui réalisera la demande.',
-    confirm: 'Approuver et affecter',
+    title: t('Approuver la demande'),
+    selectLabel: t('Employé chargé de la demande'),
+    required: t('Choisissez l’employé qui réalisera la demande.'),
+    confirm: t('Approuver et affecter'),
   },
   reassign: {
-    title: 'Réaffecter la demande',
-    selectLabel: 'Nouvel employé',
-    required: 'Choisissez le nouvel employé.',
-    confirm: 'Réaffecter',
+    title: t('Réaffecter la demande'),
+    selectLabel: t('Nouvel employé'),
+    required: t('Choisissez le nouvel employé.'),
+    confirm: t('Réaffecter'),
   },
 } as const;
 
@@ -100,10 +101,10 @@ export function ApprovalDialog({
         )}
         {automatic ? (
           <DialogContentText>
-            La demande sera affectée automatiquement à l’employé désigné pour cette catégorie, qui en sera notifié.
+            {t('La demande sera affectée automatiquement à l’employé désigné pour cette catégorie, qui en sera notifié.')}
           </DialogContentText>
         ) : assignees.isPending ? (
-          <LoadingState label="Chargement des employés" variant="inline" />
+          <LoadingState label={t('Chargement des employés')} variant="inline" />
         ) : (
           <TextField
             select
@@ -115,7 +116,7 @@ export function ApprovalDialog({
               setError(null);
             }}
             error={Boolean(error)}
-            helperText={error ?? 'L’employé choisi sera notifié.'}
+            helperText={error ?? t('L’employé choisi sera notifié.')}
             ref={selectRef}
             sx={{ mt: 1 }}
           >
@@ -128,9 +129,9 @@ export function ApprovalDialog({
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Retour</Button>
+        <Button onClick={onClose}>{t('Retour')}</Button>
         <Button variant="contained" onClick={confirm} loading={pending}>
-          {automatic ? 'Approuver' : texts.confirm}
+          {automatic ? t('Approuver') : texts.confirm}
         </Button>
       </DialogActions>
     </Dialog>

@@ -1,7 +1,8 @@
-import { frFR } from '@mui/material/locale';
+import { enUS, frFR } from '@mui/material/locale';
 import { alpha, createTheme, type Theme } from '@mui/material/styles';
 import { ChevronDown, CircleAlert, CircleCheck, Info, TriangleAlert, X } from 'lucide-react';
 import { cardShadow, colors, font, fontSize, icon, motion, radius, shadow, type ColorMode, type ColorTokens } from '../design/tokens';
+import { language } from '../i18n';
 
 declare module '@mui/material/styles' {
   interface Theme {
@@ -474,7 +475,7 @@ export function createAppTheme(mode: ColorMode = 'light'): Theme {
         MuiSnackbar: { defaultProps: { anchorOrigin: { vertical: 'bottom', horizontal: 'center' } } },
       },
     },
-    frFR,
+    language() === 'en' ? enUS : frFR,
   );
 }
 

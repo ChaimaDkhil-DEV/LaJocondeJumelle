@@ -20,6 +20,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useId, useState, type FormEvent } from 'react';
 import { ApiError, apiFetch, fieldErrors } from '../../api/client';
 import type { Role } from '../../api/types';
+import { t } from '../../i18n';
 import {
   adminKeys,
   useAdminUsers,
@@ -74,15 +75,15 @@ function initialValues(category: AdminCategory | null | undefined): Values {
 
 function validate(v: Values): Record<string, string> {
   const errors: Record<string, string> = {};
-  if (!v.name.trim()) errors.name = 'Le nom est obligatoire.';
+  if (!v.name.trim()) errors.name = t('Le nom est obligatoire.');
   if (v.kind === 'COVERAGE') return errors;
-  if (v.creatorRoles.length === 0) errors.creatorRoles = 'Choisissez au moins un rôle.';
+  if (v.creatorRoles.length === 0) errors.creatorRoles = t('Choisissez au moins un rôle.');
   if (v.closureMode === 'AUTO' && !/^\d+$/.test(v.autoCloseAfterMinutes.trim()))
-    errors.autoCloseAfterMinutes = 'Nombre entier de minutes attendu (0 = immédiat).';
+    errors.autoCloseAfterMinutes = t('Nombre entier de minutes attendu (0 = immédiat).');
   if (v.circuit === 'B_ADMIN_VALIDATION' && v.assignmentMode === 'AUTO') {
-    if (!v.autoAssigneeId) errors.autoAssigneeId = 'Choisissez l’employé désigné.';
+    if (!v.autoAssigneeId) errors.autoAssigneeId = t('Choisissez l’employé désigné.');
     else if (!v.recipients.some((r) => r.id === v.autoAssigneeId))
-      errors.autoAssigneeId = 'L’employé désigné doit faire partie des destinataires.';
+      errors.autoAssigneeId = t('L’employé désigné doit faire partie des destinataires.');
   }
   return errors;
 }
@@ -211,7 +212,7 @@ export function CategoryFormDialog({ open, category, onClose, onSaved }: Categor
         queryClient.invalidateQueries({ queryKey: ['categories'] }),
         queryClient.invalidateQueries({ queryKey: ['requests', 'detail'] }),
       ]);
-      onSaved(category ? 'Catégorie enregistrée.' : 'Catégorie créée.');
+      onSaved(category ? t('Catégorie enregistrée.') : t('Catégorie créée.'));
     },
     onError: async (error) => {
       setErrors(fieldErrors(error));
@@ -232,7 +233,7 @@ export function CategoryFormDialog({ open, category, onClose, onSaved }: Categor
   }
 
   const generalError =
-    mutation.error instanceof ApiError ? mutation.error.message : mutation.error ? 'Enregistrement impossible.' : null;
+    mutation.error instanceof ApiError ? mutation.error.message : mutation.error ? t('Enregistrement impossible.') : null;
   const circuitB = values.circuit === 'B_ADMIN_VALIDATION';
   const coverage = values.kind === 'COVERAGE';
 
@@ -254,12 +255,12 @@ export function CategoryFormDialog({ open, category, onClose, onSaved }: Categor
       }}
     >
       <Box component="form" noValidate onSubmit={submit}>
-        <DialogTitle id={titleId}>{category ? `Modifier : ${category.name}` : 'Nouvelle catégorie'}</DialogTitle>
+        <DialogTitle id={titleId}>{category ? t('Modifier : {name}', { name: category.name }) : t('Nouvelle catégorie')}</DialogTitle>
         <DialogContent sx={{ display: 'grid', gap: 2.5, pt: '8px !important' }}>
-          <Alert severity="info">Les modifications s’appliquent uniquement aux nouvelles demandes.</Alert>
+          <Alert severity="info">{t('Les modifications s’appliquent uniquement aux nouvelles demandes.')}</Alert>
           <TextField
             id="categorie-nom"
-            label="Nom de la catégorie"
+            label={t('Nom de la catégorie')}
             required
             value={values.name}
             onChange={(e) => set({ name: e.target.value })}
@@ -270,28 +271,28 @@ export function CategoryFormDialog({ open, category, onClose, onSaved }: Categor
           {category && (
             <FormControlLabel
               control={<Checkbox checked={values.active} onChange={(e) => set({ active: e.target.checked })} />}
-              label="Catégorie active (proposée à la création des demandes)"
+              label={t('Catégorie active (proposée à la création des demandes)')}
             />
           )}
 
           {category ? (
-            <FormHelperText sx={{ mt: -1 }}>Type : {KIND_LABELS[values.kind]} (non modifiable)</FormHelperText>
+            <FormHelperText sx={{ mt: -1 }}>{t('Type : {kind} (non modifiable)', { kind: KIND_LABELS[values.kind] })}</FormHelperText>
           ) : (
             <FormControl component="fieldset">
-              <FormLabel component="legend">Type de catégorie</FormLabel>
+              <FormLabel component="legend">{t('Type de catégorie')}</FormLabel>
               <RadioGroup value={values.kind} onChange={(e) => set({ kind: e.target.value as CategoryKind })}>
                 {(Object.keys(KIND_LABELS) as CategoryKind[]).map((k) => (
                   <FormControlLabel key={k} value={k} control={<Radio />} label={KIND_LABELS[k]} />
                 ))}
               </RadioGroup>
-              <FormHelperText>Le type ne pourra plus être modifié après la création.</FormHelperText>
+              <FormHelperText>{t('Le type ne pourra plus être modifié après la création.')}</FormHelperText>
             </FormControl>
           )}
 
           {coverage && (
             <>
               <FormControl component="fieldset">
-                <FormLabel component="legend">Preuve de présence exigée</FormLabel>
+                <FormLabel component="legend">{t('Preuve de présence exigée')}</FormLabel>
                 <RadioGroup value={values.proofMode} onChange={(e) => set({ proofMode: e.target.value as ProofMode })}>
                   {(Object.keys(PROOF_MODE_LABELS) as ProofMode[]).map((p) => (
                     <FormControlLabel key={p} value={p} control={<Radio />} label={PROOF_MODE_LABELS[p]} />
@@ -300,7 +301,7 @@ export function CategoryFormDialog({ open, category, onClose, onSaved }: Categor
               </FormControl>
               <FormControlLabel
                 control={<Checkbox checked={values.finalValidation} onChange={(e) => set({ finalValidation: e.target.checked })} />}
-                label="Validation finale de la garde par l’administration"
+                label={t('Validation finale de la garde par l’administration')}
               />
             </>
           )}
@@ -308,7 +309,7 @@ export function CategoryFormDialog({ open, category, onClose, onSaved }: Categor
           {!coverage && (
             <>
               <FormControl component="fieldset">
-                <FormLabel component="legend">Mode de routage</FormLabel>
+                <FormLabel component="legend">{t('Mode de routage')}</FormLabel>
                 <RadioGroup
                   value={values.routingMode}
                   onChange={(e) => {
@@ -332,10 +333,10 @@ export function CategoryFormDialog({ open, category, onClose, onSaved }: Categor
                 <>
                   <FormControlLabel
                     control={<Checkbox checked={values.finalValidation} onChange={(e) => set({ finalValidation: e.target.checked })} />}
-                    label="Validation finale par un admin"
+                    label={t('Validation finale par un admin')}
                   />
                   <FormControl component="fieldset">
-                    <FormLabel component="legend">Affectation après approbation</FormLabel>
+                    <FormLabel component="legend">{t('Affectation après approbation')}</FormLabel>
                     <RadioGroup value={values.assignmentMode} onChange={(e) => set({ assignmentMode: e.target.value as AssignmentMode })}>
                       {(Object.keys(ASSIGNMENT_LABELS) as AssignmentMode[]).map((m) => (
                         <FormControlLabel key={m} value={m} control={<Radio />} label={ASSIGNMENT_LABELS[m]} />
@@ -346,7 +347,7 @@ export function CategoryFormDialog({ open, category, onClose, onSaved }: Categor
               )}
 
               <FormControl component="fieldset" error={Boolean(errors.creatorRoles)}>
-                <FormLabel component="legend">Qui peut créer une demande</FormLabel>
+                <FormLabel component="legend">{t('Qui peut créer une demande')}</FormLabel>
                 <FormGroup>
                   {(Object.keys(ROLE_LABELS) as Role[]).map((role) => (
                     <FormControlLabel
@@ -369,7 +370,7 @@ export function CategoryFormDialog({ open, category, onClose, onSaved }: Categor
               <TextField
                 select
                 id="categorie-cloture"
-                label="Clôture"
+                label={t('Clôture')}
                 value={values.closureMode}
                 onChange={(e) => set({ closureMode: e.target.value as ClosureMode })}
               >
@@ -382,13 +383,13 @@ export function CategoryFormDialog({ open, category, onClose, onSaved }: Categor
               {values.closureMode === 'AUTO' && (
                 <TextField
                   id="categorie-delai-cloture"
-                  label="Délai avant clôture automatique (minutes)"
+                  label={t('Délai avant clôture automatique (minutes)')}
                   value={values.autoCloseAfterMinutes}
                   onChange={(e) => set({ autoCloseAfterMinutes: e.target.value })}
                   error={Boolean(errors.autoCloseAfterMinutes)}
                   helperText={
                     errors.autoCloseAfterMinutes ??
-                    (/^\d+$/.test(values.autoCloseAfterMinutes) ? `Le demandeur peut contester pendant ${formatMinutes(Number(values.autoCloseAfterMinutes))}.` : ' ')
+                    (/^\d+$/.test(values.autoCloseAfterMinutes) ? t('Le demandeur peut contester pendant {duration}.', { duration: formatMinutes(Number(values.autoCloseAfterMinutes)) }) : ' ')
                   }
                   slotProps={{ htmlInput: { inputMode: 'numeric', pattern: '[0-9]*' } }}
                 />
@@ -396,7 +397,7 @@ export function CategoryFormDialog({ open, category, onClose, onSaved }: Categor
 
               <FormControlLabel
                 control={<Checkbox checked={values.photoRequired} onChange={(e) => set({ photoRequired: e.target.checked })} />}
-                label="Photo de preuve obligatoire"
+                label={t('Photo de preuve obligatoire')}
               />
 
               <Autocomplete
@@ -408,17 +409,17 @@ export function CategoryFormDialog({ open, category, onClose, onSaved }: Categor
                 getOptionLabel={(o) => o.displayName}
                 isOptionEqualToValue={(a, b) => a.id === b.id}
                 loading={users.isPending}
-                noOptionsText="Aucun compte"
+                noOptionsText={t('Aucun compte')}
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    label="Destinataires"
+                    label={t('Destinataires')}
                     helperText={
                       values.routingMode === 'VIA_ADMIN'
-                        ? 'Employés qui peuvent réaliser les demandes après approbation.'
+                        ? t('Employés qui peuvent réaliser les demandes après approbation.')
                         : values.routingMode === 'PEER'
-                          ? 'Enseignants à qui un collègue peut écrire.'
-                          : 'Service qui reçoit les demandes (un seul destinataire : choisi automatiquement).'
+                          ? t('Enseignants à qui un collègue peut écrire.')
+                          : t('Service qui reçoit les demandes (un seul destinataire : choisi automatiquement).')
                     }
                   />
                 )}
@@ -427,11 +428,11 @@ export function CategoryFormDialog({ open, category, onClose, onSaved }: Categor
                 <TextField
                   select
                   id="categorie-employe-designe"
-                  label="Employé désigné"
+                  label={t('Employé désigné')}
                   value={values.autoAssigneeId}
                   onChange={(e) => set({ autoAssigneeId: e.target.value })}
                   error={Boolean(errors.autoAssigneeId)}
-                  helperText={errors.autoAssigneeId ?? 'Choisi parmi les destinataires.'}
+                  helperText={errors.autoAssigneeId ?? t('Choisi parmi les destinataires.')}
                 >
                   {values.recipients.map((r) => (
                     <MenuItem key={r.id} value={r.id}>
@@ -451,9 +452,9 @@ export function CategoryFormDialog({ open, category, onClose, onSaved }: Categor
             getOptionLabel={(o) => o.displayName}
             isOptionEqualToValue={(a, b) => a.id === b.id}
             loading={users.isPending}
-            noOptionsText="Aucun admin"
+            noOptionsText={t('Aucun admin')}
             renderInput={(params) => (
-              <TextField {...params} label="Admins de la catégorie" helperText="Admins et super administrateurs uniquement." />
+              <TextField {...params} label={t('Admins de la catégorie')} helperText={t('Admins et super administrateurs uniquement.')} />
             )}
           />
 
@@ -464,9 +465,9 @@ export function CategoryFormDialog({ open, category, onClose, onSaved }: Categor
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={onClose}>Annuler</Button>
+          <Button onClick={onClose}>{t('Annuler')}</Button>
           <Button type="submit" variant="contained" loading={mutation.isPending}>
-            Enregistrer la catégorie
+            {t('Enregistrer la catégorie')}
           </Button>
         </DialogActions>
       </Box>

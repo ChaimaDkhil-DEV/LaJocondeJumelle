@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../../api/client';
+import { t } from '../../i18n';
 
 /** Service de restauration : exactement un par élève. */
 export type MealService = 'CANTINE' | 'PANIER';
 
-export const MEAL_SERVICE_LABELS: Record<MealService, string> = { CANTINE: 'Cantine', PANIER: 'Panier' };
+export const MEAL_SERVICE_LABELS: Record<MealService, string> = { CANTINE: t('Cantine'), PANIER: t('Panier') };
 
 export interface LevelClass {
   id: string;

@@ -3,13 +3,14 @@ import { AlarmClock, Clock, Hourglass } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { serverNow } from '../api/client';
 import { font, fontSize, icon, tokensOf } from '../design/tokens';
+import { t } from '../i18n';
 
 export type DeadlineStage = 'VALIDATION' | 'TAKEOVER' | 'COMPLETION';
 
 export const STAGE_LABELS: Record<DeadlineStage, string> = {
-  VALIDATION: 'validation',
-  TAKEOVER: 'prise en charge',
-  COMPLETION: 'réalisation',
+  VALIDATION: t('validation'),
+  TAKEOVER: t('prise en charge'),
+  COMPLETION: t('réalisation'),
 };
 
 const SECOND = 1000;
@@ -20,15 +21,15 @@ const DAY = 24 * HOUR;
 /** « 45 s », « 1 min 30 s », « 15 min », « 2 h 05 », « 1 j 3 h ». */
 export function formatRemaining(ms: number): string {
   const value = Math.max(0, ms);
-  if (value < MINUTE) return `${Math.floor(value / SECOND)} s`;
-  if (value < 2 * MINUTE) return `1 min ${Math.floor((value - MINUTE) / SECOND)} s`;
-  if (value < HOUR) return `${Math.floor(value / MINUTE)} min`;
+  if (value < MINUTE) return t('{n} s', { n: Math.floor(value / SECOND) });
+  if (value < 2 * MINUTE) return t('1 min {s} s', { s: Math.floor((value - MINUTE) / SECOND) });
+  if (value < HOUR) return t('{n} min', { n: Math.floor(value / MINUTE) });
   if (value < DAY) {
     const hours = Math.floor(value / HOUR);
-    return `${hours} h ${String(Math.floor((value - hours * HOUR) / MINUTE)).padStart(2, '0')}`;
+    return t('{h} h {m}', { h: hours, m: String(Math.floor((value - hours * HOUR) / MINUTE)).padStart(2, '0') });
   }
   const days = Math.floor(value / DAY);
-  return `${days} j ${Math.floor((value - days * DAY) / HOUR)} h`;
+  return t('{d} j {h} h', { d: days, h: Math.floor((value - days * DAY) / HOUR) });
 }
 
 interface CountdownProps {
@@ -96,7 +97,9 @@ export function Countdown({ stage, dueAt, warnAt, overdueStage }: CountdownProps
       })}
     >
       <Icon size={icon.sm - 2} strokeWidth={2} aria-hidden="true" />
-      {near ? 'Bientôt en retard : reste' : 'Reste'} {remaining} pour la {STAGE_LABELS[stage]}
+      {near
+        ? t('Bientôt en retard : reste {remaining} pour la {stage}', { remaining, stage: STAGE_LABELS[stage] })
+        : t('Reste {remaining} pour la {stage}', { remaining, stage: STAGE_LABELS[stage] })}
     </Box>
   );
 }
