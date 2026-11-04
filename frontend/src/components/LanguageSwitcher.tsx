@@ -12,6 +12,14 @@ interface LanguageSwitcherProps {
   onReload?: () => void;
 }
 
+/** True when a text field holds typed content that a reload would discard. */
+function hasUnsavedInput(): boolean {
+  const fields = document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>(
+    'textarea, input:not([type="search"]):not([type="hidden"]):not([type="checkbox"]):not([type="radio"])',
+  );
+  return Array.from(fields).some((field) => field.value.trim() !== '' && field.defaultValue !== field.value);
+}
+
 /** Language choice. Each name stays in its own language so it can be recognized from either. */
 export function LanguageSwitcher({ onReload }: LanguageSwitcherProps) {
   return (
@@ -21,7 +29,9 @@ export function LanguageSwitcher({ onReload }: LanguageSwitcherProps) {
       value={language()}
       aria-label={t('Langue')}
       onChange={(_, next: Language | null) => {
-        if (next) setLanguage(next, onReload);
+        if (!next) return;
+        if (!onReload && hasUnsavedInput() && !window.confirm(t('Changer de langue recharge la page : le texte saisi sera perdu. Continuer ?'))) return;
+        setLanguage(next, onReload);
       }}
     >
       {OPTIONS.map(({ value, short, name }) => (

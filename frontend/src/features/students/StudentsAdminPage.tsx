@@ -30,7 +30,7 @@ import { LoadingState } from '../../components/LoadingState';
 import { SectionHeader } from '../../components/SectionHeader';
 import { useToast } from '../../components/Toast';
 import { font, icon } from '../../design/tokens';
-import { isPlural, t } from '../../i18n';
+import { isPlural, locale, t } from '../../i18n';
 import { MEAL_SERVICE_LABELS, useLevels, useSaveStudent, useStudents, type GradeLevel, type MealService, type Student } from './api';
 
 const ROWS_PER_PAGE = [25, 50, 100];
@@ -171,7 +171,7 @@ function StudentFormDialog({
   );
 }
 
-const normalize = (text: string) => text.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLocaleLowerCase('fr');
+const normalize = (text: string) => text.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLocaleLowerCase(locale());
 
 /** Élèves par niveau et classe, avec leur service de restauration (super administrateur). */
 export function StudentsAdminPage() {
@@ -310,7 +310,7 @@ export function StudentsAdminPage() {
                     <Box sx={{ minWidth: 0, flex: '1 1 auto' }}>
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
                         <Typography sx={{ fontWeight: font.medium, overflowWrap: 'anywhere' }}>
-                          {s.lastName.toLocaleUpperCase('fr')} {s.firstName}
+                          {s.lastName.toLocaleUpperCase(locale())} {s.firstName}
                         </Typography>
                         <Badge tone={s.mealService === 'CANTINE' ? 'info' : 'warning'}>{MEAL_SERVICE_LABELS[s.mealService]}</Badge>
                         {!s.active && (
