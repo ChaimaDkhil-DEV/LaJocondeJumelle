@@ -80,7 +80,7 @@ function setup(path: string, handler: Handler = () => undefined, me: unknown = S
       const custom = handler(url, method, body);
       if (custom) return custom;
       if (url === '/api/auth/me') return json(200, me);
-      if (url === '/api/admin/users' && method === 'GET') return json(200, USERS);
+      if (url.startsWith('/api/admin/users?') && method === 'GET') return json(200, { items: USERS, nextCursor: null });
       if (url === '/api/admin/categories' && method === 'GET') return json(200, [CATEGORY]);
       if (url === '/api/admin/settings' && method === 'GET') return json(200, SETTINGS);
       if (url === '/api/admin/role-permissions' && method === 'GET')

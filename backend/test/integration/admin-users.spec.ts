@@ -37,8 +37,8 @@ describe('Administration des comptes', () => {
   it('liste les comptes sans jamais exposer les hachés', async () => {
     const res = await api().get('/api/admin/users').set('Cookie', superadmin);
     expect(res.status).toBe(200);
-    expect(res.body.length).toBeGreaterThanOrEqual(5);
-    expect(res.body[0]).toEqual({
+    expect(res.body.items.length).toBeGreaterThanOrEqual(5);
+    expect(res.body.items[0]).toEqual({
       id: expect.any(String),
       username: expect.any(String),
       displayName: expect.any(String),
@@ -141,5 +141,41 @@ describe('Administration des comptes', () => {
     await expect(
       prisma.auditLog.count({ where: { action: 'ACCESS_DENIED', actorId: responsableId, details: { path: ['reason'], equals: 'NOT_SUPER_ADMIN' } } }),
     ).resolves.toBe(5);
+  });
+
+  it('pagine la liste par curseur : même ordre que la liste entière, sans doublon ni oubli', async () => {
+    // Noms identiques et comptes inactifs : l'ordre (actifs d'abord, nom, id) doit rester stable d'une page à l'autre.
+    for (const [username, active] of [['doublon.a', true], ['doublon.b', true], ['doublon.c', false], ['doublon.d', false]] as const) {
+      await prisma.user.create({ data: { username, displayName: 'Doublon', role: 'EMPLOYEE', passwordHash: 'x', active } });
+    }
+    const get = (query: string) => api().get(`/api/admin/users${query}`).set('Cookie', superadmin);
+
+    const whole = await get('?limit=100');
+    expect(whole.status).toBe(200);
+    expect(whole.body.nextCursor).toBeNull();
+    const expected = whole.body.items.map((u: { id: string }) => u.id);
+    expect(expected.length).toBeGreaterThanOrEqual(9);
+
+    const seen: string[] = [];
+    let cursor: string | null = null;
+    let pages = 0;
+    do {
+      const res = await get(`?limit=2${cursor ? `&cursor=${cursor}` : ''}`);
+      expect(res.status).toBe(200);
+      expect(res.body.items.length).toBeLessThanOrEqual(2);
+      seen.push(...res.body.items.map((u: { id: string }) => u.id));
+      cursor = res.body.nextCursor;
+      pages += 1;
+    } while (cursor);
+    expect(pages).toBeGreaterThan(2);
+    expect(seen).toEqual(expected);
+
+    const actives = whole.body.items.map((u: { active: boolean }) => u.active);
+    expect(actives).toEqual([...actives].sort((a: boolean, b: boolean) => Number(b) - Number(a)));
+  });
+
+  it('refuse un curseur ou une limite invalides (400)', async () => {
+    expect((await api().get('/api/admin/users?cursor=pas-un-curseur').set('Cookie', superadmin)).status).toBe(400);
+    expect((await api().get('/api/admin/users?limit=0').set('Cookie', superadmin)).status).toBe(400);
   });
 });

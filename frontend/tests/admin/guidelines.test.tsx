@@ -244,8 +244,8 @@ describe('Consignes', () => {
             ],
             nextCursor: null,
           })
-        : url === '/api/admin/users'
-          ? json(200, [])
+        : url.startsWith('/api/admin/users?')
+          ? json(200, { items: [], nextCursor: null })
           : undefined,
     );
     expect(await screen.findByText('Consigne créée : Panne de photocopieuse')).toBeVisible();

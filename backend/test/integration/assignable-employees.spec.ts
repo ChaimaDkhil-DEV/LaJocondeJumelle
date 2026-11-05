@@ -108,7 +108,7 @@ describe('Employés affectables créés par le super administrateur', () => {
     expect(await assigneeIds(id)).toContain(created.user.id);
 
     const list = await api().get('/api/admin/users').set('Cookie', superadmin);
-    expect(list.body.find((u: { id: string }) => u.id === created.user.id).recipientCategories).toHaveLength(2);
+    expect(list.body.items.find((u: { id: string }) => u.id === created.user.id).recipientCategories).toHaveLength(2);
     const audit = await prisma.auditLog.findFirstOrThrow({ where: { action: 'USER_UPDATED', targetId: created.user.id } });
     expect(audit.details).toMatchObject({ before: { recipientCategoryIds: [] }, after: { recipientCategoryIds: [circuitB, photocopies].sort() } });
 
