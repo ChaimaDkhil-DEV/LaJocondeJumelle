@@ -2,6 +2,7 @@ import type { INestApplication } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
+import helmet from 'helmet';
 import { HttpExceptionFilter } from './common/http-exception.filter';
 import { ServerTimeInterceptor } from './common/server-time.interceptor';
 import { createValidationPipe } from './common/validation.pipe';
@@ -14,6 +15,16 @@ export function configureApp(app: INestApplication): void {
   // Adresse IP cliente derrière Caddy (X-Forwarded-For) : proxys de confiance configurables.
   (app as NestExpressApplication).set('trust proxy', config.trustProxy);
   app.setGlobalPrefix('api');
+  // En-têtes de sécurité même sans Caddy (dev, tests, autre hébergement). En production l'API ne sert que
+  // du JSON, des fichiers et des CSV : aucune ressource à charger. Hors production la CSP est laissée
+  // de côté pour l'interface Swagger (scripts et styles en ligne).
+  app.use(
+    helmet({
+      contentSecurityPolicy: config.isProduction
+        ? { directives: { defaultSrc: ["'none'"], frameAncestors: ["'none'"], baseUri: ["'none'"], formAction: ["'none'"] } }
+        : false,
+    }),
+  );
   app.use(cookieParser());
   app.useGlobalPipes(createValidationPipe());
   app.useGlobalFilters(new HttpExceptionFilter());
