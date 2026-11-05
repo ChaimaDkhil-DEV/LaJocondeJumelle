@@ -7,6 +7,10 @@ export type MealService = 'CANTINE' | 'PANIER';
 
 export const MEAL_SERVICE_LABELS: Record<MealService, string> = { CANTINE: t('Cantine'), PANIER: t('Panier') };
 
+export type Cycle = 'PREPARATORY' | 'PRIMARY';
+
+export const CYCLE_LABELS: Record<Cycle, string> = { PREPARATORY: t('Préparatoire'), PRIMARY: t('Primaire') };
+
 export interface LevelClass {
   id: string;
   name: string;
@@ -18,9 +22,16 @@ export interface LevelClass {
 export interface GradeLevel {
   id: string;
   name: string;
-  cycle: 'PREPARATORY' | 'PRIMARY';
+  cycle: Cycle;
   position: number;
   classes: LevelClass[];
+}
+
+export interface LevelInput {
+  id?: string;
+  name: string;
+  cycle: Cycle;
+  position: number;
 }
 
 export interface Student {
@@ -50,6 +61,20 @@ export const studentKeys = {
 
 export function useLevels() {
   return useQuery({ queryKey: studentKeys.levels, queryFn: () => apiFetch<GradeLevel[]>('/api/admin/levels') });
+}
+
+/** Crée ou modifie un niveau ; les listes de classes (qui affichent le niveau) sont rafraîchies aussi. */
+export function useSaveLevel() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: LevelInput) =>
+      apiFetch<GradeLevel[]>(id ? `/api/admin/levels/${id}` : '/api/admin/levels', { method: id ? 'PATCH' : 'POST', body }),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: studentKeys.levels });
+      void queryClient.invalidateQueries({ queryKey: studentKeys.students });
+      void queryClient.invalidateQueries({ queryKey: ['coverage', 'admin', 'classes'] });
+    },
+  });
 }
 
 export function useStudents() {

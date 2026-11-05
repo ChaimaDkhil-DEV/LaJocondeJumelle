@@ -26,13 +26,17 @@ import { SectionHeader } from '../../components/SectionHeader';
 import { useToast } from '../../components/Toast';
 import { font, icon } from '../../design/tokens';
 import { useAdminClasses, useAdminFloors, useClassQr, useRevokeQr, useSaveClass, type AdminClass } from './adminApi';
+import { useLevels } from '../students/api';
 import { t } from '../../i18n';
 
 function ClassFormDialog({ schoolClass, onClose, onSaved }: { schoolClass: AdminClass | null; onClose: () => void; onSaved: (message: string) => void }) {
   const titleId = useId();
   const save = useSaveClass();
   const floors = useAdminFloors();
+  const levels = useLevels();
   const [name, setName] = useState(schoolClass?.name ?? '');
+  // Niveau scolaire : facultatif, mais obligatoire pour accueillir des élèves.
+  const [levelId, setLevelId] = useState(schoolClass?.level?.id ?? '');
   const [floorId, setFloorId] = useState(schoolClass?.floor?.id ?? '');
   const [floorError, setFloorError] = useState<string | null>(null);
   const [room, setRoom] = useState(schoolClass?.room ?? '');
@@ -46,7 +50,7 @@ function ClassFormDialog({ schoolClass, onClose, onSaved }: { schoolClass: Admin
     setFloorError(floorId ? null : t('Choisissez l’étage de la classe.'));
     if (!name.trim() || !floorId) return;
     save.mutate(
-      { id: schoolClass?.id, name: name.trim(), ...(room.trim() ? { room: room.trim() } : {}), active, floorId },
+      { id: schoolClass?.id, name: name.trim(), ...(room.trim() ? { room: room.trim() } : {}), active, floorId, levelId: levelId || null },
       { onSuccess: () => onSaved(schoolClass ? t('Classe enregistrée.') : t('Classe créée.')) },
     );
   }
@@ -84,6 +88,21 @@ function ClassFormDialog({ schoolClass, onClose, onSaved }: { schoolClass: Admin
                   {f.name}
                 </MenuItem>
               ))}
+          </TextField>
+          <TextField
+            id="classe-niveau"
+            select
+            label={t('Niveau scolaire (facultatif)')}
+            value={levelId}
+            onChange={(e) => setLevelId(e.target.value)}
+            helperText={t('Obligatoire pour y inscrire des élèves. Laissez vide pour une salle sans élèves.')}
+          >
+            <MenuItem value="">{t('Aucun niveau')}</MenuItem>
+            {(levels.data ?? []).map((l) => (
+              <MenuItem key={l.id} value={l.id}>
+                {l.name}
+              </MenuItem>
+            ))}
           </TextField>
           {schoolClass && <FormControlLabel control={<Checkbox checked={active} onChange={(e) => setActive(e.target.checked)} />} label={t('Classe active')} />}
           {save.error && <Alert severity="error">{save.error instanceof ApiError ? save.error.message : t('Enregistrement impossible.')}</Alert>}
@@ -257,7 +276,7 @@ export function ClassesAdminPage() {
                     )}
                   </Box>
                   <Typography variant="body2" color="text.secondary">
-                    {[c.room, c.floor?.name ?? t('Sans étage'), t('QR version {version}', { version: c.qrVersion })].filter(Boolean).join(' · ')}
+                    {[c.room, c.floor?.name ?? t('Sans étage'), c.level?.name, t('QR version {version}', { version: c.qrVersion })].filter(Boolean).join(' · ')}
                   </Typography>
                 </Box>
                 <Box sx={{ display: 'flex', gap: 0.5, flex: 'none' }}>

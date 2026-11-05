@@ -1,6 +1,6 @@
-import { MealService } from '@prisma/client';
+import { MealService, SchoolCycle } from '@prisma/client';
 import { Transform } from 'class-transformer';
-import { IsBoolean, IsEnum, IsOptional, IsString, IsUUID, Matches, MaxLength, MinLength } from 'class-validator';
+import { IsBoolean, IsEnum, IsInt, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min, MinLength } from 'class-validator';
 
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
 /** Espaces multiples réduits : « 06  12 34 » → « 06 12 34 ». */
@@ -35,4 +35,40 @@ export class StudentDto {
   @IsOptional()
   @IsBoolean()
   active?: boolean;
+}
+
+/** Niveau scolaire (ex. « 1re année primaire ») : nom, cycle et ordre d'affichage, tous uniques ou obligatoires. */
+export class LevelDto {
+  @Transform(trim)
+  @IsString()
+  @MinLength(1, { message: 'Le nom est obligatoire.' })
+  @MaxLength(60, { message: 'Le nom ne doit pas dépasser 60 caractères.' })
+  name!: string;
+
+  @IsEnum(SchoolCycle, { message: 'Choisissez le cycle : préparatoire ou primaire.' })
+  cycle!: SchoolCycle;
+
+  @IsInt({ message: 'Position entière attendue.' })
+  @Min(0, { message: 'La position doit être positive ou nulle.' })
+  @Max(1000, { message: 'La position ne doit pas dépasser 1000.' })
+  position!: number;
+}
+
+export class UpdateLevelDto {
+  @IsOptional()
+  @Transform(trim)
+  @IsString()
+  @MinLength(1, { message: 'Le nom est obligatoire.' })
+  @MaxLength(60, { message: 'Le nom ne doit pas dépasser 60 caractères.' })
+  name?: string;
+
+  @IsOptional()
+  @IsEnum(SchoolCycle, { message: 'Choisissez le cycle : préparatoire ou primaire.' })
+  cycle?: SchoolCycle;
+
+  @IsOptional()
+  @IsInt({ message: 'Position entière attendue.' })
+  @Min(0, { message: 'La position doit être positive ou nulle.' })
+  @Max(1000, { message: 'La position ne doit pas dépasser 1000.' })
+  position?: number;
 }

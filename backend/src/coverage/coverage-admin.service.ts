@@ -236,16 +236,18 @@ export class CoverageAdminService {
         qrVersion: true,
         updatedAt: true,
         floor: { select: { id: true, name: true } },
+        level: { select: { id: true, name: true } },
       },
     });
   }
 
   async createClass(dto: ClassDto, ctx: AdminContext) {
     await this.checkFloor(dto.floorId);
+    if (dto.levelId) await this.checkLevel(dto.levelId);
     try {
       await this.prisma.$transaction(async (tx) => {
         const created = await tx.schoolClass.create({
-          data: { name: dto.name, room: dto.room ?? null, active: dto.active ?? true, floorId: dto.floorId },
+          data: { name: dto.name, room: dto.room ?? null, active: dto.active ?? true, floorId: dto.floorId, levelId: dto.levelId ?? null },
         });
         await this.audit.log(
           'CLASS_CHANGED',
@@ -254,7 +256,7 @@ export class CoverageAdminService {
             ip: ctx.ip,
             targetType: 'SchoolClass',
             targetId: created.id,
-            details: { after: { name: dto.name, room: dto.room ?? null, floorId: dto.floorId } },
+            details: { after: { name: dto.name, room: dto.room ?? null, floorId: dto.floorId, levelId: dto.levelId ?? null } },
           },
           tx,
         );
@@ -268,11 +270,18 @@ export class CoverageAdminService {
   async updateClass(id: string, dto: ClassDto, ctx: AdminContext) {
     const current = await this.findClass(id);
     await this.checkFloor(dto.floorId);
+    // Absent : niveau inchangé ; null : niveau retiré.
+    const levelId = dto.levelId === undefined ? current.levelId : dto.levelId;
+    if (levelId) await this.checkLevel(levelId);
+    if (levelId === null && current.levelId !== null) {
+      const students = await this.prisma.student.count({ where: { classId: id, active: true } });
+      if (students > 0) throw invalid('levelId', 'Cette classe a des élèves actifs : elle doit garder un niveau scolaire.');
+    }
     try {
       await this.prisma.$transaction(async (tx) => {
         await tx.schoolClass.update({
           where: { id },
-          data: { name: dto.name, room: dto.room ?? null, active: dto.active ?? current.active, floorId: dto.floorId },
+          data: { name: dto.name, room: dto.room ?? null, active: dto.active ?? current.active, floorId: dto.floorId, levelId },
         });
         await this.audit.log(
           'CLASS_CHANGED',
@@ -282,8 +291,8 @@ export class CoverageAdminService {
             targetType: 'SchoolClass',
             targetId: id,
             details: {
-              before: { name: current.name, room: current.room, active: current.active, floorId: current.floorId },
-              after: { name: dto.name, room: dto.room ?? null, active: dto.active ?? current.active, floorId: dto.floorId },
+              before: { name: current.name, room: current.room, active: current.active, floorId: current.floorId, levelId: current.levelId },
+              after: { name: dto.name, room: dto.room ?? null, active: dto.active ?? current.active, floorId: dto.floorId, levelId },
             },
           },
           tx,
@@ -293,6 +302,11 @@ export class CoverageAdminService {
       throw this.uniqueName(error, 'Cette classe existe déjà.');
     }
     return this.classes();
+  }
+
+  private async checkLevel(levelId: string): Promise<void> {
+    const level = await this.prisma.gradeLevel.findUnique({ where: { id: levelId }, select: { id: true } });
+    if (!level) throw invalid('levelId', 'Niveau scolaire introuvable.');
   }
 
   private async checkFloor(floorId: string): Promise<void> {

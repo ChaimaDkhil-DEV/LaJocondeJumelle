@@ -4,7 +4,7 @@ import { SuperAdminGuard } from '../audit/super-admin.guard';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { clientIp } from '../common/request-info';
-import { StudentDto } from './students.dto';
+import { LevelDto, StudentDto, UpdateLevelDto } from './students.dto';
 import { StudentsService } from './students.service';
 
 /** Niveaux et élèves : données de référence, super administrateur uniquement (comme les classes). */
@@ -16,6 +16,16 @@ export class StudentsController {
   @Get('levels')
   levels() {
     return this.students.levels();
+  }
+
+  @Post('levels')
+  createLevel(@CurrentUser() actor: AuthenticatedUser, @Body() dto: LevelDto, @Req() req: Request) {
+    return this.students.createLevel(dto, { actor, ip: clientIp(req) });
+  }
+
+  @Patch('levels/:id')
+  updateLevel(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Body() dto: UpdateLevelDto, @Req() req: Request) {
+    return this.students.updateLevel(id, dto, { actor, ip: clientIp(req) });
   }
 
   @Get('students')
