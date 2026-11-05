@@ -12,9 +12,9 @@ import GlobalStyles from '@mui/material/GlobalStyles';
 import Paper from '@mui/material/Paper';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import { CircleOff, Pencil, Printer, QrCode, RefreshCcw, School } from 'lucide-react';
+import { CircleOff, Copy, Pencil, Printer, QrCode, RefreshCcw, School } from 'lucide-react';
 import QRCode from 'qrcode';
-import { useEffect, useId, useState, type FormEvent } from 'react';
+import { useEffect, useId, useState, type FocusEvent, type FormEvent } from 'react';
 import { ApiError } from '../../api/client';
 import { Badge } from '../../components/Badge';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
@@ -111,6 +111,16 @@ function QrDialog({ schoolClass, onClose }: { schoolClass: AdminClass; onClose: 
   const [image, setImage] = useState<string | null>(null);
   const [confirmRevoke, setConfirmRevoke] = useState(false);
 
+  /** Copie le lien du QR code ; sans presse-papiers (contexte non sécurisé, refus), le champ reste à copier à la main. */
+  async function copyLink(url: string): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success(t('Lien copié.'));
+    } catch {
+      toast.error(t('Copie impossible : sélectionnez le lien et copiez-le avec Ctrl+C.'));
+    }
+  }
+
   useEffect(() => {
     if (!qr.data) return;
     let cancelled = false;
@@ -149,6 +159,23 @@ function QrDialog({ schoolClass, onClose }: { schoolClass: AdminClass; onClose: 
             <Typography variant="caption" color="text.secondary">
               {t('Version {version}', { version: qr.data.version })}
             </Typography>
+          </Box>
+        )}
+        {qr.data && (
+          <Box sx={{ display: 'grid', gap: 1 }}>
+            <TextField
+              id="qr-lien"
+              label={t('Lien du QR code')}
+              value={qr.data.url}
+              size="small"
+              helperText={t('Le même lien que le QR code : à ouvrir dans un navigateur connecté, sans scanner. Il n’est pas imprimé.')}
+              slotProps={{ htmlInput: { readOnly: true, onFocus: (e: FocusEvent<HTMLInputElement>) => e.currentTarget.select() } }}
+            />
+            <Box>
+              <Button variant="outlined" startIcon={<Copy size={icon.sm} aria-hidden="true" />} onClick={() => void copyLink(qr.data.url)}>
+                {t('Copier le lien')}
+              </Button>
+            </Box>
           </Box>
         )}
         <Alert severity="info">
