@@ -92,10 +92,13 @@ function setup(desktop = true): Call[] {
 const table = () => screen.findByRole('table', { name: 'Employés' }, { timeout: 4000 });
 
 describe('Onglet « Employés »', () => {
-  beforeAll(() => {
+  beforeAll(async () => {
     // MUI Popover/Menu : positionnement dans jsdom.
     Element.prototype.scrollTo ??= () => undefined;
-  });
+    // HomePage charge le tableau de bord en différé : on le charge ici (hors délai d'un test), sinon le
+    // premier test attend la transformation des modules et dépasse son délai quand la machine est chargée.
+    await import('../../src/features/admin/DashboardPage');
+  }, 60_000);
   beforeEach(() => resetAvatarStore());
   afterEach(() => vi.unstubAllGlobals());
 
