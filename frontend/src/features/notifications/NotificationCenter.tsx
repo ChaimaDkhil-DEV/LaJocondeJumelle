@@ -91,6 +91,8 @@ const NOTIFICATION_ICONS: Record<NotificationType, LucideIcon> = {
   COVERAGE_DOUBLE_ASSIGNMENT: TriangleAlert,
   COVERAGE_LIFTED: UserMinus,
   COVERAGE_UPDATED: Pencil,
+  COVERAGE_TEACHER_ARRIVED: UserCheck,
+  COVERAGE_ATTENDANCE_ANOMALY: TriangleAlert,
   UNASSIGNED: UserRoundX,
 };
 

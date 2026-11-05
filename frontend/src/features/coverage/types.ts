@@ -85,6 +85,8 @@ export interface CoverageSummary {
   class: SchoolClass;
   floor: Named | null;
   teacher: Person | null;
+  /** Enseignant remplaçant autorisé pour une absence annoncée (pointage). */
+  substituteTeacher: Person | null;
   /** Texte libre des gardes antérieures à 004. */
   absentTeacher: string | null;
   startAt: string;

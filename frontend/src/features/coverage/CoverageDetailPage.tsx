@@ -50,6 +50,8 @@ const EVENT_LABELS: Record<string, string> = {
   REMINDER_SENT: t('Rappel envoyé'),
   ESCALATED: t('Alerte transmise au super administrateur'),
   ANONYMIZED: t('Données personnelles anonymisées'),
+  TEACHER_ARRIVED: t('Arrivée de l’enseignant enregistrée'),
+  SUBSTITUTE_SET: t('Remplaçant désigné'),
 };
 
 /**
@@ -104,6 +106,14 @@ function eventText(e: CoverageHistoryEntry, timeZone: string): string {
       return t('Renfort libéré : {name}', { name: String(to.userName ?? '') });
     case 'TEACHER_SET':
       return t('Enseignant : {from} → {to}', { from: teacherName(from), to: teacherName(to) });
+    case 'TEACHER_ARRIVED':
+      return to.kind === 'ANNOUNCED_LATENESS'
+        ? t('Arrivée par QR code, {minutes} min après l’heure annoncée', { minutes: String(to.lateMinutes ?? 0) })
+        : to.kind === 'SUBSTITUTE'
+          ? t('Arrivée du remplaçant autorisé')
+          : t('Arrivée de l’enseignant alors qu’une absence était annoncée');
+    case 'SUBSTITUTE_SET':
+      return to.teacherId ? t('Un enseignant remplaçant est désigné') : t('Le remplaçant est retiré');
     case 'MERGE_DECIDED':
       return to.decision === 'CONFIRM'
         ? t('Doublon tranché : rattachement confirmé')

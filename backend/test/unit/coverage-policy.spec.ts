@@ -51,18 +51,18 @@ function facts(status: CoverageStatus, extra: Partial<CoverageFacts> = {}): Cove
 describe('Permissions du module des affectations', () => {
   describe('capacités par rôle', () => {
     it.each([
-      // profil, voir, signaler, déclarer, gérer, statistiques, configurer, assignable
-      ['superAdmin', true, true, true, true, true, true, false],
-      ['admin', true, false, false, true, true, false, false],
-      ['adminTeacher', true, true, false, true, true, false, false],
-      ['adminSupervisor', true, false, true, true, true, false, true],
-      ['supervisor', true, false, true, false, false, false, true],
-      ['supervisorTeacher', true, true, true, false, false, false, true],
-      ['teacher', true, true, false, false, false, false, false],
-      ['other', false, false, false, false, false, false, false],
+      // profil, voir, signaler, déclarer, gérer, statistiques, configurer, assignable, pointer son arrivée
+      ['superAdmin', true, true, true, true, true, true, false, false],
+      ['admin', true, false, false, true, true, false, false, false],
+      ['adminTeacher', true, true, false, true, true, false, false, true],
+      ['adminSupervisor', true, false, true, true, true, false, true, false],
+      ['supervisor', true, false, true, false, false, false, true, false],
+      ['supervisorTeacher', true, true, true, false, false, false, true, true],
+      ['teacher', true, true, false, false, false, false, false, true],
+      ['other', false, false, false, false, false, false, false, false],
     ] as const)(
       '%s',
-      (profile, view, report, declareEmptyClass, manage, stats, configure, assignable) => {
+      (profile, view, report, declareEmptyClass, manage, stats, configure, assignable, recordArrival) => {
         expect(moduleCapabilities(user('u', PROFILES[profile]))).toEqual({
           view,
           report,
@@ -71,6 +71,7 @@ describe('Permissions du module des affectations', () => {
           stats,
           configure,
           assignable,
+          recordArrival,
         });
       },
     );

@@ -1,6 +1,7 @@
 import { admin } from './admin';
 import { api } from './api';
 import { assist } from './assist';
+import { attendance } from './attendance';
 import { auth } from './auth';
 import { avatar } from './avatar';
 import { common } from './common';
@@ -20,6 +21,7 @@ export const en: Record<string, string> = {
   ...shared,
   ...requests,
   ...coverage,
+  ...attendance,
   ...admin,
   ...dashboard,
   ...thread,

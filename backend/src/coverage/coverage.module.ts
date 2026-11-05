@@ -26,6 +26,6 @@ import { CoverageService } from './coverage.service';
     CoverageAccessLoader,
     CoverageFileAccess,
   ],
-  exports: [CoverageActionsService, CoverageAnonymizationService],
+  exports: [CoverageActionsService, CoverageAnonymizationService, CoverageAccessLoader],
 })
 export class CoverageModule {}

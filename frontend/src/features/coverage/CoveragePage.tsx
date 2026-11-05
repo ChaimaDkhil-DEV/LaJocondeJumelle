@@ -10,6 +10,8 @@ import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
 import { PageHeader } from '../../components/PageHeader';
 import { useCoverageProfile } from './api';
+import { AttendanceFollowUpTab } from '../attendance/AttendanceFollowUpTab';
+import { MyAttendanceTab } from '../attendance/MyAttendanceTab';
 import { MyGuardTab, PersonalHistoryTab } from './EmployeeViews';
 import { ManagedCoverageTab, MergeProposalsTab, TeamTab } from './ManagerViews';
 import { MyRequestsTab } from './TeacherViews';
@@ -28,10 +30,12 @@ const ADMIN_TABS: TabDef[] = [
   { key: 'doublons', label: t('Doublons'), render: () => <MergeProposalsTab /> },
   { key: 'equipe', label: t('Équipe'), render: () => <TeamTab /> },
   { key: 'terminees', label: t('Terminées'), render: () => <ManagedCoverageTab scope="finished" /> },
+  { key: 'presences', label: t('Présences'), render: () => <AttendanceFollowUpTab /> },
 ];
 
 const TEACHER_TABS: TabDef[] = [
   { key: 'mes-signalements', label: t('Mes signalements'), render: () => <MyRequestsTab /> },
+  { key: 'mes-presences', label: t('Mes présences'), render: () => <MyAttendanceTab /> },
 ];
 
 const SUPERVISOR_TABS: TabDef[] = [

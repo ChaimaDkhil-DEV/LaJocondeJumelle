@@ -37,6 +37,8 @@ export type NotificationType =
   | 'COVERAGE_DOUBLE_ASSIGNMENT'
   | 'COVERAGE_LIFTED'
   | 'COVERAGE_UPDATED'
+  | 'COVERAGE_TEACHER_ARRIVED'
+  | 'COVERAGE_ATTENDANCE_ANOMALY'
   // Super administrateur : demande active sans employé affecté, délai bientôt dépassé
   | 'UNASSIGNED';
 
@@ -96,6 +98,8 @@ export const NOTIFICATION_LABELS: Record<NotificationType, string> = {
   COVERAGE_DOUBLE_ASSIGNMENT: t('Surveillant sur deux affectations'),
   COVERAGE_LIFTED: t('Affectation levée'),
   COVERAGE_UPDATED: t('Affectation modifiée'),
+  COVERAGE_TEACHER_ARRIVED: t('Enseignant arrivé'),
+  COVERAGE_ATTENDANCE_ANOMALY: t('Absence annoncée mais enseignant présent'),
   UNASSIGNED: t('Demande sans employé affecté'),
 };
 

@@ -11,7 +11,7 @@ import { CreateCoveragePage } from '../features/coverage/CreateCoveragePage';
 import { EmptyClassPage } from '../features/coverage/EmptyClassPage';
 import { HomePage } from '../features/home/HomePage';
 import { TeacherRequestPage } from '../features/coverage/TeacherRequestPage';
-import { PresencePage } from '../features/coverage/PresencePage';
+import { QrEntryPage } from '../features/attendance/QrEntryPage';
 import { CreateRequestPage } from '../features/requests/CreateRequestPage';
 import { RequestDetailPage } from '../features/requests/RequestDetailPage';
 import { DraftPage } from '../features/requests/DraftPage';
@@ -44,7 +44,7 @@ export const routes: RouteObject[] = [
       { path: 'gardes/statistiques', element: <CoverageStatsPage /> },
       { path: 'gardes/signalements/:id', element: <TeacherRequestPage /> },
       // Lien encodé dans le QR code de la classe : n'enregistre rien sans confirmation explicite.
-      { path: 'gardes/presence', element: <PresencePage /> },
+      { path: 'gardes/presence', element: <QrEntryPage /> },
       { path: 'gardes/:id', element: <CoverageDetailPage /> },
       ...adminRoutes,
     ],

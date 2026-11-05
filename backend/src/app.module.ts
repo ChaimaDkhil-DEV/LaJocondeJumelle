@@ -5,6 +5,7 @@ import { AuthModule } from './auth/auth.module';
 import { CategoriesModule } from './categories/categories.module';
 import { PrismaModule } from './common/prisma.service';
 import { ConfigModule } from './config/config.module';
+import { AttendanceModule } from './attendance/attendance.module';
 import { CoverageModule } from './coverage/coverage.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { FilesModule } from './files/files.module';
@@ -33,6 +34,7 @@ import { UsersModule } from './users/users.module';
     RequestsModule,
     AssistModule,
     CoverageModule,
+    AttendanceModule,
     DashboardModule,
     MessagesModule,
     SchedulerModule,
