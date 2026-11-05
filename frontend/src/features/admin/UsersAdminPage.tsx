@@ -4,7 +4,7 @@ import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Ban, CircleCheck, KeyRound, Pencil, TriangleAlert, UserCheck, UserPlus, UserX } from 'lucide-react';
+import { Ban, CircleCheck, FileUp, KeyRound, Pencil, TriangleAlert, UserCheck, UserPlus, UserX } from 'lucide-react';
 import { useState } from 'react';
 import { ApiError, apiFetch } from '../../api/client';
 import { Badge } from '../../components/Badge';
@@ -21,6 +21,7 @@ import { t } from '../../i18n';
 import { useCurrentUser } from '../auth/useCurrentUser';
 import { adminKeys, useAdminUsers, type AdminUser } from './api';
 import { ROLE_LABELS } from './labels';
+import { AccountsImportDialog } from './AccountsImportDialog';
 import { TemporaryPasswordDialog } from './TemporaryPasswordDialog';
 import { UserFormDialog } from './UserFormDialog';
 
@@ -60,6 +61,7 @@ export function UsersAdminPage() {
   const [form, setForm] = useState<{ user: AdminUser | null } | null>(null);
   const [confirm, setConfirm] = useState<Pending>(null);
   const [password, setPassword] = useState<{ password: string; displayName: string } | null>(null);
+  const [importing, setImporting] = useState(false);
 
   const action = useMutation({
     mutationFn: ({ kind, user }: NonNullable<Pending> | { kind: 'reactivate'; user: AdminUser }): Promise<AdminUser | { temporaryPassword: string }> =>
@@ -82,9 +84,14 @@ export function UsersAdminPage() {
         title={t('Comptes')}
         description={t('Créez les comptes du personnel et rattachez-les aux catégories dont ils reçoivent les demandes.')}
         action={
-          <Button variant="contained" startIcon={<UserPlus size={icon.sm} aria-hidden="true" />} onClick={() => setForm({ user: null })}>
-            {t('Nouveau compte')}
-          </Button>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            <Button variant="outlined" startIcon={<FileUp size={icon.sm} aria-hidden="true" />} onClick={() => setImporting(true)}>
+              {t('Importer un fichier')}
+            </Button>
+            <Button variant="contained" startIcon={<UserPlus size={icon.sm} aria-hidden="true" />} onClick={() => setForm({ user: null })}>
+              {t('Nouveau compte')}
+            </Button>
+          </Box>
         }
       />
 
@@ -274,6 +281,7 @@ export function UsersAdminPage() {
       </ConfirmDialog>
 
       <TemporaryPasswordDialog value={password} onClose={() => setPassword(null)} />
+      {importing && <AccountsImportDialog onClose={() => setImporting(false)} />}
     </Box>
   );
 }

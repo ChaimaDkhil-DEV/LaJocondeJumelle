@@ -64,7 +64,7 @@ export interface AdminContext {
 }
 
 /** Mot de passe provisoire : 12 octets aléatoires, 16 caractères base64url. */
-function temporaryPassword(): string {
+export function temporaryPassword(): string {
   return randomBytes(12).toString('base64url');
 }
 

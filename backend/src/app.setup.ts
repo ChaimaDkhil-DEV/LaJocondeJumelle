@@ -2,6 +2,7 @@ import type { INestApplication } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
+import { json, type NextFunction, type Request, type Response } from 'express';
 import helmet from 'helmet';
 import { HttpExceptionFilter } from './common/http-exception.filter';
 import { ServerTimeInterceptor } from './common/server-time.interceptor';
@@ -26,6 +27,13 @@ export function configureApp(app: INestApplication): void {
     }),
   );
   app.use(cookieParser());
+  // Les imports CSV envoient le fichier en JSON : 1 Mo pour ces deux routes seulement, 100 ko ailleurs.
+  // Placé avant l'analyseur par défaut de Nest, qui ignore un corps déjà lu. ATTENTION : Nest ne branche
+  // son propre analyseur JSON que s'il n'en trouve aucun dans la pile, en le repérant par le nom de fonction
+  // « jsonParser » : sans cette enveloppe anonyme, il croirait en avoir un et plus aucune autre route
+  // ne lirait son corps JSON (toute la connexion échouerait en 400).
+  const importBody = json({ limit: '1mb' });
+  app.use(['/api/admin/users/import', '/api/admin/students/import'], (req: Request, res: Response, next: NextFunction) => importBody(req, res, next));
   app.useGlobalPipes(createValidationPipe());
   app.useGlobalFilters(new HttpExceptionFilter());
   app.useGlobalInterceptors(new ServerTimeInterceptor());
