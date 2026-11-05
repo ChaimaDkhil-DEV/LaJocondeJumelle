@@ -65,7 +65,7 @@ export function CoveragePage() {
   const tabs = [
     ...(canManage ? ADMIN_TABS : []),
     ...(isTeacher ? TEACHER_TABS : []),
-    ...(isSupervisor && !canManage ? SUPERVISOR_TABS : []),
+    ...(isSupervisor ? SUPERVISOR_TABS : []),
   ];
   const tab = tabs.find((t) => t.key === params.get('onglet')) ?? tabs[0];
 
