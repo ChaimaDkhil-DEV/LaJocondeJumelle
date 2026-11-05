@@ -475,4 +475,38 @@ test.describe('modification d’une affectation (spec 006)', () => {
       for (const s of [admin, supervisor, superadmin]) await s.context.close();
     }
   });
+
+  test('QR d’une classe sans garde : un seul geste déclare la classe vide, l’admin la voit', async ({ browser }) => {
+    const className = '1ère année Violet';
+    const admin = await open(browser, 'admin', { width: 1280, height: 800 });
+    const supervisor = await open(browser, 'surveillant', { width: 360, height: 760 });
+    const superadmin = await open(browser, 'superadmin', { width: 1280, height: 800 });
+    try {
+      await cancelOpenCoverages(admin.page);
+
+      // Scan du QR (lien imprimé) : la classe est affichée, rien n'est enregistré avant l'appui.
+      await supervisor.page.goto(await qrPath(superadmin.page, className));
+      await expect(supervisor.page.getByRole('heading', { name: className })).toBeVisible();
+      const declare = supervisor.page.getByRole('button', { name: 'Déclarer cette classe vide' });
+      await expect(declare).toBeVisible();
+      await check(supervisor.page, 'QR : classe sans garde');
+      await admin.page.goto('/gardes?onglet=en-cours');
+      await expect(admin.page.getByRole('link', { name: new RegExp(className) })).toHaveCount(0);
+
+      // Un seul geste : l'affectation est au nom du surveillant, en cours.
+      await declare.click();
+      await expect(
+        supervisor.page.getByRole('status').filter({ hasText: 'L’affectation est à votre nom, en cours' }),
+      ).toBeVisible();
+      await check(supervisor.page, 'QR : classe vide déclarée');
+      await expect(supervisor.page.getByRole('link', { name: 'Voir l’affectation' })).toBeVisible();
+
+      // L'admin voit la demande, sans formulaire intermédiaire.
+      await admin.page.reload();
+      await expect(admin.page.getByRole('link', { name: new RegExp(className) }).first()).toBeVisible();
+    } finally {
+      await cancelOpenCoverages(admin.page);
+      for (const s of [admin, supervisor, superadmin]) await s.context.close();
+    }
+  });
 });

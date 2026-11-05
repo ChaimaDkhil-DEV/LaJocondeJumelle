@@ -32,6 +32,7 @@ function summary(overrides: Partial<CoverageSummary> = {}): CoverageSummary {
     class: { id: 'k1', name: '1ère année Violet', room: 'Salle 12' },
     floor: { id: 'f1', name: '1er étage' },
     teacher: { id: 't1', displayName: 'Enseignante' },
+    substituteTeacher: null,
     absentTeacher: null,
     startAt: NOW,
     estimatedMinutes: null,
@@ -262,7 +263,7 @@ describe('Onglets du surveillant', () => {
     });
     renderWith(<CoveragePage />, '/gardes');
     const tabs = (await screen.findAllByRole('tab')).map((tab) => tab.textContent);
-    expect(tabs).toEqual(['En attente', 'En cours', 'Doublons', 'Équipe', 'Terminées', 'Mes affectations', 'Historique']);
+    expect(tabs).toEqual(['En attente', 'En cours', 'Doublons', 'Équipe', 'Terminées', 'Présences', 'Mes affectations', 'Historique']);
     // L'onglet par défaut reste la file de l'admin.
     expect(screen.getByRole('tab', { name: 'En attente' })).toHaveAttribute('aria-selected', 'true');
   });
@@ -346,12 +347,19 @@ describe('Page du QR code de la classe', () => {
 
   it('classe scannée sans garde : un seul geste déclare la classe vide, avec le jeton du QR', async () => {
     const user = userEvent.setup();
+    let declared = false;
     const calls = setupQr((call) => {
       if (call.url === '/api/coverage/presence/resolve') {
-        return json(200, { class: { id: 'k1', name: '1ère année Violet', room: 'Salle 12' }, coverage: null, otherClassGuard: false });
+        // Après la déclaration, l'affectation créée devient « ma garde » : la résolution du QR la renvoie.
+        return json(200, {
+          class: { id: 'k1', name: '1ère année Violet', room: 'Salle 12' },
+          coverage: declared ? summary({ status: 'ON_DUTY', mainStatus: 'IN_PROGRESS' }) : null,
+          otherClassGuard: false,
+        });
       }
       if (call.url === '/api/coverage/availability') return json(200, { isSupervisor: true, capabilities: { declareEmptyClass: true, report: false, manage: false } });
       if (call.url === '/api/coverage/empty-class') {
+        declared = true;
         return json(201, { outcome: 'CREATED', coverage: { id: 'g9' }, assignedTo: { id: 's1', displayName: 'Surveillant' }, doubleAssignment: false });
       }
       return undefined;
@@ -369,6 +377,10 @@ describe('Page du QR code de la classe', () => {
     expect(posts(calls, '/api/coverage/empty-class')[0].body).toMatchObject({ classId: 'k1', teacherId: null, qrToken: 'jeton-signe' });
     expect(await screen.findByRole('status')).toHaveTextContent('déclarée vide');
     expect(screen.getByRole('link', { name: 'Voir l’affectation' })).toHaveAttribute('href', '/gardes/g9');
+    // Le rafraîchissement qui suit ne remplace pas le résultat par « Confirmer ma présence ».
+    await waitFor(() => expect(calls.filter((c) => c.url === '/api/coverage/presence/resolve').length).toBeGreaterThan(1));
+    expect(screen.getByRole('status')).toHaveTextContent('déclarée vide');
+    expect(screen.queryByRole('button', { name: 'Confirmer ma présence' })).not.toBeInTheDocument();
   });
 
   it('sans droit de déclaration : pas de bouton', async () => {
