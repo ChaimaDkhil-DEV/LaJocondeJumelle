@@ -252,6 +252,33 @@ describe('Onglets du surveillant', () => {
     expect(screen.queryByRole('tab', { name: 'À prendre' })).not.toBeInTheDocument();
     expect(await screen.findByRole('button', { name: 'Je suis en route' })).toBeInTheDocument();
   });
+
+  it('un admin membre du groupe Surveillants garde ses propres onglets, après ceux de l’admin', async () => {
+    mockFetch((call) => {
+      if (call.url === '/api/coverage/availability') {
+        return json(200, { availability: 'AVAILABLE', activeGuards: [], isTeacher: false, isSupervisor: true, inGroup: true, canManage: true });
+      }
+      return json(200, []);
+    });
+    renderWith(<CoveragePage />, '/gardes');
+    const tabs = (await screen.findAllByRole('tab')).map((tab) => tab.textContent);
+    expect(tabs).toEqual(['En attente', 'En cours', 'Doublons', 'Équipe', 'Terminées', 'Mes affectations', 'Historique']);
+    // L'onglet par défaut reste la file de l'admin.
+    expect(screen.getByRole('tab', { name: 'En attente' })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('un admin qui n’est pas surveillant ne voit pas les onglets du surveillant', async () => {
+    mockFetch((call) => {
+      if (call.url === '/api/coverage/availability') {
+        return json(200, { availability: 'AVAILABLE', activeGuards: [], isTeacher: false, isSupervisor: false, inGroup: false, canManage: true });
+      }
+      return json(200, []);
+    });
+    renderWith(<CoveragePage />, '/gardes');
+    await screen.findByRole('tab', { name: 'En attente' });
+    expect(screen.queryByRole('tab', { name: 'Mes affectations' })).not.toBeInTheDocument();
+  });
+
 });
 
 describe('Page du QR code de la classe', () => {
