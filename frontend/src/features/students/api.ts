@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../../api/client';
 import { t } from '../../i18n';
+import type { ImportReport } from '../admin/csvImport';
 
 /** Service de restauration : exactement un par élève. */
 export type MealService = 'CANTINE' | 'PANIER';
@@ -73,6 +74,20 @@ export function useSaveLevel() {
       void queryClient.invalidateQueries({ queryKey: studentKeys.levels });
       void queryClient.invalidateQueries({ queryKey: studentKeys.students });
       void queryClient.invalidateQueries({ queryKey: ['coverage', 'admin', 'classes'] });
+    },
+  });
+}
+
+/** Import d'élèves depuis un fichier CSV : `dryRun` vrai vérifie sans rien créer. Rafraîchit les listes si tout est créé. */
+export function useImportStudents() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ csv, dryRun }: { csv: string; dryRun: boolean }) =>
+      apiFetch<ImportReport>('/api/admin/students/import', { method: 'POST', body: { csv, dryRun } }),
+    onSuccess: (report) => {
+      if (!report.created) return;
+      void queryClient.invalidateQueries({ queryKey: studentKeys.students });
+      void queryClient.invalidateQueries({ queryKey: studentKeys.levels });
     },
   });
 }

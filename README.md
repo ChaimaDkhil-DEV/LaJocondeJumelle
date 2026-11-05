@@ -118,6 +118,32 @@ docker compose -f deploy/docker-compose.yml --env-file deploy/.env exec api \
 Backups run daily (database and files, kept 14 days); the restore procedure
 (`deploy/backup/restore.sh`) must be tested before going live.
 
+## Loading real data (CSV import)
+
+Accounts and students can be loaded from a CSV file instead of one at a time: **Administration > Comptes** or
+**Administration > Élèves**, then **Importer un fichier** (super administrator only). Both dialogs offer a template to
+download.
+
+- The file is **checked in full first** (a preview that creates nothing). Creation is **all or nothing**: while a line is
+  in error, nothing is created, and the errors are listed by line number.
+- Excel in French works as is (`;` separator, UTF-8 or Windows-1252); `,` and tab are detected too. A column title not
+  in the list below is refused rather than silently ignored.
+- Rules are those of the forms (the lines go through the same validation classes). Re-importing the same file creates
+  nothing: existing usernames and already enrolled students are reported.
+- Limits: 500 accounts and 2000 students per file, 1 MB.
+
+| Accounts | | Students | |
+|---|---|---|---|
+| `identifiant`, `nom_affiche` | required | `prenom`, `nom`, `classe`, `telephone_parent`, `restauration` | all required |
+| `fonction`, `role` (`employé` by default, or `admin`) | optional | `classe` | name of a class **attached to a school level** |
+| `groupes`, `categories` (names separated by `\|`), `etage` | optional | `restauration` | `cantine` or `panier` |
+
+A super administrator account is never created by import. After creating accounts, the dialog gives the **temporary
+passwords once** as a downloadable CSV (they are stored hashed, never in clear): hand each person their own, delete the
+file, and each person must change it at first sign-in. Closing the dialog without downloading asks for confirmation.
+Every account and student created is recorded in the audit log with `source: import`. Order of loading: floors,
+school levels, classes (with their level), then accounts, then students.
+
 ## To decide before going live
 
 The following values are **provisional** and can be changed in the administration area; they must

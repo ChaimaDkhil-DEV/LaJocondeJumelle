@@ -1,17 +1,22 @@
-import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import type { Request } from 'express';
 import { SuperAdminGuard } from '../audit/super-admin.guard';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/current-user.decorator';
+import { ImportCsvDto } from '../common/csv-import';
 import { clientIp } from '../common/request-info';
 import { LevelDto, StudentDto, UpdateLevelDto } from './students.dto';
+import { StudentsImportService } from './students-import.service';
 import { StudentsService } from './students.service';
 
 /** Niveaux et élèves : données de référence, super administrateur uniquement (comme les classes). */
 @Controller('admin')
 @UseGuards(SuperAdminGuard)
 export class StudentsController {
-  constructor(private readonly students: StudentsService) {}
+  constructor(
+    private readonly students: StudentsService,
+    private readonly studentsImport: StudentsImportService,
+  ) {}
 
   @Get('levels')
   levels() {
@@ -31,6 +36,13 @@ export class StudentsController {
   @Get('students')
   list() {
     return this.students.list();
+  }
+
+  /** Import d'élèves depuis un fichier CSV : `dryRun: true` vérifie sans rien créer, sinon tout est créé ou rien. */
+  @Post('students/import')
+  @HttpCode(200)
+  importStudents(@CurrentUser() actor: AuthenticatedUser, @Body() dto: ImportCsvDto, @Req() req: Request) {
+    return this.studentsImport.run(dto, { actor, ip: clientIp(req) });
   }
 
   @Post('students')

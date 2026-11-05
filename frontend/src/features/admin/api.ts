@@ -1,7 +1,8 @@
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../../api/client';
 import type { Priority, Role } from '../../api/types';
 import type { RoutingMode } from '../requests/types';
+import type { AccountsImportReport } from './csvImport';
 
 export interface AdminUser {
   id: string;
@@ -131,6 +132,20 @@ export const adminKeys = {
   rolePermissions: ['admin', 'role-permissions'] as const,
   audit: (filters: AuditFilters) => ['admin', 'audit', filters] as const,
 };
+
+/** Import de comptes depuis un fichier CSV : `dryRun` vrai vérifie sans rien créer. Rafraîchit les listes si tout est créé. */
+export function useImportAccounts() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ csv, dryRun }: { csv: string; dryRun: boolean }) =>
+      apiFetch<AccountsImportReport>('/api/admin/users/import', { method: 'POST', body: { csv, dryRun } }),
+    onSuccess: (report) => {
+      if (!report.created) return;
+      void queryClient.invalidateQueries({ queryKey: adminKeys.users });
+      void queryClient.invalidateQueries({ queryKey: ['coverage'] });
+    },
+  });
+}
 
 interface UsersPage {
   items: AdminUser[];

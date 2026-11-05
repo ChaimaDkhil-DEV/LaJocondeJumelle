@@ -19,7 +19,7 @@ import RadioGroup from '@mui/material/RadioGroup';
 import TablePagination from '@mui/material/TablePagination';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import { CircleOff, GraduationCap, Pencil, Search, SearchX, UserPlus } from 'lucide-react';
+import { CircleOff, FileUp, GraduationCap, Pencil, Search, SearchX, UserPlus } from 'lucide-react';
 import { useId, useMemo, useState, type FormEvent } from 'react';
 import { Link as RouterLink } from 'react-router';
 import { ApiError } from '../../api/client';
@@ -32,6 +32,7 @@ import { SectionHeader } from '../../components/SectionHeader';
 import { useToast } from '../../components/Toast';
 import { font, icon } from '../../design/tokens';
 import { isPlural, locale, t } from '../../i18n';
+import { StudentsImportDialog } from './StudentsImportDialog';
 import { MEAL_SERVICE_LABELS, useLevels, useSaveStudent, useStudents, type GradeLevel, type MealService, type Student } from './api';
 
 const ROWS_PER_PAGE = [25, 50, 100];
@@ -180,6 +181,7 @@ export function StudentsAdminPage() {
   const levels = useLevels();
   const toast = useToast();
   const [form, setForm] = useState<{ student: Student | null } | null>(null);
+  const [importing, setImporting] = useState(false);
   const [query, setQuery] = useState('');
   const [levelId, setLevelId] = useState('');
   const [classId, setClassId] = useState('');
@@ -213,9 +215,14 @@ export function StudentsAdminPage() {
         title={t('Élèves')}
         description={t('Élèves par niveau et par classe, avec le téléphone d’un parent et le service de restauration (cantine ou panier).')}
         action={
-          <Button variant="contained" startIcon={<UserPlus size={icon.sm} aria-hidden="true" />} disabled={!levels.data || noClassWithLevel} onClick={() => setForm({ student: null })}>
-            {t('Nouvel élève')}
-          </Button>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            <Button variant="outlined" startIcon={<FileUp size={icon.sm} aria-hidden="true" />} disabled={!levels.data || noClassWithLevel} onClick={() => setImporting(true)}>
+              {t('Importer un fichier')}
+            </Button>
+            <Button variant="contained" startIcon={<UserPlus size={icon.sm} aria-hidden="true" />} disabled={!levels.data || noClassWithLevel} onClick={() => setForm({ student: null })}>
+              {t('Nouvel élève')}
+            </Button>
+          </Box>
         }
       />
       {noClassWithLevel && (
@@ -364,6 +371,7 @@ export function StudentsAdminPage() {
           )}
         </Paper>
       )}
+      {importing && <StudentsImportDialog onClose={() => setImporting(false)} />}
       {form && levels.data && (
         <StudentFormDialog
           student={form.student}
