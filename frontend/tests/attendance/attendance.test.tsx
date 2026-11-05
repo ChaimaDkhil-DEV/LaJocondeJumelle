@@ -131,7 +131,9 @@ describe('Page du QR code : aiguillage selon le profil', () => {
 
   it('un surveillant garde la page de présence en garde', async () => {
     const calls = mount(routes, `/gardes/presence?c=${TOKEN}`, profileOf('supervisor'));
-    expect(await screen.findByText(/pas de garde en cours pour la classe/)).toBeInTheDocument();
+    // Page de garde : elle interroge la résolution du QR des gardes, jamais celle du pointage.
+    await waitFor(() => expect(calls.some((c) => c.url === '/api/coverage/presence/resolve')).toBe(true));
+    expect(await screen.findByRole('heading', { name: 'Confirmer ma présence' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Enregistrer mon arrivée' })).not.toBeInTheDocument();
     expect(calls.some((c) => c.url === '/api/attendance/resolve')).toBe(false);
   });
@@ -143,8 +145,10 @@ describe('Page du QR code : aiguillage selon le profil', () => {
   });
 
   it('« as=surveillant » force la page de garde pour un compte enseignant et surveillant', async () => {
-    mount(routes, `/gardes/presence?c=${TOKEN}&as=surveillant`, profileOf('both'));
-    expect(await screen.findByText(/pas de garde en cours pour la classe/)).toBeInTheDocument();
+    const calls = mount(routes, `/gardes/presence?c=${TOKEN}&as=surveillant`, profileOf('both'));
+    expect(await screen.findByRole('heading', { name: 'Confirmer ma présence' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Enregistrer mon arrivée' })).not.toBeInTheDocument();
+    expect(calls.some((c) => c.url === '/api/attendance/resolve')).toBe(false);
   });
 });
 

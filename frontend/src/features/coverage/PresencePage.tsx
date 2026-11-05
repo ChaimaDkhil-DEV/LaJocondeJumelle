@@ -29,6 +29,11 @@ import { t } from '../../i18n';
 export function PresencePage() {
   const [params] = useSearchParams();
   const token = params.get('c') ?? '';
+  // La déclaration invalide la résolution du QR (l'affectation créée devient « ma garde ») : le résultat
+  // est gardé ici pour rester affiché au lieu de basculer sur « Confirmer ma présence ».
+  // La mutation vit aussi ici : le rafraîchissement qui suit démonte l'enfant avant son `onSuccess`.
+  const declare = useDeclareEmptyClass();
+  const [declared, setDeclared] = useState<{ value: EmptyClassResult; className: string } | null>(null);
   const resolution = useQuery({
     queryKey: ['coverage', 'presence', token],
     queryFn: () => resolveQr(token),
@@ -38,6 +43,7 @@ export function PresencePage() {
   });
   const header = <PageHeader title={t('Confirmer ma présence')} back={{ to: '/gardes?onglet=mes-affectations', label: t('Mes affectations') }} />;
 
+  if (declared) return (<>{header}<DeclaredResult value={declared.value} className={declared.className} /></>);
   if (!token) return (<>{header}<ErrorState message={t('Lien de QR code incomplet. Scannez de nouveau le QR code de la classe.')} /></>);
   if (resolution.isPending) return (<>{header}<LoadingState label={t('Vérification du QR code')} variant="detail" /></>);
   if (resolution.error) {
@@ -53,7 +59,7 @@ export function PresencePage() {
     return (
       <>
         {header}
-        <DeclareEmptyFromQr schoolClass={schoolClass} token={token} otherClassGuard={otherClassGuard} />
+        <DeclareEmptyFromQr schoolClass={schoolClass} token={token} otherClassGuard={otherClassGuard} declare={declare} onDeclared={(value) => setDeclared({ value, className: schoolClass.name })} />
       </>
     );
   }
@@ -145,34 +151,12 @@ function ConfirmPresence({ coverageId, token }: { coverageId: string; token: str
  * Classe scannée sans garde en cours : « Déclarer cette classe vide » en un seul geste. Le QR prouve
  * la présence devant la classe (R10) ; l'ouverture de la page n'enregistre rien, seul ce bouton envoie.
  */
-function DeclareEmptyFromQr({ schoolClass, token, otherClassGuard }: { schoolClass: Pick<SchoolClass, 'id' | 'name' | 'room'>; token: string; otherClassGuard: boolean }) {
+function DeclareEmptyFromQr({ schoolClass, token, otherClassGuard, declare, onDeclared }: { schoolClass: Pick<SchoolClass, 'id' | 'name' | 'room'>; token: string; otherClassGuard: boolean; declare: ReturnType<typeof useDeclareEmptyClass>; onDeclared: (value: EmptyClassResult) => void }) {
   const profile = useCoverageProfile();
-  const declare = useDeclareEmptyClass();
   const clientId = useRef(crypto.randomUUID());
-  const [result, setResult] = useState<EmptyClassResult | null>(null);
 
   if (profile.isPending) return <LoadingState label={t('Chargement de la classe')} variant="detail" />;
   const canDeclare = profile.data?.capabilities?.declareEmptyClass ?? profile.data?.isSupervisor ?? false;
-
-  if (result) {
-    return (
-      <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 }, display: 'grid', gap: 2, maxWidth: layout.readable }}>
-        <Alert severity={result.outcome === 'ALREADY_ASSIGNED' || result.outcome === 'SUPPORT' ? 'info' : 'success'} role="status">
-          {outcomeMessage(result, schoolClass.name)}
-        </Alert>
-        {result.doubleAssignment && (
-          <Alert severity="warning">{t('Vous aviez déjà une affectation en cours : l’admin est alertée et réassignera l’une des deux.')}</Alert>
-        )}
-        {result.coverage && (
-          <Box>
-            <Button component={RouterLink} to={`/gardes/${result.coverage.id}`} variant="contained">
-              {t('Voir l’affectation')}
-            </Button>
-          </Box>
-        )}
-      </Paper>
-    );
-  }
 
   const error = declare.error instanceof ApiError ? declare.error.message : declare.error ? t('Déclaration impossible. Réessayez.') : null;
   return (
@@ -203,7 +187,7 @@ function DeclareEmptyFromQr({ schoolClass, token, otherClassGuard }: { schoolCla
               onClick={() =>
                 declare.mutate(
                   { clientId: clientId.current, classId: schoolClass.id, teacherId: null, qrToken: token },
-                  { onSuccess: setResult },
+                  { onSuccess: onDeclared },
                 )
               }
               sx={{ minHeight: 48 }}
@@ -217,6 +201,27 @@ function DeclareEmptyFromQr({ schoolClass, token, otherClassGuard }: { schoolCla
         </>
       ) : (
         !otherClassGuard && <Alert severity="info">{t('Vous n’avez pas de garde en cours pour la classe {name}.', { name: schoolClass.name })}</Alert>
+      )}
+    </Paper>
+  );
+}
+
+/** Résultat de la déclaration (mêmes messages que le formulaire complet). */
+function DeclaredResult({ value, className }: { value: EmptyClassResult; className: string }) {
+  return (
+    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 }, display: 'grid', gap: 2, maxWidth: layout.readable }}>
+      <Alert severity={value.outcome === 'ALREADY_ASSIGNED' || value.outcome === 'SUPPORT' ? 'info' : 'success'} role="status">
+        {outcomeMessage(value, className)}
+      </Alert>
+      {value.doubleAssignment && (
+        <Alert severity="warning">{t('Vous aviez déjà une affectation en cours : l’admin est alertée et réassignera l’une des deux.')}</Alert>
+      )}
+      {value.coverage && (
+        <Box>
+          <Button component={RouterLink} to={`/gardes/${value.coverage.id}`} variant="contained">
+            {t('Voir l’affectation')}
+          </Button>
+        </Box>
       )}
     </Paper>
   );
