@@ -66,6 +66,10 @@ export const ERROR_CATALOG = {
   },
   INVALID_DATE: { status: 400, message: 'La date doit être aujourd’hui ou demain.' },
   INVALID_RANGE: { status: 400, message: 'Le créneau est invalide : la fin doit suivre le début et ne pas être déjà passée.' },
+  ATTENDANCE_EXISTS: {
+    status: 409,
+    message: 'Une présence est déjà enregistrée pour cet enseignant, cette classe et ce jour.',
+  },
   CLASS_INACTIVE: { status: 400, message: 'Cette classe est introuvable ou désactivée.' },
   RATE_LIMITED: {
     status: 429,

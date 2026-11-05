@@ -31,6 +31,7 @@ export const COVERAGE_INCLUDE = {
       class: { select: { id: true, name: true, room: true } },
       floor: { select: { id: true, name: true } },
       teacher: { select: { id: true, displayName: true } },
+      substituteTeacher: { select: { id: true, displayName: true } },
     },
   },
   supports: {
@@ -88,6 +89,7 @@ export function toCoverageSummary(row: CoverageRow) {
     class: c.class,
     floor: c.floor,
     teacher: c.teacher,
+    substituteTeacher: c.substituteTeacher,
     absentTeacher: c.absentTeacher,
     startAt: c.startAt,
     estimatedMinutes: c.estimatedMinutes,

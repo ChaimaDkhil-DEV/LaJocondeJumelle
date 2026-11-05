@@ -162,6 +162,9 @@ enum RequestEventType {
   ANONYMIZED
   // Assistance IA (009) : propositions automatiques retenues à l'envoi
   ASSIST_SUGGESTED
+  // Pointage des enseignants : arrivée rattachée à la demande, remplaçant désigné
+  TEACHER_ARRIVED
+  SUBSTITUTE_SET
 }
 
 enum AuditAction {
@@ -197,6 +200,9 @@ enum AuditAction {
   GUIDELINE_CHANGED
   // Élèves
   STUDENT_CHANGED
+  // Pointage des enseignants par QR : saisies et corrections de la surveillante (jamais les scans)
+  ATTENDANCE_MANUAL
+  ATTENDANCE_CORRECTED
 }
 
 enum NotificationType {
@@ -235,6 +241,9 @@ enum NotificationType {
   COVERAGE_DOUBLE_ASSIGNMENT
   COVERAGE_LIFTED
   COVERAGE_UPDATED
+  // Pointage des enseignants
+  COVERAGE_TEACHER_ARRIVED
+  COVERAGE_ATTENDANCE_ANOMALY
 }
 
 /// Origine d'une affectation (004).
@@ -288,6 +297,21 @@ enum MealService {
 
 /// Utilisateur. `username` est unique et insensible à la casse : il est toujours
 /// stocké en minuscules (3–64 caractères, contrôlé par les DTO).
+/// Pointage d'un enseignant : QR (arrivée scannée) ou MANUAL (saisie de la surveillante).
+enum AttendanceMethod {
+  QR
+  MANUAL
+}
+
+/// ARRIVED : arrivée scannée, sans jugement (aucune heure de référence connue). ON_TIME, LATE et
+/// ABSENT ne sont posés que par une personne (saisie ou correction) : une absence n'est jamais déduite.
+enum AttendanceStatus {
+  ARRIVED
+  ON_TIME
+  LATE
+  ABSENT
+}
+
 model User {
   id                 String       @id @default(uuid()) @db.Uuid
   username           String       @unique @db.VarChar(64)
@@ -330,6 +354,11 @@ model User {
   groupMemberships  EmployeeGroupMember[]
   presences         CoveragePresence[]
   guidelinesUpdated Guideline[]
+
+  coverageSubstituteOf CoverageDetail[]    @relation("CoverageSubstitute")
+  attendances          TeacherAttendance[] @relation("AttendanceTeacher")
+  attendancesRecorded  TeacherAttendance[] @relation("AttendanceRecorder")
+  attendancesTitular   TeacherAttendance[] @relation("AttendanceTitular")
 }
 
 /// Session serveur : `id` est le haché HMAC du jeton aléatoire (256 bits) placé dans le cookie.
@@ -498,6 +527,7 @@ model Request {
   mergeSources  CoverageMergeProposal[] @relation("MergeSource")
   mergeTargets  CoverageMergeProposal[] @relation("MergeTarget")
   reminders     CoverageReminder[]
+  attendances   TeacherAttendance[]     @relation("AttendanceRequest")
 
   @@unique([requesterId, clientId])
   @@index([kind, status])
@@ -637,10 +667,11 @@ model SchoolClass {
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
 
-  floor     Floor?           @relation(fields: [floorId], references: [id])
-  level     GradeLevel?      @relation(fields: [levelId], references: [id])
-  coverages CoverageDetail[]
-  students  Student[]
+  floor       Floor?              @relation(fields: [floorId], references: [id])
+  level       GradeLevel?         @relation(fields: [levelId], references: [id])
+  coverages   CoverageDetail[]
+  students    Student[]
+  attendances TeacherAttendance[]
 
   @@index([levelId])
 }
@@ -718,45 +749,48 @@ model EmployeeGroupMember {
 /// Détail 1-1 d'une demande de couverture (Request.kind = COVERAGE).
 /// Toutes les heures sont posées par le serveur.
 model CoverageDetail {
-  requestId        String          @id @db.Uuid
-  classId          String          @db.Uuid
-  absentTeacher    String?         @db.VarChar(100)
-  startAt          DateTime        @db.Timestamptz(3)
+  requestId           String          @id @db.Uuid
+  classId             String          @db.Uuid
+  absentTeacher       String?         @db.VarChar(100)
+  startAt             DateTime        @db.Timestamptz(3)
   /// null = jusqu'à l'arrivée de l'enseignant.
-  estimatedMinutes Int?
+  estimatedMinutes    Int?
   /// startAt + estimatedMinutes (recalculé à chaque prolongation) ; null = fin ouverte.
-  plannedEndAt     DateTime?       @db.Timestamptz(3)
-  broadcastAt      DateTime?       @db.Timestamptz(3)
-  departedAt       DateTime?       @db.Timestamptz(3)
-  presenceAt       DateTime?       @db.Timestamptz(3)
-  relievedAt       DateTime?       @db.Timestamptz(3)
+  plannedEndAt        DateTime?       @db.Timestamptz(3)
+  broadcastAt         DateTime?       @db.Timestamptz(3)
+  departedAt          DateTime?       @db.Timestamptz(3)
+  presenceAt          DateTime?       @db.Timestamptz(3)
+  relievedAt          DateTime?       @db.Timestamptz(3)
   /// Durée de garde (présence → relève), en minutes.
-  durationMinutes  Int?
-  releaseCount     Int             @default(0)
-  extensionCount   Int             @default(0)
-  cancelReason     String?         @db.VarChar(1000)
+  durationMinutes     Int?
+  releaseCount        Int             @default(0)
+  extensionCount      Int             @default(0)
+  cancelReason        String?         @db.VarChar(1000)
   /// Demande de relève : garde d'origine à relever quand le remplaçant confirme sa présence.
-  reliefForId      String?         @db.Uuid
+  reliefForId         String?         @db.Uuid
   /// Affectations (004). Nullables en base pour les gardes antérieures ; obligatoires à la création.
-  source           CoverageSource?
-  type             CoverageType?
+  source              CoverageSource?
+  type                CoverageType?
   /// Enseignant concerné (groupe Enseignants) ; facultatif pour une classe vide ; null après anonymisation.
-  teacherId        String?         @db.Uuid
+  teacherId           String?         @db.Uuid
   /// Motif détaillé : admin et super administrateur seulement (FR-023c).
-  reason           String?         @db.VarChar(1000)
+  reason              String?         @db.VarChar(1000)
   /// Copie de l'étage de la classe à la création (historique stable).
-  floorId          String?         @db.Uuid
+  floorId             String?         @db.Uuid
   /// Affectation absorbée par une fusion confirmée (R6).
-  mergedIntoId     String?         @db.Uuid
-  anonymizedAt     DateTime?       @db.Timestamptz(3)
+  mergedIntoId        String?         @db.Uuid
+  anonymizedAt        DateTime?       @db.Timestamptz(3)
+  /// Enseignant remplaçant autorisé par l'admin pour cette absence (pointage) ; le titulaire reste `teacherId`.
+  substituteTeacherId String?         @db.Uuid
 
-  request    Request          @relation(fields: [requestId], references: [id])
-  class      SchoolClass      @relation(fields: [classId], references: [id])
-  reliefFor  Request?         @relation("CoverageRelief", fields: [reliefForId], references: [id])
-  teacher    User?            @relation("CoverageTeacher", fields: [teacherId], references: [id])
-  floor      Floor?           @relation(fields: [floorId], references: [id])
-  mergedInto Request?         @relation("CoverageMergedInto", fields: [mergedIntoId], references: [id])
-  targets    CoverageTarget[]
+  request           Request          @relation(fields: [requestId], references: [id])
+  substituteTeacher User?            @relation("CoverageSubstitute", fields: [substituteTeacherId], references: [id])
+  class             SchoolClass      @relation(fields: [classId], references: [id])
+  reliefFor         Request?         @relation("CoverageRelief", fields: [reliefForId], references: [id])
+  teacher           User?            @relation("CoverageTeacher", fields: [teacherId], references: [id])
+  floor             Floor?           @relation(fields: [floorId], references: [id])
+  mergedInto        Request?         @relation("CoverageMergedInto", fields: [mergedIntoId], references: [id])
+  targets           CoverageTarget[]
 
   @@index([classId])
   @@index([startAt])
@@ -764,6 +798,7 @@ model CoverageDetail {
   @@index([teacherId])
   @@index([floorId])
   @@index([source, type])
+  @@index([substituteTeacherId])
 }
 
 /// Groupes ciblés par une couverture (plusieurs après élargissement).
@@ -858,6 +893,49 @@ model CoverageReminder {
   support    CoverageSupport? @relation(fields: [supportId], references: [id])
 
   @@index([resolvedAt, dueAt])
+  @@index([requestId])
+}
+
+// ---------------------------------------------------------------------------
+// Pointage des enseignants par QR (lot 3)
+// ---------------------------------------------------------------------------
+
+/// Arrivée d'un enseignant dans une classe, un jour donné. Le QR identifie la classe, la session
+/// identifie l'enseignant, l'heure est celle du serveur. Aucune suppression : une correction modifie la
+/// ligne et son détail (avant/après, auteur, motif) est ajouté au journal d'audit, en ajout seul.
+/// L'unicité (enseignant, classe, jour) rend le double scan et les scans simultanés idempotents.
+model TeacherAttendance {
+  id                   String           @id @default(uuid()) @db.Uuid
+  teacherId            String           @db.Uuid
+  classId              String           @db.Uuid
+  /// Jour dans le fuseau de l'école.
+  localDate            DateTime         @db.Date
+  method               AttendanceMethod
+  status               AttendanceStatus
+  /// Heure réelle d'arrivée : l'heure serveur du scan (QR) ou celle indiquée par la surveillante (facultative).
+  arrivedAt            DateTime?        @db.Timestamptz(3)
+  /// Heure serveur d'enregistrement ; distincte de `arrivedAt` pour une saisie manuelle.
+  recordedAt           DateTime         @default(now()) @db.Timestamptz(3)
+  /// Auteur : l'enseignant (QR) ou la surveillante (saisie manuelle).
+  recordedById         String           @db.Uuid
+  comment              String?          @db.VarChar(500)
+  /// Demande de retard ou d'absence annoncée qui correspond (même enseignant, classe et jour).
+  requestId            String?          @db.Uuid
+  /// Retard annoncé constaté (minutes après l'heure de début de la demande) ; null sans demande de retard.
+  announcedLateMinutes Int?
+  /// Titulaire remplacé, si l'enseignant est le remplaçant autorisé de sa demande d'absence.
+  substituteForId      String?          @db.Uuid
+  updatedAt            DateTime         @updatedAt @db.Timestamptz(3)
+
+  teacher       User        @relation("AttendanceTeacher", fields: [teacherId], references: [id])
+  class         SchoolClass @relation(fields: [classId], references: [id])
+  recordedBy    User        @relation("AttendanceRecorder", fields: [recordedById], references: [id])
+  request       Request?    @relation("AttendanceRequest", fields: [requestId], references: [id])
+  substituteFor User?       @relation("AttendanceTitular", fields: [substituteForId], references: [id])
+
+  @@unique([teacherId, classId, localDate])
+  @@index([localDate])
+  @@index([classId, localDate])
   @@index([requestId])
 }
 

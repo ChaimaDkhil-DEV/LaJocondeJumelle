@@ -100,6 +100,11 @@ export function TeacherField({ detail }: { detail: CoverageDetail }) {
         <Typography variant="body2">
           {detail.teacher?.displayName ?? detail.absentTeacher ?? t('Enseignant non précisé')}
         </Typography>
+        {detail.substituteTeacher && (
+          <Typography variant="body2" color="text.secondary">
+            {t('Remplaçant autorisé : {name}', { name: detail.substituteTeacher.displayName })}
+          </Typography>
+        )}
         {canSet && (
           <Button
             size="small"

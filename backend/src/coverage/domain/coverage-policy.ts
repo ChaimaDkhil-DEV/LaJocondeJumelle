@@ -50,6 +50,8 @@ export interface ModuleCapabilities {
   configure: boolean;
   /** Peut recevoir une affectation. */
   assignable: boolean;
+  /** Pointer son arrivée en classe par QR : membre du groupe Enseignants (le super administrateur ne pointe pas). */
+  recordArrival: boolean;
 }
 
 /** Admin du module : rôle ADMIN ou SUPER_ADMIN, compte actif (R9). */
@@ -75,6 +77,7 @@ export function moduleCapabilities(user: CoverageViewer): ModuleCapabilities {
     stats: admin,
     configure: superAdmin,
     assignable: isEligibleAssignee(user),
+    recordArrival: teacher,
   };
 }
 
