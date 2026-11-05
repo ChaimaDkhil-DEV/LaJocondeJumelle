@@ -316,4 +316,44 @@ describe('Page du QR code de la classe', () => {
     expect(await screen.findByText('Ce QR code correspond à la classe 2e année Bleu, qui n’est pas celle de votre garde.')).toBeInTheDocument();
     expect(posts(calls, '/api/coverage/g1/actions')).toHaveLength(0);
   });
+
+  it('classe scannée sans garde : un seul geste déclare la classe vide, avec le jeton du QR', async () => {
+    const user = userEvent.setup();
+    const calls = setupQr((call) => {
+      if (call.url === '/api/coverage/presence/resolve') {
+        return json(200, { class: { id: 'k1', name: '1ère année Violet', room: 'Salle 12' }, coverage: null, otherClassGuard: false });
+      }
+      if (call.url === '/api/coverage/availability') return json(200, { isSupervisor: true, capabilities: { declareEmptyClass: true, report: false, manage: false } });
+      if (call.url === '/api/coverage/empty-class') {
+        return json(201, { outcome: 'CREATED', coverage: { id: 'g9' }, assignedTo: { id: 's1', displayName: 'Surveillant' }, doubleAssignment: false });
+      }
+      return undefined;
+    });
+    renderWith(
+      <Routes>
+        <Route path="/gardes/presence" element={<PresencePage />} />
+      </Routes>,
+      '/gardes/presence?c=jeton-signe',
+    );
+    const button = await screen.findByRole('button', { name: 'Déclarer cette classe vide' });
+    expect(posts(calls, '/api/coverage/empty-class')).toHaveLength(0);
+    await user.click(button);
+    await waitFor(() => expect(posts(calls, '/api/coverage/empty-class')).toHaveLength(1));
+    expect(posts(calls, '/api/coverage/empty-class')[0].body).toMatchObject({ classId: 'k1', teacherId: null, qrToken: 'jeton-signe' });
+    expect(await screen.findByRole('status')).toHaveTextContent('déclarée vide');
+    expect(screen.getByRole('link', { name: 'Voir l’affectation' })).toHaveAttribute('href', '/gardes/g9');
+  });
+
+  it('sans droit de déclaration : pas de bouton', async () => {
+    setupQr((call) => {
+      if (call.url === '/api/coverage/presence/resolve') {
+        return json(200, { class: { id: 'k1', name: '1ère année Violet', room: null }, coverage: null, otherClassGuard: false });
+      }
+      if (call.url === '/api/coverage/availability') return json(200, { isSupervisor: false, capabilities: { declareEmptyClass: false, report: true, manage: false } });
+      return undefined;
+    });
+    renderWith(<Routes><Route path="/gardes/presence" element={<PresencePage />} /></Routes>, '/gardes/presence?c=x');
+    expect(await screen.findByText('Vous n’avez pas de garde en cours pour la classe 1ère année Violet.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Déclarer cette classe vide' })).not.toBeInTheDocument();
+  });
 });

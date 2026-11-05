@@ -26,7 +26,7 @@ import { t } from '../../i18n';
 const NO_TEACHER = 'none';
 
 /** Message selon l'issue de la déclaration (contracts/rest-api.md, FR-015d à FR-015g). */
-function outcomeMessage(result: EmptyClassResult, className: string): string {
+export function outcomeMessage(result: EmptyClassResult, className: string): string {
   const responsible = result.assignedTo?.displayName ?? t('Un surveillant');
   switch (result.outcome) {
     case 'CREATED':
