@@ -5,7 +5,7 @@ import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import { useQuery } from '@tanstack/react-query';
 import { DoorOpen, MapPin } from 'lucide-react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link as RouterLink, useNavigate, useSearchParams } from 'react-router';
 import { ApiError } from '../../api/client';
 import { ErrorState } from '../../components/ErrorState';
@@ -13,10 +13,11 @@ import { LoadingState } from '../../components/LoadingState';
 import { PageHeader } from '../../components/PageHeader';
 import { useToast } from '../../components/Toast';
 import { icon, layout } from '../../design/tokens';
-import { resolveQr, useCoverage, useCoverageAction } from './api';
+import { resolveQr, useCoverage, useCoverageAction, useCoverageProfile, useDeclareEmptyClass } from './api';
+import { outcomeMessage } from './EmptyClassPage';
 import { CameraCapture, type CapturedPhoto } from './CameraCapture';
 import { CoverageStatusBadge } from './labels';
-import type { CoverageDetail } from './types';
+import type { CoverageDetail, EmptyClassResult, SchoolClass } from './types';
 import { t } from '../../i18n';
 
 /**
@@ -52,22 +53,7 @@ export function PresencePage() {
     return (
       <>
         {header}
-        <Alert severity="warning" sx={{ maxWidth: layout.readable }}>
-          {otherClassGuard
-            ? t('Ce QR code correspond à la classe {name}, qui n’est pas celle de votre garde.', { name: schoolClass.name })
-            : t('Vous n’avez pas de garde en cours pour la classe {name}.', { name: schoolClass.name })}
-        </Alert>
-        {/* Classe trouvée vide pendant le tour : déclaration directe, classe et QR repris (FR-015, R10). */}
-        <Box sx={{ mt: 2 }}>
-          <Button
-            component={RouterLink}
-            to={`/gardes/classe-vide?classe=${encodeURIComponent(schoolClass.id)}&c=${encodeURIComponent(token)}`}
-            variant="contained"
-            startIcon={<DoorOpen size={icon.md} aria-hidden="true" />}
-          >
-            {t('Déclarer cette classe vide')}
-          </Button>
-        </Box>
+        <DeclareEmptyFromQr schoolClass={schoolClass} token={token} otherClassGuard={otherClassGuard} />
       </>
     );
   }
@@ -151,6 +137,87 @@ function ConfirmPresence({ coverageId, token }: { coverageId: string; token: str
           {t('Voir la garde')}
         </Button>
       </Box>
+    </Paper>
+  );
+}
+
+/**
+ * Classe scannée sans garde en cours : « Déclarer cette classe vide » en un seul geste. Le QR prouve
+ * la présence devant la classe (R10) ; l'ouverture de la page n'enregistre rien, seul ce bouton envoie.
+ */
+function DeclareEmptyFromQr({ schoolClass, token, otherClassGuard }: { schoolClass: Pick<SchoolClass, 'id' | 'name' | 'room'>; token: string; otherClassGuard: boolean }) {
+  const profile = useCoverageProfile();
+  const declare = useDeclareEmptyClass();
+  const clientId = useRef(crypto.randomUUID());
+  const [result, setResult] = useState<EmptyClassResult | null>(null);
+
+  if (profile.isPending) return <LoadingState label={t('Chargement de la classe')} variant="detail" />;
+  const canDeclare = profile.data?.capabilities?.declareEmptyClass ?? profile.data?.isSupervisor ?? false;
+
+  if (result) {
+    return (
+      <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 }, display: 'grid', gap: 2, maxWidth: layout.readable }}>
+        <Alert severity={result.outcome === 'ALREADY_ASSIGNED' || result.outcome === 'SUPPORT' ? 'info' : 'success'} role="status">
+          {outcomeMessage(result, schoolClass.name)}
+        </Alert>
+        {result.doubleAssignment && (
+          <Alert severity="warning">{t('Vous aviez déjà une affectation en cours : l’admin est alertée et réassignera l’une des deux.')}</Alert>
+        )}
+        {result.coverage && (
+          <Box>
+            <Button component={RouterLink} to={`/gardes/${result.coverage.id}`} variant="contained">
+              {t('Voir l’affectation')}
+            </Button>
+          </Box>
+        )}
+      </Paper>
+    );
+  }
+
+  const error = declare.error instanceof ApiError ? declare.error.message : declare.error ? t('Déclaration impossible. Réessayez.') : null;
+  return (
+    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 }, display: 'grid', gap: 2, maxWidth: layout.readable }}>
+      <Box sx={{ display: 'grid', gap: 0.5 }}>
+        <Typography component="h2" variant="h6">
+          {schoolClass.name}
+        </Typography>
+        {schoolClass.room && (
+          <Typography variant="body2" color="text.secondary" sx={{ display: 'inline-flex', gap: 0.5, alignItems: 'center' }}>
+            <MapPin size={icon.sm} aria-hidden="true" /> {schoolClass.room}
+          </Typography>
+        )}
+      </Box>
+      {otherClassGuard && (
+        <Alert severity="info">{t('Ce QR code correspond à la classe {name}, qui n’est pas celle de votre garde.', { name: schoolClass.name })}</Alert>
+      )}
+      {canDeclare ? (
+        <>
+          <Typography>{t('Cette classe est sans enseignant ? Déclarez-la : l’affectation est à votre nom et l’admin est prévenue tout de suite.')}</Typography>
+          {error && <Alert severity="error" role="alert">{error}</Alert>}
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
+            <Button
+              variant="contained"
+              size="large"
+              startIcon={<DoorOpen size={icon.md} aria-hidden="true" />}
+              loading={declare.isPending}
+              onClick={() =>
+                declare.mutate(
+                  { clientId: clientId.current, classId: schoolClass.id, teacherId: null, qrToken: token },
+                  { onSuccess: setResult },
+                )
+              }
+              sx={{ minHeight: 48 }}
+            >
+              {t('Déclarer cette classe vide')}
+            </Button>
+            <Button component={RouterLink} to={`/gardes/classe-vide?classe=${encodeURIComponent(schoolClass.id)}&c=${encodeURIComponent(token)}`}>
+              {t('Préciser l’enseignant')}
+            </Button>
+          </Box>
+        </>
+      ) : (
+        !otherClassGuard && <Alert severity="info">{t('Vous n’avez pas de garde en cours pour la classe {name}.', { name: schoolClass.name })}</Alert>
+      )}
     </Paper>
   );
 }
