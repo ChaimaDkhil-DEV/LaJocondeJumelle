@@ -30,6 +30,8 @@ const DEFAULT_PERIOD_DAYS = 30;
 /** Une année scolaire au plus : borne le volume lu pour les délais. */
 const MAX_PERIOD_DAYS = 366;
 const ALERT_LIMIT = 20;
+/** Plafond de l'export CSV (aligné sur l'export des gardes) : au-delà, seules les demandes les plus récentes sont exportées. */
+const EXPORT_MAX_ROWS = 10_000;
 
 interface Filters {
   from: Date;
@@ -239,22 +241,25 @@ export class DashboardService {
   }
 
   /** Demandes de la période avec leurs délais calculés sur l'historique des statuts. */
-  private async cohort(f: Filters): Promise<CohortRequest[]> {
+  private async cohort(f: Filters, limit?: number): Promise<CohortRequest[]> {
     const where = requestConditions(f, true);
-    const [rows, events] = await Promise.all([
-      this.prisma.$queryRaw<PerformanceSourceRow[]>`
+    // Avec `limit` (export CSV) : les demandes les plus récentes d'abord, comme l'export lui-même.
+    const order = limit === undefined ? Prisma.empty : Prisma.sql`ORDER BY r."createdAt" DESC, r."id" DESC LIMIT ${limit}`;
+    const rows = await this.prisma.$queryRaw<PerformanceSourceRow[]>`
         SELECT r."id", r."priority", r."status", r."requesterId", r."assigneeId", r."rulesSnapshot",
           ${OVERDUE_EXISTS} AS "overdue", (r."overdueStage" IS NOT NULL) AS "overdueNow", r."submittedAt",
           (SELECT min(m."createdAt") FROM "Message" m
             WHERE m."requestId" = r."id" AND m."kind" IN ('TEXT', 'VOICE')
               AND m."authorId" <> r."requesterId" AND m."createdAt" >= r."submittedAt") AS "firstReplyAt"
-        FROM "Request" r WHERE ${where}`,
-      this.prisma.$queryRaw<Array<{ requestId: string; to: RequestStatus; at: Date }>>`
+        FROM "Request" r WHERE ${where} ${order}`;
+    // Historique des seules demandes retenues (la liste d'ids reste bornée par `limit`).
+    if (rows.length === 0) return [];
+    const scope = limit === undefined ? Prisma.empty : Prisma.sql`AND e."requestId" = ANY(${rows.map((r) => r.id)}::uuid[])`;
+    const events = await this.prisma.$queryRaw<Array<{ requestId: string; to: RequestStatus; at: Date }>>`
         SELECT e."requestId", e."toValue"->>'status' AS "to", e."createdAt" AS "at"
         FROM "RequestEvent" e JOIN "Request" r ON r."id" = e."requestId"
-        WHERE ${where} AND e."type" = 'STATUS_CHANGED'
-        ORDER BY e."requestId", e."seq"`,
-    ]);
+        WHERE ${where} AND e."type" = 'STATUS_CHANGED' ${scope}
+        ORDER BY e."requestId", e."seq"`;
     const transitions = new Map<string, StatusTransition[]>();
     for (const e of events) {
       const list = transitions.get(e.requestId) ?? [];
@@ -346,7 +351,7 @@ export class DashboardService {
    */
   async exportCsv(query: DashboardQuery): Promise<string> {
     const f = resolveFilters(query);
-    const cohort = new Map((await this.cohort(f)).map((r) => [r.id, r]));
+    const cohort = new Map((await this.cohort(f, EXPORT_MAX_ROWS)).map((r) => [r.id, r]));
     const requests = await this.prisma.request.findMany({
       where: { id: { in: [...cohort.keys()] } },
       select: {
