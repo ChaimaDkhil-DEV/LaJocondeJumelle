@@ -21,6 +21,7 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { CircleOff, GraduationCap, Pencil, Search, SearchX, UserPlus } from 'lucide-react';
 import { useId, useMemo, useState, type FormEvent } from 'react';
+import { Link as RouterLink } from 'react-router';
 import { ApiError } from '../../api/client';
 import { Badge } from '../../components/Badge';
 import { EmptyState } from '../../components/EmptyState';
@@ -202,6 +203,8 @@ export function StudentsAdminPage() {
   const currentPage = Math.min(page, pageCount - 1);
   const rows = filtered.slice(currentPage * rowsPerPage, (currentPage + 1) * rowsPerPage);
   const resetPage = () => setPage(0);
+  // Sans classe rattachée à un niveau, aucun élève ne peut être inscrit : on dit quoi faire.
+  const noClassWithLevel = levels.data !== undefined && levels.data.every((l) => l.classes.length === 0);
 
   return (
     <Box component="section" aria-labelledby="titre-eleves">
@@ -210,11 +213,29 @@ export function StudentsAdminPage() {
         title={t('Élèves')}
         description={t('Élèves par niveau et par classe, avec le téléphone d’un parent et le service de restauration (cantine ou panier).')}
         action={
-          <Button variant="contained" startIcon={<UserPlus size={icon.sm} aria-hidden="true" />} disabled={!levels.data} onClick={() => setForm({ student: null })}>
+          <Button variant="contained" startIcon={<UserPlus size={icon.sm} aria-hidden="true" />} disabled={!levels.data || noClassWithLevel} onClick={() => setForm({ student: null })}>
             {t('Nouvel élève')}
           </Button>
         }
       />
+      {noClassWithLevel && (
+        <Alert
+          severity="info"
+          sx={{ mb: 2 }}
+          action={
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              <Button color="inherit" size="small" component={RouterLink} to="/admin/niveaux">
+                {t('Gérer les niveaux')}
+              </Button>
+              <Button color="inherit" size="small" component={RouterLink} to="/admin/classes">
+                {t('Gérer les classes')}
+              </Button>
+            </Box>
+          }
+        >
+          {t('Aucune classe n’est rattachée à un niveau scolaire : on ne peut pas encore inscrire d’élèves. Créez d’abord les niveaux, puis rattachez-y les classes.')}
+        </Alert>
+      )}
       {students.isPending || levels.isPending ? (
         <LoadingState label={t('Chargement des élèves')} />
       ) : students.error || levels.error ? (

@@ -203,6 +203,8 @@ enum AuditAction {
   // Pointage des enseignants par QR : saisies et corrections de la surveillante (jamais les scans)
   ATTENDANCE_MANUAL
   ATTENDANCE_CORRECTED
+  // Niveaux scolaires (créés et modifiés par le super administrateur)
+  LEVEL_CHANGED
 }
 
 enum NotificationType {

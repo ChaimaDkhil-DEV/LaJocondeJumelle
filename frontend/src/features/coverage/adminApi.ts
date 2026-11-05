@@ -36,6 +36,8 @@ export interface AdminGroup {
 export interface AdminClass extends SchoolClass {
   active: boolean;
   floor: Named | null;
+  /** Niveau scolaire ; null pour une salle sans élèves. */
+  level: Named | null;
   qrVersion: number;
   updatedAt: string;
 }
@@ -114,12 +116,15 @@ export function useAdminClasses() {
 export function useSaveClass() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...body }: { id?: string; name: string; room?: string; active: boolean; floorId: string }) =>
+    mutationFn: ({ id, ...body }: { id?: string; name: string; room?: string; active: boolean; floorId: string; levelId: string | null }) =>
       apiFetch<AdminClass[]>(id ? `/api/admin/coverage/classes/${id}` : '/api/admin/coverage/classes', {
         method: id ? 'PATCH' : 'POST',
         body,
       }),
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['coverage'] }),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: ['coverage'] });
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'levels'] });
+    },
   });
 }
 

@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import type { Student } from '@prisma/client';
+import { Prisma, type Student } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import { AppException } from '../common/errors';
 import { PrismaService } from '../common/prisma.service';
-import type { StudentDto } from './students.dto';
+import type { LevelDto, StudentDto, UpdateLevelDto } from './students.dto';
 
 export interface StudentsContext {
   actor: AuthenticatedUser;
@@ -25,6 +25,20 @@ const STUDENT_SELECT = {
 
 function invalid(field: string, message: string): AppException {
   return new AppException('VALIDATION_ERROR', { fields: [{ field, messages: [message] }] }, message);
+}
+
+function conflict(message: string): AppException {
+  return new AppException('CONFLICT', undefined, message);
+}
+
+/** Le nom et la position d'un niveau sont uniques : le message dit lequel des deux est déjà pris. */
+function levelConflict(error: unknown): unknown {
+  if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') return error;
+  const target = error.meta?.target;
+  const fields = Array.isArray(target) ? target.map(String) : [String(target ?? '')];
+  return fields.some((f) => f.includes('position'))
+    ? conflict('Cette position est déjà utilisée par un autre niveau.')
+    : conflict('Ce niveau existe déjà.');
 }
 
 /** Champs modifiés, sans leurs valeurs : le journal ne garde aucune donnée personnelle d'élève. */
@@ -69,6 +83,45 @@ export class StudentsService {
       ...level,
       classes: classes.map(({ _count, ...c }) => ({ ...c, studentCount: _count.students })),
     }));
+  }
+
+  /** Création d'un niveau scolaire. Renvoie la liste à jour, comme les étages. */
+  async createLevel(dto: LevelDto, ctx: StudentsContext) {
+    const after = { name: dto.name, cycle: dto.cycle, position: dto.position };
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        const level = await tx.gradeLevel.create({ data: after });
+        await this.audit.log(
+          'LEVEL_CHANGED',
+          { actorId: ctx.actor.id, ip: ctx.ip, targetType: 'GradeLevel', targetId: level.id, details: { after } },
+          tx,
+        );
+      });
+    } catch (error) {
+      throw levelConflict(error);
+    }
+    return this.levels();
+  }
+
+  /** Modification du nom, du cycle ou de la position ; les classes et les élèves du niveau suivent. */
+  async updateLevel(id: string, dto: UpdateLevelDto, ctx: StudentsContext) {
+    const current = UUID.test(id) ? await this.prisma.gradeLevel.findUnique({ where: { id } }) : null;
+    if (!current) throw new AppException('NOT_FOUND');
+    const before = { name: current.name, cycle: current.cycle, position: current.position };
+    const after = { name: dto.name ?? current.name, cycle: dto.cycle ?? current.cycle, position: dto.position ?? current.position };
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.gradeLevel.update({ where: { id }, data: after });
+        await this.audit.log(
+          'LEVEL_CHANGED',
+          { actorId: ctx.actor.id, ip: ctx.ip, targetType: 'GradeLevel', targetId: id, details: { before, after } },
+          tx,
+        );
+      });
+    } catch (error) {
+      throw levelConflict(error);
+    }
+    return this.levels();
   }
 
   /** Tous les élèves (quelques centaines), par niveau, classe puis nom ; l'interface filtre et pagine. */

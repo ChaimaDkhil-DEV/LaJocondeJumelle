@@ -407,6 +407,14 @@ export class ClassDto {
   @IsUUID('all', { message: 'Choisissez l’étage de la classe.' })
   floorId!: string;
 
+  /**
+   * Niveau scolaire, facultatif : une salle sans élèves n'en a pas. Absent : inchangé. `null` : retire le
+   * niveau (refusé tant que la classe a des élèves actifs, qui doivent appartenir à un niveau).
+   */
+  @IsOptional()
+  @IsUUID('all', { message: 'Niveau scolaire invalide.' })
+  levelId?: string | null;
+
   @IsOptional()
   @IsBoolean()
   active?: boolean;

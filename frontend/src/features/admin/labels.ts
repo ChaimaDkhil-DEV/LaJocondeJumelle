@@ -82,6 +82,7 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   COVERAGE_STATS_EXPORTED: t('Export des statistiques des affectations'),
   GUIDELINE_CHANGED: t('Consigne créée / modifiée / supprimée'),
   STUDENT_CHANGED: t('Élève créé / modifié'),
+  LEVEL_CHANGED: t('Niveau scolaire créé / modifié'),
 };
 
 const GUIDELINE_ACTION_LABELS: Record<string, string> = {
