@@ -29,6 +29,12 @@
   a recent backup.
 - The project's migrations come with a `down.sql` (manual rollback, see
   `backend/prisma/migrations/0002_coverage/down.sql`).
+  - **Exemption: `0001_init` has no `down.sql`.** It creates the whole initial schema; its only
+    possible rollback would drop every table, which is a database restore, not a rollback. To go
+    back before `0002`, restore the backup taken before the migration. Do not add a `down.sql`
+    there, and do not edit its applied `migration.sql`.
+  - `0003` and `0007` have a `down.sql` (added after the fact). Roll migrations back in reverse
+    order: each `down.sql` states what must be rolled back first.
 
 ## Project hooks (.claude/settings.json)
 
