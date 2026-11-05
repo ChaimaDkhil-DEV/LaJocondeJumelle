@@ -24,6 +24,7 @@ import {
   type DeadlineDurations,
 } from '../src/categories/category-defaults';
 import { DEFAULT_PERMISSIONS } from '../src/settings/default-permissions';
+import { guardSeedCommand } from './demo/local-database';
 import { SETTING_DEFAULTS } from '../src/settings/settings.service';
 
 export interface SeedOptions {
@@ -361,6 +362,12 @@ export async function runSeed(
 }
 
 if (require.main === module) {
+  try {
+    guardSeedCommand('prisma:seed');
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : error);
+    process.exit(1);
+  }
   const prisma = new PrismaClient();
   runSeed(prisma, { e2ePassword: process.env.SEED_E2E_PASSWORD || undefined })
     .catch((error: unknown) => {

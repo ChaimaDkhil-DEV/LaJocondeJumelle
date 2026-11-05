@@ -560,7 +560,7 @@ npm install
 cp backend/.env.example backend/.env      # fill in SESSION_SECRET
 npm run -w backend db:dev                 # embedded PostgreSQL, port 5433 (dedicated terminal)
 npm run -w backend prisma:migrate
-npm run -w backend prisma:seed
+npm run -w backend prisma:seed   # refused unless DATABASE_URL is on this machine and NODE_ENV is not production
 npm run -w backend start:dev              # API with reload
 npm run -w frontend dev                   # Vite on :5173, /api and /socket.io proxy
 ```
