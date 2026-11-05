@@ -132,10 +132,31 @@ export const adminKeys = {
   audit: (filters: AuditFilters) => ['admin', 'audit', filters] as const,
 };
 
+interface UsersPage {
+  items: AdminUser[];
+  nextCursor: string | null;
+}
+
+const USERS_PAGE_SIZE = 100;
+
+/** L'API pagine par curseur (100 comptes au plus par appel) ; les écrans ont besoin de la liste entière. */
+async function fetchAllUsers(): Promise<AdminUser[]> {
+  const users: AdminUser[] = [];
+  let cursor: string | null = null;
+  do {
+    const params = new URLSearchParams({ limit: String(USERS_PAGE_SIZE) });
+    if (cursor) params.set('cursor', cursor);
+    const page: UsersPage = await apiFetch<UsersPage>(`/api/admin/users?${params.toString()}`);
+    users.push(...page.items);
+    cursor = page.nextCursor;
+  } while (cursor);
+  return users;
+}
+
 export function useAdminUsers() {
   return useQuery({
     queryKey: adminKeys.users,
-    queryFn: () => apiFetch<AdminUser[]>('/api/admin/users'),
+    queryFn: fetchAllUsers,
   });
 }
 

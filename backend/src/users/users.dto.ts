@@ -102,3 +102,14 @@ export class UpdateUserDto {
   @IsUUID('all', { message: 'Étage inconnu.' })
   floorId?: string | null;
 }
+
+/** GET /admin/users : liste paginée (curseur opaque, voir `users.service.ts`). */
+export class ListUsersQuery {
+  @IsOptional()
+  @IsString()
+  cursor?: string;
+
+  @IsOptional()
+  @IsString()
+  limit?: string;
+}

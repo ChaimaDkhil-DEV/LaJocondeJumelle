@@ -71,7 +71,7 @@ function setup(desktop = true): Call[] {
       const method = init.method ?? 'GET';
       calls.push({ url, method, body: typeof init.body === 'string' ? JSON.parse(init.body) : init.body });
       if (url === '/api/auth/me') return json(200, SUPER_ADMIN);
-      if (url === '/api/admin/users') return json(200, ACCOUNTS);
+      if (url.startsWith('/api/admin/users?')) return json(200, { items: ACCOUNTS, nextCursor: null });
       if (url.startsWith('/api/admin/users/') && method === 'PATCH') return json(200, ACCOUNTS[0]);
       if (url === '/api/admin/categories') return json(200, []);
       if (url.startsWith('/api/admin/dashboard/employees')) return json(200, { items: EMPLOYEES });

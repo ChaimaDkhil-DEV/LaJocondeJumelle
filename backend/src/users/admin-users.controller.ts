@@ -1,10 +1,11 @@
-import { Body, Controller, Get, HttpCode, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
 import type { Request } from 'express';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { clientIp } from '../common/request-info';
 import { SuperAdminGuard } from '../audit/super-admin.guard';
-import { CreateUserDto, UpdateUserDto } from './users.dto';
+import type { Page } from '../common/pagination';
+import { CreateUserDto, ListUsersQuery, UpdateUserDto } from './users.dto';
 import { UsersService, type AdminUser } from './users.service';
 
 @Controller('admin/users')
@@ -13,8 +14,8 @@ export class AdminUsersController {
   constructor(private readonly users: UsersService) {}
 
   @Get()
-  list(): Promise<AdminUser[]> {
-    return this.users.list();
+  list(@Query() query: ListUsersQuery): Promise<Page<AdminUser>> {
+    return this.users.list(query);
   }
 
   @Post()

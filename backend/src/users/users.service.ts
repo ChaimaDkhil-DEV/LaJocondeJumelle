@@ -8,7 +8,8 @@ import { SessionService } from '../auth/session.service';
 import { AppException } from '../common/errors';
 import { PrismaService } from '../common/prisma.service';
 import { RealtimeService } from '../realtime/realtime.service';
-import type { CreateUserDto, UpdateUserDto } from './users.dto';
+import { parseLimit, type Page } from '../common/pagination';
+import type { CreateUserDto, ListUsersQuery, UpdateUserDto } from './users.dto';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -71,6 +72,29 @@ function invalid(field: string, message: string): AppException {
   return new AppException('VALIDATION_ERROR', { fields: [{ field, messages: [message] }] }, message);
 }
 
+interface UserCursor {
+  active: boolean;
+  displayName: string;
+  id: string;
+}
+
+function encodeUserCursor({ active, displayName, id }: UserCursor): string {
+  return Buffer.from(JSON.stringify([active, displayName, id])).toString('base64url');
+}
+
+function decodeUserCursor(cursor: string): UserCursor {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
+  } catch {
+    throw invalid('cursor', 'Curseur invalide');
+  }
+  if (!Array.isArray(parsed) || typeof parsed[0] !== 'boolean' || typeof parsed[1] !== 'string' || typeof parsed[2] !== 'string') {
+    throw invalid('cursor', 'Curseur invalide');
+  }
+  return { active: parsed[0], displayName: parsed[1], id: parsed[2] };
+}
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -81,9 +105,27 @@ export class UsersService {
     private readonly realtime: RealtimeService,
   ) {}
 
-  async list(): Promise<AdminUser[]> {
-    const rows = await this.prisma.user.findMany({ select: ADMIN_USER_SELECT, orderBy: [{ active: 'desc' }, { displayName: 'asc' }] });
-    return rows.map(toAdminUser);
+  /** Comptes actifs d'abord, par nom ; pagination par curseur sur (active, displayName, id). */
+  async list(query: ListUsersQuery = {}): Promise<Page<AdminUser>> {
+    const limit = parseLimit(query.limit);
+    const after = query.cursor ? decodeUserCursor(query.cursor) : null;
+    const rows = await this.prisma.user.findMany({
+      select: ADMIN_USER_SELECT,
+      where: after
+        ? {
+            OR: [
+              ...(after.active ? [{ active: false }] : []),
+              { active: after.active, displayName: { gt: after.displayName } },
+              { active: after.active, displayName: after.displayName, id: { gt: after.id } },
+            ],
+          }
+        : undefined,
+      orderBy: [{ active: 'desc' }, { displayName: 'asc' }, { id: 'asc' }],
+      take: limit + 1,
+    });
+    const items = rows.slice(0, limit).map(toAdminUser);
+    const last = items.at(-1);
+    return { items, nextCursor: rows.length > limit && last ? encodeUserCursor(last) : null };
   }
 
   /**

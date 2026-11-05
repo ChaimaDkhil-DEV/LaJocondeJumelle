@@ -147,7 +147,7 @@ function setup(path = '/', handler: Handler = () => undefined, me: unknown = SUP
       const custom = handler(url);
       if (custom) return custom;
       if (url === '/api/auth/me') return json(200, me);
-      if (url === '/api/admin/users') return json(200, USERS);
+      if (url.startsWith('/api/admin/users?')) return json(200, { items: USERS, nextCursor: null });
       if (url === '/api/admin/categories') return json(200, CATEGORIES);
       if (url.startsWith('/api/admin/dashboard/summary')) return json(200, SUMMARY);
       if (url.startsWith('/api/admin/dashboard/performance')) return json(200, PERFORMANCE);

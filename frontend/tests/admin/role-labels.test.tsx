@@ -47,7 +47,7 @@ function setup(path: string) {
     'fetch',
     vi.fn(async (url: string) => {
       if (url === '/api/auth/me') return json(200, SUPER_ADMIN);
-      if (url === '/api/admin/users') return json(200, USERS);
+      if (url.startsWith('/api/admin/users?')) return json(200, { items: USERS, nextCursor: null });
       if (url === '/api/admin/categories') return json(200, []);
       return json(404, { error: { code: 'NOT_FOUND', message: 'Élément introuvable.' } });
     }),
