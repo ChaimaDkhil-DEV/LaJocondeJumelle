@@ -126,6 +126,15 @@ export function createAppTheme(mode: ColorMode = 'light'): Theme {
             root: { '&.Mui-focusVisible': { outline: `2px solid ${c.focus}`, outlineOffset: 2 } },
           },
         },
+        // MUI utilise rgba(0,0,0,0.54) par défaut : sous 4.5:1 sur le fond de page (axe color-contrast).
+        MuiToggleButton: {
+          styleOverrides: {
+            root: {
+              color: c.textSecondary,
+              '&.Mui-selected': { color: c.accent.text },
+            },
+          },
+        },
         MuiButton: {
           defaultProps: { disableElevation: true },
           styleOverrides: {
