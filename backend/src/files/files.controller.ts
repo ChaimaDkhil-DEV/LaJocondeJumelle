@@ -7,6 +7,7 @@ import {
   Req,
   Res,
   UploadedFile,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -22,6 +23,7 @@ import { clientIp, requestPath } from '../common/request-info';
 import { AppException } from '../common/errors';
 import { UploadFileDto, type FileResponse } from './files.dto';
 import { FilesService } from './files.service';
+import { UploadRateLimitGuard } from '../common/upload-rate-limit.guard';
 
 /** Plafond technique de Multer ; les limites métier (réglages) sont vérifiées ensuite. */
 export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
@@ -39,6 +41,7 @@ export class FilesController {
   }
 
   @Post()
+  @UseGuards(UploadRateLimitGuard)
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({ destination: UPLOAD_TMP_DIR, filename: (_req, _file, cb) => cb(null, randomUUID()) }),

@@ -1,4 +1,4 @@
-import { Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Post, Req, Res, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Post, Req, Res, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Request, Response } from 'express';
 import { randomUUID } from 'node:crypto';
@@ -10,6 +10,7 @@ import { AppException } from '../common/errors';
 import { clientIp, requestPath } from '../common/request-info';
 import { UPLOAD_TMP_DIR } from '../files/files.controller';
 import { AvatarService, type AvatarContext, type AvatarState } from './avatar.service';
+import { UploadRateLimitGuard } from '../common/upload-rate-limit.guard';
 
 /**
  * Plafond technique de réception : la limite métier (2 Mo) est vérifiée ensuite, avec un message
@@ -51,6 +52,7 @@ export class AvatarController {
   /** Nouvelle photo (multipart, champ `file`) : JPG, PNG ou WebP, 2 Mo au plus. */
   @Post(':id/avatar')
   @HttpCode(200)
+  @UseGuards(UploadRateLimitGuard)
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({ destination: UPLOAD_TMP_DIR, filename: (_req, _file, cb) => cb(null, randomUUID()) }),
