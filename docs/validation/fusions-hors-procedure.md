@@ -52,3 +52,26 @@ Procedure checkboxes were not ticked in the description of the pull request.
 
 No fix or `git revert` needed. Second early merge of the day: see the
 reminder above.
+
+## 06/11/2026 — pull requests #73 and #75
+
+| Pull request | Content | Merged at (UTC) | Check not satisfied at merge time |
+|---------|---------|-------------------|-----------------------------------------------|
+| #73 (`feat-e2e-iphone-17-pro-max`) | iPhone 17 Pro Max end-to-end profile | 02:34:52 | **1. CI**: both runs on `9936719` were still in progress (42151040563 green at 02:39:32, 42151033416 green at 02:39:44) |
+| #75 (`feat-preparation-deploiement`) | `.dockerignore` fix, Docker image build in CI, backup alerts and rotation, server change procedure | 11:33:02 | **1. CI**: both runs on `e8520b3` were still in progress (42210659213 green at 11:37:41, 42210652083 green at 11:38:12) |
+
+Procedure checkboxes were not ticked in the description of either pull request.
+
+### Findings after the fact
+
+- All four runs finished green, all steps executed. On #75, this includes the first run of the new
+  step "Construction des images Docker" (Docker image build).
+- `master` green after both merges: run 42151231054 on `69921ca` (merge of #73) and run 42211085403 on
+  `b816b88` (merge of #75).
+- #73 changes the test configuration and the README only. The full end-to-end run on `69921ca` found
+  8 failures, none caused by this change; they were fixed by #74
+  ([verification-e2e-stabilite.md](verification-e2e-stabilite.md)).
+- #75 changes no application code. Its local checks are recorded in
+  [verification-deploiement-local.md](verification-deploiement-local.md).
+
+No fix or `git revert` needed. Same cause as #29 and #33: see the reminder above.
