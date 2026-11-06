@@ -94,6 +94,18 @@ migration without a recent backup), because no backup exists yet.
 existing values, and creates the super administrator only if none exists. No demo data is created
 in production.
 
+Keep a copy of `deploy/.env` in a secrets manager, off the server: no backup contains it, and
+changing `SESSION_SECRET` invalidates every printed class QR code. Set `BACKUP_OFFSITE_DIR`, then add
+the backup check to the host's crontab (it alerts `BACKUP_ALERT_URL` if the latest backup is missing
+or too old):
+
+```text
+0 8 * * * cd /path/to/repository && deploy/backup/check-backup.sh
+```
+
+To move to another server, or to go back to the previous one, follow
+[docs/migration-hebergeur.md](../../docs/migration-hebergeur.md).
+
 ### Update
 
 ```bash

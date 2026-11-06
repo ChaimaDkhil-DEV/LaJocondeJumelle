@@ -32,6 +32,8 @@ find "${BACKUP_DIR}" -maxdepth 1 -type f \( -name 'db-*.dump' -o -name 'files-*.
 if [ -n "${OFFSITE_ENABLED:-}" ]; then
   echo "[backup] copie hors du VPS"
   cp "${DB_ARCHIVE}" "${FILES_ARCHIVE}" /offsite/
+  # Même durée de conservation que le dossier local : les données personnelles n'y restent pas plus longtemps.
+  find /offsite -maxdepth 1 -type f \( -name 'db-*.dump' -o -name 'files-*.tar.gz' \) -mtime +"$((RETENTION_DAYS - 1))" -print -delete
 else
   echo "[backup] AVERTISSEMENT : aucune copie hors du VPS configurée (BACKUP_OFFSITE_DIR)"
 fi

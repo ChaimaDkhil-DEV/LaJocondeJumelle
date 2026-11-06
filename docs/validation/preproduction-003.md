@@ -114,7 +114,8 @@ itself as the target: the restore replaces all data.
 1. [ ] Clone the repository on the blank server, at the **same commit** as the one that was running at the
        time of the backup (otherwise the API will find a pending migration and require a recent
        backup at startup).
-2. [ ] Create `deploy/.env` (same `POSTGRES_USER`, `POSTGRES_DB`; `DOMAIN` of the test server).
+2. [ ] Create `deploy/.env` (same `POSTGRES_USER`, `POSTGRES_DB`, `SESSION_SECRET`; `DOMAIN` of the
+       test server). A different `SESSION_SECRET` invalidates every printed class QR code and all sessions.
 3. [ ] Copy `db-<horodatage>.dump` and `files-<horodatage>.tar.gz` into the backups
        folder (`deploy/backups` by default).
 4. [ ] **Start the database before the restore**: `DC up -d db`, then wait for `healthy`

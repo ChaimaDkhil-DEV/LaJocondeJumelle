@@ -121,6 +121,13 @@ services:
       # Copie hors du VPS (sans BACKUP_OFFSITE_DIR : dossier local, aucune copie effectuée).
       - ${BACKUP_OFFSITE_DIR:-./backups}:/offsite
     entrypoint: ['/bin/bash', '/scripts/run-nightly.sh']
+    # « unhealthy » si aucune sauvegarde de la base n'a réussi depuis 26 h (docker compose ps).
+    # L'alerte vers l'extérieur vient de deploy/backup/check-backup.sh (tâche cron de l'hôte).
+    healthcheck:
+      test: ['CMD-SHELL', 'test -n "$$(find /backups -maxdepth 1 -name "db-*.dump" -mmin -1560 -print -quit)"']
+      interval: 5m
+      timeout: 10s
+      start_period: 1m
     depends_on:
       db:
         condition: service_healthy
