@@ -3,13 +3,13 @@ import { installFakeMediaRecorder } from './support/fake-media-recorder';
 import { login } from './support/login';
 
 /**
- * T118 — SC-001 : sur téléphone (profils Pixel 7 et iPhone 13), le parcours complet de création
+ * T118 — SC-001 : sur téléphone (profils Pixel 7, iPhone 13 et iPhone 17 Pro Max), le parcours complet de création
  * d'une demande vocale — ouverture du formulaire, catégorie, destinataire, priorité, titre,
  * enregistrement de 10 s, réécoute, envoi, confirmation « Envoyée » — prend moins de 60 s.
  * Mesure le temps de l'application (chargements, envoi, conversion), pas la vitesse d'un humain :
  * cette dernière est évaluée au test d'utilisabilité (T120).
  */
-const PHONES = ['Pixel 7', 'iPhone 13'];
+const PHONES = ['Pixel 7', 'iPhone 13', 'iPhone 17 Pro Max'];
 const RECORDING_SECONDS = 10;
 const LIMIT_MS = 60_000;
 

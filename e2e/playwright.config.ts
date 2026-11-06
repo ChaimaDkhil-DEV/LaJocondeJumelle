@@ -44,6 +44,8 @@ export default defineConfig({
     // e2e/support/fake-media-recorder.ts (la lecture audio reste réelle).
     { name: 'webkit', use: { ...devices['Desktop Safari'] } },
     { name: 'iPhone 13', use: { ...devices['iPhone 13'] } },
+    // Grand écran récent (WebKit, environ 440 px de large) : vérifie que rien ne se distend ni ne déborde sur un grand téléphone.
+    { name: 'iPhone 17 Pro Max', use: { ...devices['iPhone 17 Pro Max'] } },
     {
       name: 'Pixel 7',
       use: { ...devices['Pixel 7'], launchOptions: { args: fakeMediaArgs } },
