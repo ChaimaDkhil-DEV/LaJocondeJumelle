@@ -79,6 +79,17 @@ const DESTRUCTIVE = new Set(['CANCEL', 'DECLINE', 'REJECT']);
 
 type Dialogs = 'priority' | 'approve' | 'reassign' | 'refuse' | 'correction' | 'cancel' | 'complete' | null;
 
+/** Fenêtre qui porte chaque action : une réponse ne ferme que la sienne, jamais celle ouverte entre-temps. */
+const ACTION_DIALOGS: Record<string, Dialogs> = {
+  APPROVE: 'approve',
+  REASSIGN: 'reassign',
+  DECLINE: 'refuse',
+  REJECT: 'refuse',
+  REQUEST_CORRECTION: 'correction',
+  CANCEL: 'cancel',
+  COMPLETE: 'complete',
+};
+
 interface ActionBody {
   action: string;
   version: number;
@@ -118,10 +129,11 @@ export function RequestActions({ request }: { request: RequestDetail }) {
   const mutation = useMutation({
     mutationFn: (body: ActionBody) =>
       apiFetch<RequestDetail>(`/api/requests/${request.id}/actions`, { method: 'POST', body }),
-    onSuccess: async (updated) => {
+    onSuccess: async (updated, { action }) => {
       queryClient.setQueryData(detailKey, updated);
-      setDialog(null);
-      setPhotos([]);
+      // Le temps réel peut afficher le nouveau statut avant cette réponse : une autre fenêtre est alors peut-être ouverte.
+      setDialog((current) => (current === ACTION_DIALOGS[action] ? null : current));
+      if (action === 'COMPLETE') setPhotos([]);
       setFeedback(t('Action enregistrée. Statut : {status}.', { status: STATUS_LABELS[updated.status] }));
       await queryClient.invalidateQueries({ queryKey: requestKeys.all, refetchType: 'active' });
     },

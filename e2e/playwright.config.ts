@@ -2,7 +2,10 @@ import { defineConfig, devices } from '@playwright/test';
 
 const API_PORT = 3100;
 const WEB_PORT = 5174;
-const baseURL = `http://localhost:${WEB_PORT}`;
+// Adresse IP explicite : `localhost` désigne aussi ::1, seule adresse écoutée par Vite par défaut ici, et
+// Firefox qui tentait 127.0.0.1 voyait par moments sa connexion refusée (NS_ERROR_CONNECTION_REFUSED).
+const WEB_HOST = '127.0.0.1';
+const baseURL = `http://${WEB_HOST}:${WEB_PORT}`;
 
 const fakeMediaArgs = ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'];
 
@@ -71,7 +74,7 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
     },
     {
-      command: `npm run -w frontend dev -- --port ${WEB_PORT} --strictPort`,
+      command: `npm run -w frontend dev -- --host ${WEB_HOST} --port ${WEB_PORT} --strictPort`,
       url: baseURL,
       env: { API_URL: `http://localhost:${API_PORT}` },
       timeout: 120_000,

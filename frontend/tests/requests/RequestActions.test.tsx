@@ -197,6 +197,54 @@ describe('RequestActions', () => {
     await waitFor(() => expect(actionCalls(calls)[0]?.body).toEqual({ action: 'COMPLETE', version: 3 }));
   });
 
+  it('garde la fenêtre de fin ouverte quand la réponse de l’action précédente arrive en retard', async () => {
+    // Le temps réel peut afficher « En cours » avant la réponse du POST : l'employé ouvre alors la fenêtre
+    // de fin, et cette réponse tardive ne doit ni la fermer ni perdre la photo jointe.
+    const rules = { circuit: 'A_DIRECT', photoRequired: true, closureMode: 'REQUESTER', finalValidation: false } as const;
+    const started = detail({ status: 'IN_PROGRESS', version: 4, allowedActions: ['COMPLETE'], rulesSnapshot: rules });
+    let answerStart: (response: Response) => void = () => undefined;
+    const calls: Call[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init: RequestInit = {}) => {
+        const call: Call = { url, method: init.method ?? 'GET', body: typeof init.body === 'string' ? JSON.parse(init.body) : init.body };
+        calls.push(call);
+        if (url === '/api/files') return json(201, { id: 'photo-1', kind: 'PHOTO', mimeType: 'image/jpeg', sizeBytes: 10 });
+        if ((call.body as { action?: string } | undefined)?.action === 'START') {
+          return new Promise<Response>((resolve) => {
+            answerStart = resolve;
+          });
+        }
+        return json(200, started);
+      }),
+    );
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const view = (request: RequestDetail) => (
+      <QueryClientProvider client={client}>
+        <RequestActions request={request} />
+      </QueryClientProvider>
+    );
+    const { rerender } = render(view(detail({ status: 'ACCEPTED', allowedActions: ['START'], rulesSnapshot: rules })));
+
+    await userEvent.click(screen.getByRole('button', { name: 'Commencer' }));
+    await waitFor(() => expect(actionCalls(calls)).toHaveLength(1));
+    rerender(view(started)); // mise à jour reçue par le temps réel, avant la réponse du POST
+
+    await userEvent.click(screen.getByRole('button', { name: 'Marquer comme terminée' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Terminer la demande' });
+    await userEvent.upload(within(dialog).getByLabelText('Prendre une photo'), new File(['image'], 'etagere.jpg', { type: 'image/jpeg' }));
+    expect(await within(dialog).findByRole('img', { name: 'Photo de preuve 1' })).toBeVisible();
+
+    answerStart(json(200, started));
+    // `hidden` : la fenêtre ouverte masque le reste de la page aux aides techniques.
+    await waitFor(() => expect(screen.getByRole('status', { hidden: true })).toHaveTextContent('En cours'));
+
+    expect(screen.getByRole('dialog', { name: 'Terminer la demande' })).toBeVisible();
+    expect(within(dialog).getByRole('img', { name: 'Photo de preuve 1' })).toBeVisible();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Confirmer la fin' }));
+    await waitFor(() => expect(actionCalls(calls)[1]?.body).toEqual({ action: 'COMPLETE', version: 4, proofFileIds: ['photo-1'] }));
+  });
+
   it('explique un conflit (STATE_CHANGED) et recharge la demande', async () => {
     const calls = setup(detail({ allowedActions: ['ACCEPT'] }), (call) =>
       call.method === 'POST'
