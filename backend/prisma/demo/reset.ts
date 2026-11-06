@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { rm } from 'node:fs/promises';
 import { join, relative, resolve, isAbsolute } from 'node:path';
+import { LOCAL_HOSTS } from './local-database';
 
 /**
  * Remise à zéro de la base LOCALE de développement avant le jeu de démonstration : contrôle de la
@@ -9,7 +10,6 @@ import { join, relative, resolve, isAbsolute } from 'node:path';
  * conservés. Jamais `prisma migrate reset`.
  */
 
-const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
 const LOCAL_PORT = '5433';
 const LOCAL_DATABASE = 'app';
 

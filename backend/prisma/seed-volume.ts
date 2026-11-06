@@ -5,6 +5,7 @@
  */
 import { PrismaClient, type Priority, type Prisma, type RequestStatus } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
+import { guardSeedCommand } from './demo/local-database';
 
 const STATUSES: RequestStatus[] = ['SENT', 'ACCEPTED', 'IN_PROGRESS', 'DONE', 'TO_CORRECT', 'CLOSED', 'REJECTED', 'CANCELLED'];
 const PRIORITIES: Priority[] = ['NORMAL', 'MEDIUM', 'HIGH', 'URGENT'];
@@ -49,6 +50,12 @@ export async function seedVolume(prisma: PrismaClient, count: number): Promise<n
 }
 
 if (require.main === module) {
+  try {
+    guardSeedCommand('seed:volume');
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : error);
+    process.exit(1);
+  }
   const count = Number(process.argv[2] ?? 10_000);
   const prisma = new PrismaClient();
   seedVolume(prisma, count)

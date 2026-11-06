@@ -144,6 +144,15 @@ file, and each person must change it at first sign-in. Closing the dialog withou
 Every account and student created is recorded in the audit log with `source: import`. Order of loading: floors,
 school levels, classes (with their level), then accounts, then students.
 
+### Demo data never reaches a real database
+
+`prisma:seed`, `db:seed:demo` and `seed:volume` create fictional accounts (including a super administrator) and
+requests. They **refuse to run** unless `DATABASE_URL` points to a database on the same machine (`localhost`,
+`127.0.0.1`, `::1`) and `NODE_ENV` is not `production`; `db:seed:demo` is stricter still (`localhost:5433/app` only).
+The refusal happens before any connection. On a real server, create the first account with
+`node dist/cli/bootstrap.js` and load the data with the CSV import. A tunnel that makes a remote database look like
+`localhost` defeats this check: never open one towards production to run these scripts.
+
 ## To decide before going live
 
 The following values are **provisional** and can be changed in the administration area; they must
