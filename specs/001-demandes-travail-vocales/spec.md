@@ -394,6 +394,9 @@ applies to new requests.
   a rule configured for the category (for example a designated employee or manager).
 - **FR-022**: A change to a category's configuration MUST apply only to
   requests created after the change.
+- **FR-022a**: When a request's priority changes, its running deadline MUST be recalculated from the
+  start of the current stage with the new priority's duration, and its later stages MUST use the
+  durations of that priority. This is an exception to FR-022 for deadline durations only.
 
 **Deadlines**
 

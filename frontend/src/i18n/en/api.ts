@@ -203,4 +203,6 @@ export const api: Record<string, string> = {
   'Rôle inconnu.': 'Unknown role.',
   'Catégorie inconnue.': 'Unknown category.',
   'Étage inconnu.': 'Unknown floor.',
+  'L’élève est déjà inscrit à ce service.': 'The student is already enrolled in this service.',
+  'Le motif ne doit pas dépasser 300 caractères.': 'The reason must not exceed 300 characters.',
 };

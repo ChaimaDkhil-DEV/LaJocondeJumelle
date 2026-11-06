@@ -1,4 +1,4 @@
-import type { DeadlineStage } from '@prisma/client';
+import type { DeadlineStage, RequestStatus } from '@prisma/client';
 import type { TransitionStep } from './request-state-machine';
 
 /**
@@ -77,13 +77,56 @@ export function nextDeadlineState(
 
   const minutes = minutesFor(stage, durations);
   if (minutes === null || minutes <= 0) return NO_DEADLINE;
+  return { ...dueDates(now.getTime(), minutes, warnPercent), currentStage: stage, overdueStage: null };
+}
 
+function dueDates(startMs: number, minutes: number, warnPercent: number): Pick<DeadlineState, 'currentDueAt' | 'warnAt'> {
   const durationMs = minutes * MINUTE_MS;
-  const dueAt = new Date(now.getTime() + durationMs);
-  return {
-    currentStage: stage,
-    currentDueAt: dueAt,
-    warnAt: new Date(dueAt.getTime() - (durationMs * warnPercent) / 100),
-    overdueStage: null,
-  };
+  const dueMs = startMs + durationMs;
+  return { currentDueAt: new Date(dueMs), warnAt: new Date(dueMs - (durationMs * warnPercent) / 100) };
+}
+
+/** Étape à suivre pour une demande dans ce statut ; null si aucun délai n'y court. */
+function stageOfStatus(status: RequestStatus): DeadlineStage | null {
+  switch (status) {
+    case 'PENDING_ADMIN_VALIDATION':
+      return 'VALIDATION';
+    case 'SENT':
+      return 'TAKEOVER';
+    case 'ACCEPTED':
+    case 'IN_PROGRESS':
+      return 'COMPLETION';
+    default:
+      return null;
+  }
+}
+
+/**
+ * Échéance après un changement de priorité : la durée de la nouvelle priorité s'applique depuis le
+ * début de l'étape en cours, retrouvé à partir de l'échéance et de l'ancienne durée. Le temps déjà
+ * écoulé compte donc. Une étape qui n'était pas suivie démarre maintenant. Une échéance encore à
+ * venir lève le retard ; une échéance déjà passée est signalée par la tâche des retards.
+ */
+export function deadlineAfterPriorityChange(
+  previous: DeadlineState,
+  status: RequestStatus,
+  oldDurations: DeadlineDurations,
+  newDurations: DeadlineDurations,
+  now: Date,
+  warnPercent: number,
+): DeadlineState {
+  const stage = previous.currentStage ?? stageOfStatus(status);
+  if (stage === null) return previous;
+
+  const minutes = minutesFor(stage, newDurations);
+  if (minutes === null || minutes <= 0) return NO_DEADLINE;
+
+  const oldMinutes = minutesFor(stage, oldDurations);
+  const startMs =
+    previous.currentDueAt && oldMinutes !== null && oldMinutes > 0
+      ? previous.currentDueAt.getTime() - oldMinutes * MINUTE_MS
+      : now.getTime();
+  const dates = dueDates(startMs, minutes, warnPercent);
+  const stillLate = dates.currentDueAt !== null && dates.currentDueAt.getTime() <= now.getTime();
+  return { ...dates, currentStage: stage, overdueStage: stillLate ? previous.overdueStage : null };
 }

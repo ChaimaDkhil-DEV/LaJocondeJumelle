@@ -222,8 +222,9 @@ Actors: **R** = requester; **E** = assigned employee; **M** = category manager
   status does not allow the action.
 - Priority change (outside the state machine): R with `PRIORITY_CHANGE_OWN` while the
   status is DRAFT, PENDING_ADMIN_VALIDATION or SENT; M with `PRIORITY_CHANGE_MANAGED` as long
-  as the request is neither final nor DONE. Deadlines already running are not recalculated
-  (snapshot, FR-022); the `PRIORITY_CHANGED` event is recorded.
+  as the request is neither final nor DONE. The running deadline is recalculated and the
+  snapshot's deadline durations are replaced (see §Deadlines, FR-022a); the `PRIORITY_CHANGED`
+  event is recorded, with the due date before and after.
 - Each transition writes a `STATUS_CHANGED` `RequestEvent`, updates the stage
   timestamp, manages `currentStage`/`currentDueAt`/`overdueStage` and creates the notifications.
 
@@ -256,6 +257,13 @@ Actors: **R** = requester; **E** = assigned employee; **M** = category manager
   and the delay remains visible in the history (FR-026).
 - Flagging a delay by the job does not increment `version`: it does not conflict with
   user actions (optimistic locking is reserved for status changes).
+- Priority change (FR-022a): `currentDueAt := stage start + new duration`, where the stage start
+  is `currentDueAt − old duration`, so time already spent counts. `warnAt` follows. The duration
+  comes from the category's current `DeadlineRule` for the new priority, and the snapshot's three
+  durations are replaced with it, so later stages use it too; the other snapshot rules stay frozen.
+  A due date still in the future clears `overdueStage`. A date already past keeps it, or lets the
+  job flag the delay. A stage with no duration for the new priority stops being tracked; a stage
+  that was not tracked and now has a duration starts at the time of the change.
 
 ## Provisional default values
 

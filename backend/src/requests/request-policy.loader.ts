@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import type { Category, Prisma, Request } from '@prisma/client';
+import type { Category, Circuit, Prisma, Request } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
 import type { PolicyCategory, PolicyRequest } from './domain/access-policy';
+import type { DeadlineDurations } from './domain/deadlines';
 import type { RulesSnapshot } from './domain/request-state-machine';
 
 /** Règles copiées dans la demande (FR-022) : règles de la catégorie + durées de délai de la priorité. */
@@ -100,9 +101,6 @@ export class RequestPolicyLoader {
 
   /** Construit l'instantané des règles à partir de la catégorie et de la priorité choisies. */
   async rulesSnapshot(category: Category, priority: Request['priority']): Promise<RequestRulesSnapshot> {
-    const rule = await this.prisma.deadlineRule.findUnique({
-      where: { categoryId_priority: { categoryId: category.id, priority } },
-    });
     return {
       circuit: category.circuit,
       closureMode: category.closureMode,
@@ -111,7 +109,17 @@ export class RequestPolicyLoader {
       assignmentMode: category.assignmentMode,
       autoAssigneeId: category.assignmentMode === 'AUTO' ? category.autoAssigneeId : null,
       photoRequired: category.photoRequired,
-      validationMinutes: category.circuit === 'B_ADMIN_VALIDATION' ? (rule?.validationMinutes ?? null) : null,
+      ...(await this.deadlineDurations(category.id, category.circuit, priority)),
+    };
+  }
+
+  /** Durées de délai d'une priorité dans une catégorie ; la validation n'existe qu'en circuit B. */
+  async deadlineDurations(categoryId: string, circuit: Circuit, priority: Request['priority']): Promise<DeadlineDurations> {
+    const rule = await this.prisma.deadlineRule.findUnique({
+      where: { categoryId_priority: { categoryId, priority } },
+    });
+    return {
+      validationMinutes: circuit === 'B_ADMIN_VALIDATION' ? (rule?.validationMinutes ?? null) : null,
       takeoverMinutes: rule?.takeoverMinutes ?? null,
       completionMinutes: rule?.completionMinutes ?? null,
     };

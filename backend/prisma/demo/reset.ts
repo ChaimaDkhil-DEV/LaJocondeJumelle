@@ -97,6 +97,7 @@ export const PURGE_STATEMENTS: readonly string[] = [
   'DELETE FROM "Category"',
   'DELETE FROM "EmployeeGroupMember"',
   'DELETE FROM "EmployeeGroup" WHERE "systemKey" IS NULL',
+  'DELETE FROM "StudentMealChange"',
   'DELETE FROM "Student"',
   'DELETE FROM "SchoolClass"',
   'DELETE FROM "GradeLevel"',
@@ -114,6 +115,8 @@ const APPEND_ONLY_TRIGGERS = [
   ['RequestEvent', 'RequestEvent_no_truncate'],
   ['AuditLog', 'AuditLog_append_only'],
   ['AuditLog', 'AuditLog_no_truncate'],
+  ['StudentMealChange', 'StudentMealChange_append_only'],
+  ['StudentMealChange', 'StudentMealChange_no_truncate'],
 ] as const;
 
 export interface PurgeReport {

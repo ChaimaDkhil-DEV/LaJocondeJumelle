@@ -37,6 +37,18 @@ export class StudentDto {
   active?: boolean;
 }
 
+/** Passage d'un élève à l'autre service de restauration, avec un motif facultatif. */
+export class ChangeMealServiceDto {
+  @IsEnum(MealService, { message: 'Choisissez le service de restauration : cantine ou panier.' })
+  mealService!: MealService;
+
+  @IsOptional()
+  @Transform(trim)
+  @IsString()
+  @MaxLength(300, { message: 'Le motif ne doit pas dépasser 300 caractères.' })
+  reason?: string;
+}
+
 /** Niveau scolaire (ex. « 1re année primaire ») : nom, cycle et ordre d'affichage, tous uniques ou obligatoires. */
 export class LevelDto {
   @Transform(trim)

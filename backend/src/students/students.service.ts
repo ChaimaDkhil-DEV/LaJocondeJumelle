@@ -4,6 +4,7 @@ import { AuditService } from '../audit/audit.service';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import { AppException } from '../common/errors';
 import { PrismaService } from '../common/prisma.service';
+import { recordMealChange } from './meal-change';
 import type { LevelDto, StudentDto, UpdateLevelDto } from './students.dto';
 
 export interface StudentsContext {
@@ -39,6 +40,22 @@ function levelConflict(error: unknown): unknown {
   return fields.some((f) => f.includes('position'))
     ? conflict('Cette position est déjà utilisée par un autre niveau.')
     : conflict('Ce niveau existe déjà.');
+}
+
+interface SortableStudent {
+  firstName: string;
+  lastName: string;
+  class: { name: string; level: { position: number } | null };
+}
+
+/** Ordre d'affichage des élèves : niveau, classe, puis nom. */
+export function byLevelClassAndName(a: SortableStudent, b: SortableStudent): number {
+  return (
+    (a.class.level?.position ?? Number.MAX_SAFE_INTEGER) - (b.class.level?.position ?? Number.MAX_SAFE_INTEGER) ||
+    a.class.name.localeCompare(b.class.name, 'fr') ||
+    a.lastName.localeCompare(b.lastName, 'fr') ||
+    a.firstName.localeCompare(b.firstName, 'fr')
+  );
 }
 
 /** Champs modifiés, sans leurs valeurs : le journal ne garde aucune donnée personnelle d'élève. */
@@ -127,13 +144,7 @@ export class StudentsService {
   /** Tous les élèves (quelques centaines), par niveau, classe puis nom ; l'interface filtre et pagine. */
   async list() {
     const students = await this.prisma.student.findMany({ select: STUDENT_SELECT });
-    return students.sort(
-      (a, b) =>
-        (a.class.level?.position ?? Number.MAX_SAFE_INTEGER) - (b.class.level?.position ?? Number.MAX_SAFE_INTEGER) ||
-        a.class.name.localeCompare(b.class.name, 'fr') ||
-        a.lastName.localeCompare(b.lastName, 'fr') ||
-        a.firstName.localeCompare(b.firstName, 'fr'),
-    );
+    return students.sort(byLevelClassAndName);
   }
 
   async create(dto: StudentDto, ctx: StudentsContext) {
@@ -164,8 +175,9 @@ export class StudentsService {
     if (!current) throw new AppException('NOT_FOUND');
     if (dto.classId !== current.classId) await this.checkClass(dto.classId);
     return this.prisma.$transaction(async (tx) => {
-      const student = await tx.student.update({
-        where: { id },
+      // La condition sur l'ancien service garantit un historique exact si la surveillante agit en même temps.
+      const { count } = await tx.student.updateMany({
+        where: { id, mealService: current.mealService },
         data: {
           firstName: dto.firstName,
           lastName: dto.lastName,
@@ -174,8 +186,12 @@ export class StudentsService {
           mealService: dto.mealService,
           active: dto.active ?? current.active,
         },
-        select: STUDENT_SELECT,
       });
+      if (count === 0) throw new AppException('STATE_CHANGED');
+      if (dto.mealService !== current.mealService) {
+        await recordMealChange(tx, { studentId: id, from: current.mealService, to: dto.mealService, actorId: ctx.actor.id });
+      }
+      const student = await tx.student.findUniqueOrThrow({ where: { id }, select: STUDENT_SELECT });
       await this.audit.log(
         'STUDENT_CHANGED',
         { actorId: ctx.actor.id, ip: ctx.ip, targetType: 'Student', targetId: id, details: { action: 'update', fields: changedFields(current, dto) } },
