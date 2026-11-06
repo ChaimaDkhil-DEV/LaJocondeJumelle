@@ -45,7 +45,8 @@ test('V14 — compte à rebours, alerte, puis « En retard (prise en charge) » 
   await expect(page.getByText(/^Bientôt en retard : reste \d+ s pour la prise en charge$/)).toBeVisible({ timeout: 60_000 });
 
   // Échéance : affichage immédiat côté client, puis marquage par le serveur en moins de 30 s.
-  await expect(page.getByText('En retard (prise en charge)')).toBeVisible({ timeout: 30_000 });
+  // `first()` : le badge du compte à rebours, le marquage serveur ajoutant le même libellé à l'historique.
+  await expect(page.getByText('En retard (prise en charge)').first()).toBeVisible({ timeout: 30_000 });
   await expect
     .poll(
       async () => ((await (await page.request.get(`/api/requests/${id}`)).json()) as { overdueStage: string | null }).overdueStage,

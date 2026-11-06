@@ -40,6 +40,9 @@ test('SC-001 — demande vocale complète créée et envoyée en moins de 60 s',
 
   await page.getByRole('button', { name: 'Envoyer la demande' }).click();
   await expect(page.getByText('Votre demande a été envoyée.')).toBeVisible();
+  // Le message apparaît avant la redirection : attendre la fiche, car le formulaire contient une liste
+  // repliée de demandes similaires dont les badges « Envoyée » rendraient le sélecteur ambigu.
+  await expect(page.getByRole('heading', { name: title })).toBeVisible();
   await expect(page.getByText('Envoyée', { exact: true })).toBeVisible();
   const elapsed = Date.now() - started;
 
