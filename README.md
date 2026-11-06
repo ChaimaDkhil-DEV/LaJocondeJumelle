@@ -45,7 +45,7 @@ npm run -w backend start:dev               # API: http://localhost:3002
 npm run -w frontend dev                    # interface: http://localhost:5173
 
 npm run verify                             # lint + unit and integration tests + npm audit
-npm run test:e2e                           # end-to-end: 6 browser profiles, axe checks
+npm run test:e2e                           # end-to-end: 7 browser profiles, axe checks
 ```
 
 Before merging into `master`: see the [pre-merge verification](docs/procedure-fusion.md). It is
