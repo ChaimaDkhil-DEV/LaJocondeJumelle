@@ -75,3 +75,29 @@ Procedure checkboxes were not ticked in the description of either pull request.
   [verification-deploiement-local.md](verification-deploiement-local.md).
 
 No fix or `git revert` needed. Same cause as #29 and #33: see the reminder above.
+
+## 06/11/2026 — pull request #77
+
+| Pull request | Content | Merged at (UTC) | Check not satisfied at merge time |
+|---------|---------|-------------------|-----------------------------------------------|
+| #77 (`feat-restauration-et-echeances`) | Meal service changes with per-student history, migration `0016`; deadline recalculated when the priority changes | 23:14:50 | **4. Diff review**: tests were written after the code, not first as required by constitution principle I |
+
+Checks 1 to 3 were ticked in the description of the pull request; check 4 was left unticked, with the reason. The merge
+was a deliberate decision of the repository owner, taken once this deviation had been reported.
+
+### Findings after the fact
+
+- Both runs on `c4c07d7` were green before the merge (42252588257 and 42252634208), all steps executed.
+- `master` green after the merge: run 42310571547 on `b2fe9e5`.
+- The tests exist and pass: `backend/test/integration/student-meal.spec.ts`, `frontend/tests/students/meal-services.test.tsx`,
+  `e2e/restauration.spec.ts`, and additions to `backend/test/unit/deadlines.spec.ts` and
+  `backend/test/integration/history-priority.spec.ts`. Only the order of writing did not follow the rule: no test was seen
+  failing first against the unchanged code.
+- Not verified at merge time: the full end-to-end run, `0016/down.sql`, the demo reset with existing history, and the page
+  in English.
+
+No fix or `git revert` needed.
+
+### Reminder
+
+Write the failing test before the code, including for a small change requested during a session.
