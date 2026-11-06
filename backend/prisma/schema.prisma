@@ -356,6 +356,7 @@ model User {
   groupMemberships  EmployeeGroupMember[]
   presences         CoveragePresence[]
   guidelinesUpdated Guideline[]
+  mealChanges       StudentMealChange[]
 
   coverageSubstituteOf CoverageDetail[]    @relation("CoverageSubstitute")
   attendances          TeacherAttendance[] @relation("AttendanceTeacher")
@@ -703,10 +704,29 @@ model Student {
   createdAt   DateTime    @default(now()) @db.Timestamptz(3)
   updatedAt   DateTime    @updatedAt @db.Timestamptz(3)
 
-  class SchoolClass @relation(fields: [classId], references: [id])
+  class       SchoolClass         @relation(fields: [classId], references: [id])
+  mealChanges StudentMealChange[]
 
   @@index([classId])
   @@index([lastName, firstName])
+}
+
+/// Historique des changements de service de restauration d'un élève. Ajout seul : la base refuse
+/// UPDATE, DELETE et TRUNCATE. La création de l'élève n'y figure pas.
+model StudentMealChange {
+  id          String      @id @default(uuid()) @db.Uuid
+  studentId   String      @db.Uuid
+  fromService MealService
+  toService   MealService
+  actorId     String      @db.Uuid
+  /// Motif facultatif saisi par l'administration.
+  reason      String?     @db.VarChar(300)
+  createdAt   DateTime    @default(now()) @db.Timestamptz(3)
+
+  student Student @relation(fields: [studentId], references: [id])
+  actor   User    @relation(fields: [actorId], references: [id])
+
+  @@index([studentId, createdAt])
 }
 
 /// Étage, géré par le super administrateur (004, FR-006). Désactivé, il reste lié à l'historique.
