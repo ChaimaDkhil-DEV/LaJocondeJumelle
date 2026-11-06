@@ -15,10 +15,11 @@ import { RealtimeService } from '../realtime/realtime.service';
 import { SettingsService } from '../settings/settings.service';
 import { allowedActions, canCreateInCategory, canPickRecipient, canReadRequest } from './domain/access-policy';
 import { applyAction, type TransitionResult } from './domain/request-state-machine';
-import { NO_DEADLINE, nextDeadlineState } from './domain/deadlines';
+import { deadlineAfterPriorityChange, NO_DEADLINE, nextDeadlineState } from './domain/deadlines';
 import { visibleRequestsWhere } from './domain/visibility';
 import { RequestTransitionsService } from './request-transitions.service';
 import {
+  readRulesSnapshot,
   RequestPolicyLoader,
   toPolicyCategory,
   toPolicyRequest,
@@ -332,7 +333,8 @@ export class RequestsService {
   /**
    * Changement de priorité (hors machine à états) : demandeur avec PRIORITY_CHANGE_OWN avant
    * acceptation, admin avec PRIORITY_CHANGE_MANAGED tant que la demande n'est ni terminée ni
-   * finale. Les échéances en cours ne sont pas recalculées (instantané des règles, FR-022).
+   * finale. L'échéance en cours est recalculée depuis le début de l'étape et les étapes suivantes
+   * prennent les durées de la nouvelle priorité ; les autres règles de l'instantané restent figées.
    */
   async changePriority(user: AuthenticatedUser, id: string, dto: ChangePriorityDto, ctx: RequestContext): Promise<RequestDetail> {
     const { request, category } = await this.readableRequest(user, id, ctx);
@@ -349,10 +351,31 @@ export class RequestsService {
     if (dto.version !== request.version) throw new AppException('STATE_CHANGED');
     if (dto.priority === request.priority) throw fieldError('priority', 'Choisissez une priorité différente.');
 
+    const rules = readRulesSnapshot(request);
+    const durations = await this.policies.deadlineDurations(request.categoryId, rules.circuit, dto.priority);
+    const deadline = deadlineAfterPriorityChange(
+      {
+        currentStage: request.currentStage,
+        currentDueAt: request.currentDueAt,
+        warnAt: request.warnAt,
+        overdueStage: request.overdueStage,
+      },
+      request.status,
+      rules,
+      durations,
+      new Date(),
+      await this.settings.get('deadlineWarnPercent'),
+    );
+
     const pending = await this.prisma.$transaction(async (tx) => {
       const { count } = await tx.request.updateMany({
         where: { id, version: request.version },
-        data: { priority: dto.priority, version: { increment: 1 } },
+        data: {
+          priority: dto.priority,
+          ...deadline,
+          rulesSnapshot: { ...rules, ...durations } as unknown as Prisma.InputJsonValue,
+          version: { increment: 1 },
+        },
       });
       if (count === 0) throw new AppException('STATE_CHANGED');
       await tx.requestEvent.create({
@@ -360,8 +383,8 @@ export class RequestsService {
           requestId: id,
           actorId: user.id,
           type: 'PRIORITY_CHANGED',
-          fromValue: { priority: request.priority },
-          toValue: { priority: dto.priority },
+          fromValue: { priority: request.priority, dueAt: request.currentDueAt?.toISOString() ?? null },
+          toValue: { priority: dto.priority, dueAt: deadline.currentDueAt?.toISOString() ?? null },
         },
       });
       await this.audit.log(
@@ -383,7 +406,7 @@ export class RequestsService {
       requestId: id,
       status: request.status,
       version: request.version + 1,
-      overdueStage: request.overdueStage,
+      overdueStage: deadline.overdueStage,
     });
     return this.detail(user, id, ctx);
   }

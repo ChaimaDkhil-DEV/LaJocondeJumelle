@@ -1,4 +1,10 @@
-import { nextDeadlineState, NO_DEADLINE, type DeadlineDurations, type DeadlineState } from '../../src/requests/domain/deadlines';
+import {
+  deadlineAfterPriorityChange,
+  nextDeadlineState,
+  NO_DEADLINE,
+  type DeadlineDurations,
+  type DeadlineState,
+} from '../../src/requests/domain/deadlines';
 import type { RequestAction, TransitionStep } from '../../src/requests/domain/request-state-machine';
 import type { RequestStatus } from '@prisma/client';
 
@@ -68,5 +74,73 @@ describe('nextDeadlineState', () => {
   it('les transitions automatiques après « Terminée » n’ouvrent pas de nouveau délai', () => {
     const steps = [step('IN_PROGRESS', 'DONE', 'COMPLETE'), { ...step('DONE', 'PENDING_FINAL_VALIDATION', 'COMPLETE'), actor: 'SYSTEM' as const }];
     expect(nextDeadlineState(running('COMPLETION'), steps, durations, NOW, 20)).toEqual(NO_DEADLINE);
+  });
+});
+
+describe('deadlineAfterPriorityChange', () => {
+  const at = (minutes: number) => new Date(NOW.getTime() + minutes * MINUTE);
+  const normal: DeadlineDurations = { validationMinutes: 1440, takeoverMinutes: 1440, completionMinutes: 4320 };
+  const urgent: DeadlineDurations = { validationMinutes: 30, takeoverMinutes: 15, completionMinutes: 120 };
+  /** Étape de prise en charge commencée il y a `elapsed` minutes sous la priorité normale. */
+  const takeover = (elapsed: number, overdue: DeadlineState['overdueStage'] = null): DeadlineState => ({
+    currentStage: 'TAKEOVER',
+    currentDueAt: at(1440 - elapsed),
+    warnAt: at(1152 - elapsed),
+    overdueStage: overdue,
+  });
+
+  it('applique la nouvelle durée depuis le début de l’étape, seuil d’alerte compris', () => {
+    expect(deadlineAfterPriorityChange(takeover(5), 'SENT', normal, urgent, NOW, 20)).toEqual({
+      currentStage: 'TAKEOVER',
+      currentDueAt: at(10),
+      warnAt: at(7),
+      overdueStage: null,
+    });
+  });
+
+  it('allonge l’échéance quand la priorité baisse et lève le retard', () => {
+    const late: DeadlineState = { currentStage: 'TAKEOVER', currentDueAt: at(-5), warnAt: at(-8), overdueStage: 'TAKEOVER' };
+    expect(deadlineAfterPriorityChange(late, 'SENT', urgent, normal, NOW, 20)).toEqual({
+      currentStage: 'TAKEOVER',
+      currentDueAt: at(1420),
+      warnAt: at(1132),
+      overdueStage: null,
+    });
+  });
+
+  it('une échéance déjà dépassée n’est pas marquée ici : la tâche des retards la signale', () => {
+    const state = deadlineAfterPriorityChange(takeover(60), 'SENT', normal, urgent, NOW, 20);
+    expect(state.currentDueAt).toEqual(at(-45));
+    expect(state.overdueStage).toBeNull();
+  });
+
+  it('un retard déjà signalé reste en place si l’échéance reste dépassée', () => {
+    const late: DeadlineState = { currentStage: 'TAKEOVER', currentDueAt: at(-60), warnAt: at(-90), overdueStage: 'TAKEOVER' };
+    const state = deadlineAfterPriorityChange(late, 'SENT', normal, urgent, NOW, 20);
+    expect(state.overdueStage).toBe('TAKEOVER');
+  });
+
+  it('recalcule l’étape de réalisation avec sa propre durée', () => {
+    const completion: DeadlineState = { currentStage: 'COMPLETION', currentDueAt: at(4300), warnAt: at(3436), overdueStage: null };
+    expect(deadlineAfterPriorityChange(completion, 'IN_PROGRESS', normal, urgent, NOW, 20).currentDueAt).toEqual(at(100));
+  });
+
+  it('sans durée pour la nouvelle priorité, l’étape n’est plus suivie', () => {
+    const none: DeadlineDurations = { ...urgent, takeoverMinutes: null };
+    expect(deadlineAfterPriorityChange(takeover(5, 'TAKEOVER'), 'SENT', normal, none, NOW, 20)).toEqual(NO_DEADLINE);
+  });
+
+  it('une étape non suivie jusque-là démarre au moment du changement', () => {
+    const none: DeadlineDurations = { ...normal, takeoverMinutes: null };
+    expect(deadlineAfterPriorityChange(NO_DEADLINE, 'SENT', none, urgent, NOW, 20)).toEqual({
+      currentStage: 'TAKEOVER',
+      currentDueAt: at(15),
+      warnAt: at(12),
+      overdueStage: null,
+    });
+  });
+
+  it.each(['DRAFT', 'DONE', 'TO_CORRECT', 'PENDING_FINAL_VALIDATION'] as const)('aucun délai n’est ouvert au statut %s', (status) => {
+    expect(deadlineAfterPriorityChange(NO_DEADLINE, status, normal, urgent, NOW, 20)).toEqual(NO_DEADLINE);
   });
 });

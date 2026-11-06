@@ -23,7 +23,7 @@ interface PriorityDialogProps {
   onClose: () => void;
 }
 
-/** Changement de priorité (tracé dans l'historique ; les échéances en cours ne changent pas). */
+/** Changement de priorité (tracé dans l'historique ; l'échéance en cours est recalculée par l'API). */
 export function PriorityDialog({ open, current, pending, onConfirm, onClose }: PriorityDialogProps) {
   const titleId = useId();
   const [priority, setPriority] = useState<Priority>(current);

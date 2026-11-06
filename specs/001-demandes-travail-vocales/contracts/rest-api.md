@@ -55,7 +55,7 @@ As long as `mustChangePassword` is true, only `/auth/*` responds; the others ret
 | PATCH | `/requests/:id` | requester, status DRAFT | edit the draft's fields |
 | DELETE | `/requests/:id` | requester, status DRAFT | `204` (T19) |
 | POST | `/requests/:id/actions` | according to the state machine | `{ action, version, reason?, assigneeId?, proofFileIds? }` → `200 RequestDetail` |
-| PATCH | `/requests/:id/priority` | `CHANGE_PRIORITY` in `allowedActions` (see data-model §State machine), otherwise `403` | `{ priority, version }` → `200 RequestDetail`; same priority → `400`; stale version → `409 STATE_CHANGED`; deadlines already running are not recalculated |
+| PATCH | `/requests/:id/priority` | `CHANGE_PRIORITY` in `allowedActions` (see data-model §State machine), otherwise `403` | `{ priority, version }` → `200 RequestDetail`; same priority → `400`; stale version → `409 STATE_CHANGED`; the running deadline is recalculated from the start of the stage with the new priority's duration (data-model §Deadlines) |
 | GET | `/requests/:id/assignees` | user who can approve or reassign the request (otherwise `403`) | active employees among the category's recipients: `[{ id, displayName, jobTitle }]` |
 | GET | `/requests/:id/history` | read access authorized | chronological list `{ id, type, actor{id,displayName}|null (null = system), fromValue, toValue, comment, createdAt }`; values containing `assigneeId` also carry `assigneeName` |
 

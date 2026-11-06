@@ -3,8 +3,12 @@ import { PrismaClient } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { CATEGORIES, categoryId, loginAs, seedDemo, userId } from '../utils/auth-helpers';
+import { OverdueJob } from '../../src/scheduler/overdue.job';
 import { createTestApp, TEST_ORIGIN } from '../utils/test-app';
 import { resetDatabase } from '../utils/test-db';
+
+const NORMAL_RULE = { validationMinutes: null, takeoverMinutes: 1440, completionMinutes: 4320 };
+const URGENT_RULE = { validationMinutes: null, takeoverMinutes: 15, completionMinutes: 120 };
 
 /** T090 — US7 : historique complet d'une demande et changement de priorité tracé. */
 describe('Historique et priorité', () => {
@@ -17,7 +21,7 @@ describe('Historique et priorité', () => {
 
   const api = () => request(app.getHttpServer());
 
-  async function create(): Promise<{ id: string; version: number }> {
+  async function create(priority: 'NORMAL' | 'URGENT' = 'NORMAL'): Promise<{ id: string; version: number }> {
     const res = await api()
       .post('/api/requests')
       .set('Cookie', enseignante)
@@ -28,7 +32,7 @@ describe('Historique et priorité', () => {
         description: 'x',
         categoryId: await categoryId(prisma, CATEGORIES.photocopies),
         recipientId: reprographieId,
-        priority: 'NORMAL',
+        priority,
       });
     return res.body;
   }
@@ -49,6 +53,14 @@ describe('Historique et priorité', () => {
     reprographie = await loginAs(app, 'reprographie');
     responsable = await loginAs(app, 'admin');
     reprographieId = await userId(prisma, 'reprographie');
+    const photocopies = await categoryId(prisma, CATEGORIES.photocopies);
+    for (const [priority, rule] of [['NORMAL', NORMAL_RULE], ['URGENT', URGENT_RULE]] as const) {
+      await prisma.deadlineRule.upsert({
+        where: { categoryId_priority: { categoryId: photocopies, priority } },
+        update: rule,
+        create: { categoryId: photocopies, priority, ...rule },
+      });
+    }
   });
 
   afterAll(async () => {
@@ -128,10 +140,73 @@ describe('Historique et priorité', () => {
 
       const event = await prisma.requestEvent.findFirstOrThrow({ where: { requestId: id, type: 'PRIORITY_CHANGED' } });
       expect(event).toMatchObject({ fromValue: { priority: 'NORMAL' }, toValue: { priority: 'URGENT' } });
-      // Les échéances en cours ne sont pas recalculées (instantané des règles, FR-022).
+      // Seules les durées de délai de l'instantané changent (FR-022, FR-022a).
       const after = await prisma.request.findUniqueOrThrow({ where: { id } });
-      expect(after.currentDueAt).toEqual(before.currentDueAt);
-      expect(after.rulesSnapshot).toEqual(before.rulesSnapshot);
+      expect(after.rulesSnapshot).toEqual({ ...(before.rulesSnapshot as object), ...URGENT_RULE });
+    });
+
+    describe('Recalcul de l’échéance (FR-022a)', () => {
+      const MINUTE = 60_000;
+
+      async function dueIn(id: string): Promise<number> {
+        const { currentDueAt } = await prisma.request.findUniqueOrThrow({ where: { id } });
+        return Math.round((currentDueAt!.getTime() - Date.now()) / MINUTE);
+      }
+
+      /** Recule le début de l'étape en cours, comme si `minutes` s'étaient écoulées. */
+      async function elapse(id: string, minutes: number): Promise<void> {
+        const { currentDueAt, warnAt } = await prisma.request.findUniqueOrThrow({ where: { id } });
+        await prisma.request.update({
+          where: { id },
+          data: {
+            currentDueAt: new Date(currentDueAt!.getTime() - minutes * MINUTE),
+            warnAt: new Date(warnAt!.getTime() - minutes * MINUTE),
+          },
+        });
+      }
+
+      it('raccourcit l’échéance en tenant compte du temps déjà écoulé', async () => {
+        const { id, version } = await create();
+        await elapse(id, 5);
+
+        const res = await changePriority(enseignante, id, { priority: 'URGENT', version });
+        expect(res.status).toBe(200);
+        expect(await dueIn(id)).toBe(URGENT_RULE.takeoverMinutes - 5);
+        expect(Date.parse(res.body.currentDueAt)).toBe(Date.parse(res.body.warnAt) + URGENT_RULE.takeoverMinutes * 0.2 * MINUTE);
+
+        const event = await prisma.requestEvent.findFirstOrThrow({ where: { requestId: id, type: 'PRIORITY_CHANGED' } });
+        expect((event.toValue as { dueAt: string }).dueAt).toBe(res.body.currentDueAt);
+      });
+
+      it('allonge l’échéance et lève le retard quand la priorité baisse', async () => {
+        const { id, version } = await create('URGENT');
+        await elapse(id, URGENT_RULE.takeoverMinutes + 5);
+        expect(await app.get(OverdueJob).runOnce()).toBe(1);
+
+        const res = await changePriority(enseignante, id, { priority: 'NORMAL', version });
+        expect(res.status).toBe(200);
+        expect(res.body.overdueStage).toBeNull();
+        expect(await dueIn(id)).toBe(NORMAL_RULE.takeoverMinutes - URGENT_RULE.takeoverMinutes - 5);
+        expect(await app.get(OverdueJob).runOnce()).toBe(0);
+      });
+
+      it('signale le retard si la nouvelle échéance est déjà dépassée', async () => {
+        const { id, version } = await create();
+        await elapse(id, 60);
+
+        expect((await changePriority(enseignante, id, { priority: 'URGENT', version })).status).toBe(200);
+        expect(await dueIn(id)).toBeLessThan(0);
+        expect(await app.get(OverdueJob).runOnce()).toBe(1);
+        const row = await prisma.request.findUniqueOrThrow({ where: { id } });
+        expect(row.overdueStage).toBe('TAKEOVER');
+      });
+
+      it('les étapes suivantes prennent les durées de la nouvelle priorité', async () => {
+        const { id, version } = await create();
+        const changed = await changePriority(enseignante, id, { priority: 'URGENT', version });
+        expect((await act(reprographie, id, { action: 'ACCEPT', version: changed.body.version })).status).toBe(200);
+        expect(await dueIn(id)).toBe(URGENT_RULE.completionMinutes);
+      });
     });
 
     it('n’est plus permis à la demandeuse après acceptation (403)', async () => {
