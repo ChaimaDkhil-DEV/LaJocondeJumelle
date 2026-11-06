@@ -1,7 +1,11 @@
 # Contexte de construction des images (deploy/*.Dockerfile, contexte = racine du dépôt)
 **/node_modules
 **/dist
-**/coverage
+# Rapports de couverture seulement : un motif `**/coverage` exclurait aussi le code de la fonctionnalité
+# (frontend/src/features/coverage, backend/src/coverage) et ferait échouer la construction des images.
+/coverage
+/backend/coverage
+/frontend/coverage
 **/*.tsbuildinfo
 **/.env
 **/.env.*

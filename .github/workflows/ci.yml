@@ -85,5 +85,13 @@ jobs:
       - name: Tests (frontend)
         run: npm run -w frontend test
 
+      # Construit les images de production sans les publier : un fichier exclu du contexte (.dockerignore)
+      # ou une étape de Dockerfile cassée bloquerait sinon le déploiement sans qu'aucun test ne le voie.
+      - name: Construction des images Docker
+        timeout-minutes: 15
+        run: |
+          docker build -f deploy/api.Dockerfile -t ljj-api:ci .
+          docker build -f deploy/web.Dockerfile -t ljj-web:ci .
+
       - name: Audit des dépendances
         run: npm audit --audit-level=high
