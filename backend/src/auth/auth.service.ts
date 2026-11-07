@@ -5,6 +5,7 @@ import { AppException } from '../common/errors';
 import { PrismaService } from '../common/prisma.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import type { AuthenticatedUser } from './auth.types';
+import { LoginAttemptLimiter } from './login-attempt-limiter';
 import { SessionService } from './session.service';
 
 /** Haché de référence : vérifier un identifiant inconnu prend le même temps qu'un identifiant connu. */
@@ -17,6 +18,7 @@ export class AuthService {
     private readonly sessions: SessionService,
     private readonly audit: AuditService,
     private readonly realtime: RealtimeService,
+    private readonly attempts: LoginAttemptLimiter,
   ) {}
 
   /** Argon2id avec les paramètres par défaut de la bibliothèque argon2. */
@@ -30,6 +32,14 @@ export class AuthService {
     ip: string | null,
   ): Promise<{ token: string; user: AuthenticatedUser }> {
     const normalized = username.trim().toLowerCase();
+    const attempt = this.attempts.reserve(ip, normalized);
+    if (!attempt.allowed) {
+      if (attempt.firstBlock) {
+        await this.audit.log('ACCESS_DENIED', { ip, details: { reason: 'RATE_LIMITED', channel: 'http' } });
+      }
+      throw new AppException('RATE_LIMITED', undefined, 'Trop de tentatives. Patientez quelques minutes avant de réessayer.');
+    }
+
     const user = await this.prisma.user.findUnique({ where: { username: normalized } });
     const valid = user
       ? await verify(user.passwordHash, password)
@@ -44,6 +54,7 @@ export class AuthService {
       throw new AppException('INVALID_CREDENTIALS');
     }
 
+    this.attempts.succeed(ip, normalized);
     const { token } = await this.sessions.create(user.id, ip);
     await this.audit.log('LOGIN_SUCCESS', { actorId: user.id, ip });
     return { token, user: await this.sessions.toAuthenticatedUser(user) };

@@ -5,6 +5,7 @@ import type { AppConfig } from '../config/config';
 import { APP_CONFIG } from '../config/config.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { LoginAttemptLimiter } from './login-attempt-limiter';
 import { LoginThrottlerGuard } from './login-throttler.guard';
 import { OriginGuard } from './origin.guard';
 import { SessionGuard } from './session.guard';
@@ -21,6 +22,7 @@ import { SessionService } from './session.service';
   providers: [
     AuthService,
     SessionService,
+    LoginAttemptLimiter,
     LoginThrottlerGuard,
     // Ordre des gardes globales : Origin (CSRF) puis session.
     { provide: APP_GUARD, useClass: OriginGuard },

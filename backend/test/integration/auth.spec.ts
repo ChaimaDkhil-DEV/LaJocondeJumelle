@@ -2,6 +2,11 @@ import type { INestApplication } from '@nestjs/common';
 import { PrismaClient, type Role } from '@prisma/client';
 import { hash } from 'argon2';
 import request from 'supertest';
+import {
+  LOGIN_FAILURES_PER_IP,
+  LOGIN_FAILURES_PER_USERNAME,
+  LoginAttemptLimiter,
+} from '../../src/auth/login-attempt-limiter';
 import { resetDatabase } from '../utils/test-db';
 import {
   createTestApp,
@@ -134,6 +139,34 @@ describe('Authentification et sessions', () => {
       ).resolves.toBe(1);
       // Une autre adresse IP n'est pas bloquée.
       expect((await login('enseignante', PASSWORD, '10.0.0.2')).status).toBe(200);
+    });
+
+    it('bloque un identifiant visé depuis plusieurs adresses, même avec le bon mot de passe', async () => {
+      await createUser('enseignante');
+      for (let i = 0; i < LOGIN_FAILURES_PER_USERNAME; i += 1) {
+        expect((await login('enseignante', 'mauvais', `10.1.0.${i}`)).status).toBe(401);
+      }
+      const blocked = await login('enseignante', PASSWORD, '10.2.0.1');
+      expect(blocked.status).toBe(429);
+      expect(blocked.body.error.code).toBe('RATE_LIMITED');
+      await login('enseignante', 'mauvais', '10.2.0.2');
+      await expect(
+        prisma.auditLog.count({
+          where: { action: 'ACCESS_DENIED', details: { path: ['reason'], equals: 'RATE_LIMITED' } },
+        }),
+      ).resolves.toBe(1);
+    });
+
+    it('bloque une adresse qui multiplie les identifiants, sans calcul ni écriture supplémentaire', async () => {
+      await createUser('enseignante');
+      const limiter = app.get(LoginAttemptLimiter);
+      for (let i = 0; i < LOGIN_FAILURES_PER_IP; i += 1) limiter.reserve('10.3.0.1', `compte${i}`);
+      const failuresBefore = await prisma.auditLog.count({ where: { action: 'LOGIN_FAILURE' } });
+
+      const res = await login('enseignante', PASSWORD, '10.3.0.1');
+      expect(res.status).toBe(429);
+      expect(await prisma.auditLog.count({ where: { action: 'LOGIN_FAILURE' } })).toBe(failuresBefore);
+      expect((await login('enseignante', PASSWORD, '10.3.0.2')).status).toBe(200);
     });
 
     it('refuse une requête modifiante dont l’Origin est étrangère', async () => {
