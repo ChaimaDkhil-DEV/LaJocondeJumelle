@@ -754,7 +754,6 @@ model EmployeeGroup {
   updatedAt DateTime        @updatedAt @db.Timestamptz(3)
 
   members EmployeeGroupMember[]
-  targets CoverageTarget[]
 }
 
 model EmployeeGroupMember {
@@ -812,7 +811,6 @@ model CoverageDetail {
   teacher           User?            @relation("CoverageTeacher", fields: [teacherId], references: [id])
   floor             Floor?           @relation(fields: [floorId], references: [id])
   mergedInto        Request?         @relation("CoverageMergedInto", fields: [mergedIntoId], references: [id])
-  targets           CoverageTarget[]
 
   @@index([classId])
   @@index([startAt])
@@ -824,17 +822,6 @@ model CoverageDetail {
 }
 
 /// Groupes ciblés par une couverture (plusieurs après élargissement).
-model CoverageTarget {
-  requestId String   @db.Uuid
-  groupId   String   @db.Uuid
-  addedAt   DateTime @default(now()) @db.Timestamptz(3)
-
-  coverage CoverageDetail @relation(fields: [requestId], references: [requestId], onDelete: Cascade)
-  group    EmployeeGroup  @relation(fields: [groupId], references: [id])
-
-  @@id([requestId, groupId])
-  @@index([groupId])
-}
 
 /// Preuve de présence : heure serveur (jamais l'heure du client ni l'EXIF de la photo).
 model CoveragePresence {

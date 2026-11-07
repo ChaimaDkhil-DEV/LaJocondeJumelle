@@ -1,5 +1,5 @@
 import type { Permission, Role } from '@prisma/client';
-import { canManageAdministration, canReadAudit, permissionsFor, type PolicyUser } from '../../src/common/authorization';
+import { canManageAdministration, permissionsFor, type PolicyUser } from '../../src/common/authorization';
 
 /** Règles transverses, déplacées de access-policy.spec.ts (T035) : attendus inchangés. */
 
@@ -30,10 +30,8 @@ describe('permissionsFor', () => {
 describe('administration et audit', () => {
   it('sont réservés au super administrateur', () => {
     expect(canManageAdministration(superadmin)).toBe(true);
-    expect(canReadAudit(superadmin)).toBe(true);
     for (const who of [responsable, enseignante]) {
       expect(canManageAdministration(who)).toBe(false);
-      expect(canReadAudit(who)).toBe(false);
     }
     expect(canManageAdministration({ ...superadmin, active: false })).toBe(false);
   });

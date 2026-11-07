@@ -162,7 +162,7 @@ export async function clearCoverages(prisma: PrismaClient): Promise<void> {
     prisma.$executeRawUnsafe('SET LOCAL session_replication_role = replica'),
     prisma.$executeRawUnsafe(
       `TRUNCATE TABLE "CoverageReminder", "CoverageSupport", "CoverageMergeProposal", "CoveragePresence",
-         "CoverageTarget", "CoverageDetail", "Notification", "RequestEvent" RESTART IDENTITY CASCADE`,
+         "CoverageDetail", "Notification", "RequestEvent" RESTART IDENTITY CASCADE`,
     ),
     prisma.$executeRawUnsafe(`DELETE FROM "Request" WHERE "kind" = 'COVERAGE'`),
     prisma.user.updateMany({ data: { active: true, availability: 'AVAILABLE' } }),
