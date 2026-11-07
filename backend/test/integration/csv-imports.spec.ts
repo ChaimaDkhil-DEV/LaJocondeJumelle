@@ -423,7 +423,26 @@ describe('Imports CSV', () => {
       expect(res.status).toBe(413);
     });
 
-    it.each(['admin', 'surveillant', 'enseignante'])('%s ne peut pas importer', async (who) => {
+    it('l’admin vérifie puis importe des élèves (011, FR-003), journalisé à son nom', async () => {
+      const csv = excel([HEADER, 'Nour;ImportAdmin;CP Violet;+216 20 777 771;cantine', 'Sami;ImportAdmin;CP Bleu;+216 20 777 772;panier']);
+      const before = await prisma.student.count();
+      const check = await post('admin', '/api/admin/students/import', { csv: excel([HEADER, 'Faux;Eleve;Classe inconnue;+216 20 777 773;cantine']), dryRun: true });
+      expect(check.status).toBe(200);
+      expect(check.body).toMatchObject({ created: false, invalid: 1 });
+      expect(await prisma.student.count()).toBe(before);
+
+      const done = await post('admin', '/api/admin/students/import', { csv, dryRun: false });
+      expect(done.status).toBe(200);
+      expect(done.body).toMatchObject({ created: true, count: 2 });
+      const adminId = (await prisma.user.findUniqueOrThrow({ where: { username: 'admin' } })).id;
+      const created = await prisma.student.findMany({ where: { lastName: 'ImportAdmin' }, select: { id: true } });
+      expect(created).toHaveLength(2);
+      expect(
+        await prisma.auditLog.count({ where: { action: 'STUDENT_CHANGED', actorId: adminId, targetId: { in: created.map((s) => s.id) } } }),
+      ).toBe(2);
+    });
+
+    it.each(['surveillant', 'enseignante'])('%s ne peut pas importer', async (who) => {
       const before = await prisma.student.count();
       const res = await post(who, '/api/admin/students/import', { csv: excel([HEADER, 'Interdit;Eleve;CP Violet;+216 20 666 661;cantine']), dryRun: false });
       expect(res.status).toBe(403);

@@ -86,11 +86,11 @@ test('V16 — le super administrateur crée un compte, une catégorie circuit B 
   await expect(page.getByRole('list', { name: 'Entrées du journal' }).getByRole('listitem').filter({ hasText: username }).first()).toBeVisible();
   await expectNoA11yViolations(page);
 
-  // L'admin n'a ni menu ni accès (interface et API).
+  // L'admin voit l'espace Administrateur (données de référence, 011) mais pas les comptes (interface et API).
   await logout(page);
   await login(page, 'admin');
   await openNavigation(page);
-  await expect(page.getByRole('link', { name: 'Administrateur', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Administrateur', exact: true })).toBeVisible();
   await page.keyboard.press('Escape');
   await page.goto('/admin/comptes');
   await expect(page.getByText('Accès réservé au super administrateur.')).toBeVisible();

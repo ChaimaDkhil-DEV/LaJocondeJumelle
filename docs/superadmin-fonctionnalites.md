@@ -142,7 +142,10 @@ Detail per entry:
 
 ## 2. Administrator, tab by tab
 
-All the routes below are protected by `SuperAdminGuard` (controller indicated). Tabs:
+All the routes below are protected by `SuperAdminGuard` (controller indicated), except, since
+feature 011, floors, levels, classes (with their QR codes) and students, protected by
+`AdministrationGuard`: active admins manage them too, and get a read-only « Employés » tab
+(`/admin/employes`, `/api/admin/employees`). See `specs/011-espace-admin-donnees-reference/`. Tabs:
 Tableau de bord (Dashboard), Suivi des gardes, Comptes (Accounts), Catégories, Groupes, Étages (Floors), Classes, Réglages (Settings),
 Journal d'audit (`AdminLayout.tsx:21-30`).
 

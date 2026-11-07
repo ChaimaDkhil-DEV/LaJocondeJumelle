@@ -107,6 +107,18 @@ describe('Page d’accueil', () => {
     expect(urls.some((u) => u.startsWith('/api/admin'))).toBe(false);
   });
 
+  it.each([
+    ['admin', ADMIN, true],
+    ['employé', EMPLOYEE, false],
+  ])('%s : entrée « Administrateur » de la navigation (011) ; « Restauration » inchangée', async (_label, me, shown) => {
+    renderAt('/', me);
+    await screen.findByRole('heading', { level: 1, name: 'Mes demandes' });
+    const admin = within(mainNav()).queryByRole('link', { name: 'Administrateur' });
+    if (shown) expect(admin).toHaveAttribute('href', '/admin');
+    else expect(admin).not.toBeInTheDocument();
+    expect(Boolean(within(mainNav()).queryByRole('link', { name: 'Restauration' }))).toBe(me.role === 'ADMIN');
+  });
+
   it('l’ancienne adresse /admin/tableau-de-bord mène à l’accueil, vue conservée', async () => {
     const { router } = renderAt('/admin/tableau-de-bord?vue=delais', SUPER_ADMIN);
     // Premier rendu : le module du tableau de bord (Recharts) est chargé à la demande.

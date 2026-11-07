@@ -19,6 +19,17 @@ export interface AdminUser {
   floor?: { id: string; name: string } | null;
 }
 
+/** Employé de la liste en lecture seule (011) : six informations, sans identifiant de connexion. */
+export interface EmployeeListItem {
+  id: string;
+  displayName: string;
+  jobTitle: string | null;
+  role: Role;
+  active: boolean;
+  groups: Array<{ id: string; name: string }>;
+  floor: { id: string; name: string } | null;
+}
+
 export type Circuit = 'A_DIRECT' | 'B_ADMIN_VALIDATION';
 export type { RoutingMode };
 export type ClosureMode = 'AUTO' | 'REQUESTER' | 'MANAGER';
@@ -126,6 +137,7 @@ export interface AuditFilters {
 export const adminKeys = {
   all: ['admin'] as const,
   users: ['admin', 'users'] as const,
+  employees: ['admin', 'employees'] as const,
   categories: ['admin', 'categories'] as const,
   guidelines: ['admin', 'guidelines'] as const,
   settings: ['admin', 'settings'] as const,
@@ -172,6 +184,14 @@ export function useAdminUsers() {
   return useQuery({
     queryKey: adminKeys.users,
     queryFn: fetchAllUsers,
+  });
+}
+
+/** Liste des employés en lecture seule (admin et super administrateur, 011). */
+export function useEmployees() {
+  return useQuery({
+    queryKey: adminKeys.employees,
+    queryFn: () => apiFetch<EmployeeListItem[]>('/api/admin/employees'),
   });
 }
 

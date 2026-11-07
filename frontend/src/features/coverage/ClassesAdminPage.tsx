@@ -127,7 +127,10 @@ function QrDialog({ schoolClass, onClose }: { schoolClass: AdminClass; onClose: 
   const toast = useToast();
   const qr = useClassQr(schoolClass.id);
   const revoke = useRevokeQr();
-  const [image, setImage] = useState<string | null>(null);
+  // Image rattachée au lien dont elle est tirée : une image d'un ancien lien n'est jamais affichée, sans avoir à
+  // l'effacer après une révocation (l'effacer arrivait après la nouvelle image et la laissait en chargement).
+  const [generated, setGenerated] = useState<{ url: string; image: string } | null>(null);
+  const image = generated && generated.url === qr.data?.url ? generated.image : null;
   const [confirmRevoke, setConfirmRevoke] = useState(false);
 
   /** Copie le lien du QR code ; sans presse-papiers (contexte non sécurisé, refus), le champ reste à copier à la main. */
@@ -142,9 +145,10 @@ function QrDialog({ schoolClass, onClose }: { schoolClass: AdminClass; onClose: 
 
   useEffect(() => {
     if (!qr.data) return;
+    const { url } = qr.data;
     let cancelled = false;
-    void QRCode.toDataURL(qr.data.url, { errorCorrectionLevel: 'M', margin: 2, width: 512 }).then((url) => {
-      if (!cancelled) setImage(url);
+    void QRCode.toDataURL(url, { errorCorrectionLevel: 'M', margin: 2, width: 512 }).then((dataUrl) => {
+      if (!cancelled) setGenerated({ url, image: dataUrl });
     });
     return () => {
       cancelled = true;
@@ -222,7 +226,6 @@ function QrDialog({ schoolClass, onClose }: { schoolClass: AdminClass; onClose: 
           revoke.mutate(schoolClass.id, {
             onSuccess: () => {
               setConfirmRevoke(false);
-              setImage(null);
               toast.success(t('Ancien QR code révoqué. Imprimez le nouveau et remplacez-le dans la classe.'));
             },
           })

@@ -35,3 +35,12 @@ export function canManageMealServices(user: Pick<PolicyUser, 'role' | 'active'>)
   return user.active && (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN');
 }
 
+
+/**
+ * Données de référence (étages, niveaux, classes, élèves) et liste des employés en lecture (011) :
+ * admin et super administrateur actifs. Règle de rôle, pas la permission configurable ADMIN_MANAGE,
+ * qui pourrait être accordée à un employé depuis les réglages.
+ */
+export function canUseAdministrationSpace(user: Pick<PolicyUser, 'role' | 'active'>): boolean {
+  return user.active && (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN');
+}

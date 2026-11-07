@@ -25,6 +25,7 @@ import { LanguageSwitcher } from '../components/LanguageSwitcher';
 import { visuallyHidden } from '../components/a11y';
 import { Person } from '../components/UserAvatar';
 import { font, fontSize, icon, layout, motion, radius, tokensOf } from '../design/tokens';
+import { canUseAdministrationSpace } from '../features/admin/access';
 import { ROLE_LABELS } from '../features/admin/labels';
 import { useCurrentUser, useLogout } from '../features/auth/useCurrentUser';
 import { NotificationCenter } from '../features/notifications/NotificationCenter';
@@ -100,7 +101,7 @@ const MEAL_ITEM: NavItem = {
   matches: (p) => p === '/restauration',
 };
 
-/** Entrée réservée au super administrateur (le serveur refuse aussi /api/admin aux autres rôles). */
+/** Espace Administrateur : admin et super administrateur (011) ; le serveur vérifie chaque route /api/admin. */
 const ADMIN_ITEM: NavItem = {
   to: '/admin',
   label: t('Administrateur'),
@@ -255,7 +256,7 @@ export function AppLayout() {
     ...NAV_ITEMS,
     ...(showCoverage ? [COVERAGE_ITEM] : []),
     ...(superAdmin || me.data?.role === 'ADMIN' ? [MEAL_ITEM] : []),
-    ...(superAdmin ? [ADMIN_ITEM] : []),
+    ...(canUseAdministrationSpace(me.data) ? [ADMIN_ITEM] : []),
   ];
 
   function handleLogout(): void {

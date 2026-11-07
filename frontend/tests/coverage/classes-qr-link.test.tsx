@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -89,5 +89,41 @@ describe('Lien du QR code d’une classe', () => {
     expect(await screen.findByText('Copie impossible : sélectionnez le lien et copiez-le avec Ctrl+C.')).toBeInTheDocument();
     expect(screen.queryByText('Lien copié.')).not.toBeInTheDocument();
     expect(within(dialog).getByRole('textbox', { name: 'Lien du QR code' })).toHaveValue(LINK);
+  });
+});
+
+describe('Révocation du QR code d’une classe', () => {
+  const NEW_LINK = LINK.replace('.1.', '.2.');
+
+  it('après « Révoquer », le nouveau QR code s’affiche et peut être imprimé, sans rouvrir le dialogue', async () => {
+    const user = userEvent.setup();
+    mount();
+    // La route de révocation renvoie la nouvelle version ; la lecture suivante aussi.
+    let version = 1;
+    const base = vi.mocked(fetch).getMockImplementation()!;
+    vi.mocked(fetch).mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url === '/api/admin/coverage/classes/k1/qr/revoke' && init?.method === 'POST') {
+        version = 2;
+        return json(201, { classId: 'k1', name: '1ère année Violet', room: 'Salle 12', version: 2, url: NEW_LINK });
+      }
+      // Comme sur le réseau : la liste des classes rechargée après la révocation arrive un peu plus tard.
+      if (url === '/api/admin/coverage/classes' && version === 2) await new Promise((resolve) => setTimeout(resolve, 50));
+      if (url === '/api/admin/coverage/classes/k1/qr' && version === 2) {
+        return json(200, { classId: 'k1', name: '1ère année Violet', room: 'Salle 12', version: 2, url: NEW_LINK });
+      }
+      return base(input as string, init);
+    });
+
+    const dialog = await openQrDialog(user);
+    expect(await within(dialog).findByText('Version 1')).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'Révoquer et régénérer' }));
+    await user.click(within(await screen.findByRole('dialog', { name: 'Révoquer le QR code ?' })).getByRole('button', { name: 'Révoquer' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Révoquer le QR code ?' })).not.toBeInTheDocument());
+
+    expect(await within(dialog).findByText('Version 2')).toBeInTheDocument();
+    expect(within(dialog).getByAltText('QR code de la classe 1ère année Violet')).toBeInTheDocument();
+    expect(within(dialog).getByRole('textbox', { name: 'Lien du QR code' })).toHaveValue(NEW_LINK);
+    expect(within(dialog).getByRole('button', { name: 'Imprimer' })).toBeEnabled();
   });
 });

@@ -174,6 +174,26 @@ describe('Administration des comptes', () => {
     expect(actives).toEqual([...actives].sort((a: boolean, b: boolean) => Number(b) - Number(a)));
   });
 
+  it('011 : un admin rétrogradé pendant sa session perd les données de référence à sa requête suivante ; désactivé, sa session tombe', async () => {
+    const model = await prisma.user.findUniqueOrThrow({ where: { username: 'admin' } });
+    const target = await prisma.user.create({
+      data: { username: 'admin.retrograde', displayName: 'Admin rétrogradé', role: 'ADMIN', passwordHash: model.passwordHash, mustChangePassword: false },
+    });
+    const cookie = await loginAs(app, 'admin.retrograde');
+    expect((await api().get('/api/admin/floors').set('Cookie', cookie)).status).toBe(200);
+
+    expect((await patch(superadmin, `/api/admin/users/${target.id}`, { role: 'EMPLOYEE' })).status).toBe(200);
+    const denied = await post(cookie, '/api/admin/floors', { name: 'Étage refusé', position: 77 });
+    expect(denied.status).toBe(403);
+    expect(
+      await prisma.auditLog.count({ where: { action: 'ACCESS_DENIED', actorId: target.id, details: { path: ['reason'], equals: 'NOT_ADMINISTRATION' } } }),
+    ).toBe(1);
+    expect(await prisma.floor.count({ where: { name: 'Étage refusé' } })).toBe(0);
+
+    expect((await patch(superadmin, `/api/admin/users/${target.id}`, { role: 'ADMIN', active: false })).status).toBe(200);
+    expect((await api().get('/api/admin/floors').set('Cookie', cookie)).status).toBe(401);
+  });
+
   it('refuse un curseur ou une limite invalides (400)', async () => {
     expect((await api().get('/api/admin/users?cursor=pas-un-curseur').set('Cookie', superadmin)).status).toBe(400);
     expect((await api().get('/api/admin/users?limit=0').set('Cookie', superadmin)).status).toBe(400);

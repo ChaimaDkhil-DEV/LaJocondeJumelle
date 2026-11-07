@@ -3,6 +3,7 @@ import { FilesModule } from '../files/files.module';
 import { RequestPolicyModule } from '../requests/request-policy.module';
 import { CoverageAccessLoader } from './coverage-access.loader';
 import { CoverageActionsService } from './coverage-actions.service';
+import { ClassesAdminController } from './classes-admin.controller';
 import { CoverageAdminController, FloorsAdminController } from './coverage-admin.controller';
 import { CoverageAdminService } from './coverage-admin.service';
 import { CoverageController } from './coverage.controller';
@@ -15,7 +16,7 @@ import { CoverageService } from './coverage.service';
 /** Affectations des surveillants (gardes enrichies, 004) et suivi par le super administrateur. */
 @Module({
   imports: [FilesModule, RequestPolicyModule],
-  controllers: [CoverageController, CoverageAdminController, FloorsAdminController],
+  controllers: [CoverageController, CoverageAdminController, ClassesAdminController, FloorsAdminController],
   providers: [
     CoverageService,
     CoverageActionsService,

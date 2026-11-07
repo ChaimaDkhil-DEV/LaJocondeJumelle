@@ -1,6 +1,6 @@
 import { Body, Controller, Get, HttpCode, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import type { Request } from 'express';
-import { SuperAdminGuard } from '../audit/super-admin.guard';
+import { AdministrationGuard } from '../audit/administration.guard';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { ImportCsvDto } from '../common/csv-import';
@@ -9,9 +9,9 @@ import { LevelDto, StudentDto, UpdateLevelDto } from './students.dto';
 import { StudentsImportService } from './students-import.service';
 import { StudentsService } from './students.service';
 
-/** Niveaux et élèves : données de référence, super administrateur uniquement (comme les classes). */
+/** Niveaux et élèves : données de référence, admin et super administrateur (011, FR-001, FR-003), comme les classes. */
 @Controller('admin')
-@UseGuards(SuperAdminGuard)
+@UseGuards(AdministrationGuard)
 export class StudentsController {
   constructor(
     private readonly students: StudentsService,
