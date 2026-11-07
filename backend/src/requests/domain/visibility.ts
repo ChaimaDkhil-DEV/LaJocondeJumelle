@@ -26,9 +26,11 @@ export function visibleRequestsWhere(user: Pick<PolicyUser, 'id' | 'role' | 'act
         OR: [
           { requesterId: user.id },
           { assigneeId: user.id },
-          { category: { managers: { some: { userId: user.id } } } },
-          // Administration : consultation des demandes directes et entre enseignants (lecture seule).
-          ...(user.role === 'ADMIN' ? [{ category: { routingMode: { in: ['DIRECT', 'PEER'] as RoutingMode[] } } }] : []),
+          // Administration seulement : une ligne restée sur un compte rétrogradé ne donne aucun accès.
+          // Consultation des demandes directes et entre enseignants en lecture seule.
+          ...(user.role === 'ADMIN'
+            ? [{ category: { managers: { some: { userId: user.id } } } }, { category: { routingMode: { in: ['DIRECT', 'PEER'] as RoutingMode[] } } }]
+            : []),
         ],
       },
     ],

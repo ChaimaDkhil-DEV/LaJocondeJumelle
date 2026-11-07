@@ -74,7 +74,7 @@ Relations:
   (FR-004, constraint 7).
 - **CategoryManager** (categoryId, userId): category managers; they approve,
   reject, assign, reassign, validate, close (depending on `closureMode`) and receive the
-  delay alerts. Required role: `MANAGER` or `SUPER_ADMIN`.
+  delay alerts. Required role: `ADMIN` or `SUPER_ADMIN`; demoting a manager to `EMPLOYEE` removes these rows, and a leftover row grants nothing.
 
 ### DeadlineRule
 
