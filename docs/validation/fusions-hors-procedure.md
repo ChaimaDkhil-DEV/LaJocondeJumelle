@@ -127,3 +127,30 @@ No fix or `git revert` needed. Same cause as #29, #33 and #73: see the first rem
 ### Reminder
 
 Tick the four checkboxes before merging, even when every run is already green.
+
+## 07/11/2026 — pull request #82
+
+| Pull request | Content | Merged at (UTC) | Check not satisfied at merge time |
+|---------|---------|-------------------|-----------------------------------------------|
+| #82 (`011-espace-admin-donnees-reference`) | Feature 011: the admin manages floors, levels, classes (QR codes included) and students, and sees a read-only employee list; fix of the QR dialog after a revocation | 23:00:08 | **1. CI**: both runs on `fbc13ab` were still in progress (opened at 22:59:17, merged 51 s later); **all four checkboxes unticked**; **4. Diff review** not recorded |
+
+The pull request run 42423130860 finished green at 23:04:53 and the push run 42423127389 at 23:07:44, both after the
+merge.
+
+### Findings after the fact
+
+- Both runs finished green, all steps executed, including the Docker image build and the dependency audit.
+- `master` green after the merge: run 42423194558 on `19aa3ba`.
+- Before the pull request was opened, every CI step had been run locally on `fbc13ab` (842 unit, 885 integration with
+  1 test already skipped on `master`, 503 frontend tests, audit with no high or critical), plus the end-to-end specs
+  `admin-reference-admin`, `us8-admin` and `attendance-qr` on Chromium.
+- Tests were written first and seen failing (`specs/011-espace-admin-donnees-reference/tasks.md`, implementation notes).
+  The changed expectations are the tests that refused the admin on floors, levels, classes and students, documented in
+  `research.md` (R5) and in the pull request.
+- Not verified at merge time: the full end-to-end run, and the manual quickstart scenarios (T036).
+
+No fix or `git revert` needed.
+
+### Reminder
+
+Wait for « Contrôles qualité » to finish on the latest commit, then tick the four checkboxes, before merging.
