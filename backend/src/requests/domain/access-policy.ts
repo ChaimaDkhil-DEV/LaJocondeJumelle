@@ -68,7 +68,7 @@ export function actorsFor(user: PolicyUser, req: PolicyRequest, category: Policy
   const actors: Actor[] = [];
   if (req.requesterId === user.id) actors.push('REQUESTER');
   if (req.assigneeId !== null && req.assigneeId === user.id) actors.push('ASSIGNEE');
-  const manages = user.role === 'SUPER_ADMIN' || category.managerIds.has(user.id);
+  const manages = user.role === 'SUPER_ADMIN' || (isAdministration(user) && category.managerIds.has(user.id));
   if (manages && (administrationActs(category) || req.rules.closureMode === 'MANAGER')) actors.push('MANAGER');
   return actors;
 }

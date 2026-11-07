@@ -13,6 +13,7 @@ import {
   type PolicyRequest,
 } from '../../src/requests/domain/access-policy';
 import type { RulesSnapshot } from '../../src/requests/domain/request-state-machine';
+import { visibleRequestsWhere } from '../../src/requests/domain/visibility';
 
 /** Matrice d'accès — data-model.md §Matrice d'accès. */
 
@@ -73,6 +74,21 @@ function request(status: RequestStatus, extra: Partial<PolicyRequest> = {}): Pol
     ...extra,
   };
 }
+
+describe('compte rétrogradé resté dans les responsables de la catégorie', () => {
+  const exResponsable = user('responsable', 'EMPLOYEE');
+
+  it('n’agit plus en responsable, même si la ligne existe encore', () => {
+    expect(actorsFor(exResponsable, request('PENDING_ADMIN_VALIDATION'), category)).toEqual([]);
+    expect(canReadRequest(exResponsable, request('PENDING_ADMIN_VALIDATION'), category)).toBe(false);
+    expect(allowedActions(exResponsable, request('PENDING_ADMIN_VALIDATION'), category)).toEqual([]);
+  });
+
+  it('ne voit plus les demandes de la catégorie dans les listes', () => {
+    expect(JSON.stringify(visibleRequestsWhere(exResponsable))).not.toContain('managers');
+    expect(JSON.stringify(visibleRequestsWhere(responsable))).toContain('managers');
+  });
+});
 
 describe('actorsFor', () => {
   it('cumule les relations de l’utilisateur avec la demande', () => {

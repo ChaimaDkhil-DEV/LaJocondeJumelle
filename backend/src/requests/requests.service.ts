@@ -213,7 +213,8 @@ export class RequestsService {
         conditions.push({ assigneeId: user.id, status: { not: 'DRAFT' } });
         break;
       case 'managed':
-        if (user.role !== 'SUPER_ADMIN') conditions.push({ category: { managers: { some: { userId: user.id } } } });
+        if (user.role === 'ADMIN') conditions.push({ category: { managers: { some: { userId: user.id } } } });
+        else if (user.role !== 'SUPER_ADMIN') conditions.push({ id: { in: [] } });
         break;
       case 'all':
         break;

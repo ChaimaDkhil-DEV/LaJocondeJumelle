@@ -215,6 +215,14 @@ export class UsersService {
       before.recipientCategoryIds = categories.before;
       after.recipientCategoryIds = categories.after;
     }
+    // Un employé ne peut pas être responsable de catégorie : rétrogradé, il ne garde aucune catégorie.
+    if (after.role === 'EMPLOYEE') {
+      const managed = await this.prisma.categoryManager.findMany({ where: { userId: id }, select: { categoryId: true } });
+      if (managed.length > 0) {
+        before.managedCategoryIds = managed.map((m) => m.categoryId).sort();
+        after.managedCategoryIds = [];
+      }
+    }
     if (Object.keys(after).length === 0) return this.get(id);
 
     const deactivated = after.active === false;
@@ -226,6 +234,7 @@ export class UsersService {
           skipDuplicates: true,
         });
       }
+      if (after.role === 'EMPLOYEE') await tx.categoryManager.deleteMany({ where: { userId: id } });
       if (Object.keys(userData).length > 0) await tx.user.update({ where: { id }, data: userData });
       if (deactivated) await tx.session.deleteMany({ where: { userId: id } });
 
