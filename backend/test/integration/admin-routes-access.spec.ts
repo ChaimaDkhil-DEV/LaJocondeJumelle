@@ -43,7 +43,34 @@ function adminRoutes(app: INestApplication): Array<{ verb: Verb; path: string }>
   return routes;
 }
 
-/** Les routes /admin/* sont réservées au super administrateur : refus pour tous les autres rôles, sans exception. */
+/**
+ * Routes /admin/* ouvertes à l'admin (011, contracts/http-api.md) : données de référence et liste des employés.
+ * Toute autre route /admin/*, y compris une route ajoutée plus tard, reste réservée au super administrateur.
+ */
+const ADMIN_ALLOWED: readonly string[] = [
+  'GET /api/admin/floors',
+  'POST /api/admin/floors',
+  `PATCH /api/admin/floors/${UUID}`,
+  'GET /api/admin/levels',
+  'POST /api/admin/levels',
+  `PATCH /api/admin/levels/${UUID}`,
+  'GET /api/admin/students',
+  'POST /api/admin/students',
+  `PATCH /api/admin/students/${UUID}`,
+  'POST /api/admin/students/import',
+  'GET /api/admin/coverage/classes',
+  'POST /api/admin/coverage/classes',
+  `PATCH /api/admin/coverage/classes/${UUID}`,
+  `GET /api/admin/coverage/classes/${UUID}/qr`,
+  `POST /api/admin/coverage/classes/${UUID}/qr/revoke`,
+  'GET /api/admin/employees',
+];
+const key = ({ verb, path }: { verb: Verb; path: string }) => `${verb.toUpperCase()} ${path}`;
+
+/**
+ * Les routes /admin/* sont réservées au super administrateur, sauf ADMIN_ALLOWED, ouvertes aussi à l'admin (011) ;
+ * un employé est refusé partout, sans exception.
+ */
 describe('Accès aux routes /admin/*', () => {
   const prisma = new PrismaClient();
   let app: INestApplication;
@@ -67,11 +94,36 @@ describe('Accès aux routes /admin/*', () => {
     expect(routes.length).toBeGreaterThanOrEqual(30);
   });
 
-  it.each(['admin', 'enseignante'])('refuse toutes les routes /admin/* à « %s » (403)', async (username) => {
+  it('chaque route ouverte à l’admin existe (la liste ne peut pas vieillir sans prévenir)', () => {
+    const existing = new Set(routes.map(key));
+    expect(ADMIN_ALLOWED.filter((r) => !existing.has(r))).toEqual([]);
+  });
+
+  it('refuse toutes les routes /admin/* à « enseignante » (403)', async () => {
     const failures: string[] = [];
     for (const { verb, path } of routes) {
-      const res = await request(app.getHttpServer())[verb](path).set('Cookie', cookies[username]).set('Origin', TEST_ORIGIN).send({});
+      const res = await request(app.getHttpServer())[verb](path).set('Cookie', cookies.enseignante).set('Origin', TEST_ORIGIN).send({});
       if (res.status !== 403) failures.push(`${verb.toUpperCase()} ${path} → ${res.status}`);
+    }
+    expect(failures).toEqual([]);
+  });
+
+  it('refuse à « admin » toutes les routes /admin/* qui ne lui sont pas ouvertes (403)', async () => {
+    const failures: string[] = [];
+    for (const route of routes.filter((r) => !ADMIN_ALLOWED.includes(key(r)))) {
+      const res = await request(app.getHttpServer())[route.verb](route.path).set('Cookie', cookies.admin).set('Origin', TEST_ORIGIN).send({});
+      if (res.status !== 403) failures.push(`${key(route)} → ${res.status}`);
+    }
+    expect(failures).toEqual([]);
+  });
+
+  it('laisse passer « admin » sur les routes qui lui sont ouvertes (jamais 401 ni 403)', async () => {
+    const failures: string[] = [];
+    // Toutes les routes ouvertes sont rejouées : les écritures reçoivent un corps vide (400) ou un identifiant
+    // inconnu (404), sans effet de bord.
+    for (const route of routes.filter((r) => ADMIN_ALLOWED.includes(key(r)))) {
+      const res = await request(app.getHttpServer())[route.verb](route.path).set('Cookie', cookies.admin).set('Origin', TEST_ORIGIN).send({});
+      if (res.status === 401 || res.status === 403) failures.push(`${key(route)} → ${res.status}`);
     }
     expect(failures).toEqual([]);
   });

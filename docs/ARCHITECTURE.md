@@ -522,7 +522,10 @@ I cannot verify **which specific items** were in your initial request: the origi
 - **[VERIFIED]** **Rate limiting**: 5 attempts per minute per (IP, username) pair, only on `/auth/login` (`LoginThrottlerGuard`). In-memory storage, the `@nestjs/throttler` default.
 - **[VERIFIED]** **WebSocket**: same checks (Origin, cookie, `mustChangePassword`) in `RealtimeGateway.authenticate`. Expired sessions are closed every 60 s (`SessionRevalidationJob` → `RealtimeService.revalidateSessions`).
 - **[VERIFIED]** **Authorization**, on three levels:
-  1. the global role: `/admin/*` is reserved for the super administrator by `SuperAdminGuard`;
+  1. the global role: `/admin/*` is reserved for the super administrator by `SuperAdminGuard`, except the
+     reference data (floors, levels, classes and their QR codes, students) and the read-only employee list
+     (`/admin/employees`), open to active admins too by `AdministrationGuard` (feature 011,
+     `canUseAdministrationSpace`; route list in `test/integration/admin-routes-access.spec.ts`);
   2. the permissions configurable per role (`RolePermission`, defaults in `settings/default-permissions.ts`);
   3. the relationship with the request: `actorsFor` → `REQUESTER`, `ASSIGNEE` or `MANAGER`.
 
@@ -778,7 +781,9 @@ with several instances.
 
 Matrix tested route by route in `test/integration/supervision-permissions.spec.ts`:
 out of scope, `404` and a logged `ACCESS_DENIED` refusal; the module's administration
-(`/admin/coverage/*`, `/admin/floors`) remains behind `SuperAdminGuard` (`403`).
+(`/admin/coverage/dashboard`, `/admin/coverage/export.csv`, `/admin/coverage/groups`) remains behind
+`SuperAdminGuard` (`403`); since feature 011, `/admin/coverage/classes*` and `/admin/floors` are behind
+`AdministrationGuard` (admin and super administrator, `403` for the others).
 
 ### Frontend (`frontend/src/features/coverage/`)
 

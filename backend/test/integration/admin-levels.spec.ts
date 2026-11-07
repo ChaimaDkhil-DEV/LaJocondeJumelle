@@ -136,7 +136,17 @@ describe('Niveaux scolaires', () => {
   });
 
   describe('droits', () => {
-    it.each(['admin', 'surveillant', 'enseignante'])('%s ne peut ni lire, ni créer, ni modifier', async (who) => {
+    it('l’admin lit, crée et modifie (011, FR-001), à son nom dans le journal', async () => {
+      expect((await get('admin', '/api/admin/levels')).status).toBe(200);
+      const created = await send('admin', 'post', '/api/admin/levels', { name: 'Niveau admin', cycle: 'PRIMARY', position: 950 });
+      expect(created.status).toBe(201);
+      const id = idOfLevel(created.body as Level[], 'Niveau admin');
+      expect((await send('admin', 'patch', `/api/admin/levels/${id}`, { name: 'Niveau admin modifié' })).status).toBe(200);
+      const adminId = (await prisma.user.findUniqueOrThrow({ where: { username: 'admin' } })).id;
+      expect(await prisma.auditLog.count({ where: { action: 'LEVEL_CHANGED', actorId: adminId, targetId: id } })).toBe(2);
+    });
+
+    it.each(['surveillant', 'enseignante'])('%s ne peut ni lire, ni créer, ni modifier', async (who) => {
       const before = await prisma.gradeLevel.count();
       expect((await get(who, '/api/admin/levels')).status).toBe(403);
       expect((await send(who, 'post', '/api/admin/levels', { name: `Refusé ${who}`, cycle: 'PRIMARY', position: 900 })).status).toBe(403);
@@ -236,6 +246,29 @@ describe('Niveaux scolaires', () => {
         active: false,
       });
       expect((await patchClass(id, 'Classe libérée', { levelId: null })).status).toBe(200);
+    });
+
+    it('l’admin liste, inscrit et modifie un élève (011, FR-003), avec les mêmes contrôles', async () => {
+      const lvl = idOfLevel((await createLevel({ name: 'Niveau élèves admin', cycle: 'PRIMARY', position: 160 })).body as Level[], 'Niveau élèves admin');
+      const classId = await createClass('Classe élèves admin', { levelId: lvl });
+      expect((await get('admin', '/api/admin/students')).status).toBe(200);
+      const body = { firstName: 'Rim', lastName: 'Admin', classId, parentPhone: '+216 20 123 457', mealService: 'CANTINE' };
+      const invalid = await send('admin', 'post', '/api/admin/students', { ...body, firstName: '' });
+      expect(invalid.status).toBe(400);
+      const created = await send('admin', 'post', '/api/admin/students', body);
+      expect(created.status).toBe(201);
+      const id = (created.body as { id: string }).id;
+      expect((await send('admin', 'patch', `/api/admin/students/${id}`, { ...body, mealService: 'PANIER' })).status).toBe(200);
+      const adminId = (await prisma.user.findUniqueOrThrow({ where: { username: 'admin' } })).id;
+      expect(await prisma.auditLog.count({ where: { action: 'STUDENT_CHANGED', actorId: adminId, targetId: id } })).toBe(2);
+    });
+
+    it('un employé ne lit ni n’inscrit d’élève (refus NOT_ADMINISTRATION)', async () => {
+      const denied = { action: 'ACCESS_DENIED', details: { path: ['reason'], equals: 'NOT_ADMINISTRATION' } } as const;
+      const before = await prisma.auditLog.count({ where: denied });
+      expect((await get('enseignante', '/api/admin/students')).status).toBe(403);
+      expect((await send('enseignante', 'post', '/api/admin/students', { firstName: 'X', lastName: 'Y' })).status).toBe(403);
+      expect(await prisma.auditLog.count({ where: denied })).toBe(before + 2);
     });
   });
 });

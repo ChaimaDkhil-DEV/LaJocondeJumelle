@@ -51,6 +51,21 @@ function toAdminUser({ recipientOf, ...user }: AdminUserRow): AdminUser {
   };
 }
 
+/**
+ * Employé vu par l'admin dans la liste en lecture seule (011, FR-004, SC-004) : six informations seulement,
+ * ni identifiant de connexion, ni état du mot de passe, ni dates.
+ */
+export interface EmployeeListItem {
+  id: string;
+  displayName: string;
+  jobTitle: string | null;
+  role: Role;
+  active: boolean;
+  /** Groupes d'employés actifs dont le compte est membre (Surveillants, Enseignants…). */
+  groups: Array<{ id: string; name: string }>;
+  floor: { id: string; name: string } | null;
+}
+
 function sameIds(a: readonly string[], b: readonly string[]): boolean {
   return a.length === b.length && a.every((id, i) => id === b[i]);
 }
@@ -106,6 +121,27 @@ export class UsersService {
   ) {}
 
   /** Comptes actifs d'abord, par nom ; pagination par curseur sur (active, displayName, id). */
+  /** Liste des employés en lecture (011) : tous les comptes, triés par nom, sans pagination (quelques centaines au plus). */
+  async listEmployees(): Promise<EmployeeListItem[]> {
+    const rows = await this.prisma.user.findMany({
+      select: {
+        id: true,
+        displayName: true,
+        jobTitle: true,
+        role: true,
+        active: true,
+        floor: { select: { id: true, name: true } },
+        groupMemberships: { where: { group: { active: true } }, select: { group: { select: { id: true, name: true } } } },
+      },
+      orderBy: [{ displayName: 'asc' }, { id: 'asc' }],
+    });
+    return rows.map(({ groupMemberships, jobTitle, ...user }) => ({
+      ...user,
+      jobTitle: jobTitle?.trim() ? jobTitle : null,
+      groups: groupMemberships.map((m) => m.group).sort((a, b) => a.name.localeCompare(b.name, 'fr')),
+    }));
+  }
+
   async list(query: ListUsersQuery = {}): Promise<Page<AdminUser>> {
     const limit = parseLimit(query.limit);
     const after = query.cursor ? decodeUserCursor(query.cursor) : null;

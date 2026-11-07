@@ -137,8 +137,8 @@ describe('Service de restauration des élèves', () => {
     expect(noOrigin.status).toBe(403);
   });
 
-  it('l’administration n’accède toujours pas aux routes élèves du super administrateur', async () => {
-    expect((await get(surveillante, '/api/admin/students')).status).toBe(403);
+  it('l’administration accède aussi à la gestion des élèves (011, FR-003)', async () => {
+    expect((await get(surveillante, '/api/admin/students')).status).toBe(200);
   });
 
   it('le journal d’audit ne contient ni le service ni le motif', async () => {

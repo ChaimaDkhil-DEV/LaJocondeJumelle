@@ -5,7 +5,8 @@ administration by **speaking rather than typing**, from a smartphone, a tablet o
 request has its own discussion thread (text, voice messages, photos, PDFs), a tracked status,
 deadlines and a full history. Notifications arrive in real time, inside the application only.
 
-- **Roles**: employee, admin, super administrator (the "Administrateur" area).
+- **Roles**: employee, admin, super administrator (the "Administrateur" area; admins see its
+  reference data — floors, levels, classes, students — and a read-only staff list).
 - **Workflows**: A (direct) and B (prior administrative approval), chosen per category.
 - **Confidentiality**: private files served only by the API, permissions checked on the server,
   tamper-proof audit log.

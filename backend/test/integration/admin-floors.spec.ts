@@ -8,8 +8,8 @@ import { resetDatabase } from '../utils/test-db';
 /**
  * T011 — Étages et groupes à clé système (004, FR-006, FR-006a, R7) : administration par le super
  * administrateur ; classes rattachées à un étage ; étage d'un surveillant sur sa fiche de compte.
- * Les routes /admin/* refusent les autres comptes comme toutes les routes d'administration
- * (SuperAdminGuard : 403 et ACCESS_DENIED « NOT_SUPER_ADMIN »).
+ * Les étages sont ouverts à l'admin (011) ; les autres comptes sont refusés
+ * (AdministrationGuard : 403 et ACCESS_DENIED « NOT_ADMINISTRATION »).
  */
 describe('Administration des étages (004)', () => {
   const prisma = new PrismaClient();
@@ -147,17 +147,29 @@ describe('Administration des étages (004)', () => {
       ).toBe(404);
     });
 
-    it.each(['admin', 'surveillant', 'enseignante'])(
+    it('ouvert à l’admin (011, FR-001) : liste, création, modification, journalisées à son nom', async () => {
+      expect((await get('admin', '/api/admin/floors')).status).toBe(200);
+      const created = await send('admin', 'post', '/api/admin/floors', { name: 'Étage admin', position: 40 });
+      expect(created.status).toBe(201);
+      const id = await floorId('Étage admin');
+      const edited = await send('admin', 'patch', `/api/admin/floors/${id}`, { name: 'Étage admin renommé' });
+      expect(edited.status).toBe(200);
+      const adminId = await userId(prisma, 'admin');
+      expect(
+        await prisma.auditLog.count({ where: { action: 'FLOOR_CHANGED', actorId: adminId, targetId: id } }),
+      ).toBe(2);
+    });
+
+    it.each(['surveillant', 'enseignante'])(
       'refusé à %s, refus journalisé',
       async (as) => {
-        const before = await prisma.auditLog.count({ where: { action: 'ACCESS_DENIED' } });
+        const denied = { action: 'ACCESS_DENIED', details: { path: ['reason'], equals: 'NOT_ADMINISTRATION' } } as const;
+        const before = await prisma.auditLog.count({ where: denied });
         expect((await get(as, '/api/admin/floors')).status).toBe(403);
         expect(
           (await send(as, 'post', '/api/admin/floors', { name: 'Toit', position: 9 })).status,
         ).toBe(403);
-        expect(await prisma.auditLog.count({ where: { action: 'ACCESS_DENIED' } })).toBe(
-          before + 2,
-        );
+        expect(await prisma.auditLog.count({ where: denied })).toBe(before + 2);
         expect(await prisma.floor.count({ where: { name: 'Toit' } })).toBe(0);
       },
     );

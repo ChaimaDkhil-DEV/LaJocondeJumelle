@@ -4,11 +4,15 @@ import type { AuthenticatedUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { setCsvDownloadHeaders } from '../common/csv';
 import { clientIp } from '../common/request-info';
+import { AdministrationGuard } from '../audit/administration.guard';
 import { SuperAdminGuard } from '../audit/super-admin.guard';
 import { CoverageAdminService } from './coverage-admin.service';
-import { ClassDto, FloorDto, GroupDto, ListCoverageQuery, UpdateFloorDto } from './coverage.dto';
+import { FloorDto, GroupDto, ListCoverageQuery, UpdateFloorDto } from './coverage.dto';
 
-/** Données de référence et tableau de suivi des affectations : super administrateur uniquement. */
+/**
+ * Tableau de suivi des affectations, export et groupes : super administrateur uniquement.
+ * Les classes (classes-admin.controller.ts) et les étages sont ouverts à l'admin (011).
+ */
 @Controller('admin/coverage')
 @UseGuards(SuperAdminGuard)
 export class CoverageAdminController {
@@ -41,37 +45,11 @@ export class CoverageAdminController {
     return this.admin.updateGroup(id, dto, { actor, ip: clientIp(req) });
   }
 
-  @Get('classes')
-  classes() {
-    return this.admin.classes();
-  }
-
-  @Post('classes')
-  createClass(@CurrentUser() actor: AuthenticatedUser, @Body() dto: ClassDto, @Req() req: Request) {
-    return this.admin.createClass(dto, { actor, ip: clientIp(req) });
-  }
-
-  @Patch('classes/:id')
-  updateClass(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Body() dto: ClassDto, @Req() req: Request) {
-    return this.admin.updateClass(id, dto, { actor, ip: clientIp(req) });
-  }
-
-  /** Lien du QR code imprimable (version en cours). */
-  @Get('classes/:id/qr')
-  qr(@Param('id') id: string) {
-    return this.admin.qr(id);
-  }
-
-  /** Révoque les QR imprimés de la classe et renvoie le nouveau lien à imprimer. */
-  @Post('classes/:id/qr/revoke')
-  revokeQr(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Req() req: Request) {
-    return this.admin.revokeQr(id, { actor, ip: clientIp(req) });
-  }
 }
 
-/** Étages (004, FR-006) : super administrateur uniquement. */
+/** Étages (004, FR-006) : données de référence, admin et super administrateur (011, FR-001). */
 @Controller('admin/floors')
-@UseGuards(SuperAdminGuard)
+@UseGuards(AdministrationGuard)
 export class FloorsAdminController {
   constructor(private readonly admin: CoverageAdminService) {}
 

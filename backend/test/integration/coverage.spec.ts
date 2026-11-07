@@ -904,18 +904,61 @@ describe('Affectations : parcours conservés de la garde de classe', () => {
   });
 
   it('13. un surveillant ou un admin n’accède pas aux écrans du super admin ; le module refuse les autres employés', async () => {
+    // Suivi, export et groupes : super administrateur seulement.
     for (const user of ['admin', 'surveillant']) {
-      for (const path of ['dashboard', 'export.csv', 'groups', 'classes', `classes/${violet}/qr`]) {
+      for (const path of ['dashboard', 'export.csv', 'groups']) {
         expect(
           (await api().get(`/api/admin/coverage/${path}`).set('Cookie', cookies[user])).status,
         ).toBe(403);
       }
-      const revoke = await api()
-        .post(`/api/admin/coverage/classes/${violet}/qr/revoke`)
-        .set('Cookie', cookies[user])
-        .set('Origin', TEST_ORIGIN);
-      expect(revoke.status).toBe(403);
     }
+    // Classes et QR : ouverts à l'admin (011, FR-001, FR-002), refusés aux autres employés.
+    for (const path of ['classes', `classes/${violet}/qr`]) {
+      expect(
+        (await api().get(`/api/admin/coverage/${path}`).set('Cookie', cookies.surveillant)).status,
+      ).toBe(403);
+    }
+    const refused = await api()
+      .post(`/api/admin/coverage/classes/${violet}/qr/revoke`)
+      .set('Cookie', cookies.surveillant)
+      .set('Origin', TEST_ORIGIN);
+    expect(refused.status).toBe(403);
+    expect(
+      (await api().get('/api/admin/coverage/classes').set('Cookie', cookies.admin)).status,
+    ).toBe(200);
+    const before = await prisma.schoolClass.findUniqueOrThrow({ where: { id: violet } });
+    const qr = await api().get(`/api/admin/coverage/classes/${violet}/qr`).set('Cookie', cookies.admin);
+    expect(qr.status).toBe(200);
+    const revoke = await api()
+      .post(`/api/admin/coverage/classes/${violet}/qr/revoke`)
+      .set('Cookie', cookies.admin)
+      .set('Origin', TEST_ORIGIN);
+    expect(revoke.status).toBe(201);
+    expect(revoke.body.url).not.toBe(qr.body.url);
+    expect((await prisma.schoolClass.findUniqueOrThrow({ where: { id: violet } })).qrVersion).toBe(
+      before.qrVersion + 1,
+    );
+    expect(
+      await prisma.auditLog.count({ where: { action: 'QR_REVOKED', targetId: violet, actorId: ids.admin } }),
+    ).toBe(1);
+    const created = await api()
+      .post('/api/admin/coverage/classes')
+      .set('Cookie', cookies.admin)
+      .set('Origin', TEST_ORIGIN)
+      .send({ name: 'Classe créée par l’admin', floorId: before.floorId });
+    expect(created.status).toBe(201);
+    const classId = (created.body as Array<{ id: string; name: string }>).find(
+      (c) => c.name === 'Classe créée par l’admin',
+    )!.id;
+    const renamed = await api()
+      .patch(`/api/admin/coverage/classes/${classId}`)
+      .set('Cookie', cookies.admin)
+      .set('Origin', TEST_ORIGIN)
+      .send({ name: 'Classe renommée par l’admin', floorId: before.floorId });
+    expect(renamed.status).toBe(200);
+    expect(
+      await prisma.auditLog.count({ where: { targetId: classId, actorId: ids.admin } }),
+    ).toBe(2);
     // Gestion du module : admins seulement (404 pour les autres, FR-023b).
     expect((await api().get('/api/coverage').set('Cookie', cookies.surveillant)).status).toBe(404);
     expect((await api().get('/api/coverage/team').set('Cookie', cookies.surveillant)).status).toBe(

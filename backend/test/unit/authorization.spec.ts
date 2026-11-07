@@ -1,5 +1,5 @@
 import type { Permission, Role } from '@prisma/client';
-import { canManageAdministration, permissionsFor, type PolicyUser } from '../../src/common/authorization';
+import { canManageAdministration, canUseAdministrationSpace, permissionsFor, type PolicyUser } from '../../src/common/authorization';
 
 /** Règles transverses, déplacées de access-policy.spec.ts (T035) : attendus inchangés. */
 
@@ -34,5 +34,24 @@ describe('administration et audit', () => {
       expect(canManageAdministration(who)).toBe(false);
     }
     expect(canManageAdministration({ ...superadmin, active: false })).toBe(false);
+  });
+});
+
+/** 011 (FR-001 à FR-004, FR-007) : données de référence et liste des employés, admin et super administrateur actifs. */
+describe('canUseAdministrationSpace', () => {
+  it.each([
+    ['SUPER_ADMIN', true, true],
+    ['ADMIN', true, true],
+    ['EMPLOYEE', true, false],
+    ['SUPER_ADMIN', false, false],
+    ['ADMIN', false, false],
+    ['EMPLOYEE', false, false],
+  ] as const)('%s actif=%s → %s', (role, active, expected) => {
+    expect(canUseAdministrationSpace({ role, active })).toBe(expected);
+  });
+
+  it('n’élargit pas la gestion de l’administration réservée au super administrateur', () => {
+    expect(canManageAdministration(responsable)).toBe(false);
+    expect(canUseAdministrationSpace(responsable)).toBe(true);
   });
 });

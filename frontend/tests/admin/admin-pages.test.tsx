@@ -106,6 +106,54 @@ describe('Accès à l’administration', () => {
     expect(calls.some((c) => c.url.startsWith('/api/admin'))).toBe(false);
   });
 
+  const ADMIN = { ...SUPER_ADMIN, id: 'm1', displayName: 'Surveillante générale', role: 'ADMIN' };
+  const EMPLOYEE = { ...SUPER_ADMIN, id: 'e1', displayName: 'Reprographie', role: 'EMPLOYEE' };
+  const SUPER_ADMIN_SECTIONS = [
+    'Suivi des gardes', 'Comptes', 'Catégories', 'Consignes', 'Groupes', 'Étages', 'Niveaux', 'Classes', 'Élèves', 'Réglages', 'Journal d’audit',
+  ];
+  const sectionLinks = async () =>
+    within(await screen.findByRole('navigation', { name: 'Sections de l’espace Administrateur' }))
+      .getAllByRole('link')
+      .map((link) => link.textContent);
+
+  it('admin (011) : arrive sur « Étages » et ne voit que les données de référence et les employés', async () => {
+    const { router } = setup('/admin', undefined, ADMIN);
+    expect(await screen.findByRole('heading', { name: 'Étages' })).toBeVisible();
+    expect(router.state.location.pathname).toBe('/admin/etages');
+    expect(await sectionLinks()).toEqual(['Étages', 'Niveaux', 'Classes', 'Élèves', 'Employés']);
+  });
+
+  it.each([
+    ['/admin/niveaux', 'Niveaux'],
+    ['/admin/classes', 'Classes et QR codes'],
+    ['/admin/eleves', 'Élèves'],
+  ])('admin (011) : %s s’ouvre', async (path, heading) => {
+    setup(path, undefined, ADMIN);
+    expect(await screen.findByRole('heading', { name: heading })).toBeVisible();
+    expect(screen.queryByText('Accès réservé au super administrateur.')).not.toBeInTheDocument();
+  });
+
+  it('super administrateur : sections inchangées, sans « Employés »', async () => {
+    setup('/admin');
+    expect(await sectionLinks()).toEqual(SUPER_ADMIN_SECTIONS);
+  });
+
+  it.each(['/admin/journal', '/admin/suivi', '/admin/groupes', '/admin/reglages', '/admin/categories', '/admin/consignes'])(
+    'admin (011) : %s reste réservé au super administrateur, sans appel aux routes /admin',
+    async (path) => {
+      const { calls } = setup(path, undefined, ADMIN);
+      expect(await screen.findByText('Accès réservé au super administrateur.')).toBeVisible();
+      expect(calls.some((c) => c.url.startsWith('/api/admin'))).toBe(false);
+    },
+  );
+
+  it('employé : aucun accès à l’espace Administrateur, sans appel aux routes /admin', async () => {
+    const { calls } = setup('/admin/etages', undefined, EMPLOYEE);
+    expect(await screen.findByText('Accès réservé à l’administration.')).toBeVisible();
+    expect(screen.queryByRole('navigation', { name: 'Sections de l’espace Administrateur' })).not.toBeInTheDocument();
+    expect(calls.some((c) => c.url.startsWith('/api/admin'))).toBe(false);
+  });
+
   it('propose une navigation entre les sections', async () => {
     setup('/admin');
     const nav = await screen.findByRole('navigation', { name: 'Sections de l’espace Administrateur' });

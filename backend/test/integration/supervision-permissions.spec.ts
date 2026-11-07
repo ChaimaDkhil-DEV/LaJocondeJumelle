@@ -211,7 +211,8 @@ describe('Matrice des permissions des affectations (T081)', () => {
       body: () => ({ version: 999 }),
       allowed: ADMINS,
     },
-    // Administration du module : super administrateur seulement.
+    // Administration du module : super administrateur seulement, sauf les données de référence (classes, étages),
+    // ouvertes à l'admin (011).
     {
       name: 'GET /admin/coverage/dashboard',
       method: 'get',
@@ -230,21 +231,24 @@ describe('Matrice des permissions des affectations (T081)', () => {
       name: 'GET /admin/coverage/classes',
       method: 'get',
       path: () => '/api/admin/coverage/classes',
-      allowed: ['superadmin'],
+      // Données de référence : ouvertes à l'admin (011).
+      allowed: ADMINS,
       forbidden: true,
     },
     {
       name: 'GET /admin/coverage/classes/:id/qr',
       method: 'get',
       path: () => `/api/admin/coverage/classes/${violet}/qr`,
-      allowed: ['superadmin'],
+      // Données de référence : ouvertes à l'admin (011).
+      allowed: ADMINS,
       forbidden: true,
     },
     {
       name: 'GET /admin/floors',
       method: 'get',
       path: () => '/api/admin/floors',
-      allowed: ['superadmin'],
+      // Données de référence : ouvertes à l'admin (011).
+      allowed: ADMINS,
       forbidden: true,
     },
   ];
