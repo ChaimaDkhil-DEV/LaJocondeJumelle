@@ -35,7 +35,3 @@ export function canManageMealServices(user: Pick<PolicyUser, 'role' | 'active'>)
   return user.active && (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN');
 }
 
-/** FR-030 : le journal d'audit est consultable par le super administrateur uniquement. */
-export function canReadAudit(user: Pick<PolicyUser, 'role' | 'active'>): boolean {
-  return user.active && user.role === 'SUPER_ADMIN';
-}

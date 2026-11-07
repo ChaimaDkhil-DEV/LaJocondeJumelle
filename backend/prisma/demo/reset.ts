@@ -82,7 +82,6 @@ export const PURGE_STATEMENTS: readonly string[] = [
   'DELETE FROM "CoverageMergeProposal"',
   'DELETE FROM "CoverageSupport"',
   'DELETE FROM "CoveragePresence"',
-  'DELETE FROM "CoverageTarget"',
   'DELETE FROM "CoverageDetail"',
   'DELETE FROM "RequestEvent"',
   'DELETE FROM "File"',

@@ -383,8 +383,6 @@ erDiagram
   Message ||--o{ File : "attachments"
   Message |o--o| File : "voiceFile"
   SchoolClass ||--o{ CoverageDetail : ""
-  CoverageDetail ||--o{ CoverageTarget : "targeted groups"
-  EmployeeGroup ||--o{ CoverageTarget : ""
   EmployeeGroup ||--o{ EmployeeGroupMember : ""
   Request ||--o{ CoveragePresence : ""
   CoveragePresence |o--o| File : "attendance photo"
@@ -405,7 +403,6 @@ erDiagram
   EmployeeGroup { uuid id PK; string name UK }
   EmployeeGroupMember { uuid groupId PK; uuid userId PK }
   CoverageDetail { uuid requestId PK; uuid classId FK; datetime startAt; datetime plannedEndAt; uuid reliefForId }
-  CoverageTarget { uuid requestId PK; uuid groupId PK }
   CoveragePresence { uuid id PK; uuid requestId FK; PresenceMethod method; uuid fileId }
 ```
 

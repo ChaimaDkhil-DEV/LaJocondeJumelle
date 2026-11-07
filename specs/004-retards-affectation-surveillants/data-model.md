@@ -105,8 +105,7 @@ Existing fields reused as they are: `classId`, `startAt`, `estimatedMinutes`,
 `plannedEndAt` (end of the time slot; required for new assignments), `departedAt`,
 `presenceAt` (start of the duration), `relievedAt`, `durationMinutes` (FR-021: `presenceAt` →
 `relievedAt`), `extensionCount`, `cancelReason`, `reliefForId`. `broadcastAt` and `releaseCount`
-are no longer filled in. `CoverageTarget` is no longer filled in (no more broadcast) but is still
-read for the history.
+are no longer filled in. `CoverageTarget`, no longer filled in or read, was dropped by migration `0017`.
 
 Indexes added: `(teacherId)`, `(floorId)`, `(source, type)`.
 
