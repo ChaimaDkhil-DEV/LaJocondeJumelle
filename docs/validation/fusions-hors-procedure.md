@@ -101,3 +101,29 @@ No fix or `git revert` needed.
 ### Reminder
 
 Write the failing test before the code, including for a small change requested during a session.
+
+## 07/11/2026 — pull request #79
+
+| Pull request | Content | Merged at (UTC) | Check not satisfied at merge time |
+|---------|---------|-------------------|-----------------------------------------------|
+| #79 (`chore-nettoyage-code-inutilise`) | Removal of the unused `CoverageTarget` table (migration `0017`) and `canReadAudit` | 00:13:01 | **All four checkboxes unticked**: the checks were not recorded in the description of the pull request |
+
+The merge did not skip CI: both runs on `e04a87a` had finished all their steps (42315966584 at 00:12:00, 42315961126 at
+00:13:01, the second in the same second as the merge). Whether the diff was reviewed and whether review discussions were
+open at merge time is not recorded.
+
+### Findings after the fact
+
+- Both runs finished green, all steps executed, including the Docker image build and the dependency audit.
+- `master` green after the merge: run 42316858051 on `6cc62cd`.
+- The test `backend/test/integration/migration-0017.spec.ts` was written first and seen failing before the migration existed.
+- No test was disabled. The only changed expectation is the removal of the `canReadAudit` assertions, documented in the pull
+  request.
+- Not verified at merge time: the full end-to-end run. Before deploying, `CoverageTarget` must be confirmed empty on the
+  server, otherwise migration `0017` stops and the API does not start.
+
+No fix or `git revert` needed. Same cause as #29, #33 and #73: see the first reminder above.
+
+### Reminder
+
+Tick the four checkboxes before merging, even when every run is already green.
