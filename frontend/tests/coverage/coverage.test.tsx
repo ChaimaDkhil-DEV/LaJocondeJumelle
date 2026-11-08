@@ -439,6 +439,26 @@ describe('Page du QR code de la classe', () => {
     expect(screen.queryByRole('button', { name: 'Confirmer ma présence' })).not.toBeInTheDocument();
   });
 
+  it('013 : ouvrir le lien du QR (appareil photo du téléphone) ne déclare rien sans clic ; « Préciser l’enseignant » mène au formulaire', async () => {
+    const calls = setupQr((call) => {
+      if (call.url === '/api/coverage/presence/resolve') {
+        return json(200, { class: { id: 'k1', name: '1ère année Violet', room: 'Salle 12' }, coverage: null, otherClassGuard: false });
+      }
+      if (call.url === '/api/coverage/availability') return json(200, { isSupervisor: true, capabilities: { declareEmptyClass: true, report: false, manage: false } });
+      return undefined;
+    });
+    renderWith(
+      <Routes>
+        <Route path="/gardes/presence" element={<PresencePage />} />
+      </Routes>,
+      '/gardes/presence?c=jeton-signe',
+    );
+    expect(await screen.findByRole('button', { name: 'Déclarer cette classe vide' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Préciser l’enseignant' })).toHaveAttribute('href', '/gardes/classe-vide?classe=k1&c=jeton-signe');
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(posts(calls, '/api/coverage/empty-class')).toHaveLength(0);
+  });
+
   it('sans droit de déclaration : pas de bouton', async () => {
     setupQr((call) => {
       if (call.url === '/api/coverage/presence/resolve') {
