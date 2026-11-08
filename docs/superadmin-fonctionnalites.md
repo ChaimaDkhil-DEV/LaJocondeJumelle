@@ -36,7 +36,7 @@ API routes require a valid session (global guard `SessionGuard`,
 | Notification bell | panel (no route) | all | list, unread count badge, click that opens the request and marks it read, "Tout marquer comme lu" (Mark all as read) | Complete |
 | Mes demandes (My requests) | `/` (tabs `?onglet=`) | all | tabs Reçues (Received), Envoyées (Sent), Brouillons (Drafts) (if any), À valider (To validate), Suivi (Tracking); search; filters; detail | Complete |
 | Nouvelle demande (New request) | `/demandes/nouvelle`, `/demandes/:id/brouillon` | all (depending on categories) | creation in any active work request category; saving as a draft, resuming, sending and deleting a draft | Complete (drafts: spec 007) |
-| Gardes (Shifts) | `/gardes`, `/gardes/nouvelle`, `/gardes/signaler`, `/gardes/classe-vide`, `/gardes/statistiques`, `/gardes/:id`, `/gardes/presence` | admins, super administrator, members of the Surveillants or Enseignants groups | tabs En attente (Pending), En cours (In progress), Doublons (Duplicates), Équipe (Team), Terminées (Completed); new assignment; statistics; actions on an assignment | Complete (see §3) |
+| Surveillance (ex-Gardes, 012) | `/gardes`, `/gardes/nouvelle`, `/gardes/signaler`, `/gardes/classe-vide`, `/gardes/statistiques`, `/gardes/:id`, `/gardes/presence` | admins, super administrator, members of the Surveillants or Enseignants groups | admin tabs Absences et retards (Absences and lateness: clock-ins, announced lateness and absences, state of the classes), Affectation des surveillants (to assign, new assignment, duplicates, team), Suivi des interventions (filters En attente, Prise en charge, Terminée); statistics; actions on an assignment | Complete (see §3) |
 | Administrateur (Administrator) | `/admin/*` | super administrator | 9 tabs (§2) | Complete |
 | Profile block ("Mon profil") | `/profil` | all | name and role, link to "Mon profil": read-only account information, "Changer mon mot de passe" (Change my password) | Complete (spec 005) |
 | Se déconnecter (Log out) | `POST /api/auth/logout` | all | end of session | Complete |
@@ -84,7 +84,7 @@ Detail per entry:
   `GET /api/categories` then `POST /api/requests`. Categories offered to the super administrator:
   all active **work request** categories, whatever their allowed roles
   (`access-policy.ts`, `canCreateInCategory`). Shift categories never appear there (assignments
-  are created from Gardes). Fields: category, recipient (direct mode: department
+  are created from Surveillance). Fields: category, recipient (direct mode: department
   preselected if it is the only one; between teachers: colleague to choose; via administration:
   none), priority, title, voice message, description (either of the two is enough). No attachment
   at creation.
@@ -96,13 +96,13 @@ Detail per entry:
     "Envoyer la demande" (Send the request) (action `SUBMIT`, same rules as a direct creation),
     "Supprimer le brouillon" (Delete the draft) after confirmation (`DELETE /api/requests/:id`). Setting off:
     no new draft, existing drafts remain usable.
-- **Gardes** — `frontend/src/features/coverage/CoveragePage.tsx`; API `/api/coverage/*`
+- **Surveillance** (ex-Gardes, 012) — `frontend/src/features/coverage/CoveragePage.tsx`; API `/api/coverage/*`
   (`backend/src/coverage/coverage.controller.ts`). Menu displayed for admins, the super
   administrator and members of the Surveillants or Enseignants groups (`AppLayout.tsx:55`).
   Tabs depending on the profile: admins and super administrator (`isCoverageAdmin`,
   `backend/src/coverage/domain/coverage-policy.ts:56`): En attente, En cours, Doublons, Équipe,
   Terminées; teacher: Mes signalements (My reports); supervisor: Mes affectations (My assignments), Historique (History). Difference
-  from "Suivi des gardes" (Shift tracking): Gardes is for **acting** (assigning, creating, reassigning, cancelling…);
+  from "Suivi des gardes" (Shift tracking): Surveillance is for **acting** (assigning, creating, reassigning, cancelling…);
   "Suivi des gardes" (Administrateur) is for **supervising** (indicators, statistics per
   supervisor, CSV export), with no action.
 - **Administrateur** — `frontend/src/features/admin/AdminLayout.tsx`; the entry is only added to the
@@ -127,7 +127,7 @@ Detail per entry:
 | Mes demandes: Reçues, Envoyées | ✅ | ✅ | ✅ |
 | Mes demandes: À valider, Suivi | ❌ | ✅ | ✅ |
 | Nouvelle demande | ✅ | ✅ (any category) | ✅ (any category) |
-| Gardes | if member of the Surveillants or Enseignants group | ✅ | ✅ |
+| Surveillance (ex-Gardes) | if member of the Surveillants or Enseignants group | ✅ | ✅ |
 | Administrateur | ❌ | ❌ | ✅ |
 | Profile block, Se déconnecter | ✅ | ✅ | ✅ |
 
@@ -174,7 +174,7 @@ the active accounts with no request in the period.
 | Assignments in progress: class, status, assigned supervisor, duration | same | same | Complete |
 | Per supervisor: availability, assignment in progress, statistics | same | same | Complete |
 | Filters (supervisor, class, status, floor, From/To), CSV export and printing | `GET …/export.csv` (`CoverageDashboardPage.tsx:146`) | same | Complete |
-| Supervisor absences | availability "Absent" (Gardes › Équipe) | same | Partial: no dedicated view |
+| Supervisor absences | availability "Absent" (Surveillance › Affectation des surveillants › Équipe) | same | Partial: no dedicated view |
 
 Detailed statistics (per teacher, class or period, week or month): page
 `/gardes/statistiques` (`CoverageStatsPage.tsx`), `GET /api/coverage/stats`
@@ -226,7 +226,7 @@ provider is used for demonstrations, with no external call.
 
 Usage: members of the **Surveillants** group can be assigned and declare an empty class;
 those of the **Enseignants** group can report a delay or an absence; membership of either
-makes the Gardes menu appear. Other groups have no effect on
+makes the Surveillance menu appear. Other groups have no effect on
 assignments. **Floors** order the proposed supervisors (those of the class's floor
 first); **classes** are the place of the assignment and carry the attendance-proof
 QR code. None of this affects the routing or visibility of work requests.
@@ -282,7 +282,7 @@ Read-only, filters by author, action and period (`admin-audit.controller.ts:57`)
 | Where an assignment comes from | Three sources: **teacher report** (delay or absence, `POST /api/coverage/teacher-requests`, "En attente" until assigned); **empty class** declared by a supervisor during their round (`POST /api/coverage/empty-class`, in their name and in progress); **direct assignment** by an admin (`POST /api/coverage`, `coverage.service.ts:327`, created assigned). |
 | Who can be assigned | An active member of the Surveillants group, whatever their role (`isEligibleAssignee`, `coverage-policy.ts:61`). Proposed supervisors: those of the class's floor first, available first (`supervisorCandidates`, `coverage-availability.ts:94`). |
 | Who assigns, reassigns, removes, modifies | The admin: `ASSIGN`, `REASSIGN`, `RELEASE_BY_MANAGER`, `RELEASE_SUPPORT` (support), `CANCEL`, `SET_TEACHER`, and **modification** of the class and slot (`PATCH /api/coverage/:id`, spec 006): class, date and times before attendance, end time only during attendance (`modifiableFields`, `domain/coverage-modification.ts`), status unchanged ("En route" included), availability re-checked with a refusal that names the conflicting assignment. The teacher modifies or withdraws their report as long as it is pending (`PATCH /api/coverage/:id/teacher-request`, `WITHDRAW`). |
-| Replacing an absent supervisor | Availability "Absent" (Gardes › Équipe), then reassignment of their assignments by the admin. During the assignment: the supervisor requests a handover (`REQUEST_RELIEF`). |
+| Replacing an absent supervisor | Availability "Absent" (Surveillance › Affectation des surveillants › Équipe), then reassignment of their assignments by the admin. During the assignment: the supervisor requests a handover (`REQUEST_RELIEF`). |
 | What the supervisor sees | Notification "Demande affectée" (Request assigned), tabs "Mes affectations" and "Historique", "Je suis en route" (I am on my way), attendance confirmation by the class QR code and photo (depending on the shift category), "Terminer" (Finish). The reason for the report is never shown to them (`canSeeReason`, `coverage-policy.ts:101`). |
 | Duplicates | Empty class already handled: the second declarant becomes **support**; declaration close to an existing assignment: **attachment proposal** to be decided by the admin (Doublons tab, `coverage-declarations.service.ts:309-321`). |
 | Deadlines | Report not assigned in time: reminder to admins, escalation to the super administrator, then "Non pourvue" (Unfilled) (`EXPIRE_UNFILLED`, `coverage-reminders.job.ts:101`). |

@@ -2,9 +2,9 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
-import { BarChart3, CalendarPlus, DoorOpen, School, UserPlus } from 'lucide-react';
-import type { ReactNode } from 'react';
-import { Link as RouterLink, useSearchParams } from 'react-router';
+import { BarChart3, CalendarPlus, DoorOpen, School } from 'lucide-react';
+import { useEffect, type ReactNode } from 'react';
+import { Link as RouterLink, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
@@ -13,8 +13,10 @@ import { useCoverageProfile } from './api';
 import { AttendanceFollowUpTab } from '../attendance/AttendanceFollowUpTab';
 import { MyAttendanceTab } from '../attendance/MyAttendanceTab';
 import { MyGuardTab, PersonalHistoryTab } from './EmployeeViews';
-import { ManagedCoverageTab, MergeProposalsTab, TeamTab } from './ManagerViews';
+import { AssignmentTab } from './AssignmentTab';
+import { TrackingTab } from './TrackingTab';
 import { MyRequestsTab } from './TeacherViews';
+import { resolveLegacyTab } from './surveillanceTabs';
 import { t } from '../../i18n';
 
 interface TabDef {
@@ -23,14 +25,14 @@ interface TabDef {
   render: () => ReactNode;
 }
 
-/** File de l'admin : demandes en attente d'abord (délais expirés en tête, FR-011e). */
+/**
+ * Administration (012) : voir les situations, assigner un surveillant, suivre les interventions.
+ * Clés et anciennes adresses : surveillanceTabs.ts.
+ */
 const ADMIN_TABS: TabDef[] = [
-  { key: 'en-attente', label: t('En attente'), render: () => <ManagedCoverageTab scope="pending" /> },
-  { key: 'en-cours', label: t('En cours'), render: () => <ManagedCoverageTab scope="active" /> },
-  { key: 'doublons', label: t('Doublons'), render: () => <MergeProposalsTab /> },
-  { key: 'equipe', label: t('Équipe'), render: () => <TeamTab /> },
-  { key: 'terminees', label: t('Terminées'), render: () => <ManagedCoverageTab scope="finished" /> },
-  { key: 'presences', label: t('Présences'), render: () => <AttendanceFollowUpTab /> },
+  { key: 'absences-retards', label: t('Absences et retards'), render: () => <AttendanceFollowUpTab /> },
+  { key: 'affectation', label: t('Affectation des surveillants'), render: () => <AssignmentTab /> },
+  { key: 'suivi', label: t('Suivi des interventions'), render: () => <TrackingTab /> },
 ];
 
 const TEACHER_TABS: TabDef[] = [
@@ -44,13 +46,33 @@ const SUPERVISOR_TABS: TabDef[] = [
 ];
 
 /**
- * « Gardes » : affectations des surveillants (004). Admin ou super administrateur : file en attente,
- * affectations en cours, équipe, terminées. Enseignant : ses signalements. Surveillant : ses
- * affectations et renforts, historique. Un même compte cumule les onglets de ses groupes.
+ * « Surveillance » (ex-« Gardes », 012) : affectations des surveillants (004). Admin ou super administrateur :
+ * absences et retards, affectation des surveillants, suivi des interventions. Enseignant : ses signalements et
+ * ses présences. Surveillant : ses affectations et renforts, historique. Un même compte cumule les onglets de
+ * ses groupes. Les anciennes clés d'onglet (favoris, liens) sont traduites puis l'adresse est réécrite.
  */
 export function CoveragePage() {
   const profile = useCoverageProfile();
   const [params, setParams] = useSearchParams();
+  const navigate = useNavigate();
+  const legacy = resolveLegacyTab(params.get('onglet'));
+
+  useEffect(() => {
+    const moved = resolveLegacyTab(params.get('onglet'));
+    if (!moved) return;
+    const next = new URLSearchParams(params);
+    next.set('onglet', moved.onglet);
+    if (moved.filtre) next.set('filtre', moved.filtre);
+    navigate({ search: `?${next.toString()}`, hash: moved.hash ?? '' }, { replace: true });
+  }, [params, navigate]);
+
+  // Lien vers une partie d'un onglet (ex. #doublons) : la faire défiler une fois l'onglet affiché.
+  const { hash } = useLocation();
+  const ready = !profile.isPending;
+  useEffect(() => {
+    if (!ready || !hash) return;
+    document.getElementById(hash.slice(1))?.scrollIntoView?.({ block: 'start' });
+  }, [ready, hash]);
 
   if (profile.isPending)
     return <LoadingState label={t('Chargement des affectations')} variant="detail" />;
@@ -71,12 +93,14 @@ export function CoveragePage() {
     ...(isTeacher ? TEACHER_TABS : []),
     ...(isSupervisor ? SUPERVISOR_TABS : []),
   ];
-  const tab = tabs.find((t) => t.key === params.get('onglet')) ?? tabs[0];
+  // Ancienne clé : le bon onglet s'affiche tout de suite, l'adresse est réécrite juste après.
+  const selected = legacy?.onglet ?? params.get('onglet');
+  const tab = tabs.find((t) => t.key === selected) ?? tabs[0];
 
   return (
     <>
       <PageHeader
-        title={t('Gardes de classe')}
+        title={t('Surveillance')}
         description={
           canManage
             ? t('Assignez un surveillant aux retards et absences signalés, et suivez chaque affectation en direct.')
@@ -87,16 +111,6 @@ export function CoveragePage() {
         actions={
           (canManage || isTeacher || canDeclare) && (
             <>
-              {canManage && (
-                <Button
-                  component={RouterLink}
-                  to="/gardes/nouvelle"
-                  variant="contained"
-                  startIcon={<UserPlus aria-hidden="true" />}
-                >
-                  {t('Nouvelle affectation')}
-                </Button>
-              )}
               {canManage && (
                 <Button
                   component={RouterLink}
@@ -150,7 +164,7 @@ export function CoveragePage() {
               next.set('onglet', key);
               setParams(next, { replace: true });
             }}
-            aria-label={t('Gardes')}
+            aria-label={t('Surveillance')}
             variant="scrollable"
             scrollButtons={false}
             sx={{ mb: 2 }}
@@ -161,11 +175,11 @@ export function CoveragePage() {
                 value={t.key}
                 label={t.label}
                 id={`onglet-${t.key}`}
-                aria-controls="panneau-gardes"
+                aria-controls="panneau-surveillance"
               />
             ))}
           </Tabs>
-          <Box id="panneau-gardes" role="tabpanel" aria-labelledby={`onglet-${tab.key}`}>
+          <Box id="panneau-surveillance" role="tabpanel" aria-labelledby={`onglet-${tab.key}`}>
             {tab.render()}
           </Box>
         </>

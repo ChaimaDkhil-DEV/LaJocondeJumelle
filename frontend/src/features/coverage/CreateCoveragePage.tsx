@@ -165,7 +165,7 @@ function CreateForm({
       <PageHeader
         title={t('Nouvelle affectation')}
         description={t('Pour un retard ou une absence connus hors application : l’affectation est créée « assignée » et le surveillant est prévenu.')}
-        back={{ to: '/gardes', label: t('Gardes') }}
+        back={{ to: '/gardes', label: t('Surveillance') }}
       />
       <SectionCard component="form" noValidate onSubmit={submit} contentGap={2.5}>
         <TextField

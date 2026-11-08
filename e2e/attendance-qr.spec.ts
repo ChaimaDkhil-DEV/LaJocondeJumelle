@@ -100,8 +100,8 @@ test.describe('Pointage des enseignants par QR', () => {
       expect(refused.status()).toBe(404);
 
       // --- Admin : voit l'arrivée du jour, la qualifie avec un motif ; ne peut pas la contredire.
-      await admin.page.goto('/gardes?onglet=presences');
-      await expect(admin.page.getByRole('tab', { name: 'Présences' })).toHaveAttribute('aria-selected', 'true');
+      await admin.page.goto('/gardes?onglet=absences-retards');
+      await expect(admin.page.getByRole('tab', { name: 'Absences et retards' })).toHaveAttribute('aria-selected', 'true');
       const arrivals = admin.page.getByRole('list', { name: 'Arrivées enregistrées' });
       const row = arrivals.getByRole('listitem').filter({ hasText: `Enseignante — ${CLASS_NAME}` });
       await expect(row).toHaveCount(1);

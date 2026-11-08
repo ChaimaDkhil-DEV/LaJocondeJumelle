@@ -116,6 +116,11 @@ const statsCalls = (urls: string[]) =>
 afterEach(() => vi.unstubAllGlobals());
 
 describe('Statistiques des affectations', () => {
+  it('012 : le lien retour mène à « Surveillance »', async () => {
+    setup('/gardes/statistiques');
+    expect(await screen.findByRole('link', { name: 'Surveillance' })).toHaveAttribute('href', '/gardes');
+  });
+
   it('période par défaut (mois en cours de l’école), regroupement par enseignant ; tableau accessible', async () => {
     const urls = setup('/gardes/statistiques');
     expect(

@@ -220,7 +220,7 @@ function Times({ detail }: { detail: CoverageDetail }) {
 export function CoverageDetailPage() {
   const { id = '' } = useParams();
   const coverage = useCoverage(id);
-  const back = { to: '/gardes', label: t('Gardes') };
+  const back = { to: '/gardes', label: t('Surveillance') };
 
   if (coverage.isPending) return <LoadingState label={t('Chargement de la garde')} variant="detail" />;
   if (coverage.error) {
@@ -284,7 +284,7 @@ export function CoverageDetailPage() {
                 action={
                   <Box
                     component={RouterLink}
-                    to="/gardes?onglet=doublons"
+                    to="/gardes?onglet=affectation#doublons"
                     sx={{ color: 'inherit', alignSelf: 'center', mr: 1 }}
                   >
                     {t('Trancher')}

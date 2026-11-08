@@ -233,6 +233,61 @@ describe('Actions d’une garde', () => {
   });
 });
 
+describe('Section « Surveillance » (012)', () => {
+  it.each([
+    ['admin', { isTeacher: false, isSupervisor: false, inGroup: false, canManage: true }],
+    ['enseignant', { isTeacher: true, isSupervisor: false, inGroup: true, canManage: false }],
+    ['surveillant', { isTeacher: false, isSupervisor: true, inGroup: true, canManage: false }],
+  ])('%s : titre et liste d’onglets « Surveillance », plus « Gardes de classe »', async (_label, flags) => {
+    mockFetch((call) => {
+      if (call.url === '/api/coverage/availability') return json(200, { availability: 'AVAILABLE', activeGuards: [], ...flags });
+      if (call.url === '/api/coverage/mine') return json(200, { availability: { availability: 'AVAILABLE', activeGuards: [], ...flags }, items: [] });
+      return json(200, []);
+    });
+    renderWith(<CoveragePage />, '/gardes');
+    expect(await screen.findByRole('heading', { level: 1, name: 'Surveillance' })).toBeInTheDocument();
+    expect(screen.getByRole('tablist', { name: 'Surveillance' })).toBeInTheDocument();
+    expect(screen.queryByText('Gardes de classe')).not.toBeInTheDocument();
+  });
+
+  // US5 : garde-fou, identique avant et après la réorganisation des onglets de l'administration.
+  const group = (flags: Record<string, boolean>) => {
+    mockFetch((call) => {
+      if (call.url === '/api/coverage/availability') return json(200, { availability: 'AVAILABLE', activeGuards: [], inGroup: true, canManage: false, ...flags });
+      if (call.url === '/api/coverage/mine') return json(200, { availability: { availability: 'AVAILABLE', activeGuards: [], inGroup: true, canManage: false, ...flags }, items: [] });
+      return json(200, []);
+    });
+  };
+  const tabNames = async () => (await screen.findAllByRole('tab')).map((tab) => tab.textContent);
+
+  it('enseignant : « Mes signalements », « Mes présences » et le bouton de signalement, rien de l’administration', async () => {
+    group({ isTeacher: true, isSupervisor: false });
+    renderWith(<CoveragePage />, '/gardes');
+    expect(await tabNames()).toEqual(['Mes signalements', 'Mes présences']);
+    expect(screen.getByRole('link', { name: 'Signaler un retard ou une absence' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Nouvelle affectation' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Statistiques' })).not.toBeInTheDocument();
+  });
+
+  it('surveillant : « Mes affectations », « Historique » et « Déclarer une classe vide », rien de l’administration', async () => {
+    group({ isTeacher: false, isSupervisor: true });
+    renderWith(<CoveragePage />, '/gardes');
+    expect(await tabNames()).toEqual(['Mes affectations', 'Historique']);
+    expect(screen.getByRole('link', { name: 'Déclarer une classe vide' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Nouvelle affectation' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Statistiques' })).not.toBeInTheDocument();
+  });
+
+  it.each([
+    [{ isTeacher: true, isSupervisor: false }, 'mes-presences', 'Mes présences'],
+    [{ isTeacher: false, isSupervisor: true }, 'historique', 'Historique'],
+  ])('l’adresse choisit l’onglet du groupe (%#)', async (flags, key, name) => {
+    group(flags);
+    renderWith(<CoveragePage />, `/gardes?onglet=${key}`);
+    expect(await screen.findByRole('tab', { name })).toHaveAttribute('aria-selected', 'true');
+  });
+});
+
 describe('Onglets du surveillant', () => {
   it('« Mes affectations » et « Historique » ; plus d’onglet « À prendre »', async () => {
     mockFetch((call) => {
@@ -263,9 +318,10 @@ describe('Onglets du surveillant', () => {
     });
     renderWith(<CoveragePage />, '/gardes');
     const tabs = (await screen.findAllByRole('tab')).map((tab) => tab.textContent);
-    expect(tabs).toEqual(['En attente', 'En cours', 'Doublons', 'Équipe', 'Terminées', 'Présences', 'Mes affectations', 'Historique']);
-    // L'onglet par défaut reste la file de l'admin.
-    expect(screen.getByRole('tab', { name: 'En attente' })).toHaveAttribute('aria-selected', 'true');
+    // 012 : trois onglets d'administration, puis ceux du groupe.
+    expect(tabs).toEqual(['Absences et retards', 'Affectation des surveillants', 'Suivi des interventions', 'Mes affectations', 'Historique']);
+    // L'onglet par défaut est le premier de l'administration.
+    expect(screen.getByRole('tab', { name: 'Absences et retards' })).toHaveAttribute('aria-selected', 'true');
   });
 
   it('un admin qui n’est pas surveillant ne voit pas les onglets du surveillant', async () => {
@@ -276,7 +332,7 @@ describe('Onglets du surveillant', () => {
       return json(200, []);
     });
     renderWith(<CoveragePage />, '/gardes');
-    await screen.findByRole('tab', { name: 'En attente' });
+    await screen.findByRole('tab', { name: 'Absences et retards' });
     expect(screen.queryByRole('tab', { name: 'Mes affectations' })).not.toBeInTheDocument();
   });
 

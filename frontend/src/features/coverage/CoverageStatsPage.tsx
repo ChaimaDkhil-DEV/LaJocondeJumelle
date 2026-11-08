@@ -182,7 +182,7 @@ function StatsView({ defaultFrom, defaultTo }: { defaultFrom: string; defaultTo:
       <PageHeader
         title={t('Statistiques des affectations')}
         description={t('Retards, absences et classes vides de la période, dans le fuseau de l’école. Les annulées et les doublons non tranchés sont comptés à part.')}
-        back={{ to: '/gardes', label: t('Gardes') }}
+        back={{ to: '/gardes', label: t('Surveillance') }}
       />
       <Box sx={{ display: 'grid', gap: 2 }}>
         <SectionCard>

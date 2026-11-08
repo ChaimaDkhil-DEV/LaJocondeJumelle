@@ -125,6 +125,11 @@ async function fillSlot(u: ReturnType<typeof userEvent.setup>, classPattern = /1
 afterEach(() => vi.unstubAllGlobals());
 
 describe('Nouvelle affectation directe', () => {
+  it('012 : le lien retour mène à « Surveillance »', async () => {
+    setup();
+    expect(await screen.findByRole('link', { name: 'Surveillance' })).toHaveAttribute('href', '/gardes');
+  });
+
   it('champs requis signalés un à un, sans envoi', async () => {
     const u = user();
     const calls = setup();

@@ -461,8 +461,19 @@ describe('Onglets de la page Gardes', () => {
     expect(await tabsFor('teacher')).toEqual(['Mes signalements', 'Mes présences']);
   });
 
-  it('l’admin a « Présences » ; le surveillant seul n’a aucun onglet de pointage', async () => {
-    expect(await tabsFor('admin')).toContain('Présences');
+  it('l’admin a le suivi des présences dans « Absences et retards » (012, ex-« Présences »)', async () => {
+    const tabs = await tabsFor('admin');
+    expect(tabs).toContain('Absences et retards');
+    expect(tabs).not.toContain('Présences');
+    // Le contenu (AttendanceFollowUpTab, inchangé) est testé plus haut ; c'est l'onglet ouvert par défaut.
+    expect(screen.getByRole('tab', { name: 'Absences et retards' })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('l’ancienne adresse ?onglet=presences ouvre « Absences et retards »', async () => {
+    mount(<CoveragePage />, '/gardes?onglet=presences', (call) =>
+      call.url === '/api/coverage/availability' ? json(200, { availability: 'AVAILABLE', activeGuards: [], ...PROFILES.admin }) : undefined,
+    );
+    expect(await screen.findByRole('tab', { name: 'Absences et retards' })).toHaveAttribute('aria-selected', 'true');
   });
 
   it('le surveillant seul n’a aucun onglet de pointage', async () => {
