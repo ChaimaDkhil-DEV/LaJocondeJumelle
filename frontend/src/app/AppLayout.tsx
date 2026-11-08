@@ -75,7 +75,7 @@ export const NAV_ITEMS: NavItem[] = [
   },
 ];
 
-/** Gardes de classe : admins, super administrateur, membres des groupes Surveillants ou Enseignants (FR-023b). */
+/** Section « Surveillance » (ex-« Gardes », 012) : admins, super administrateur, membres des groupes Surveillants ou Enseignants (FR-023b). */
 export function canSeeCoverage(me: Me | undefined): boolean {
   if (!me) return false;
   return (
@@ -88,7 +88,7 @@ export function canSeeCoverage(me: Me | undefined): boolean {
 
 const COVERAGE_ITEM: NavItem = {
   to: '/gardes',
-  label: t('Gardes'),
+  label: t('Surveillance'),
   icon: School,
   matches: (p) => p.startsWith('/gardes'),
 };

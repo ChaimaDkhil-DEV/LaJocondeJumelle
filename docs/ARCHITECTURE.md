@@ -787,7 +787,7 @@ out of scope, `404` and a logged `ACCESS_DENIED` refusal; the module's administr
 
 ### Frontend (`frontend/src/features/coverage/`)
 
-The "Gardes" (Duties) menu is visible to admins, the super administrator and members of the
+The "Surveillance" menu (named "Gardes" before feature 012; addresses unchanged, `/gardes`) is visible to admins, the super administrator and members of the
 Teachers or Supervisors groups (`canSeeCoverage`, from `GET /auth/me`). Screens: admin queue
 ("En attente" (Pending) first, "En cours" (In progress), "Doublons" (Duplicates), "Équipe" (Team), "Terminées" (Completed)),
 `TeacherRequestPage`, `EmptyClassPage`, `CreateCoveragePage`, `CoverageStatsPage`, detail with a

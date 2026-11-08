@@ -175,9 +175,19 @@ describe('Doublons possibles', () => {
     },
   ];
 
+  it('012 : le détail d’une affectation renvoie vers « Surveillance »', async () => {
+    setup('/gardes/1', { 'GET /api/coverage/1': detail() });
+    expect(await screen.findByRole('link', { name: 'Surveillance' })).toHaveAttribute('href', '/gardes');
+  });
+
+  it('012 : « Trancher » un doublon possible mène aux doublons de « Affectation des surveillants »', async () => {
+    setup('/gardes/1', { 'GET /api/coverage/1': detail({ alerts: ['POSSIBLE_DUPLICATE'] }) });
+    expect(await screen.findByRole('link', { name: 'Trancher' })).toHaveAttribute('href', '/gardes?onglet=affectation#doublons');
+  });
+
   it('onglet « Doublons » : paires, mention « non tranché », confirmation et refus', async () => {
     const user = userEvent.setup();
-    const calls = setup('/gardes?onglet=doublons', {
+    const calls = setup('/gardes?onglet=affectation', {
       'GET /api/coverage/merge-proposals?status=PENDING': proposals,
     });
     const list = await screen.findByRole('list', { name: 'Doublons possibles' });
@@ -203,7 +213,7 @@ describe('Doublons possibles', () => {
   });
 
   it('alertes dans la file : double affectation et doublon possible', async () => {
-    setup('/gardes?onglet=en-cours', {
+    setup('/gardes?onglet=suivi&filtre=prise-en-charge', {
       'GET /api/coverage?mainStatus=ASSIGNED&mainStatus=IN_PROGRESS': [
         summary('1', 'CM1 A', { alerts: ['DOUBLE_ASSIGNMENT'] }),
         summary('2', 'CM2 B', { alerts: ['POSSIBLE_DUPLICATE'] }),

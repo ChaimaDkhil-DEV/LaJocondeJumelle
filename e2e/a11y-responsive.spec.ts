@@ -168,20 +168,20 @@ test('004 — écrans des affectations à 320 px, sans violation axe', async ({ 
   });
   expect(created.status()).toBe(201);
   const request = (await created.json()) as { id: string; version: number };
-  await visit('/gardes', 'Gardes de classe', 'Mes signalements');
+  await visit('/gardes', 'Surveillance', 'Mes signalements');
   await visit('/gardes/signaler', 'Signaler un retard ou une absence');
   await page.getByRole('button', { name: 'Se déconnecter' }).click();
 
   // Surveillant : ses affectations, la déclaration d'une classe vide.
   await login(page, 'surveillant');
-  await visit('/gardes', 'Gardes de classe', 'Mes affectations');
-  await visit('/gardes?onglet=historique', 'Gardes de classe', 'Historique du surveillant');
+  await visit('/gardes', 'Surveillance', 'Mes affectations');
+  await visit('/gardes?onglet=historique', 'Surveillance', 'Historique du surveillant');
   await visit('/gardes/classe-vide', 'Déclarer une classe vide');
   await page.getByRole('button', { name: 'Se déconnecter' }).click();
 
   // Admin : file, onglets, affectation directe, statistiques.
   await login(page, 'admin');
-  await visit('/gardes?onglet=en-attente', 'Gardes de classe', 'file avec une demande');
+  await visit('/gardes?onglet=affectation', 'Surveillance', 'file avec une demande');
   // Spec 006 : dialogue « Modifier l’affectation », atteint et parcouru au clavier (FR-013, SC-005).
   await page.goto(`/gardes/${request.id}`);
   await tabTo(page, page.getByRole('button', { name: 'Modifier' }), 120);
@@ -197,8 +197,8 @@ test('004 — écrans des affectations à 320 px, sans violation axe', async ({ 
     data: { action: 'CANCEL', version: request.version, reason: 'Contrôle accessibilité' },
   });
   expect(cancelled.ok()).toBeTruthy();
-  for (const tab of ['en-attente', 'en-cours', 'doublons', 'equipe', 'terminees']) {
-    await visit(`/gardes?onglet=${tab}`, 'Gardes de classe', `onglet ${tab}`);
+  for (const tab of ['absences-retards', 'affectation', 'suivi', 'suivi&filtre=en-attente', 'suivi&filtre=terminee']) {
+    await visit(`/gardes?onglet=${tab}`, 'Surveillance', `onglet ${tab}`);
   }
   await visit('/gardes/nouvelle', 'Nouvelle affectation');
   await visit('/gardes/statistiques', 'Statistiques des affectations');

@@ -48,6 +48,5 @@ export const shared: Record<string, string> = {
   "Tableau de bord": "Dashboard",
   "Mes demandes": "My requests",
   "Nouvelle demande": "New request",
-  "Gardes": "Coverage",
   "Administrateur": "Administrator",
 };

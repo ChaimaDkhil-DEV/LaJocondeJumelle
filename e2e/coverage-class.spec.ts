@@ -178,9 +178,9 @@ for (const viewport of VIEWPORTS) {
         await expect(myRequest).toContainText('En attente');
         await check(teacher.page, 'Mes signalements');
 
-        // --- Admin : file « En attente », assignation d'un surveillant disponible de l'étage.
-        await admin.page.goto('/gardes');
-        await expect(admin.page.getByRole('tab', { name: 'En attente' })).toHaveAttribute(
+        // --- Admin : file « À assigner » (Affectation des surveillants), surveillant disponible de l'étage.
+        await admin.page.goto('/gardes?onglet=affectation');
+        await expect(admin.page.getByRole('tab', { name: 'Affectation des surveillants' })).toHaveAttribute(
           'aria-selected',
           'true',
         );
@@ -282,7 +282,7 @@ for (const viewport of VIEWPORTS) {
         await expect(outcome).toContainText('renfort');
 
         // --- Admin : affectation en cours avec renfort ; décide de libérer le renfort.
-        await admin.page.goto('/gardes?onglet=en-cours');
+        await admin.page.goto('/gardes?onglet=suivi&filtre=prise-en-charge');
         const row = admin.page
           .getByRole('link', { name: new RegExp(className) })
           .filter({ hasText: 'Renfort : Remplaçante' })
@@ -319,7 +319,7 @@ for (const viewport of VIEWPORTS) {
       try {
         await cancelOpenCoverages(admin.page);
         // --- Admin : nouvelle affectation ; surveillants du créneau, étage de la classe d'abord.
-        await admin.page.goto('/gardes');
+        await admin.page.goto('/gardes?onglet=affectation');
         await admin.page.getByRole('link', { name: 'Nouvelle affectation' }).click();
         await expect(
           admin.page.getByRole('heading', { name: 'Nouvelle affectation' }),
@@ -490,7 +490,7 @@ test.describe('modification d’une affectation (spec 006)', () => {
       const declare = supervisor.page.getByRole('button', { name: 'Déclarer cette classe vide' });
       await expect(declare).toBeVisible();
       await check(supervisor.page, 'QR : classe sans garde');
-      await admin.page.goto('/gardes?onglet=en-cours');
+      await admin.page.goto('/gardes?onglet=suivi&filtre=prise-en-charge');
       await expect(admin.page.getByRole('link', { name: new RegExp(className) })).toHaveCount(0);
 
       // Un seul geste : l'affectation est au nom du surveillant, en cours.

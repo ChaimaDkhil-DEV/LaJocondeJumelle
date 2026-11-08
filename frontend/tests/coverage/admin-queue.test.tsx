@@ -53,7 +53,7 @@ function item(id: string, className: string, alerts: string[]) {
   };
 }
 
-function setup(profile: Record<string, unknown>, handler: (url: string) => Response | undefined = () => undefined) {
+function setup(profile: Record<string, unknown>, handler: (url: string) => Response | undefined = () => undefined, path = '/gardes') {
   const urls: string[] = [];
   vi.stubGlobal(
     'fetch',
@@ -79,7 +79,7 @@ function setup(profile: Record<string, unknown>, handler: (url: string) => Respo
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <ToastProvider>
-        <MemoryRouter initialEntries={['/gardes']}>
+        <MemoryRouter initialEntries={[path]}>
           <CoveragePage />
         </MemoryRouter>
       </ToastProvider>
@@ -91,13 +91,20 @@ function setup(profile: Record<string, unknown>, handler: (url: string) => Respo
 afterEach(() => vi.unstubAllGlobals());
 
 describe('File de l’admin', () => {
-  it('onglet « En attente » en tête ; demande au délai dépassé en premier et mise en évidence', async () => {
-    const urls = setup({ canManage: true }, (url) =>
-      url === '/api/coverage?mainStatus=PENDING' ? json(200, [item('1', 'CE1 Vert', ['TAKEOVER_EXPIRED']), item('2', 'CE2 Jaune', [])]) : undefined,
-    );
+  it('012 : trois onglets d’administration, « Absences et retards » en tête', async () => {
+    setup({ canManage: true });
     const tabs = await screen.findAllByRole('tab');
-    expect(tabs.map((t) => t.textContent)).toEqual(['En attente', 'En cours', 'Doublons', 'Équipe', 'Terminées', 'Présences']);
+    expect(tabs.map((t) => t.textContent)).toEqual(['Absences et retards', 'Affectation des surveillants', 'Suivi des interventions']);
     expect(tabs[0]).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('« Affectation des surveillants » : demande au délai dépassé en premier et mise en évidence', async () => {
+    const urls = setup(
+      { canManage: true },
+      (url) => (url === '/api/coverage?mainStatus=PENDING' ? json(200, [item('1', 'CE1 Vert', ['TAKEOVER_EXPIRED']), item('2', 'CE2 Jaune', [])]) : undefined),
+      '/gardes?onglet=affectation',
+    );
+    expect(await screen.findByRole('tab', { name: 'Affectation des surveillants' })).toHaveAttribute('aria-selected', 'true');
     // La liste des gardes (et non celle du fil d'Ariane, dans sa navigation).
     await screen.findByText('CE1 Vert');
     const list = screen.getAllByRole('list').find((l) => !l.closest('nav'))!;

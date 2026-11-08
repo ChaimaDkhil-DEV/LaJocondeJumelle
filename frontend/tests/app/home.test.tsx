@@ -82,7 +82,9 @@ describe('Page d’accueil', () => {
     expect(screen.getByRole('tab', { name: 'Vue générale' })).toHaveAttribute('aria-selected', 'true');
 
     const links = within(mainNav()).getAllByRole('link');
-    expect(links.map((l) => l.textContent)).toEqual(['Tableau de bord', 'Mes demandes', 'Nouvelle demande', 'Gardes', 'Restauration', 'Administrateur']);
+    // 012 : la section « Gardes » s'appelle « Surveillance », à la même adresse.
+    expect(links.map((l) => l.textContent)).toEqual(['Tableau de bord', 'Mes demandes', 'Nouvelle demande', 'Surveillance', 'Restauration', 'Administrateur']);
+    expect(within(mainNav()).getByRole('link', { name: 'Surveillance' })).toHaveAttribute('href', '/gardes');
     expect(links[0]).toHaveAttribute('href', '/');
     expect(links[0]).toHaveAttribute('aria-current', 'page');
     expect(links[1]).toHaveAttribute('href', '/demandes');
