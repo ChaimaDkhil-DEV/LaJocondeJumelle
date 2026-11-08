@@ -20,8 +20,9 @@ interface QrScannerDialogProps {
 
 /**
  * Lecteur de QR code intégré (caméra arrière). La caméra n'est qu'une commodité : sans elle (refus,
- * appareil sans caméra, lecteur d'écran), on colle le lien ou le code du QR code. Le scan n'enregistre
- * rien : il ouvre la page de confirmation de la classe.
+ * appareil sans caméra, lecteur d'écran), on colle le lien ou le code du QR code. Le lecteur s'arrête au
+ * premier QR de classe lu et passe son jeton à l'appelant, qui décide : pointage des enseignants (ouvre la
+ * page de confirmation de la classe), déclaration d'une classe vide (envoyée aussitôt, 013).
  */
 export function QrScannerDialog({ onToken, onClose }: QrScannerDialogProps) {
   const titleId = useId();
