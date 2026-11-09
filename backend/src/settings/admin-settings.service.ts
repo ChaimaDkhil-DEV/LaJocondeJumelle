@@ -53,6 +53,13 @@ export class AdminSettingsService {
     if (errors.length > 0) throw invalid(errors);
 
     const current = await this.settings.getAll();
+    // Plage d'envoi des notifications push (014) : la fin suit strictement le début, valeurs fusionnées.
+    if ('pushWindowStart' in body || 'pushWindowEnd' in body) {
+      const merged = { ...current, ...body } as Settings;
+      if (merged.pushWindowEnd <= merged.pushWindowStart) {
+        throw invalid([{ field: 'pushWindowEnd', messages: ['L’heure de fin doit être après l’heure de début.'] }]);
+      }
+    }
     const changed = (Object.entries(body) as Array<[SettingKey, Settings[SettingKey]]>).filter(
       ([key, value]) => JSON.stringify(current[key]) !== JSON.stringify(value),
     );
@@ -81,7 +88,10 @@ export class AdminSettingsService {
 
   /** Réglages utiles à l'interface de tout utilisateur connecté (aucune donnée sensible). */
   async clientSettings(): Promise<
-    Pick<Settings, 'voiceMaxSeconds' | 'attachmentMaxBytes' | 'attachmentMaxPerMessage' | 'draftsEnabled'> & {
+    Pick<
+      Settings,
+      'voiceMaxSeconds' | 'attachmentMaxBytes' | 'attachmentMaxPerMessage' | 'draftsEnabled' | 'pushWindowDays' | 'pushWindowStart' | 'pushWindowEnd'
+    > & {
       assistSuggestions: boolean;
       assistTranscription: boolean;
     }
@@ -92,6 +102,10 @@ export class AdminSettingsService {
       attachmentMaxBytes: s.attachmentMaxBytes,
       attachmentMaxPerMessage: s.attachmentMaxPerMessage,
       draftsEnabled: s.draftsEnabled,
+      // Plage d'envoi des notifications push (014) : mention dans « Mon profil ».
+      pushWindowDays: s.pushWindowDays,
+      pushWindowStart: s.pushWindowStart,
+      pushWindowEnd: s.pushWindowEnd,
       // Assistance (spec 009) : fixée par la configuration du serveur, pas par un réglage.
       assistSuggestions: this.config.assist.suggestionProvider !== 'disabled',
       assistTranscription: this.config.assist.transcriptionProvider !== 'disabled',

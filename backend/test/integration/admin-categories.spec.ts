@@ -183,6 +183,10 @@ describe('Administration des catégories et réglages', () => {
         attachmentMaxBytes: 10 * 1024 * 1024,
         attachmentMaxPerMessage: 5,
         draftsEnabled: false,
+        // Plage d'envoi des notifications push (spec 014) : mention dans « Mon profil ».
+        pushWindowDays: ['MON', 'TUE', 'WED', 'THU', 'FRI'],
+        pushWindowStart: '07:30',
+        pushWindowEnd: '18:30',
         assistSuggestions: false,
         assistTranscription: false,
       });

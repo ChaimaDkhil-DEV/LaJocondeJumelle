@@ -1,8 +1,8 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { ApiError } from '../../api/client';
 import { language, t } from '../../i18n';
-import { removeCurrentPushSubscription, savePushSubscription, usePushConfig, type PushConfig } from './api';
+import { PUSH_DEVICES_KEY, removeCurrentPushSubscription, savePushSubscription, usePushConfig, type PushConfig } from './api';
 import { base64urlToBytes, bufferToBase64url, pushSupportState, type PushEnvironment, type PushSupportState } from './pushSupport';
 
 /**
@@ -71,6 +71,7 @@ export async function unsubscribeThisDevice(): Promise<void> {
 
 export function usePushDevice() {
   const config = usePushConfig();
+  const queryClient = useQueryClient();
   // État de l'appareil (autorisation, abonnement du navigateur) : relu après chaque action.
   const environment = useQuery({
     queryKey: [...PUSH_DEVICE_KEY, config.data],
@@ -81,8 +82,9 @@ export function usePushDevice() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // État de l'appareil et liste « Mes appareils » relus après chaque action.
   const refresh = async (): Promise<void> => {
-    await environment.refetch();
+    await Promise.all([environment.refetch(), queryClient.invalidateQueries({ queryKey: PUSH_DEVICES_KEY })]);
   };
 
   const state: PushSupportState | null = environment.data ? pushSupportState(environment.data) : null;

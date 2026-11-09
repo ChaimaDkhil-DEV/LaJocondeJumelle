@@ -353,32 +353,34 @@ d'audit `SETTING_CHANGED` ; refus pour `ADMIN`.
 
 ### Tests de la User Story 4 (écrits d'abord, vus en échec) ⚠️
 
-- [ ] T051 [P] [US4] Tests en échec dans `backend/test/unit/push-window.spec.ts` pour `isWithinPushWindow(instant, { days, start, end }, timeZone)` (`backend/src/push/domain/push-window.ts`), fuseau `Africa/Tunis`, plage `MON`–`FRI` de `07:30` à `18:30` :
+- [X] T051 [P] [US4] Tests en échec dans `backend/test/unit/push-window.spec.ts` pour `isWithinPushWindow(instant, { days, start, end }, timeZone)` (`backend/src/push/domain/push-window.ts`), fuseau `Africa/Tunis`, plage `MON`–`FRI` de `07:30` à `18:30` :
   - lundi 07:29 faux, 07:30 vrai, 18:29 vrai, 18:30 faux (fin exclue) ;
   - samedi faux ; `SUN` compris s'il est configuré ;
   - l'instant UTC `06:30Z` vaut 07:30 à Tunis ;
   - utilise `localDate` et `localTime` de `backend/src/common/school-time.ts`.
-- [ ] T052 [P] [US4] Tests d'intégration en échec dans `backend/test/integration/push-window-settings.spec.ts` :
+- [X] T052 [P] [US4] Tests d'intégration en échec dans `backend/test/integration/push-window-settings.spec.ts` :
   - `GET /api/admin/settings` → défauts `pushWindowDays` `["MON","TUE","WED","THU","FRI"]`, `07:30`, `18:30` ;
   - `PUT` valide par le super administrateur → 200, et une entrée `SETTING_CHANGED` par clé modifiée avec `before` et `after` ;
   - fin ≤ début → 400 sur `pushWindowEnd`, message « L'heure de fin doit être après l'heure de début. » ;
   - liste de jours vide ou code inconnu → 400 ;
   - utilisateur `ADMIN` → 403 ;
   - `GET /api/settings/client` renvoie les trois clés.
-- [ ] T053 [P] [US4] Ajouter à `backend/test/integration/push-dispatch.spec.ts` des tests en échec : plage fermée à l'instant de l'envoi (`fixedNow`) → aucun envoi, notification en base ; plage réouverte plus tard → toujours aucun envoi pour cette notification (pas d'envoi différé, NC-7)
+- [X] T053 [P] [US4] Ajouter à `backend/test/integration/push-dispatch.spec.ts` des tests en échec : plage fermée à l'instant de l'envoi (`fixedNow`) → aucun envoi, notification en base ; plage réouverte plus tard → toujours aucun envoi pour cette notification (pas d'envoi différé, NC-7)
 
 ### Implémentation de la User Story 4
 
-- [ ] T054 [US4] Dans `backend/src/settings/settings.service.ts`, ajouter à `SETTING_DEFAULTS` `pushWindowDays: ['MON','TUE','WED','THU','FRI']`, `pushWindowStart: '07:30'`, `pushWindowEnd: '18:30'`, et à `SETTING_RULES` `subset` (avec les sept codes de jour) et `time`. Ajouter à la règle `subset` un libellé facultatif, pour un message adapté aux jours (« Au moins un jour parmi : … »). Dans `backend/src/settings/admin-settings.service.ts`, ajouter le contrôle croisé début < fin sur les valeurs fusionnées et exposer les trois clés dans `clientSettings()`. Faire passer T052.
-- [ ] T055 [US4] Implémenter `backend/src/push/domain/push-window.ts` ; faire passer T051
-- [ ] T056 [US4] Dans `backend/src/push/push-dispatcher.service.ts`, évaluer la plage au premier envoi avec `config.schoolTimezone` et les réglages lus par `SettingsService` ; faire passer T053
-- [ ] T057 [P] [US4] Tests en échec dans `frontend/tests/admin/push-window-settings.test.tsx` (`SettingsAdminPage`) :
+  *Les tests du dispatcher ouvrent la plage toute la journée, tous les jours (00:00–23:59, minute 23:59 exclue) : sans cela, la plage par défaut les ferait échouer la nuit et le week-end. Plage fermée simulée par « tous les jours sauf aujourd’hui ».*
+- [X] T054 [US4] Dans `backend/src/settings/settings.service.ts`, ajouter à `SETTING_DEFAULTS` `pushWindowDays: ['MON','TUE','WED','THU','FRI']`, `pushWindowStart: '07:30'`, `pushWindowEnd: '18:30'`, et à `SETTING_RULES` `subset` (avec les sept codes de jour) et `time`. Ajouter à la règle `subset` un libellé facultatif, pour un message adapté aux jours (« Au moins un jour parmi : … »). Dans `backend/src/settings/admin-settings.service.ts`, ajouter le contrôle croisé début < fin sur les valeurs fusionnées et exposer les trois clés dans `clientSettings()`. Faire passer T052.
+  *Tests existants adaptés au nouveau contrat : admin-categories.spec.ts (GET /api/settings/client comparé à un objet exact) et le jeu SETTINGS de frontend/tests/admin/admin-pages.test.tsx.*
+- [X] T055 [US4] Implémenter `backend/src/push/domain/push-window.ts` ; faire passer T051
+- [X] T056 [US4] Dans `backend/src/push/push-dispatcher.service.ts`, évaluer la plage au premier envoi avec `config.schoolTimezone` et les réglages lus par `SettingsService` ; faire passer T053
+- [X] T057 [P] [US4] Tests en échec dans `frontend/tests/admin/push-window-settings.test.tsx` (`SettingsAdminPage`) :
   - groupe « Plage d'envoi des notifications push » : `fieldset` et `legend` avec sept cases (lundi à dimanche), champs « Heure de début » et « Heure de fin » ;
   - texte d'aide de [contracts/ui.md](contracts/ui.md) ;
   - ligne d'état « Notifications push : activées » ou « désactivées (clés non configurées) », selon `GET /api/push/config` ;
   - enregistrement par le bouton existant ; erreur du serveur affichée sur le champ « Heure de fin ».
-- [ ] T058 [US4] Ajouter ce groupe dans `frontend/src/features/admin/SettingsAdminPage.tsx` ; faire passer T057
-- [ ] T059 [US4] Tests puis implémentation dans `NotificationsSection.tsx` de la mention « Envoi du lundi au vendredi, de 07:30 à 18:30 (heure de l'école). En dehors, les notifications restent dans l'application. », construite à partir de `GET /api/settings/client` (jours formatés selon la langue) ; ajouter les traductions dans `frontend/src/i18n/en/push.ts` et `admin.ts`
+- [X] T058 [US4] Ajouter ce groupe dans `frontend/src/features/admin/SettingsAdminPage.tsx` ; faire passer T057
+- [X] T059 [US4] Tests puis implémentation dans `NotificationsSection.tsx` de la mention « Envoi du lundi au vendredi, de 07:30 à 18:30 (heure de l'école). En dehors, les notifications restent dans l'application. », construite à partir de `GET /api/settings/client` (jours formatés selon la langue) ; ajouter les traductions dans `frontend/src/i18n/en/push.ts` et `admin.ts`
 
 **Point d'étape** : la plage s'applique et sa modification est auditée.
 
@@ -393,7 +395,8 @@ lignes supprimées.
 
 ### Tests de la User Story 5 (écrits d'abord, vus en échec) ⚠️
 
-- [ ] T060 [P] [US5] Tests d'intégration en échec dans `backend/test/integration/push-lifecycle.spec.ts` :
+  *Mise en forme des jours dans frontend/src/features/push/pushWindowText.ts (« du lundi au vendredi », « tous les jours », « le lundi, le mercredi et le samedi »), testée dans frontend/tests/push/push-window-text.test.tsx avant l’implémentation.*
+- [X] T060 [P] [US5] Tests d'intégration en échec dans `backend/test/integration/push-lifecycle.spec.ts` :
   - `GET /api/push/subscriptions` → seulement les siens, `current` vrai pour celui de la session ;
   - `DELETE /api/push/subscriptions/:id` :
     - le sien → 204 ;
@@ -407,28 +410,29 @@ lignes supprimées.
   - parcours complet pendant une tentative en attente (push activé, envoyeur simulé qui répond 500 à la 1re tentative, minuteries simulées comme dans T017) :
     - `POST /api/auth/logout` de la session liée avant la 2e tentative → aucune 2e tentative (FR-020, SC-003) ;
     - même `endpoint` enregistré par un autre utilisateur (`PUT /api/push/subscriptions`) avant la 2e tentative → aucune 2e tentative, rien n'est envoyé à son nom (NC-8a).
-- [ ] T061 [P] [US5] Tests d'intégration en échec dans `backend/test/integration/push-subscriptions-cleanup-job.spec.ts`, sur le modèle de `orphan-files-job.spec.ts` : avec `fixedNow`, un abonnement dont `lastUsedAt` date de 91 jours est supprimé, un de 89 jours est conservé
+  *Une session par compte, ouverte une fois et partagée : le limiteur de connexions (5 par minute et par compte) refusait sinon les connexions répétées. La réinitialisation par l’administration répond 200.*
+- [X] T061 [P] [US5] Tests d'intégration en échec dans `backend/test/integration/push-subscriptions-cleanup-job.spec.ts`, sur le modèle de `orphan-files-job.spec.ts` : avec `fixedNow`, un abonnement dont `lastUsedAt` date de 91 jours est supprimé, un de 89 jours est conservé
 
 ### Implémentation de la User Story 5
 
-- [ ] T062 [US5] Dans `backend/src/push/push-subscriptions.service.ts`, ajouter :
+- [X] T062 [US5] Dans `backend/src/push/push-subscriptions.service.ts`, ajouter :
   - `deleteOwn(user, id, ctx)` : 404 si absent ou appartenant à un autre ; dans ce second cas, `ACCESS_DENIED` par `AuditService.log` comme `request-transitions.service.ts` `logDenied` ;
   - `deleteForSession(sessionId)` ;
   - `deleteOtherDevices(userId, keepSessionId)` ;
   - `deleteAllForUser(userId, tx?)`.
-- [ ] T063 [US5] Dans `backend/src/push/push.controller.ts`, ajouter `DELETE /api/push/subscriptions/current` **avant** `DELETE /api/push/subscriptions/:id` (`ParseUUIDPipe`), puis brancher les suppressions :
+- [X] T063 [US5] Dans `backend/src/push/push.controller.ts`, ajouter `DELETE /api/push/subscriptions/current` **avant** `DELETE /api/push/subscriptions/:id` (`ParseUUIDPipe`), puis brancher les suppressions :
   - `backend/src/auth/auth.service.ts` : `logout` (avant ou après `sessions.revoke`, sans incidence) et `changePassword` ;
   - `backend/src/users/users.service.ts` : désactivation dans `update` et `resetPassword`, dans la transaction existante (FR-020).
 
   Faire passer T060.
   *Déjà fait en US2 (T032) : DELETE /api/push/subscriptions/current et deleteForSession. Reste : DELETE /:id, les branchements auth et utilisateurs.*
-- [ ] T064 [US5] Créer `backend/src/scheduler/push-subscriptions-cleanup.job.ts` (`@Interval` d'une heure, suppression des `lastUsedAt` de plus de 90 jours, nombre supprimé journalisé) et l'enregistrer dans `backend/src/scheduler/scheduler.module.ts` ; faire passer T061
-- [ ] T065 [P] [US5] Tests en échec dans `frontend/tests/push/devices-list.test.tsx` et `frontend/tests/auth/logout-push.test.tsx` :
+- [X] T064 [US5] Créer `backend/src/scheduler/push-subscriptions-cleanup.job.ts` (`@Interval` d'une heure, suppression des `lastUsedAt` de plus de 90 jours, nombre supprimé journalisé) et l'enregistrer dans `backend/src/scheduler/scheduler.module.ts` ; faire passer T061
+- [X] T065 [P] [US5] Tests en échec dans `frontend/tests/push/devices-list.test.tsx` et `frontend/tests/auth/logout-push.test.tsx` :
   - liste `<ul>` des appareils avec libellé, « Activé le … », « Dernière utilisation le … », badge « Cet appareil » ;
   - bouton « Retirer iPhone · Safari » avec confirmation → `DELETE /api/push/subscriptions/<id>`, puis liste mise à jour ;
   - état vide « Aucun appareil abonné. » ;
   - déconnexion : `unsubscribe()` et `DELETE /api/push/subscriptions/current` avant `POST /api/auth/logout` ; un échec de ces deux appels n'empêche pas la déconnexion.
-- [ ] T066 [US5] Créer `frontend/src/features/push/DevicesList.tsx` (bloc « Mes appareils » de `NotificationsSection`) et modifier `useLogout` dans `frontend/src/features/auth/useCurrentUser.ts` ; ajouter les traductions ; faire passer T065
+- [X] T066 [US5] Créer `frontend/src/features/push/DevicesList.tsx` (bloc « Mes appareils » de `NotificationsSection`) et modifier `useLogout` dans `frontend/src/features/auth/useCurrentUser.ts` ; ajouter les traductions ; faire passer T065
 
 **Point d'étape** : cycle de vie complet des abonnements.
 
@@ -440,13 +444,16 @@ lignes supprimées.
 
 **Test indépendant** : envoyeur en panne ou clés absentes : actions et notifications dans l'application identiques.
 
-- [ ] T067 [P] [US6] Tests d'intégration dans `backend/test/integration/push-resilience.spec.ts` :
+  *La liste « Mes appareils » est relue après chaque activation ou désactivation de l’appareil courant.*
+- [X] T067 [P] [US6] Tests d'intégration dans `backend/test/integration/push-resilience.spec.ts` :
   - envoyeur qui lève une exception, ou dont la promesse ne se résout jamais → une affectation de garde, une transition de demande et un message réussissent quand même, avec les mêmes notifications en base que sans push (SC-005) ;
   - la réponse HTTP ne dépend pas de l'envoyeur.
 
   Corriger le code si un test échoue.
-- [ ] T068 [US6] Lancer sans modification les suites existantes sur les notifications (`npm run -w backend test:integration -- notifications realtime coverage messages`, `npm run -w frontend test -- notifications`) : toutes passent (SC-005)
-- [ ] T069 [US6] Dans `backend/scripts/e2e-server.ts`, forcer `PUSH_VAPID_PUBLIC_KEY`, `PUSH_VAPID_PRIVATE_KEY` et `PUSH_VAPID_SUBJECT` à `''` dans `env`, comme le sont déjà les `ASSIST_*`, pour que le serveur e2e soit toujours sans push. Puis créer `e2e/notifications-push.spec.ts` (serveur e2e sans clés) :
+  *Défaut trouvé et corrigé : une exception de l’envoyeur laissait une promesse rejetée non traitée (risque d’arrêt du processus Node). Le dispatcher la traite désormais comme une erreur réseau (nouvelle tentative) et attrape toute erreur d’un envoi.*
+- [X] T068 [US6] Lancer sans modification les suites existantes sur les notifications (`npm run -w backend test:integration -- notifications realtime coverage messages`, `npm run -w frontend test -- notifications`) : toutes passent (SC-005)
+  *Toutes les suites passent : 961 tests d’intégration (1 ignoré), 680 tests frontend. Quelques tests existants ont été adaptés au nouveau contrat (liste dans docs/validation/verification-014.md, « Existing expectations modified »).*
+- [X] T069 [US6] Dans `backend/scripts/e2e-server.ts`, forcer `PUSH_VAPID_PUBLIC_KEY`, `PUSH_VAPID_PRIVATE_KEY` et `PUSH_VAPID_SUBJECT` à `''` dans `env`, comme le sont déjà les `ASSIST_*`, pour que le serveur e2e soit toujours sans push. Puis créer `e2e/notifications-push.spec.ts` (serveur e2e sans clés) :
   - « Mon profil » affiche « Les notifications push ne sont pas activées par l'établissement. » ;
   - désactiver « Couverture » persiste après rechargement ;
   - l'interrupteur du son persiste ;
@@ -460,14 +467,15 @@ lignes supprimées.
 
 ## Phase 9 : Finitions et points transversaux
 
-- [ ] T070 [P] Créer `docs/notifications-push.md` :
+  *Scénarios qui modifient des réglages limités au profil chromium (comptes partagés entre profils), contrôle 320 px limité à mobile-320. Lancé sur ces deux profils : 3 réussis.*
+- [X] T070 [P] Créer `docs/notifications-push.md` :
   - activation : générer les clés, les trois variables, sujet `mailto:` ou `https:`, HTTPS obligatoire, redémarrage ; un renouvellement des clés oblige chaque appareil à réactiver ;
   - fuseau : régler `SCHOOL_TIMEZONE=Africa/Tunis`, sinon la plage est évaluée à l'heure de Paris (une heure d'écart en été) ;
   - limite iPhone et iPad : écran d'accueil, iOS 16.4 ;
   - fiche pour le registre RGPD, reprise de « Données personnelles et conservation » de la spec : finalité, données, durées, services de push destinataires des métadonnées, activation sur décision de l'établissement.
 
   Ajouter un lien dans `README.md`, à l'endroit où les autres variables d'environnement sont décrites.
-- [ ] T071 [P] Vérifier que `backend/test/unit/architecture-layers.spec.ts` passe (le dossier `push` est hors de la liste `LAYERS`, donc non contrôlé) et que `npm run -w backend typecheck` et `npm run -w frontend typecheck` passent
+- [X] T071 [P] Vérifier que `backend/test/unit/architecture-layers.spec.ts` passe (le dossier `push` est hors de la liste `LAYERS`, donc non contrôlé) et que `npm run -w backend typecheck` et `npm run -w frontend typecheck` passent
 - [ ] T072 Lancer `npm run verify` (lint, tous les tests, `npm audit --audit-level=high`) et `npm run test:e2e` ; tout doit passer avant tout commit (mémoire du projet : CI complète en local)
 - [ ] T073 Dérouler les scénarios manuels de [quickstart.md](quickstart.md) sur Android et iPhone via HTTPS (démonstration en ligne ou préproduction), mesurer SC-001 selon le protocole, et consigner les résultats et leurs conditions dans `docs/validation/verification-014.md`. En préproduction, derrière Caddy (le tunnel de démonstration passe par Vite et ne le teste pas) :
   - `curl -I https://<domaine>/sw.js` → `Cache-Control: no-cache` et un type JavaScript ;
@@ -475,7 +483,7 @@ lignes supprimées.
   - console du navigateur sans violation de la politique de sécurité du contenu, à l'enregistrement du service worker et à l'affichage d'une notification ;
   - vérifier la valeur de `SCHOOL_TIMEZONE` (`Africa/Tunis`) ;
   - résultats consignés dans `docs/validation/verification-014.md`.
-- [ ] T074 Relire la spec contre le code livré : chaque FR-001 à FR-020, NFR-001 à NFR-006 et SC-001 à SC-006 a un test ou une vérification consignée ; noter tout écart dans `docs/validation/verification-014.md`
+- [X] T074 Relire la spec contre le code livré : chaque FR-001 à FR-020, NFR-001 à NFR-006 et SC-001 à SC-006 a un test ou une vérification consignée ; noter tout écart dans `docs/validation/verification-014.md`
 
 ---
 
@@ -544,6 +552,7 @@ l'établissement n'a pas décidé l'activation (D9).
 
 ## Notes
 
+  *Compte rendu : docs/validation/verification-014.md (rapprochement exigences ↔ tests, attentes modifiées, défaut corrigé, contrôles manuels en attente). docs/notifications-push.md rédigé en anglais, comme les autres documents de docs/.*
 - [P] = fichiers différents, aucune dépendance envers une tâche non terminée.
 - Une migration appliquée n'est jamais modifiée : toute correction passe par une nouvelle migration (CLAUDE.md).
 - Commiter après chaque tâche ou groupe logique, seulement après `npm run verify` en local.

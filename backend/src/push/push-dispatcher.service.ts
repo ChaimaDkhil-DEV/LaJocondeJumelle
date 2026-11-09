@@ -4,10 +4,12 @@ import { createHash } from 'node:crypto';
 import { PrismaService } from '../common/prisma.service';
 import type { AppConfig } from '../config/config';
 import { APP_CONFIG } from '../config/config.module';
+import { SettingsService } from '../settings/settings.service';
 import { pushCategoryOf, pushRecipientAllowed } from './domain/push-category';
 import { buildPushPayload } from './domain/push-payload';
+import { isWithinPushWindow } from './domain/push-window';
 import { nextAttemptDelayMs } from './domain/push-retry';
-import { PUSH_SENDER, type PushSender } from './web-push.sender';
+import { PUSH_SENDER, type PushSender, type PushSendResult } from './web-push.sender';
 
 /** Attente entre deux tentatives ; remplacée dans les tests pour décider quand la suivante part. */
 export interface PushScheduler {
@@ -38,7 +40,8 @@ function fingerprint(endpoint: string): string {
  * l'établissement n'a pas configuré ses clés (D9, FR-013).
  *
  * Pour chaque notification : catégorie push (type et nature de la demande), filtre « Enseignant arrivé »
- * (D4), compte actif, puis un envoi par appareil abonné du destinataire. Avant chaque tentative,
+ * (D4), compte actif, catégorie active dans ses préférences, plage horaire ouverte (au premier envoi),
+ * puis un envoi par appareil abonné du destinataire. Avant chaque tentative,
  * l'abonnement est relu : supprimé (déconnexion), transféré à un autre utilisateur ou compte désactivé →
  * abandon (FR-020). Les tentatives en attente sont perdues au redémarrage, comme Socket.IO (NC-4).
  */
@@ -54,6 +57,7 @@ export class PushDispatcher {
     private readonly prisma: PrismaService,
     @Inject(PUSH_SENDER) private readonly sender: PushSender,
     @Inject(PUSH_SCHEDULER) private readonly scheduler: PushScheduler,
+    private readonly settings: SettingsService,
   ) {}
 
   enqueue(notifications: Notification[]): void {
@@ -76,6 +80,11 @@ export class PushDispatcher {
   }
 
   private async dispatch(notifications: Notification[]): Promise<void> {
+    // Plage d'envoi de l'établissement, évaluée au premier envoi (D6) : hors plage, rien n'est envoyé ni différé.
+    const settings = await this.settings.getAll();
+    const window = { days: settings.pushWindowDays, start: settings.pushWindowStart, end: settings.pushWindowEnd };
+    if (!isWithinPushWindow(new Date(), window, this.config.schoolTimezone)) return;
+
     const requests = await this.prisma.request.findMany({
       where: { id: { in: [...new Set(notifications.map((n) => n.requestId))] } },
       select: { id: true, kind: true, reference: true, assigneeId: true, coverage: { select: { class: { select: { name: true } } } } },
@@ -113,7 +122,11 @@ export class PushDispatcher {
       );
       const topic = notification.id.replace(/-/g, '');
       for (const { id } of subscriptions) {
-        this.track(this.deliver(id, notification.userId, notification.type, payload, topic));
+        this.track(
+          this.deliver(id, notification.userId, notification.type, payload, topic).catch((error: unknown) => {
+            this.logger.error(`Push ${notification.type} : envoi interrompu (${error instanceof Error ? error.name : 'erreur inconnue'})`);
+          }),
+        );
       }
     }
   }
@@ -128,8 +141,11 @@ export class PushDispatcher {
       });
       if (!target) return;
 
+      // Une exception de l'envoyeur compte comme une erreur réseau : nouvelle tentative, jamais de rejet non traité.
       const result = await this.withSlot(() =>
-        this.sender.send({ endpoint: target.endpoint, keys: { p256dh: target.p256dh, auth: target.auth } }, payload, { topic }),
+        this.sender
+          .send({ endpoint: target.endpoint, keys: { p256dh: target.p256dh, auth: target.auth } }, payload, { topic })
+          .catch((): PushSendResult => ({ statusCode: null })),
       );
       const decision = nextAttemptDelayMs(attempt, result, Date.now() - startedAt);
       const device = fingerprint(target.endpoint);

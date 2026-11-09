@@ -1,7 +1,8 @@
-import { Body, Controller, Delete, Get, Headers, HttpCode, Put, Res } from '@nestjs/common';
-import type { Response } from 'express';
+import { Body, Controller, Delete, Get, Headers, HttpCode, Param, ParseUUIDPipe, Put, Req, Res } from '@nestjs/common';
+import type { Request, Response } from 'express';
 import { CurrentAuth } from '../auth/current-user.decorator';
 import type { AuthContext } from '../auth/auth.types';
+import { clientIp } from '../common/request-info';
 import { UpsertPushSubscriptionDto } from './push.dto';
 import { PushSubscriptionsService, type DeviceView, type UpsertResult } from './push-subscriptions.service';
 
@@ -41,5 +42,12 @@ export class PushController {
   @HttpCode(204)
   removeCurrent(@CurrentAuth() auth: AuthContext): Promise<void> {
     return this.subscriptions.deleteForSession(auth.user.id, auth.sessionId);
+  }
+
+  /** Un de ses appareils (« Mes appareils ») ; déclarée après « current » pour ne pas la masquer. */
+  @Delete('subscriptions/:id')
+  @HttpCode(204)
+  remove(@CurrentAuth() auth: AuthContext, @Param('id', ParseUUIDPipe) id: string, @Req() req: Request): Promise<void> {
+    return this.subscriptions.deleteOwn(auth.user.id, id, { ip: clientIp(req), route: '/api/push/subscriptions/:id', method: 'DELETE' });
   }
 }

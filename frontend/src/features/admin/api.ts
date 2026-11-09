@@ -111,6 +111,10 @@ export interface AdminSettings {
   coverageSupportReminderMinutes: number;
   coverageSupportReminderMax: number;
   coverageRetentionMonths: number;
+  /** Notifications push (014) : jours d'envoi (MON … SUN), heures de début et de fin (HH:MM), heure de l'école. */
+  pushWindowDays: string[];
+  pushWindowStart: string;
+  pushWindowEnd: string;
 }
 
 export type ConfigurableRole = 'EMPLOYEE' | 'ADMIN';

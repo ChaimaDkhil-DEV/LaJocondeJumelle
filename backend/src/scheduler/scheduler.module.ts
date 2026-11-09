@@ -8,6 +8,7 @@ import { CoverageAnonymizationJob } from './coverage-anonymization.job';
 import { CoverageDeadlinesJob } from './coverage-deadlines.job';
 import { CoverageRemindersJob } from './coverage-reminders.job';
 import { OrphanFilesJob } from './orphan-files.job';
+import { PushSubscriptionsCleanupJob } from './push-subscriptions-cleanup.job';
 import { OverdueJob } from './overdue.job';
 import { SessionRevalidationJob } from './session-revalidation.job';
 import { SuperAdminAlertsJob } from './super-admin-alerts.job';
@@ -19,6 +20,7 @@ import { SuperAdminAlertsJob } from './super-admin-alerts.job';
     OverdueJob,
     SessionRevalidationJob,
     OrphanFilesJob,
+    PushSubscriptionsCleanupJob,
     CoverageDeadlinesJob,
     CoverageRemindersJob,
     CoverageAnonymizationJob,

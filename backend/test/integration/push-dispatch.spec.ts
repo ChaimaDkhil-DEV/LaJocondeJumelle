@@ -123,7 +123,17 @@ describe('Envoi des notifications en push (US1)', () => {
       id[who] = await userId(prisma, who);
     }
     violet = (await prisma.schoolClass.findUniqueOrThrow({ where: { name: '1ère année Violet' } })).id;
+    // Plage d'envoi ouverte toute la journée, tous les jours : ces tests ne dépendent pas de l'heure (US4).
+    // Seule la minute 23:59, exclue, la ferme.
+    await openWindow();
   });
+
+  const ALL_DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+  const setWindow = async (body: Record<string, unknown>) => {
+    const res = await api().put('/api/admin/settings').set('Cookie', cookie.superadmin).set('Origin', TEST_ORIGIN).send(body);
+    if (res.status !== 200) throw new Error(`Plage : ${res.status} ${JSON.stringify(res.body)}`);
+  };
+  const openWindow = () => setWindow({ pushWindowDays: ALL_DAYS, pushWindowStart: '00:00', pushWindowEnd: '23:59' });
 
   beforeEach(async () => {
     await dispatcher.settled();
@@ -304,6 +314,28 @@ describe('Envoi des notifications en push (US1)', () => {
     await dispatcher.settled();
     expect(sent).toHaveLength(0);
     expect(await prisma.pushSubscription.count({ where: { userId: id.reprographie } })).toBe(1);
+  });
+
+  it('(US4) plage fermée au moment de l’envoi : aucun push, ni maintenant ni à sa réouverture (NC-7)', async () => {
+    const today = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: loadConfig().schoolTimezone })
+      .format(new Date())
+      .toUpperCase()
+      .slice(0, 3);
+    await subscribe('surveillant');
+    try {
+      await setWindow({ pushWindowDays: ALL_DAYS.filter((d) => d !== today) });
+      const res = await directCoverage('surveillant');
+      expect(res.status).toBe(201);
+      await dispatcher.settled();
+      expect(await prisma.notification.count({ where: { userId: id.surveillant, type: 'ASSIGNED' } })).toBe(1);
+      expect(sent).toHaveLength(0);
+
+      await openWindow();
+      await dispatcher.settled();
+      expect(sent).toHaveLength(0);
+    } finally {
+      await openWindow();
+    }
   });
 
   describe('tentative en attente (FR-020, NC-8a)', () => {

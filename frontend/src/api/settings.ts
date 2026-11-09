@@ -9,6 +9,10 @@ export interface ClientSettings {
   /** Assistance (spec 009) : propositions et transcription disponibles sur ce serveur. */
   assistSuggestions: boolean;
   assistTranscription: boolean;
+  /** Plage d'envoi des notifications push (spec 014) : jours (MON … SUN), début et fin (HH:MM, heure de l'école). */
+  pushWindowDays: string[];
+  pushWindowStart: string;
+  pushWindowEnd: string;
 }
 
 /** Valeurs par défaut provisoires, utilisées tant que les réglages ne sont pas chargés. */
@@ -19,6 +23,9 @@ export const DEFAULT_CLIENT_SETTINGS: ClientSettings = {
   draftsEnabled: true,
   assistSuggestions: false,
   assistTranscription: false,
+  pushWindowDays: ['MON', 'TUE', 'WED', 'THU', 'FRI'],
+  pushWindowStart: '07:30',
+  pushWindowEnd: '18:30',
 };
 
 /** Réglages modifiables par le super administrateur et utiles à l'interface (GET /settings/client). */

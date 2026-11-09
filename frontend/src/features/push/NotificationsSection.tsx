@@ -7,6 +7,7 @@ import Switch from '@mui/material/Switch';
 import Typography from '@mui/material/Typography';
 import { Bell, BellOff, BellRing } from 'lucide-react';
 import { useId, useState } from 'react';
+import { DEFAULT_CLIENT_SETTINGS, useClientSettings } from '../../api/settings';
 import { SectionCard } from '../../components/SectionCard';
 import { icon } from '../../design/tokens';
 import { t } from '../../i18n';
@@ -16,7 +17,9 @@ import {
   type NotificationPreferencesPatch,
   type PushCategoryName,
 } from '../notifications/api';
+import { DevicesList } from './DevicesList';
 import type { PushSupportState } from './pushSupport';
+import { pushWindowText } from './pushWindowText';
 import { usePushDevice } from './usePushDevice';
 
 /** Message de l'état du push sur l'appareil courant (contracts/ui.md). */
@@ -148,6 +151,7 @@ const CATEGORY_TEXTS: Array<{ key: PushCategoryName; label: string; description:
 /** Catégories push et son des urgences, sur le compte (FR-009) : enregistrés dès le changement. */
 function PreferencesBlock() {
   const preferences = useNotificationPreferences();
+  const settings = useClientSettings();
   const update = useUpdateNotificationPreferences();
   const [feedback, setFeedback] = useState<'saved' | 'error' | null>(null);
   const data = preferences.data;
@@ -166,6 +170,13 @@ function PreferencesBlock() {
         </Typography>
         <Typography variant="body2" color="text.secondary">
           {t('Ces choix s’appliquent à tous vos appareils abonnés.')}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          {pushWindowText(
+            Array.isArray(settings.pushWindowDays) ? settings.pushWindowDays : DEFAULT_CLIENT_SETTINGS.pushWindowDays,
+            settings.pushWindowStart ?? DEFAULT_CLIENT_SETTINGS.pushWindowStart,
+            settings.pushWindowEnd ?? DEFAULT_CLIENT_SETTINGS.pushWindowEnd,
+          )}
         </Typography>
       </Box>
       {CATEGORY_TEXTS.map((category) => (
@@ -203,6 +214,7 @@ export function NotificationsSection() {
       <Box sx={{ display: 'grid', gap: 3 }}>
         <DeviceBlock />
         <PreferencesBlock />
+        <DevicesList />
       </Box>
     </SectionCard>
   );

@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../../api/client';
 
 /** Configuration du push donnée par le serveur : jamais la clé privée (spec 014, contracts/http-api.md). */
@@ -34,4 +34,32 @@ export function savePushSubscription(subscription: BrowserSubscriptionJson) {
 /** Retire l'abonnement de la session courante côté serveur. */
 export function removeCurrentPushSubscription() {
   return apiFetch<void>('/api/push/subscriptions/current', { method: 'DELETE' });
+}
+
+/** Appareil abonné du compte (GET /api/push/subscriptions) : jamais l'adresse d'envoi ni les clés. */
+export interface PushDevice {
+  id: string;
+  deviceLabel: string;
+  createdAt: string;
+  lastUsedAt: string;
+  /** Appareil de la session courante. */
+  current: boolean;
+}
+
+export const PUSH_DEVICES_KEY = ['push', 'devices'] as const;
+
+export function usePushDevices() {
+  return useQuery({
+    queryKey: PUSH_DEVICES_KEY,
+    queryFn: () => apiFetch<PushDevice[]>('/api/push/subscriptions'),
+  });
+}
+
+/** Retire un de ses appareils, puis relit la liste. */
+export function useRemovePushDevice() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiFetch<void>(`/api/push/subscriptions/${id}`, { method: 'DELETE' }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: PUSH_DEVICES_KEY }),
+  });
 }

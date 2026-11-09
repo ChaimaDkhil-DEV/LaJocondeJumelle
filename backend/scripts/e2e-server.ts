@@ -55,6 +55,11 @@ async function main(): Promise<void> {
       ASSIST_SUGGESTION_PROVIDER: 'demo',
       ASSIST_TRANSCRIPTION_PROVIDER: 'demo',
       ASSIST_RATE_LIMIT: '1000',
+      // Notifications push (spec 014) : toujours désactivées en e2e, quelles que soient les clés de backend/.env
+      // (chargé par @prisma/client) ; aucun abonnement réel ne contacterait un service de push.
+      PUSH_VAPID_PUBLIC_KEY: '',
+      PUSH_VAPID_PRIVATE_KEY: '',
+      PUSH_VAPID_SUBJECT: '',
       NODE_ENV: 'test',
     },
   });

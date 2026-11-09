@@ -3,6 +3,7 @@ import { argon2id, hash, verify } from 'argon2';
 import { AuditService } from '../audit/audit.service';
 import { AppException } from '../common/errors';
 import { PrismaService } from '../common/prisma.service';
+import { PushSubscriptionsService } from '../push/push-subscriptions.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import type { AuthenticatedUser } from './auth.types';
 import { LoginAttemptLimiter } from './login-attempt-limiter';
@@ -19,6 +20,7 @@ export class AuthService {
     private readonly audit: AuditService,
     private readonly realtime: RealtimeService,
     private readonly attempts: LoginAttemptLimiter,
+    private readonly push: PushSubscriptionsService,
   ) {}
 
   /** Argon2id avec les paramètres par défaut de la bibliothèque argon2. */
@@ -62,6 +64,8 @@ export class AuthService {
 
   async logout(user: AuthenticatedUser, sessionId: string, ip: string | null): Promise<void> {
     await this.sessions.revoke(sessionId);
+    // L'appareil de cette session ne reçoit plus de notifications push (spec 014, D8, SC-003).
+    await this.push.deleteForSession(user.id, sessionId);
     this.realtime.endSession(sessionId, 'LOGOUT');
     await this.audit.log('LOGOUT', { actorId: user.id, ip });
   }
@@ -85,6 +89,8 @@ export class AuthService {
       data: { passwordHash: await this.hashPassword(newPassword), mustChangePassword: false },
     });
     await this.sessions.revokeAllForUser(user.id, sessionId);
+    // Comme les sessions : les autres appareils ne reçoivent plus de push (spec 014, NC-8b).
+    await this.push.deleteOtherDevices(user.id, sessionId);
     await this.audit.log('PASSWORD_CHANGED', { actorId: user.id, targetType: 'User', targetId: user.id, ip });
   }
 }

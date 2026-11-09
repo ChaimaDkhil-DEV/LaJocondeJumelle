@@ -7,6 +7,7 @@ import type { AuthenticatedUser } from '../auth/auth.types';
 import { SessionService } from '../auth/session.service';
 import { AppException } from '../common/errors';
 import { PrismaService } from '../common/prisma.service';
+import { PushSubscriptionsService } from '../push/push-subscriptions.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { parseLimit, type Page } from '../common/pagination';
 import type { CreateUserDto, ListUsersQuery, UpdateUserDto } from './users.dto';
@@ -118,6 +119,7 @@ export class UsersService {
     private readonly sessions: SessionService,
     private readonly audit: AuditService,
     private readonly realtime: RealtimeService,
+    private readonly push: PushSubscriptionsService,
   ) {}
 
   /** Comptes actifs d'abord, par nom ; pagination par curseur sur (active, displayName, id). */
@@ -272,7 +274,11 @@ export class UsersService {
       }
       if (after.role === 'EMPLOYEE') await tx.categoryManager.deleteMany({ where: { userId: id } });
       if (Object.keys(userData).length > 0) await tx.user.update({ where: { id }, data: userData });
-      if (deactivated) await tx.session.deleteMany({ where: { userId: id } });
+      if (deactivated) {
+        await tx.session.deleteMany({ where: { userId: id } });
+        // Plus aucun push vers ses appareils, dans la même transaction (spec 014, D8, FR-020).
+        await this.push.deleteAllForUser(id, tx);
+      }
 
       const otherFields = Object.keys(after).filter((f) => f !== 'active' || !deactivated);
       if (deactivated) {
@@ -308,6 +314,7 @@ export class UsersService {
     await this.prisma.$transaction(async (tx) => {
       await tx.user.update({ where: { id }, data: { passwordHash, mustChangePassword: true } });
       await tx.session.deleteMany({ where: { userId: id } });
+      await this.push.deleteAllForUser(id, tx);
       await this.audit.log('PASSWORD_RESET', { actorId: ctx.actor.id, ip: ctx.ip, targetType: 'User', targetId: id }, tx);
     });
     this.realtime.endUserSessions(id, 'PASSWORD_RESET');

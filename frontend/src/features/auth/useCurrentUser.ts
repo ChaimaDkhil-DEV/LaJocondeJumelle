@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../../api/client';
 import type { Me } from '../../api/types';
+import { unsubscribeThisDevice } from '../push/usePushDevice';
 
 export const ME_QUERY_KEY = ['me'] as const;
 
@@ -25,7 +26,11 @@ export function useLogin() {
 export function useLogout() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: () => apiFetch<void>('/api/auth/logout', { method: 'POST' }),
+    mutationFn: async () => {
+      // L'appareil ne reçoit plus de notifications push (spec 014, D8) ; un échec n'empêche pas la déconnexion.
+      await unsubscribeThisDevice().catch(() => undefined);
+      await apiFetch<void>('/api/auth/logout', { method: 'POST' });
+    },
     onSettled: () => {
       queryClient.clear();
     },

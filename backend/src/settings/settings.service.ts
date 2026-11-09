@@ -27,6 +27,10 @@ export const SETTING_DEFAULTS = {
   coverageSupportReminderMinutes: 10,
   coverageSupportReminderMax: 3,
   coverageRetentionMonths: 12,
+  // Notifications push (014, D6) : plage d'envoi commune, dans le fuseau de l'école (SCHOOL_TIMEZONE).
+  pushWindowDays: ['MON', 'TUE', 'WED', 'THU', 'FRI'],
+  pushWindowStart: '07:30',
+  pushWindowEnd: '18:30',
 };
 
 export type Settings = typeof SETTING_DEFAULTS;
@@ -40,7 +44,7 @@ const TECHNICAL_MAX_BYTES = 25 * 1024 * 1024;
 type Rule =
   | { kind: 'int'; min: number; max: number; label: string }
   | { kind: 'boolean' }
-  | { kind: 'subset'; allowed: readonly string[] }
+  | { kind: 'subset'; allowed: readonly string[]; label?: string }
   | { kind: 'time' };
 
 /** Bornes de chaque réglage (administration, US8). */
@@ -63,6 +67,9 @@ export const SETTING_RULES: Record<SettingKey, Rule> = {
   coverageSupportReminderMinutes: { kind: 'int', min: 1, max: 120, label: 'entre 1 et 120 minutes' },
   coverageSupportReminderMax: { kind: 'int', min: 1, max: 10, label: 'entre 1 et 10' },
   coverageRetentionMonths: { kind: 'int', min: 1, max: 60, label: 'entre 1 et 60 mois' },
+  pushWindowDays: { kind: 'subset', allowed: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'], label: 'Au moins un jour parmi' },
+  pushWindowStart: { kind: 'time' },
+  pushWindowEnd: { kind: 'time' },
 };
 
 /** Message d'erreur si la valeur est invalide pour ce réglage, sinon null. */
@@ -81,7 +88,7 @@ export function settingError(key: SettingKey, value: unknown): string | null {
         value.every((v) => typeof v === 'string' && rule.allowed.includes(v)) &&
         new Set(value).size === value.length
         ? null
-        : `Au moins un type parmi : ${rule.allowed.join(', ')}.`;
+        : `${rule.label ?? 'Au moins un type parmi'} : ${rule.allowed.join(', ')}.`;
     case 'time':
       return typeof value === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(value) ? null : 'Heure au format HH:MM attendue.';
   }

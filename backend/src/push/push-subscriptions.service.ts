@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { AuditService } from '../audit/audit.service';
 import { AppException } from '../common/errors';
 import { PrismaService } from '../common/prisma.service';
 import type { AppConfig } from '../config/config';
@@ -43,6 +44,7 @@ export class PushSubscriptionsService {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
+    private readonly audit: AuditService,
   ) {}
 
   /** Configuration utile au navigateur : jamais la clé privée. */
@@ -111,6 +113,40 @@ export class PushSubscriptionsService {
    */
   async deleteForSession(userId: string, sessionId: string): Promise<void> {
     await this.prisma.pushSubscription.deleteMany({ where: { userId, sessionId } });
+  }
+
+  /**
+   * Retrait d'un de ses appareils (« Mes appareils »). Introuvable ou appartenant à un autre : 404, sans
+   * révéler son existence ; le second cas est journalisé (ACCESS_DENIED, principe V), sans adresse d'envoi.
+   */
+  async deleteOwn(userId: string, subscriptionId: string, ctx: { ip: string | null; route: string; method: string }): Promise<void> {
+    const { count } = await this.prisma.pushSubscription.deleteMany({ where: { id: subscriptionId, userId } });
+    if (count > 0) return;
+    if (await this.prisma.pushSubscription.findUnique({ where: { id: subscriptionId }, select: { id: true } })) {
+      await this.audit.log('ACCESS_DENIED', {
+        actorId: userId,
+        targetType: 'PushSubscription',
+        targetId: subscriptionId,
+        ip: ctx.ip,
+        details: { reason: 'Appareil d’un autre utilisateur', route: ctx.route, method: ctx.method, channel: 'http' },
+      });
+    }
+    throw new AppException('NOT_FOUND');
+  }
+
+  /**
+   * Changement de son propre mot de passe (NC-8b) : comme pour les sessions, les autres appareils sont
+   * retirés ; seul celui de la session courante reste.
+   */
+  async deleteOtherDevices(userId: string, keepSessionId: string): Promise<void> {
+    await this.prisma.pushSubscription.deleteMany({
+      where: { userId, OR: [{ sessionId: null }, { sessionId: { not: keepSessionId } }] },
+    });
+  }
+
+  /** Désactivation du compte ou réinitialisation du mot de passe : tous les appareils, dans la transaction appelante (FR-020). */
+  async deleteAllForUser(userId: string, tx: Prisma.TransactionClient = this.prisma): Promise<void> {
+    await tx.pushSubscription.deleteMany({ where: { userId } });
   }
 
   /** Appareils de l'utilisateur, du plus récent au plus ancien ; l'appareil de la session courante signalé. */
