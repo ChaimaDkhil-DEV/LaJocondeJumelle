@@ -1,7 +1,9 @@
 import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
+import QRCode from 'qrcode';
 import type { AccountName } from './support/accounts';
 import { expectNoA11yViolations } from './support/axe';
 import { login } from './support/login';
+import { manualQrField } from './support/qr-scanner';
 
 /**
  * Pointage des enseignants par QR : un seul QR par classe (le même que celui des gardes). Le QR identifie
@@ -62,9 +64,9 @@ test.describe('Pointage des enseignants par QR', () => {
       await check(teacher.page, 'Mes présences');
       await teacher.page.getByRole('button', { name: 'Scanner QR Code' }).click();
       const dialog = teacher.page.getByRole('dialog', { name: 'Scanner le QR code de la classe' });
-      await expect(dialog.getByRole('textbox', { name: 'Lien ou code du QR code' })).toBeVisible();
+      const field = await manualQrField(dialog);
       await check(teacher.page, 'Scanner le QR code');
-      await dialog.getByRole('textbox', { name: 'Lien ou code du QR code' }).fill(link);
+      await field.fill(link);
       await dialog.getByRole('button', { name: 'Continuer' }).click();
 
       // --- Page de la classe : ouvrir le lien n'enregistre rien, un appui enregistre l'arrivée.
@@ -83,6 +85,18 @@ test.describe('Pointage des enseignants par QR', () => {
 
       // Double scan : pas de doublon, le pointage du jour est simplement rappelé.
       await teacher.page.goto(new URL(link).pathname + new URL(link).search);
+      await expect(teacher.page.getByText('Votre arrivée était déjà enregistrée pour aujourd’hui.')).toBeVisible();
+
+      // Photo du QR code (appareil photo du téléphone) : le QR est lu dans l'image, même page de la classe.
+      await teacher.page.goto('/gardes?onglet=mes-presences');
+      await teacher.page.getByRole('button', { name: 'Scanner QR Code' }).click();
+      const photoDialog = teacher.page.getByRole('dialog', { name: 'Scanner le QR code de la classe' });
+      await photoDialog.locator('input[type="file"]').setInputFiles({
+        name: 'qr-classe.png',
+        mimeType: 'image/png',
+        buffer: await QRCode.toBuffer(link, { width: 600 }),
+      });
+      await expect(teacher.page).toHaveURL(/\/gardes\/presence\?c=c1\./);
       await expect(teacher.page.getByText('Votre arrivée était déjà enregistrée pour aujourd’hui.')).toBeVisible();
 
       await teacher.page.goto('/gardes?onglet=mes-presences');
