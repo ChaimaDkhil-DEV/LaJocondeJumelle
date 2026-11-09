@@ -221,15 +221,159 @@ describe('Actions d’une garde', () => {
     expect(posts(calls, '/api/coverage/g1/actions')[0].body).toEqual({ action: 'CANCEL', version: 1 });
   });
 
-  it('confirmation de présence avec QR : instructions de scan, aucun envoi depuis ce dialogue', async () => {
-    const user = userEvent.setup();
-    const calls = mockFetch(() => json(200, detail()));
-    renderWith(<CoverageActions detail={detail({ status: 'ACCEPTED', proofMode: 'BOTH', allowedActions: ['CONFIRM_PRESENCE'] })} />);
+});
+
+/**
+ * Amendement 004 (FR-011b, 2026-11-09) : la présence se confirme en scannant le QR code de la classe dans
+ * l'application, comme la déclaration d'une classe vide (013) ; avec « QR + photo », les deux preuves restent
+ * exigées, dans l'ordre voulu, et la présence part dès que les deux sont là.
+ */
+describe('Confirmer ma présence : scan du QR dans l’application', () => {
+  type User = ReturnType<typeof userEvent.setup>;
+  const CLASS_ID = '0a1b2c3d-1111-4222-8333-444455556666';
+  const OTHER_CLASS_ID = '9f8e7d6c-5555-4666-8777-888899990000';
+  const TOKEN = `c1.${CLASS_ID}.1.c2ln`;
+  const link = (token: string) => `http://localhost:5173/gardes/presence?c=${token}`;
+
+  function setup(proofMode: CoverageDetail['proofMode'], action: () => Response | Promise<Response> = () => json(200, detail({ status: 'ON_DUTY' }))) {
+    const calls = mockFetch((call) => {
+      if (call.url === '/api/files') return json(201, { id: 'photo-1', kind: 'PHOTO', mimeType: 'image/jpeg', sizeBytes: 100 });
+      if (call.url === '/api/coverage/g1/actions') return action();
+      return json(200, {});
+    });
+    renderWith(
+      <CoverageActions
+        detail={detail({
+          status: 'EN_ROUTE',
+          proofMode,
+          class: { id: CLASS_ID, name: '1ère année Violet', room: 'Salle 12' },
+          allowedActions: ['CONFIRM_PRESENCE'],
+        })}
+      />,
+    );
+    return calls;
+  }
+
+  async function openPresence(user: User): Promise<HTMLElement> {
     await user.click(screen.getByRole('button', { name: 'Confirmer ma présence' }));
-    const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByText(/scannez le QR code affiché dans la classe/)).toBeInTheDocument();
-    expect(within(dialog).queryByRole('button', { name: 'Confirmer ma présence' })).not.toBeInTheDocument();
-    expect(posts(calls, '/api/coverage/g1/actions')).toHaveLength(0);
+    return screen.findByRole('dialog', { name: 'Confirmer ma présence en classe 1ère année Violet' });
+  }
+
+  /** jsdom n'a pas de caméra : le lien collé dans le lecteur suit le même chemin qu'une lecture par la caméra. */
+  async function scan(user: User, presence: HTMLElement, token: string): Promise<void> {
+    await user.click(within(presence).getByRole('button', { name: 'Scanner le QR code de la classe' }));
+    const scanner = await screen.findByRole('dialog', { name: 'Scanner le QR code de la classe' });
+    await user.type(within(scanner).getByRole('textbox', { name: 'Lien ou code du QR code' }), link(token));
+    await user.click(within(scanner).getByRole('button', { name: 'Continuer' }));
+    await waitFor(() => expect(scanner).not.toBeInTheDocument());
+  }
+
+  async function takePhoto(user: User, presence: HTMLElement): Promise<void> {
+    await user.upload(within(presence).getByLabelText('Prendre la photo'), new File(['jpeg'], 'classe.jpg', { type: 'image/jpeg' }));
+    await within(presence).findByRole('img', { name: 'Photo de présence en classe' });
+  }
+
+  const actions = (calls: Call[]) => posts(calls, '/api/coverage/g1/actions');
+
+  it('preuve « QR » : le lecteur s’ouvre dans l’application et la présence part dès la lecture, sans autre appui', async () => {
+    const user = userEvent.setup();
+    const calls = setup('QR');
+    const presence = await openPresence(user);
+    expect(within(presence).queryByText(/Ouvrez l’appareil photo de votre téléphone/)).not.toBeInTheDocument();
+    expect(within(presence).getByText('Scannez le QR code affiché dans la classe (Salle 12) : la présence est confirmée dès qu’il est lu.')).toBeInTheDocument();
+    expect(within(presence).queryByRole('button', { name: 'Confirmer ma présence' })).not.toBeInTheDocument();
+
+    await scan(user, presence, TOKEN);
+    await waitFor(() => expect(actions(calls)).toHaveLength(1));
+    expect(actions(calls)[0].body).toEqual({ action: 'CONFIRM_PRESENCE', version: 1, qrToken: TOKEN });
+    await waitFor(() => expect(presence).not.toBeInTheDocument());
+    expect(await screen.findByText('Présence confirmée.')).toBeInTheDocument();
+  });
+
+  it('pendant l’envoi : « Confirmation de la présence… », le scan n’est plus proposé', async () => {
+    const user = userEvent.setup();
+    let release: (response: Response) => void = () => undefined;
+    setup('QR', () => new Promise<Response>((resolve) => (release = resolve)));
+    const presence = await openPresence(user);
+    await scan(user, presence, TOKEN);
+    expect(await within(presence).findByRole('status')).toHaveTextContent('Confirmation de la présence…');
+    expect(within(presence).getByRole('button', { name: 'Scanner le QR code de la classe' })).toBeDisabled();
+    release(json(200, detail({ status: 'ON_DUTY' })));
+    await waitFor(() => expect(presence).not.toBeInTheDocument());
+  });
+
+  it('preuve « QR + photo », scan d’abord : rien ne part avant la photo, puis la présence part avec les deux', async () => {
+    const user = userEvent.setup();
+    const calls = setup('BOTH');
+    const presence = await openPresence(user);
+    expect(
+      within(presence).getByText(
+        'Prenez la photo et scannez le QR code affiché dans la classe (Salle 12), dans l’ordre que vous voulez : la présence est confirmée dès que les deux sont faits.',
+      ),
+    ).toBeInTheDocument();
+
+    await scan(user, presence, TOKEN);
+    expect(within(presence).getByText('QR code de la classe lu : prenez maintenant la photo.')).toBeInTheDocument();
+    expect(actions(calls)).toHaveLength(0);
+
+    // La présence part dès la photo prise : le dialogue se ferme sans attendre l'aperçu.
+    await user.upload(within(presence).getByLabelText('Prendre la photo'), new File(['jpeg'], 'classe.jpg', { type: 'image/jpeg' }));
+    await waitFor(() => expect(actions(calls)).toHaveLength(1));
+    expect(actions(calls)[0].body).toEqual({ action: 'CONFIRM_PRESENCE', version: 1, qrToken: TOKEN, photoFileId: 'photo-1' });
+  });
+
+  it('preuve « QR + photo », photo d’abord : rien ne part avant le scan, puis la présence part avec les deux', async () => {
+    const user = userEvent.setup();
+    const calls = setup('BOTH');
+    const presence = await openPresence(user);
+    await takePhoto(user, presence);
+    expect(actions(calls)).toHaveLength(0);
+
+    await scan(user, presence, TOKEN);
+    await waitFor(() => expect(actions(calls)).toHaveLength(1));
+    expect(actions(calls)[0].body).toEqual({ action: 'CONFIRM_PRESENCE', version: 1, qrToken: TOKEN, photoFileId: 'photo-1' });
+  });
+
+  it('QR d’une autre classe : message, rien n’est envoyé ; le QR de la classe passe ensuite', async () => {
+    const user = userEvent.setup();
+    const calls = setup('QR');
+    const presence = await openPresence(user);
+    await scan(user, presence, `c1.${OTHER_CLASS_ID}.1.c2ln`);
+    expect(
+      within(presence).getByText('Ce QR code correspond à une autre classe que celle de votre garde : scannez celui de la classe 1ère année Violet.'),
+    ).toBeInTheDocument();
+    expect(actions(calls)).toHaveLength(0);
+
+    await scan(user, presence, TOKEN);
+    await waitFor(() => expect(actions(calls)).toHaveLength(1));
+  });
+
+  it('refus du serveur : message dans le dialogue, la photo reste, un nouveau scan renvoie la présence', async () => {
+    const user = userEvent.setup();
+    const message = 'Ce QR code n’est pas valide ou a été révoqué. Demandez le QR code à jour.';
+    const calls = setup('BOTH', () => json(422, { error: { code: 'QR_INVALID', message } }));
+    const presence = await openPresence(user);
+    await takePhoto(user, presence);
+    await scan(user, presence, TOKEN);
+    expect(await within(presence).findByText(message)).toBeInTheDocument();
+    expect(actions(calls)).toHaveLength(1);
+    expect(within(presence).getByRole('img', { name: 'Photo de présence en classe' })).toBeInTheDocument();
+
+    await scan(user, presence, TOKEN);
+    await waitFor(() => expect(actions(calls)).toHaveLength(2));
+    expect(actions(calls)[1].body).toEqual({ action: 'CONFIRM_PRESENCE', version: 1, qrToken: TOKEN, photoFileId: 'photo-1' });
+  });
+
+  it('preuve « photo » : inchangée, la photo puis « Confirmer ma présence »', async () => {
+    const user = userEvent.setup();
+    const calls = setup('PHOTO');
+    const presence = await openPresence(user);
+    expect(within(presence).queryByRole('button', { name: 'Scanner le QR code de la classe' })).not.toBeInTheDocument();
+    await takePhoto(user, presence);
+    expect(actions(calls)).toHaveLength(0);
+    await user.click(within(presence).getByRole('button', { name: 'Confirmer ma présence' }));
+    await waitFor(() => expect(actions(calls)).toHaveLength(1));
+    expect(actions(calls)[0].body).toEqual({ action: 'CONFIRM_PRESENCE', version: 1, photoFileId: 'photo-1' });
   });
 });
 

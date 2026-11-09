@@ -844,3 +844,27 @@ Only observed facts, constitution constraints or confirmed choices (see
   statistics; external notification channels (email, SMS, push).
 - Out of scope: pedagogical replacement (lesson taught by another teacher), payroll or
   hour counting, integration with external school-life software.
+
+## Amendment (2026-11-09): presence confirmation by scanning inside the app
+
+**Why**: to confirm their presence with a QR proof, supervisors had to leave the application, scan the class
+QR code with the phone's own camera app, then tap « Confirmer ma présence » on the page it opened. The
+empty-class declaration (spec 013) already scans inside the application and sends at once; the school asked
+for the same way of scanning when confirming presence. Server rules (proof required per category, QR checks,
+allowed states) are unchanged.
+
+- **FR-011b-1**: In the « Confirmer ma présence en classe … » window, a proof that includes the QR code MUST be
+  given with « Scanner le QR code de la classe », which opens the in-app QR reader of spec 013 (camera, photo of
+  the QR code, or pasted link or code).
+- **FR-011b-2**: Proof « QR »: the presence MUST be sent as soon as the class QR code is read, with no other tap.
+- **FR-011b-3**: Proof « QR + photo »: both proofs remain required; the supervisor MAY take the photo and scan
+  the QR code in either order, and the presence MUST be sent as soon as both are done. A QR code read first is
+  kept until the photo is taken, and the window says so.
+- **FR-011b-4**: A QR code of another class MUST send nothing and say which class to scan. A refusal by the
+  server MUST be shown in the window; the photo stays and a new scan sends the presence again.
+- **FR-011b-5**: Proof « photo » and the page opened by the phone's own camera app (`/gardes/presence`,
+  explicit « Confirmer ma présence ») MUST stay as they are.
+
+Tests: `frontend/tests/coverage/coverage.test.tsx` (« Confirmer ma présence : scan du QR dans l'application »)
+and the end-to-end scenario « classe changée « En route » » in `e2e/coverage-class.spec.ts`, which now confirms
+the presence inside the app (photo, then a real image of the QR code read by the in-app reader).
