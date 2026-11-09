@@ -201,7 +201,7 @@ was a deliberate decision of the repository owner's account, taken once this dev
 - `master` green after the merge: run 42602699015 on `82264cf`.
 - The deviation is recorded in `specs/014-notifications-push-preferences/tasks.md` (T038): the test
   `frontend/tests/push/push-sync.test.tsx` passed at its first run; a mutation check (no request to the server) made 2 of
-  its 7 tests fail. Every other test of the feature was written first.
+  its 7 tests fail. No other test-first deviation is recorded for the feature.
 - The full diff review before the merge found a defect: the first activation subscribed before the service worker was
   active, which Chromium refuses. It was fixed in the pull request, test first (commit `4978e03`, recorded in
   [verification-014.md](verification-014.md)).
