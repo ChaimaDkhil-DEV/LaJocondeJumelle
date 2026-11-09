@@ -67,6 +67,10 @@ const SETTINGS = {
   coverageSupportReminderMinutes: 10,
   coverageSupportReminderMax: 3,
   coverageRetentionMonths: 12,
+  // Notifications push (spec 014) : plage d'envoi, renvoyée par le serveur avec les autres réglages.
+  pushWindowDays: ['MON', 'TUE', 'WED', 'THU', 'FRI'],
+  pushWindowStart: '07:30',
+  pushWindowEnd: '18:30',
 };
 
 function setup(path: string, handler: Handler = () => undefined, me: unknown = SUPER_ADMIN) {

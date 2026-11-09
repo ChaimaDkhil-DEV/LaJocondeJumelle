@@ -8,6 +8,7 @@ import FormGroup from '@mui/material/FormGroup';
 import FormHelperText from '@mui/material/FormHelperText';
 import FormLabel from '@mui/material/FormLabel';
 import TextField from '@mui/material/TextField';
+import Typography from '@mui/material/Typography';
 import { Save, ShieldCheck, SlidersHorizontal } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
@@ -18,13 +19,20 @@ import { SectionCard } from '../../components/SectionCard';
 import { icon } from '../../design/tokens';
 import { t } from '../../i18n';
 import { adminKeys, useAdminSettings, useRolePermissions, type AdminSettings, type ConfigurableRole, type RolePermissions } from './api';
+import { usePushConfig } from '../push/api';
 import { PERMISSION_LABELS, ROLE_LABELS } from './labels';
 
 const MB = 1024 * 1024;
 
 type NumberKey = Exclude<
   keyof AdminSettings,
-  'allowedPhotoTypes' | 'allowedDocumentTypes' | 'draftsEnabled' | 'coverageMorningReminderTime'
+  | 'allowedPhotoTypes'
+  | 'allowedDocumentTypes'
+  | 'draftsEnabled'
+  | 'coverageMorningReminderTime'
+  | 'pushWindowDays'
+  | 'pushWindowStart'
+  | 'pushWindowEnd'
 >;
 
 /** Réglages numériques : libellé, et conversion pour les tailles saisies en Mo. */
@@ -56,8 +64,29 @@ const PHOTO_TYPES = [
 
 const DOCUMENT_TYPES = [{ value: 'application/pdf', label: 'PDF' }];
 
+/** Jours d'envoi des notifications push (014), dans l'ordre de la semaine. */
+const WEEK_DAYS = [
+  { value: 'MON', label: t('Lundi') },
+  { value: 'TUE', label: t('Mardi') },
+  { value: 'WED', label: t('Mercredi') },
+  { value: 'THU', label: t('Jeudi') },
+  { value: 'FRI', label: t('Vendredi') },
+  { value: 'SAT', label: t('Samedi') },
+  { value: 'SUN', label: t('Dimanche') },
+];
+const DAY_ORDER = WEEK_DAYS.map((d) => d.value);
+
 type Draft = Record<NumberKey, string> &
-  Pick<AdminSettings, 'allowedPhotoTypes' | 'allowedDocumentTypes' | 'draftsEnabled' | 'coverageMorningReminderTime'>;
+  Pick<
+    AdminSettings,
+    | 'allowedPhotoTypes'
+    | 'allowedDocumentTypes'
+    | 'draftsEnabled'
+    | 'coverageMorningReminderTime'
+    | 'pushWindowDays'
+    | 'pushWindowStart'
+    | 'pushWindowEnd'
+  >;
 
 function toDraft(s: AdminSettings): Draft {
   const numbers = Object.fromEntries(
@@ -69,6 +98,9 @@ function toDraft(s: AdminSettings): Draft {
     allowedDocumentTypes: s.allowedDocumentTypes,
     draftsEnabled: s.draftsEnabled,
     coverageMorningReminderTime: s.coverageMorningReminderTime,
+    pushWindowDays: s.pushWindowDays,
+    pushWindowStart: s.pushWindowStart,
+    pushWindowEnd: s.pushWindowEnd,
   };
 }
 
@@ -93,6 +125,18 @@ function changes(draft: Draft, current: AdminSettings): { body: Partial<AdminSet
   const morning = draft.coverageMorningReminderTime.trim();
   if (!TIME_PATTERN.test(morning)) errors.coverageMorningReminderTime = t('Heure au format HH:MM attendue (ex. 07:00).');
   else if (morning !== current.coverageMorningReminderTime) body.coverageMorningReminderTime = morning;
+
+  // Plage d'envoi des notifications push (014) : au moins un jour, fin strictement après le début.
+  const days = [...draft.pushWindowDays].sort((a, b) => DAY_ORDER.indexOf(a) - DAY_ORDER.indexOf(b));
+  if (days.length === 0) errors.pushWindowDays = t('Choisissez au moins un jour.');
+  else if (days.join() !== [...current.pushWindowDays].sort((a, b) => DAY_ORDER.indexOf(a) - DAY_ORDER.indexOf(b)).join()) body.pushWindowDays = days;
+  const start = draft.pushWindowStart.trim();
+  const end = draft.pushWindowEnd.trim();
+  if (!TIME_PATTERN.test(start)) errors.pushWindowStart = t('Heure au format HH:MM attendue (ex. 07:00).');
+  if (!TIME_PATTERN.test(end)) errors.pushWindowEnd = t('Heure au format HH:MM attendue (ex. 07:00).');
+  else if (TIME_PATTERN.test(start) && end <= start) errors.pushWindowEnd = t('L’heure de fin doit être après l’heure de début.');
+  if (!errors.pushWindowStart && start !== current.pushWindowStart) body.pushWindowStart = start;
+  if (!errors.pushWindowEnd && end !== current.pushWindowEnd) body.pushWindowEnd = end;
   return { body, errors };
 }
 
@@ -122,6 +166,56 @@ function TypeChoices(props: {
       </FormGroup>
       {props.error && <FormHelperText>{props.error}</FormHelperText>}
     </FormControl>
+  );
+}
+
+/** Plage d'envoi des notifications push (014, contracts/ui.md) : jours, heures, aide et état du push. */
+function PushWindowFields(props: { draft: Draft; errors: Record<string, string>; set: (patch: Partial<Draft>) => void }) {
+  const { draft, errors, set } = props;
+  const push = usePushConfig();
+  return (
+    <Box component="section" aria-labelledby="titre-plage-push" sx={{ display: 'grid', gap: 1.5 }}>
+      <Typography id="titre-plage-push" component="h3" variant="subtitle1">
+        {t('Plage d’envoi des notifications push')}
+      </Typography>
+      <Typography variant="body2" color="text.secondary">
+        {t(
+          'Heure de l’école. En dehors de cette plage, aucune notification push n’est envoyée ni différée ; les notifications restent dans l’application. Les signalements de retard arrivent souvent avant 07:30.',
+        )}
+      </Typography>
+      {push.data && (
+        <Typography variant="body2">
+          {push.data.enabled ? t('Notifications push : activées') : t('Notifications push : désactivées (clés non configurées)')}
+        </Typography>
+      )}
+      <TypeChoices
+        legend={t('Jours d’envoi des notifications push')}
+        options={WEEK_DAYS}
+        value={draft.pushWindowDays}
+        error={errors.pushWindowDays}
+        onChange={(pushWindowDays) => set({ pushWindowDays })}
+      />
+      <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' } }}>
+        <TextField
+          id="reglage-pushWindowStart"
+          label={t('Heure de début (HH:MM)')}
+          value={draft.pushWindowStart}
+          onChange={(e) => set({ pushWindowStart: e.target.value })}
+          error={Boolean(errors.pushWindowStart)}
+          helperText={errors.pushWindowStart ?? ' '}
+          slotProps={{ htmlInput: { inputMode: 'numeric' } }}
+        />
+        <TextField
+          id="reglage-pushWindowEnd"
+          label={t('Heure de fin (HH:MM)')}
+          value={draft.pushWindowEnd}
+          onChange={(e) => set({ pushWindowEnd: e.target.value })}
+          error={Boolean(errors.pushWindowEnd)}
+          helperText={errors.pushWindowEnd ?? ' '}
+          slotProps={{ htmlInput: { inputMode: 'numeric' } }}
+        />
+      </Box>
+    </Box>
   );
 }
 
@@ -212,6 +306,7 @@ function SettingsForm({ settings }: { settings: AdminSettings }) {
         control={<Checkbox checked={draft.draftsEnabled} onChange={(e) => set({ draftsEnabled: e.target.checked })} />}
         label={t('Autoriser les brouillons de demande')}
       />
+      <PushWindowFields draft={draft} errors={errors} set={set} />
       {generalError && (
         <Alert severity="error" role="alert">
           {generalError}

@@ -45,6 +45,11 @@ export default tseslint.config(
     },
   },
   {
+    // Service worker des notifications push (014) : script classique, sans module ni import.
+    files: ['frontend/public/sw.js'],
+    languageOptions: { sourceType: 'script', globals: { ...globals.serviceworker } },
+  },
+  {
     files: ['e2e/**/*.ts', '**/*.config.{ts,mjs}'],
     languageOptions: { globals: { ...globals.node } },
   },

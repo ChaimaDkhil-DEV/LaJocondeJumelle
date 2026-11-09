@@ -56,13 +56,26 @@ class FakeAudioContext {
 }
 
 function setup() {
+  // Son des urgences sur le compte (spec 014, NC-6) : préférences servies en mémoire.
+  let preferences = {
+    categories: { urgent: true, coverage: true, unfilled: true, attendance: true },
+    urgentSound: true,
+    urgentSoundSet: false,
+  };
   vi.stubGlobal(
     'fetch',
-    vi.fn(async (url: string) => {
+    vi.fn(async (url: string, init: RequestInit = {}) => {
       if (url.startsWith('/api/notifications?')) {
         return new Response(JSON.stringify({ items: [], nextCursor: null, unreadTotal: 0 }), {
           headers: { 'Content-Type': 'application/json' },
         });
+      }
+      if (url === '/api/notifications/preferences') {
+        if (init.method === 'PATCH') {
+          const patch = JSON.parse(String(init.body)) as { urgentSound?: boolean };
+          preferences = { ...preferences, urgentSound: patch.urgentSound ?? preferences.urgentSound, urgentSoundSet: true };
+        }
+        return new Response(JSON.stringify(preferences), { headers: { 'Content-Type': 'application/json' } });
       }
       return new Response(null, { status: 404 });
     }),

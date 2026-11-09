@@ -30,6 +30,7 @@ import { ROLE_LABELS } from '../features/admin/labels';
 import { useCurrentUser, useLogout } from '../features/auth/useCurrentUser';
 import { NotificationCenter } from '../features/notifications/NotificationCenter';
 import { SocketProvider } from '../features/notifications/SocketProvider';
+import { usePushSync } from '../features/push/usePushDevice';
 import { t } from '../i18n';
 
 export interface NavItem {
@@ -247,6 +248,8 @@ export function AppLayout() {
   const desktop = useMediaQuery(theme.breakpoints.up('md'), { noSsr: true });
   const me = useCurrentUser();
   const logout = useLogout();
+  // Appareil déjà abonné au push (014) : session et dernière utilisation transmises à chaque ouverture.
+  usePushSync();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const showCoverage = canSeeCoverage(me.data);
   const superAdmin = me.data?.role === 'SUPER_ADMIN';

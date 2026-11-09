@@ -75,7 +75,8 @@ describe('ChangePasswordPage — mode volontaire (spec 005, FR-007, FR-008)', ()
     renderPasswordPage(false);
     await userEvent.click(await screen.findByRole('button', { name: 'Annuler' }));
     expect(await screen.findByRole('heading', { name: 'Mon profil' })).toBeVisible();
-    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    // La section « Notifications » (014) a sa propre zone d'état : on vise la confirmation elle-même.
+    expect(screen.queryByText(CONFIRMATION)).not.toBeInTheDocument();
     expect(posts).toHaveLength(0);
   });
 
@@ -86,7 +87,8 @@ describe('ChangePasswordPage — mode volontaire (spec 005, FR-007, FR-008)', ()
       expect(posts[0]).toEqual({ currentPassword: 'Ancien-mot-de-passe-2026', newPassword: 'Nouveau-mot-de-passe-2026' }),
     );
     expect(await screen.findByRole('heading', { name: 'Mon profil' })).toBeVisible();
-    expect(screen.getByRole('status')).toHaveTextContent(CONFIRMATION);
+    // Confirmation annoncée : dans une zone role="status" (la section « Notifications » a la sienne).
+    expect(screen.getByText(CONFIRMATION).closest('[role="status"]')).not.toBeNull();
   });
 
   it('garde les contrôles actuels : champs vides, longueur, confirmation', async () => {

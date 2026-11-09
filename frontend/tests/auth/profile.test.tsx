@@ -86,7 +86,8 @@ describe('ProfilePage', () => {
   it('n’affiche aucune confirmation sans changement préalable', async () => {
     renderAt('/profil', () => json(200, me));
     await screen.findByRole('heading', { name: 'Mon profil' });
-    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    // La section « Notifications » (014) a sa propre zone d'état : on vise la confirmation elle-même.
+    expect(screen.queryByText('Mot de passe modifié. Vos autres sessions ont été fermées.')).not.toBeInTheDocument();
   });
 
   it('est inatteignable tant que le changement de mot de passe est imposé', async () => {

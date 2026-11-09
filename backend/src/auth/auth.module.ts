@@ -10,9 +10,12 @@ import { LoginThrottlerGuard } from './login-throttler.guard';
 import { OriginGuard } from './origin.guard';
 import { SessionGuard } from './session.guard';
 import { SessionService } from './session.service';
+import { PushModule } from '../push/push.module';
 
 @Module({
+  // Suppression des abonnements push à la déconnexion et au changement de mot de passe (014).
   imports: [
+    PushModule,
     ThrottlerModule.forRootAsync({
       inject: [APP_CONFIG],
       useFactory: (config: AppConfig) => [{ name: 'default', ttl: 60_000, limit: config.loginRateLimit }],

@@ -1,3 +1,4 @@
+import { createECDH } from 'node:crypto';
 import { ConfigError, loadConfig } from '../../src/config/config';
 
 const valid = {
@@ -209,6 +210,95 @@ describe('loadConfig — assistance IA (009, FR-019, FR-020)', () => {
     expect(loadConfig({ ...valid, ASSIST_RATE_LIMIT: '3' }).assist.rateLimit).toBe(3);
     for (const value of ['0', '-1', '2.5', 'x']) {
       expect(() => loadConfig({ ...valid, ASSIST_RATE_LIMIT: value })).toThrow(ConfigError);
+    }
+  });
+});
+
+/** 014, T004 : clés d'identification du serveur pour le push (D9, FR-013, research R10). */
+describe('loadConfig — notifications push (014)', () => {
+  // Paire P-256 réelle, produite pour le test : jamais versionnée.
+  const ecdh = createECDH('prime256v1');
+  ecdh.generateKeys();
+  const publicKey = ecdh.getPublicKey().toString('base64url');
+  const privateKey = ecdh.getPrivateKey().toString('base64url');
+  const push = {
+    PUSH_VAPID_PUBLIC_KEY: publicKey,
+    PUSH_VAPID_PRIVATE_KEY: privateKey,
+    PUSH_VAPID_SUBJECT: 'mailto:direction@ecole.example',
+  };
+
+  it('est désactivé sans aucune des trois variables', () => {
+    expect(loadConfig(valid).push).toBeNull();
+  });
+
+  it('traite des variables vides ou faites d’espaces comme absentes', () => {
+    expect(loadConfig({ ...valid, PUSH_VAPID_PUBLIC_KEY: '', PUSH_VAPID_PRIVATE_KEY: '  ', PUSH_VAPID_SUBJECT: '' }).push).toBeNull();
+  });
+
+  it('lit les trois variables valides', () => {
+    expect(loadConfig({ ...valid, ...push }).push).toEqual({
+      publicKey,
+      privateKey,
+      subject: 'mailto:direction@ecole.example',
+    });
+    expect(loadConfig({ ...valid, ...push, PUSH_VAPID_SUBJECT: 'https://ecole.example/contact' }).push?.subject).toBe(
+      'https://ecole.example/contact',
+    );
+  });
+
+  it.each([
+    [['PUSH_VAPID_PUBLIC_KEY'], 'PUSH_VAPID_PUBLIC_KEY'],
+    [['PUSH_VAPID_PRIVATE_KEY'], 'PUSH_VAPID_PRIVATE_KEY'],
+    [['PUSH_VAPID_SUBJECT'], 'PUSH_VAPID_SUBJECT'],
+    [['PUSH_VAPID_PUBLIC_KEY', 'PUSH_VAPID_SUBJECT'], 'PUSH_VAPID_PUBLIC_KEY, PUSH_VAPID_SUBJECT'],
+  ])('refuse une configuration partielle (manque %j) en nommant les variables manquantes', (absent, named) => {
+    const env: Record<string, string> = { ...valid, ...push };
+    for (const key of absent) delete env[key];
+    expect(() => loadConfig(env)).toThrow(ConfigError);
+    expect(() => loadConfig(env)).toThrow(named);
+  });
+
+  it('refuse une clé publique qui n’est pas un point P-256 non compressé (65 octets, 0x04)', () => {
+    const compressed = Buffer.concat([Buffer.from([0x02]), ecdh.getPublicKey().subarray(1, 33)]).toString('base64url');
+    const wrongPrefix = Buffer.concat([Buffer.from([0x05]), ecdh.getPublicKey().subarray(1)]).toString('base64url');
+    for (const value of [compressed, wrongPrefix, 'pas-du-base64url!', publicKey.slice(0, 40)]) {
+      expect(() => loadConfig({ ...valid, ...push, PUSH_VAPID_PUBLIC_KEY: value })).toThrow(ConfigError);
+    }
+  });
+
+  it('refuse une clé privée qui ne fait pas 32 octets, sans jamais la citer', () => {
+    const tooLong = Buffer.alloc(48, 7).toString('base64url');
+    for (const value of [tooLong, privateKey.slice(0, 20), 'cle privee secrete']) {
+      let message = '';
+      try {
+        loadConfig({ ...valid, ...push, PUSH_VAPID_PRIVATE_KEY: value });
+      } catch (error) {
+        expect(error).toBeInstanceOf(ConfigError);
+        message = (error as Error).message;
+      }
+      expect(message).toContain('PUSH_VAPID_PRIVATE_KEY');
+      expect(message).not.toContain(value);
+    }
+  });
+
+  it('exige un sujet mailto: ou https:', () => {
+    for (const value of ['direction@ecole.example', 'http://ecole.example', 'mailto:', 'https://', 'ftp://ecole.example']) {
+      expect(() => loadConfig({ ...valid, ...push, PUSH_VAPID_SUBJECT: value })).toThrow(ConfigError);
+    }
+  });
+
+  it('ne cite jamais la clé privée, quelle que soit l’erreur', () => {
+    for (const env of [
+      { ...valid, PUSH_VAPID_PRIVATE_KEY: privateKey },
+      { ...valid, ...push, PUSH_VAPID_SUBJECT: 'pas un sujet' },
+      { ...valid, ...push, PUSH_VAPID_PUBLIC_KEY: 'x' },
+    ]) {
+      expect(() => loadConfig(env)).toThrow(ConfigError);
+      try {
+        loadConfig(env);
+      } catch (error) {
+        expect((error as Error).message).not.toContain(privateKey);
+      }
     }
   });
 });

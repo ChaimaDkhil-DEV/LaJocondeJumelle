@@ -107,6 +107,10 @@ Days and times in the assignments module ("today", "tomorrow", the 7 a.m. remind
 follow the school time zone `SCHOOL_TIMEZONE` (IANA identifier, defaulting to `TZ`, otherwise
 `Europe/Paris`); an invalid value prevents the API from starting.
 
+Push notifications (spec 014) are off by default: they are enabled only by setting the three
+`PUSH_VAPID_*` variables, after the school's decision and its entry in the processing register. See
+[docs/notifications-push.md](docs/notifications-push.md) (keys, time zone, iPhone, register entry).
+
 Lost super administrator password: the reset is recorded in the audit log, closes all their
 sessions and forces a new password at the next login.
 

@@ -12,6 +12,7 @@ import { font, icon } from '../../design/tokens';
 import { UserAvatar } from '../../components/UserAvatar';
 import { ROLE_LABELS } from '../admin/labels';
 import { AvatarDialog } from '../avatar/AvatarDialog';
+import { NotificationsSection } from '../push/NotificationsSection';
 import { useCurrentUser } from './useCurrentUser';
 import { t } from '../../i18n';
 
@@ -103,6 +104,8 @@ export function ProfilePage() {
             {t('Changer mon mot de passe')}
           </Button>
         </Box>
+        {/* Notifications push et préférences (spec 014). */}
+        <NotificationsSection />
       </Box>
     </>
   );

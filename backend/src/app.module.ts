@@ -12,6 +12,7 @@ import { FilesModule } from './files/files.module';
 import { HealthController } from './health/health.controller';
 import { MessagesModule } from './messages/messages.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { PushModule } from './push/push.module';
 import { RealtimeGatewayModule } from './realtime/realtime-gateway.module';
 import { RealtimeModule } from './realtime/realtime.module';
 import { RequestsModule } from './requests/requests.module';
@@ -27,6 +28,7 @@ import { UsersModule } from './users/users.module';
     AuditModule,
     SettingsModule,
     RealtimeModule,
+    PushModule,
     NotificationsModule,
     AuthModule,
     FilesModule,

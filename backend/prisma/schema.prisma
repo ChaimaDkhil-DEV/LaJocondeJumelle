@@ -362,6 +362,9 @@ model User {
   attendances          TeacherAttendance[] @relation("AttendanceTeacher")
   attendancesRecorded  TeacherAttendance[] @relation("AttendanceRecorder")
   attendancesTitular   TeacherAttendance[] @relation("AttendanceTitular")
+
+  pushSubscriptions      PushSubscription[]
+  notificationPreference NotificationPreference?
 }
 
 /// Session serveur : `id` est le haché HMAC du jeton aléatoire (256 bits) placé dans le cookie.
@@ -649,6 +652,54 @@ model Notification {
 
   @@index([userId, readAt])
   @@index([requestId])
+}
+
+// ---------------------------------------------------------------------------
+// Notifications push et préférences (014)
+// ---------------------------------------------------------------------------
+
+/// Abonnement push d'un appareil (navigateur) d'un utilisateur (014, data-model.md). Supprimé à la
+/// déconnexion de sa session, au changement ou à la réinitialisation du mot de passe, à la
+/// désactivation du compte, sur réponse 404/410 du service de push et après 90 jours sans utilisation.
+model PushSubscription {
+  id            String    @id @default(uuid()) @db.Uuid
+  userId        String    @db.Uuid
+  /// Session qui a créé ou utilisé l'abonnement en dernier ; sans clé étrangère (research R8).
+  sessionId     String?   @db.VarChar(128)
+  /// Adresse d'envoi du service de push : jamais journalisée en clair.
+  endpoint      String    @unique @db.VarChar(2048)
+  /// Clé publique de l'abonnement (base64url, 65 octets décodés).
+  p256dh        String    @db.VarChar(128)
+  /// Secret d'authentification de l'abonnement (base64url, 16 octets décodés).
+  auth          String    @db.VarChar(64)
+  /// Calculé par le serveur à partir de l'agent utilisateur, ex. « iPhone · Safari ».
+  deviceLabel   String    @db.VarChar(80)
+  createdAt     DateTime  @default(now()) @db.Timestamptz(3)
+  /// Dernier envoi accepté par le service de push.
+  lastSuccessAt DateTime? @db.Timestamptz(3)
+  /// Dernière ouverture authentifiée de l'application sur l'appareil, au plus une écriture par 24 h.
+  lastUsedAt    DateTime  @default(now()) @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([sessionId])
+  @@index([lastUsedAt])
+}
+
+/// Préférences de notification d'un utilisateur (014) : catégories push et son des urgences.
+/// Créée à la première modification ; absente, toutes les valeurs par défaut s'appliquent.
+model NotificationPreference {
+  userId      String   @id @db.Uuid
+  urgent      Boolean  @default(true)
+  coverage    Boolean  @default(true)
+  unfilled    Boolean  @default(true)
+  attendance  Boolean  @default(true)
+  /// null : jamais réglé sur le compte (son actif) ; sert à la reprise unique de la valeur locale.
+  urgentSound Boolean?
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 // ---------------------------------------------------------------------------

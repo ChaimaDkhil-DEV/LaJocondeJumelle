@@ -8,9 +8,10 @@ import { AvatarService } from './avatar.service';
 import { EmployeesController } from './employees.controller';
 import { UsersImportService } from './users-import.service';
 import { UsersService } from './users.service';
+import { PushModule } from '../push/push.module';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, PushModule],
   controllers: [AdminUsersController, EmployeesController, AvatarController],
   providers: [UsersService, UsersImportService, AvatarService, SuperAdminGuard, AdministrationGuard],
 })

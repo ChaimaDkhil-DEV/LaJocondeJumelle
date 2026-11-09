@@ -86,6 +86,12 @@ export const ERROR_CATALOG = {
     message: 'Vous avez demandé beaucoup de propositions. Patientez quelques minutes avant de réessayer.',
   },
   TRANSCRIPTION_EMPTY: { status: 422, message: 'Aucune parole n’a été reconnue dans le message vocal.' },
+  // Notifications push (014).
+  PUSH_DISABLED: { status: 409, message: 'Les notifications push ne sont pas activées par l’établissement.' },
+  PUSH_DEVICE_LIMIT: {
+    status: 409,
+    message: 'Vous avez déjà 10 appareils abonnés. Retirez-en un pour activer celui-ci.',
+  },
   INTERNAL_ERROR: {
     status: 500,
     message: 'Une erreur inattendue est survenue. Réessayez plus tard.',
