@@ -154,3 +154,33 @@ No fix or `git revert` needed.
 ### Reminder
 
 Wait for « Contrôles qualité » to finish on the latest commit, then tick the four checkboxes, before merging.
+
+## 07/11/2026 and 09/11/2026 — pull requests #83 and #87
+
+| Pull request | Content | Merged at (UTC) | Check not satisfied at merge time |
+|---------|---------|-------------------|-----------------------------------------------|
+| #83 (`docs-registre-fusion-82`) | This register: entry for #82, documentation only | 07/11 23:31:41 | **1. CI**: both runs on `3f6fb9e` were still in progress (opened at 23:29:30; 42425476733 green at 23:36:17, 42425471513 green at 23:36:44); **all four checkboxes unticked** |
+| #87 (`fix-scan-qr-classe`) | Built-in QR reader: QR read from a photo, more reliable reading, one camera message per cause, link field folded while the camera works; amendment of spec 013 | 09/11 09:01:15 | **All four checkboxes unticked**: the checks were not recorded in the description of the pull request |
+
+#83 is recorded here rather than in an entry of its own: the repository owner decided on 08/11/2026 not to open a register
+pull request for a register pull request, and to add #83 to the next entry.
+
+For #87, the merge did not skip CI: both runs on `2727806` had finished all their steps before the merge (42589084288 at
+08:58:58, 42589067728 at 09:00:57, 18 s before the merge). Just before the merge, the branch was up to date with `master`,
+no review discussion was open, and the full diff had been read; none of this was ticked in the description.
+
+### Findings after the fact
+
+- #83: both runs finished green, all steps executed; documentation only. `master` green after the merge: run 42425649622
+  on `a114e8b`.
+- #87: both runs finished green, all steps executed, including the Docker image build and the dependency audit. `master`
+  green after the merge: run 42590172963 on `49f2c10`.
+- #87: tests were written first and seen failing (`frontend/tests/attendance/qr-scanner.test.tsx`,
+  `frontend/tests/attendance/qr-reader.test.ts`). The only changed expectations are the two end-to-end steps that now
+  unfold the link field when the simulated camera opens (`e2e/support/qr-scanner.ts`), documented in the pull request and
+  in the spec 013 amendment.
+- Not verified at merge time for #87: a real phone (iPhone, Android), the browser's native QR reader (`BarcodeDetector`,
+  absent from Chrome on Windows), and the end-to-end scenarios on Firefox and WebKit (they run on Chromium only). Backend
+  integration tests were not run locally (no backend file changed); CI ran them.
+
+No fix or `git revert` needed. Same cause as #79: see its reminder.
