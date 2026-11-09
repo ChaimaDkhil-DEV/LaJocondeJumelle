@@ -14,7 +14,9 @@ import { PrismaService } from '../common/prisma.service';
 import { clientIp } from '../common/request-info';
 import { SESSION_COOKIE } from './session.guard';
 import { SessionService } from './session.service';
+import { ParentAllowed } from './parent-allowed.decorator';
 
+@ParentAllowed()
 @Controller('auth')
 @AllowPendingPasswordChange()
 export class AuthController {

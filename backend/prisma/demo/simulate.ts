@@ -695,11 +695,13 @@ export function markReadings(data: DemoData, roles: Map<string, Role>, cutoff: D
   const requestById = new Map(data.requests.map((r) => [r.id, r]));
 
   for (const n of data.notifications) {
+    // Les notifications de démonstration sont toutes rattachées à une demande.
+    const requestId = n.requestId as string;
     const created = (n.createdAt as Date).getTime();
-    const ownAction = (actionsBy.get(`${n.requestId}:${n.userId}`) ?? []).find((t) => t > created);
-    const request = requestById.get(n.requestId)!;
+    const ownAction = (actionsBy.get(`${requestId}:${n.userId}`) ?? []).find((t) => t > created);
+    const request = requestById.get(requestId)!;
     const personal = n.userId === request.requesterId || n.userId === request.assigneeId;
-    const finish = finishedAt.get(n.requestId);
+    const finish = finishedAt.get(requestId);
     const cleared = roles.get(n.userId) === 'SUPER_ADMIN' && !personal && SUPERVISION.has(n.type) && finish !== undefined && finish >= created ? finish : undefined;
     const random = new Random(hash(`${seed}:${n.id}`));
     const browsed = cutoff.getTime() - created > 4 * 3_600_000 && random.chance(0.86) ? created + random.int(3, 240) * 60_000 : undefined;

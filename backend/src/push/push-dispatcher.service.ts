@@ -85,8 +85,11 @@ export class PushDispatcher {
     const window = { days: settings.pushWindowDays, start: settings.pushWindowStart, end: settings.pushWindowEnd };
     if (!isWithinPushWindow(new Date(), window, this.config.schoolTimezone)) return;
 
+    // Notifications de demande seulement : celles des communications aux parents (015) restent dans la cloche.
+    const requestIds = [...new Set(notifications.flatMap((n) => (n.requestId ? [n.requestId] : [])))];
+    if (requestIds.length === 0) return;
     const requests = await this.prisma.request.findMany({
-      where: { id: { in: [...new Set(notifications.map((n) => n.requestId))] } },
+      where: { id: { in: requestIds } },
       select: { id: true, kind: true, reference: true, assigneeId: true, coverage: { select: { class: { select: { name: true } } } } },
     });
     const requestById = new Map(requests.map((r) => [r.id, r]));
@@ -98,7 +101,7 @@ export class PushDispatcher {
     const preferenceByUser = new Map(preferences.map((p) => [p.userId, p]));
 
     for (const notification of notifications) {
-      const req = requestById.get(notification.requestId);
+      const req = notification.requestId ? requestById.get(notification.requestId) : undefined;
       const category = req ? pushCategoryOf(notification.type, req.kind) : null;
       if (!req || !category) continue;
       if (!pushRecipientAllowed(notification.type, notification.userId, req.assigneeId)) continue;

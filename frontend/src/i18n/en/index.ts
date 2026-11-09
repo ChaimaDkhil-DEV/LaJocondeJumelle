@@ -10,6 +10,7 @@ import { dashboard } from './dashboard';
 import { imports } from './imports';
 import { notifications } from './notifications';
 import { outbox } from './outbox';
+import { parentCommunications } from './parentCommunications';
 import { push } from './push';
 import { requests } from './requests';
 import { shared } from './shared';
@@ -35,6 +36,7 @@ export const en: Record<string, string> = {
   ...assist,
   ...outbox,
   ...push,
+  ...parentCommunications,
   ...auth,
   ...common,
 };

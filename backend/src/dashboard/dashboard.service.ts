@@ -477,7 +477,8 @@ export class DashboardService {
       });
       return recipients.map((r) => r.userId);
     }
-    const users = await this.prisma.user.findMany({ where: { active: true, role: { not: 'SUPER_ADMIN' } }, select: { id: true } });
+    // Les comptes parents (015) ne sont pas des employés.
+    const users = await this.prisma.user.findMany({ where: { active: true, role: { notIn: ['SUPER_ADMIN', 'PARENT'] } }, select: { id: true } });
     return users.map((u) => u.id);
   }
 

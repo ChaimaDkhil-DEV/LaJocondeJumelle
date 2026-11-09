@@ -113,7 +113,7 @@ describe('Accès à l’administration', () => {
   const ADMIN = { ...SUPER_ADMIN, id: 'm1', displayName: 'Surveillante générale', role: 'ADMIN' };
   const EMPLOYEE = { ...SUPER_ADMIN, id: 'e1', displayName: 'Reprographie', role: 'EMPLOYEE' };
   const SUPER_ADMIN_SECTIONS = [
-    'Suivi des gardes', 'Comptes', 'Catégories', 'Consignes', 'Groupes', 'Étages', 'Niveaux', 'Classes', 'Élèves', 'Réglages', 'Journal d’audit',
+    'Suivi des gardes', 'Comptes', 'Catégories', 'Consignes', 'Groupes', 'Étages', 'Niveaux', 'Classes', 'Élèves', 'Représentants', 'Classes des enseignants', 'Réglages', 'Journal d’audit',
   ];
   const sectionLinks = async () =>
     within(await screen.findByRole('navigation', { name: 'Sections de l’espace Administrateur' }))
@@ -124,7 +124,7 @@ describe('Accès à l’administration', () => {
     const { router } = setup('/admin', undefined, ADMIN);
     expect(await screen.findByRole('heading', { name: 'Étages' })).toBeVisible();
     expect(router.state.location.pathname).toBe('/admin/etages');
-    expect(await sectionLinks()).toEqual(['Étages', 'Niveaux', 'Classes', 'Élèves', 'Employés']);
+    expect(await sectionLinks()).toEqual(['Étages', 'Niveaux', 'Classes', 'Élèves', 'Représentants', 'Classes des enseignants', 'Employés']);
   });
 
   it.each([

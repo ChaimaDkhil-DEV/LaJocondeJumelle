@@ -5,6 +5,7 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { AppException } from '../common/errors';
 import { buildPage, decodeCursor, parseLimit } from '../common/pagination';
 import { PrismaService } from '../common/prisma.service';
+import { ParentAllowed } from '../auth/parent-allowed.decorator';
 
 export class ListNotificationsQuery {
   @IsOptional()
@@ -34,6 +35,7 @@ export class MarkReadDto {
   all?: boolean;
 }
 
+@ParentAllowed()
 @Controller('notifications')
 export class NotificationsController {
   constructor(private readonly prisma: PrismaService) {}
@@ -50,7 +52,11 @@ export class NotificationsController {
     const [rows, unreadTotal] = await Promise.all([
       this.prisma.notification.findMany({
         where,
-        include: { request: { select: { id: true, reference: true, title: true, kind: true } } },
+        include: {
+          request: { select: { id: true, reference: true, title: true, kind: true } },
+          // Communication aux parents (015) : le nom de l'élève sert de titre, jamais la remarque.
+          communication: { select: { id: true, student: { select: { firstName: true, lastName: true } } } },
+        },
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         take: limit + 1,
       }),
@@ -63,6 +69,7 @@ export class NotificationsController {
         type: n.type,
         priority: n.priority,
         request: n.request,
+        communication: n.communication ? { id: n.communication.id, studentName: `${n.communication.student.firstName} ${n.communication.student.lastName}` } : null,
         createdAt: n.createdAt,
         readAt: n.readAt,
       })),

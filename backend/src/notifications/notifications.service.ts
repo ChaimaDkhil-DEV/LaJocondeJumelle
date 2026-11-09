@@ -57,6 +57,24 @@ export class NotificationsService {
     return created;
   }
 
+  /**
+   * Notifications d'une communication aux parents (015), écrites dans la transaction en cours. Sans
+   * filtre super administrateur : la validation le concerne directement. L'auteur de l'action n'est
+   * jamais notifié ; les autres notifications gardent leur comportement.
+   */
+  async notifyCommunicationInTx(
+    tx: Prisma.TransactionClient,
+    candidates: ReadonlyArray<string | null | undefined>,
+    actorId: string | null,
+    input: { type: NotificationType; communicationId: string },
+  ): Promise<Notification[]> {
+    const created: Notification[] = [];
+    for (const userId of notificationRecipients(candidates, actorId)) {
+      created.push(await tx.notification.create({ data: { userId, type: input.type, communicationId: input.communicationId, priority: 'NORMAL' } }));
+    }
+    return created;
+  }
+
   private async withoutFilteredSuperAdmins(
     tx: Prisma.TransactionClient,
     recipients: string[],

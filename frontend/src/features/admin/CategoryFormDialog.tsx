@@ -33,7 +33,7 @@ import {
   type ProofMode,
   type RoutingMode,
 } from './api';
-import { ASSIGNMENT_LABELS, CLOSURE_LABELS, formatMinutes, KIND_LABELS, PROOF_MODE_LABELS, ROLE_LABELS, ROUTING_HINTS, ROUTING_LABELS } from './labels';
+import { ASSIGNMENT_LABELS, CLOSURE_LABELS, formatMinutes, KIND_LABELS, PROOF_MODE_LABELS, ROLE_LABELS, ROUTING_HINTS, STAFF_ROLES, ROUTING_LABELS } from './labels';
 
 interface Values {
   name: string;
@@ -349,7 +349,7 @@ export function CategoryFormDialog({ open, category, onClose, onSaved }: Categor
               <FormControl component="fieldset" error={Boolean(errors.creatorRoles)}>
                 <FormLabel component="legend">{t('Qui peut créer une demande')}</FormLabel>
                 <FormGroup>
-                  {(Object.keys(ROLE_LABELS) as Role[]).map((role) => (
+                  {STAFF_ROLES.map((role) => (
                     <FormControlLabel
                       key={role}
                       label={ROLE_LABELS[role]}

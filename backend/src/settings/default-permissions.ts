@@ -4,4 +4,6 @@ import type { Permission, Role } from '@prisma/client';
 export const DEFAULT_PERMISSIONS: Record<Exclude<Role, 'SUPER_ADMIN'>, Permission[]> = {
   EMPLOYEE: ['REQUEST_CREATE', 'PRIORITY_CHANGE_OWN'],
   ADMIN: ['REQUEST_CREATE', 'PRIORITY_CHANGE_OWN', 'PRIORITY_CHANGE_MANAGED', 'REQUEST_REASSIGN'],
+  /** Représentant légal (015) : aucune permission ; il ne lit que ses « Messages de l'école ». */
+  PARENT: [],
 };

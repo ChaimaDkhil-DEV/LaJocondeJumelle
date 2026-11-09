@@ -126,6 +126,8 @@ export class UsersService {
   /** Liste des employés en lecture (011) : tous les comptes, triés par nom, sans pagination (quelques centaines au plus). */
   async listEmployees(): Promise<EmployeeListItem[]> {
     const rows = await this.prisma.user.findMany({
+      // Les comptes parents (015) ne sont pas des employés.
+      where: { role: { not: 'PARENT' } },
       select: {
         id: true,
         displayName: true,
@@ -149,15 +151,19 @@ export class UsersService {
     const after = query.cursor ? decodeUserCursor(query.cursor) : null;
     const rows = await this.prisma.user.findMany({
       select: ADMIN_USER_SELECT,
-      where: after
-        ? {
-            OR: [
-              ...(after.active ? [{ active: false }] : []),
-              { active: after.active, displayName: { gt: after.displayName } },
-              { active: after.active, displayName: after.displayName, id: { gt: after.id } },
-            ],
-          }
-        : undefined,
+      // Comptes du personnel seulement : un compte parent (015) se gère depuis la fiche du représentant.
+      where: {
+        role: { not: 'PARENT' },
+        ...(after
+          ? {
+              OR: [
+                ...(after.active ? [{ active: false }] : []),
+                { active: after.active, displayName: { gt: after.displayName } },
+                { active: after.active, displayName: after.displayName, id: { gt: after.id } },
+              ],
+            }
+          : {}),
+      },
       orderBy: [{ active: 'desc' }, { displayName: 'asc' }, { id: 'asc' }],
       take: limit + 1,
     });

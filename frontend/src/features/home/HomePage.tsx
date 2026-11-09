@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import { LoadingState } from '../../components/LoadingState';
 import { t } from '../../i18n';
 import { useCurrentUser } from '../auth/useCurrentUser';
+import { ParentMessagesPage } from '../parent-communications/ParentMessagesPage';
 import { RequestListPage } from '../requests/RequestListPage';
 
 // Chargée à la demande : les graphiques (Recharts) ne pèsent que sur le tableau de bord.
@@ -14,6 +15,8 @@ const DashboardPage = lazy(() => import('../admin/DashboardPage').then((m) => ({
 export function HomePage() {
   const me = useCurrentUser();
   if (me.isPending) return <LoadingState />;
+  // Compte parent (015) : son seul espace est « Messages de l'école ».
+  if (me.data?.role === 'PARENT') return <ParentMessagesPage />;
   if (me.data?.role !== 'SUPER_ADMIN') return <RequestListPage />;
   return (
     <Suspense fallback={<LoadingState label={t('Chargement du tableau de bord')} />}>

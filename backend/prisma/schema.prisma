@@ -17,6 +17,8 @@ enum Role {
   /// Ex-« Responsable » (MANAGER), renommé par la migration 0009 (004).
   ADMIN
   EMPLOYEE
+  /// Représentant légal d'élève (015) : ne voit que « Messages de l'école » et son profil.
+  PARENT
 }
 
 /// Photo de profil : avatar par défaut calculé par l'interface (aucun fichier), ou photo choisie.
@@ -133,6 +135,8 @@ enum Permission {
   REQUEST_REASSIGN
   AUDIT_READ
   ADMIN_MANAGE
+  /// Approuver, retourner ou rejeter les communications aux parents (015).
+  PARENT_COMMUNICATION_VALIDATE
 }
 
 enum RequestEventType {
@@ -205,6 +209,13 @@ enum AuditAction {
   ATTENDANCE_CORRECTED
   // Niveaux scolaires (créés et modifiés par le super administrateur)
   LEVEL_CHANGED
+  // Communication enseignant / parents (015)
+  GUARDIAN_CHANGED
+  TEACHER_CLASSES_CHANGED
+  PARENT_COMMUNICATION_CHANGED
+  PARENT_COMMUNICATION_DECIDED
+  PARENT_COMMUNICATION_READ
+  PARENT_COMMUNICATION_DELIVERY
 }
 
 enum NotificationType {
@@ -246,6 +257,12 @@ enum NotificationType {
   // Pointage des enseignants
   COVERAGE_TEACHER_ARRIVED
   COVERAGE_ATTENDANCE_ANOMALY
+  // Communication enseignant / parents (015) : cloche seulement, jamais en push
+  PARENT_COMM_TO_VALIDATE
+  PARENT_COMM_RETURNED
+  PARENT_COMM_APPROVED
+  PARENT_COMM_REJECTED
+  PARENT_MESSAGE_NEW
 }
 
 /// Origine d'une affectation (004).
@@ -365,6 +382,13 @@ model User {
 
   pushSubscriptions      PushSubscription[]
   notificationPreference NotificationPreference?
+
+  // Communication enseignant / parents (015)
+  guardianAccount             Guardian?                  @relation("GuardianAccount")
+  teacherClasses              TeacherClass[]
+  parentCommunications        ParentCommunication[]      @relation("ParentCommunicationTeacher")
+  parentCommunicationsDecided ParentCommunication[]      @relation("ParentCommunicationDecider")
+  parentCommunicationEvents   ParentCommunicationEvent[]
 }
 
 /// Session serveur : `id` est le haché HMAC du jeton aléatoire (256 bits) placé dans le cookie.
@@ -589,6 +613,10 @@ model File {
   voiceOfMessage Message?          @relation("MessageVoice")
   presence       CoveragePresence?
 
+  // Communication enseignant / parents (015) : vocal d'un brouillon ou d'une version soumise.
+  voiceOfCommunicationDrafts    ParentCommunication[]         @relation("ParentCommunicationDraftVoice")
+  voiceOfCommunicationRevisions ParentCommunicationRevision[]
+
   @@index([requestId])
   @@index([messageId])
   @@index([createdAt])
@@ -637,21 +665,26 @@ model AuditLog {
   @@index([createdAt])
 }
 
+/// Notification de la cloche : rattachée soit à une demande, soit à une communication aux parents
+/// (015) — exactement l'une des deux (contrainte CHECK de la migration 0020).
 model Notification {
-  id        String           @id @default(uuid()) @db.Uuid
-  userId    String           @db.Uuid
-  type      NotificationType
-  requestId String           @db.Uuid
-  /// Copie de la priorité de la demande, pour l'affichage distinct des urgences.
-  priority  Priority
-  readAt    DateTime?        @db.Timestamptz(3)
-  createdAt DateTime         @default(now()) @db.Timestamptz(3)
+  id              String           @id @default(uuid()) @db.Uuid
+  userId          String           @db.Uuid
+  type            NotificationType
+  requestId       String?          @db.Uuid
+  communicationId String?          @db.Uuid
+  /// Copie de la priorité de la demande, pour l'affichage distinct des urgences (NORMAL pour une communication).
+  priority        Priority
+  readAt          DateTime?        @db.Timestamptz(3)
+  createdAt       DateTime         @default(now()) @db.Timestamptz(3)
 
-  user    User    @relation(fields: [userId], references: [id])
-  request Request @relation(fields: [requestId], references: [id])
+  user          User                 @relation(fields: [userId], references: [id])
+  request       Request?             @relation(fields: [requestId], references: [id], onDelete: Restrict)
+  communication ParentCommunication? @relation(fields: [communicationId], references: [id], onDelete: Restrict)
 
   @@index([userId, readAt])
   @@index([requestId])
+  @@index([communicationId])
 }
 
 // ---------------------------------------------------------------------------
@@ -726,6 +759,7 @@ model SchoolClass {
   coverages   CoverageDetail[]
   students    Student[]
   attendances TeacherAttendance[]
+  teachers    TeacherClass[]
 
   @@index([levelId])
 }
@@ -755,8 +789,10 @@ model Student {
   createdAt   DateTime    @default(now()) @db.Timestamptz(3)
   updatedAt   DateTime    @updatedAt @db.Timestamptz(3)
 
-  class       SchoolClass         @relation(fields: [classId], references: [id])
-  mealChanges StudentMealChange[]
+  class                SchoolClass           @relation(fields: [classId], references: [id])
+  mealChanges          StudentMealChange[]
+  guardians            GuardianStudent[]
+  parentCommunications ParentCommunication[]
 
   @@index([classId])
   @@index([lastName, firstName])
@@ -855,13 +891,13 @@ model CoverageDetail {
   /// Enseignant remplaçant autorisé par l'admin pour cette absence (pointage) ; le titulaire reste `teacherId`.
   substituteTeacherId String?         @db.Uuid
 
-  request           Request          @relation(fields: [requestId], references: [id])
-  substituteTeacher User?            @relation("CoverageSubstitute", fields: [substituteTeacherId], references: [id])
-  class             SchoolClass      @relation(fields: [classId], references: [id])
-  reliefFor         Request?         @relation("CoverageRelief", fields: [reliefForId], references: [id])
-  teacher           User?            @relation("CoverageTeacher", fields: [teacherId], references: [id])
-  floor             Floor?           @relation(fields: [floorId], references: [id])
-  mergedInto        Request?         @relation("CoverageMergedInto", fields: [mergedIntoId], references: [id])
+  request           Request     @relation(fields: [requestId], references: [id])
+  substituteTeacher User?       @relation("CoverageSubstitute", fields: [substituteTeacherId], references: [id])
+  class             SchoolClass @relation(fields: [classId], references: [id])
+  reliefFor         Request?    @relation("CoverageRelief", fields: [reliefForId], references: [id])
+  teacher           User?       @relation("CoverageTeacher", fields: [teacherId], references: [id])
+  floor             Floor?      @relation(fields: [floorId], references: [id])
+  mergedInto        Request?    @relation("CoverageMergedInto", fields: [mergedIntoId], references: [id])
 
   @@index([classId])
   @@index([startAt])
@@ -1021,4 +1057,204 @@ model Guideline {
   updatedBy User      @relation(fields: [updatedById], references: [id])
 
   @@index([active, categoryId])
+}
+
+// ---------------------------------------------------------------------------
+// Communication enseignant / parents (015)
+// ---------------------------------------------------------------------------
+
+enum ParentCommunicationStatus {
+  DRAFT
+  PENDING_ADMIN_VALIDATION
+  RETURNED_FOR_CORRECTION
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum ParentCommunicationEventType {
+  CREATED
+  UPDATED
+  SUBMITTED
+  APPROVED
+  RETURNED
+  REJECTED
+  CANCELLED
+  READ
+}
+
+/// Canaux externes, envoyés par n8n ; l'espace parent de l'application reste le canal principal.
+enum CommunicationChannel {
+  EMAIL
+  WHATSAPP
+}
+
+/// Statut de livraison externe, indépendant du statut de la communication.
+enum CommunicationDeliveryStatus {
+  PENDING
+  PROCESSING
+  SENT
+  DELIVERED
+  FAILED
+  RETRYING
+}
+
+enum OutboxStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+/// Représentant légal d'un ou plusieurs élèves, géré par l'administration. Le compte parent (rôle
+/// PARENT) est facultatif ; sans compte, le représentant ne reçoit que les notifications externes.
+model Guardian {
+  id           String   @id @default(uuid()) @db.Uuid
+  firstName    String   @db.VarChar(60)
+  lastName     String   @db.VarChar(60)
+  /// Lien de parenté en texte libre (« Mère », « Tuteur »…).
+  relationship String?  @db.VarChar(40)
+  phone        String?  @db.VarChar(20)
+  email        String?  @db.VarChar(254)
+  userId       String?  @unique @db.Uuid
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @db.Timestamptz(3)
+
+  user           User?                 @relation("GuardianAccount", fields: [userId], references: [id])
+  students       GuardianStudent[]
+  communications ParentCommunication[]
+
+  @@index([lastName, firstName])
+}
+
+model GuardianStudent {
+  guardianId String   @db.Uuid
+  studentId  String   @db.Uuid
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+
+  guardian Guardian @relation(fields: [guardianId], references: [id], onDelete: Cascade)
+  student  Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@id([guardianId, studentId])
+  @@index([studentId])
+}
+
+/// Classes attribuées à un enseignant (membre du groupe Enseignants) par l'administration.
+model TeacherClass {
+  teacherId String   @db.Uuid
+  classId   String   @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  teacher User        @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  class   SchoolClass @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@id([teacherId, classId])
+  @@index([classId])
+}
+
+/// Communication d'un enseignant aux représentants d'un élève. Le brouillon (draftText,
+/// draftVoiceFileId) est la copie de travail ; chaque soumission fige une version numérotée
+/// (ParentCommunicationRevision). Le parent ne lit que la version approuvée (approvedRevision).
+model ParentCommunication {
+  id               String                    @id @default(uuid()) @db.Uuid
+  teacherId        String                    @db.Uuid
+  studentId        String                    @db.Uuid
+  guardianId       String                    @db.Uuid
+  status           ParentCommunicationStatus @default(DRAFT)
+  draftText        String?                   @db.VarChar(2000)
+  draftVoiceFileId String?                   @db.Uuid
+  /// Numéro de la dernière version soumise (0 : jamais soumise).
+  currentRevision  Int                       @default(0)
+  approvedRevision Int?
+  /// Verrouillage optimiste : incrémentée à chaque écriture.
+  version          Int                       @default(0)
+  decisionReason   String?                   @db.VarChar(1000)
+  decidedById      String?                   @db.Uuid
+  submittedAt      DateTime?                 @db.Timestamptz(3)
+  decidedAt        DateTime?                 @db.Timestamptz(3)
+  /// Première lecture par le parent destinataire.
+  readAt           DateTime?                 @db.Timestamptz(3)
+  createdAt        DateTime                  @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime                  @updatedAt @db.Timestamptz(3)
+
+  teacher       User                          @relation("ParentCommunicationTeacher", fields: [teacherId], references: [id])
+  student       Student                       @relation(fields: [studentId], references: [id])
+  guardian      Guardian                      @relation(fields: [guardianId], references: [id])
+  draftVoice    File?                         @relation("ParentCommunicationDraftVoice", fields: [draftVoiceFileId], references: [id])
+  decidedBy     User?                         @relation("ParentCommunicationDecider", fields: [decidedById], references: [id])
+  revisions     ParentCommunicationRevision[]
+  events        ParentCommunicationEvent[]
+  deliveries    ParentCommunicationDelivery[]
+  notifications Notification[]
+
+  @@index([teacherId, status])
+  @@index([status, submittedAt])
+  @@index([guardianId, status])
+}
+
+/// Version soumise d'une communication — ajout seul (trigger) : une version approuvée n'est jamais modifiée.
+model ParentCommunicationRevision {
+  id              String   @id @default(uuid()) @db.Uuid
+  communicationId String   @db.Uuid
+  number          Int
+  text            String   @db.VarChar(2000)
+  voiceFileId     String   @db.Uuid
+  createdAt       DateTime @default(now()) @db.Timestamptz(3)
+
+  communication ParentCommunication @relation(fields: [communicationId], references: [id])
+  voiceFile     File                @relation(fields: [voiceFileId], references: [id])
+
+  @@unique([communicationId, number])
+}
+
+/// Historique des actions et décisions d'une communication — ajout seul (trigger).
+model ParentCommunicationEvent {
+  id              String                       @id @default(uuid()) @db.Uuid
+  communicationId String                       @db.Uuid
+  type            ParentCommunicationEventType
+  /// null = système.
+  actorId         String?                      @db.Uuid
+  revision        Int?
+  reason          String?                      @db.VarChar(1000)
+  createdAt       DateTime                     @default(now()) @db.Timestamptz(3)
+
+  communication ParentCommunication @relation(fields: [communicationId], references: [id])
+  actor         User?               @relation(fields: [actorId], references: [id])
+
+  @@index([communicationId, createdAt])
+}
+
+/// Livraison externe d'une communication approuvée, par canal (rapportée par n8n).
+model ParentCommunicationDelivery {
+  id                String                      @id @default(uuid()) @db.Uuid
+  communicationId   String                      @db.Uuid
+  channel           CommunicationChannel
+  status            CommunicationDeliveryStatus @default(PENDING)
+  attempts          Int                         @default(0)
+  lastError         String?                     @db.VarChar(500)
+  providerMessageId String?                     @db.VarChar(200)
+  createdAt         DateTime                    @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime                    @updatedAt @db.Timestamptz(3)
+
+  communication ParentCommunication @relation(fields: [communicationId], references: [id])
+
+  @@unique([communicationId, channel])
+}
+
+/// Événements à transmettre aux automatisations externes (n8n), écrits dans la transaction métier.
+/// Un seul événement par (type, agrégat) : une approbation rejouée n'en crée pas un second.
+model OutboxEvent {
+  id            String       @id @default(uuid()) @db.Uuid
+  type          String       @db.VarChar(60)
+  aggregateId   String       @db.Uuid
+  payload       Json
+  status        OutboxStatus @default(PENDING)
+  attempts      Int          @default(0)
+  nextAttemptAt DateTime     @default(now()) @db.Timestamptz(3)
+  lastError     String?      @db.VarChar(500)
+  sentAt        DateTime?    @db.Timestamptz(3)
+  createdAt     DateTime     @default(now()) @db.Timestamptz(3)
+
+  @@unique([type, aggregateId])
+  @@index([status, nextAttemptAt])
 }

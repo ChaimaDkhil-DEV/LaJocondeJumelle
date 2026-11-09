@@ -48,8 +48,9 @@ import { visuallyHidden } from '../../components/a11y';
 import { formatRelative } from '../../components/format';
 import { font, icon, shadow, tokensOf } from '../../design/tokens';
 import {
+  eventPath,
+  notificationPath,
   NOTIFICATION_LABELS,
-  requestPath,
   useMarkRead,
   useUnreadNotifications,
   type NotificationItem,
@@ -94,6 +95,11 @@ const NOTIFICATION_ICONS: Record<NotificationType, LucideIcon> = {
   COVERAGE_TEACHER_ARRIVED: UserCheck,
   COVERAGE_ATTENDANCE_ANOMALY: TriangleAlert,
   UNASSIGNED: UserRoundX,
+  PARENT_COMM_TO_VALIDATE: MessageSquare,
+  PARENT_COMM_RETURNED: MessageSquare,
+  PARENT_COMM_APPROVED: MessageSquare,
+  PARENT_COMM_REJECTED: MessageSquare,
+  PARENT_MESSAGE_NEW: MessageSquare,
 };
 
 function UrgentMark() {
@@ -142,10 +148,10 @@ function NotificationRow({ item }: { item: NotificationItem }) {
               <UrgentMark />{' '}
             </>
           )}
-          {NOTIFICATION_LABELS[item.type]} — {item.request.title}
+          {NOTIFICATION_LABELS[item.type]} — {item.request?.title ?? item.communication?.studentName ?? ''}
         </Typography>
         <Typography variant="caption" color="text.secondary">
-          {item.request.reference} ·{' '}
+          {item.request ? `${item.request.reference} · ` : ''}
           <time dateTime={item.createdAt}>{formatRelative(item.createdAt)}</time>
         </Typography>
       </Box>
@@ -192,7 +198,7 @@ export function NotificationCenter() {
   function open(item: NotificationItem): void {
     setAnchor(null);
     markRead.mutate({ ids: [item.id] });
-    navigate(requestPath(item.request.id, item.request.kind));
+    navigate(notificationPath(item));
   }
 
   return (
@@ -296,7 +302,7 @@ export function NotificationCenter() {
                 color="inherit"
                 size="small"
                 component={RouterLink}
-                to={requestPath(latest.requestId, latest.kind)}
+                to={eventPath(latest)}
                 onClick={dismissLatest}
                 sx={{
                   color: 'inherit',

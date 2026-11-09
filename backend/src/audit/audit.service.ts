@@ -54,6 +54,14 @@ const ALLOWED_DETAIL_KEYS = new Set([
   // Assistance IA (009) : consignes, titre seulement, jamais le texte
   'guidelineId',
   'title',
+  // Communication aux parents (015) : étape, version, identifiants et canaux, jamais le texte ni le vocal
+  'event',
+  'revision',
+  'studentId',
+  'studentIds',
+  'guardianId',
+  'classIds',
+  'channels',
 ]);
 
 function scrub(value: unknown): unknown {

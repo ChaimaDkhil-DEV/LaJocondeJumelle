@@ -20,6 +20,8 @@ import { SchedulerModule } from './scheduler/scheduler.module';
 import { SettingsModule } from './settings/settings.module';
 import { StudentsModule } from './students/students.module';
 import { UsersModule } from './users/users.module';
+import { ParentCommunicationsModule } from './parent-communications/parent-communications.module';
+import { IntegrationsModule } from './integrations/integrations.module';
 
 @Module({
   imports: [
@@ -42,6 +44,8 @@ import { UsersModule } from './users/users.module';
     SchedulerModule,
     UsersModule,
     StudentsModule,
+    ParentCommunicationsModule,
+    IntegrationsModule,
     RealtimeGatewayModule,
   ],
   controllers: [HealthController],

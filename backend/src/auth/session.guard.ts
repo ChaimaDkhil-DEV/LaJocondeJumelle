@@ -4,6 +4,7 @@ import type { Request } from 'express';
 import { AuditService } from '../audit/audit.service';
 import { AppException } from '../common/errors';
 import { ALLOW_PENDING_PASSWORD_CHANGE } from './allow-pending-password-change.decorator';
+import { PARENT_ALLOWED } from './parent-allowed.decorator';
 import { IS_PUBLIC_KEY } from './public.decorator';
 import { clientIp, requestPath } from '../common/request-info';
 import { SessionService } from './session.service';
@@ -14,6 +15,7 @@ export const SESSION_COOKIE = 'sid';
  * Garde globale : toute route exige une session valide, sauf @Public().
  * Chaque refus (401) est journalisé en ACCESS_DENIED / UNAUTHENTICATED (principe V).
  * Un utilisateur devant changer son mot de passe n'accède qu'aux routes /auth/*.
+ * Un compte parent (015) n'accède qu'aux routes @ParentAllowed() ; tout autre accès est refusé et journalisé.
  */
 @Injectable()
 export class SessionGuard implements CanActivate {
@@ -53,6 +55,15 @@ export class SessionGuard implements CanActivate {
       !this.reflector.getAllAndOverride<boolean>(ALLOW_PENDING_PASSWORD_CHANGE, targets)
     ) {
       throw new AppException('PASSWORD_CHANGE_REQUIRED');
+    }
+
+    if (result.user.role === 'PARENT' && !this.reflector.getAllAndOverride<boolean>(PARENT_ALLOWED, targets)) {
+      await this.audit.log('ACCESS_DENIED', {
+        actorId: result.user.id,
+        ip: clientIp(req),
+        details: { reason: 'PARENT_SCOPE', route: requestPath(req), method: req.method, channel: 'http' },
+      });
+      throw new AppException('FORBIDDEN');
     }
     return true;
   }

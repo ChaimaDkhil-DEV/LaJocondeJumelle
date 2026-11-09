@@ -6,7 +6,11 @@ export const ROLE_LABELS: Record<Role, string> = {
   EMPLOYEE: t('Employé'),
   ADMIN: t('Admin'),
   SUPER_ADMIN: t('Super administrateur'),
+  PARENT: t('Parent'),
 };
+
+/** Rôles du personnel, proposés dans les listes de choix ; un compte parent (015) se gère depuis son représentant. */
+export const STAFF_ROLES: Role[] = ['EMPLOYEE', 'ADMIN', 'SUPER_ADMIN'];
 
 export const CIRCUIT_LABELS: Record<Circuit, string> = {
   A_DIRECT: t('Circuit A : direct'),
@@ -53,6 +57,7 @@ export const PERMISSION_LABELS: Record<string, string> = {
   PRIORITY_CHANGE_OWN: t('Changer la priorité de ses demandes'),
   PRIORITY_CHANGE_MANAGED: t('Changer la priorité des demandes gérées'),
   REQUEST_REASSIGN: t('Réaffecter une demande'),
+  PARENT_COMMUNICATION_VALIDATE: t('Valider les communications aux parents'),
 };
 
 export const AUDIT_ACTION_LABELS: Record<string, string> = {
@@ -83,6 +88,12 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   GUIDELINE_CHANGED: t('Consigne créée / modifiée / supprimée'),
   STUDENT_CHANGED: t('Élève créé / modifié'),
   LEVEL_CHANGED: t('Niveau scolaire créé / modifié'),
+  GUARDIAN_CHANGED: t('Représentant légal créé / modifié'),
+  TEACHER_CLASSES_CHANGED: t('Classes d’un enseignant modifiées'),
+  PARENT_COMMUNICATION_CHANGED: t('Communication aux parents créée / soumise / annulée'),
+  PARENT_COMMUNICATION_DECIDED: t('Communication aux parents approuvée / retournée / rejetée'),
+  PARENT_COMMUNICATION_READ: t('Message lu par un parent'),
+  PARENT_COMMUNICATION_DELIVERY: t('Notification externe d’une communication (n8n)'),
 };
 
 const GUIDELINE_ACTION_LABELS: Record<string, string> = {

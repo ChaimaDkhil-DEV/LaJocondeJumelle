@@ -62,6 +62,12 @@ services:
       PUSH_VAPID_PUBLIC_KEY: ${PUSH_VAPID_PUBLIC_KEY:-}
       PUSH_VAPID_PRIVATE_KEY: ${PUSH_VAPID_PRIVATE_KEY:-}
       PUSH_VAPID_SUBJECT: ${PUSH_VAPID_SUBJECT:-}
+      # Communication avec les parents (spec 015) : notifications externes par n8n, désactivées si vides.
+      # Adresse interne (réseau Docker) : l'événement ne passe jamais par Internet. Secret jamais commité.
+      N8N_WEBHOOK_URL: ${N8N_WEBHOOK_URL:-}
+      N8N_SHARED_SECRET: ${N8N_SHARED_SECRET:-}
+      N8N_TIMEOUT_MS: ${N8N_TIMEOUT_MS:-}
+      PARENT_COMM_CHANNELS: ${PARENT_COMM_CHANNELS:-}
     volumes:
       # Vocaux, photos et documents : jamais servis par Caddy, lus uniquement via l'API.
       - files:/data/files
@@ -86,6 +92,141 @@ services:
     volumes:
       # Modèles téléchargés (Hugging Face), conservés entre deux redémarrages.
       - whisper_models:/home/ubuntu/.cache/huggingface/hub
+
+  # Automatisation n8n (spec 015) : notifications externes des communications approuvées (e-mail,
+  # WhatsApp Business Platform). Désactivée par défaut, démarrée avec le profil :
+  #   docker compose -f deploy/docker-compose.yml --env-file deploy/.env --profile n8n up -d
+  # (ou COMPOSE_PROFILES=n8n dans deploy/.env). Sa panne n'arrête jamais l'application : l'API garde
+  # les événements (outbox) et les renvoie. Base PostgreSQL dédiée, aucun port publié ; l'éditeur
+  # est servi par Caddy sur N8N_DOMAIN (HTTPS), aux seules adresses N8N_ALLOWED_IPS.
+  n8n:
+    image: n8nio/n8n:2.44.7@sha256:942bc274709f27f99f7c6024a785d8e8f75ac06838cabcba448abb8d9127ec7b
+    profiles: ['n8n']
+    restart: unless-stopped
+    init: true
+    # Refus de démarrer sans clé de chiffrement explicite (identifiants SMTP et WhatsApp chiffrés
+    # avec elle) ni secret partagé : une clé générée en silence serait perdue avec le volume.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - '[ "$${#N8N_ENCRYPTION_KEY}" -ge 32 ] || { echo "[n8n] N8N_ENCRYPTION_KEY manquante ou trop courte (32 caractères minimum)" >&2; exit 1; }; [ "$${#LJJ_SHARED_SECRET}" -ge 32 ] || { echo "[n8n] N8N_SHARED_SECRET manquant ou trop court (32 caractères minimum)" >&2; exit 1; }; exec /docker-entrypoint.sh'
+    expose:
+      - '5678'
+    environment:
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: n8n-db
+      DB_POSTGRESDB_PORT: '5432'
+      DB_POSTGRESDB_DATABASE: ${N8N_POSTGRES_DB:-n8n}
+      DB_POSTGRESDB_USER: ${N8N_POSTGRES_USER:-n8n}
+      DB_POSTGRESDB_PASSWORD: ${N8N_POSTGRES_PASSWORD:-}
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:-}
+      N8N_HOST: ${N8N_DOMAIN:-n8n.localhost}
+      N8N_PORT: '5678'
+      N8N_PROTOCOL: https
+      N8N_EDITOR_BASE_URL: https://${N8N_DOMAIN:-n8n.localhost}/
+      WEBHOOK_URL: https://${N8N_DOMAIN:-n8n.localhost}/
+      N8N_PROXY_HOPS: '1'
+      N8N_SECURE_COOKIE: 'true'
+      GENERIC_TIMEZONE: ${TZ:-Europe/Paris}
+      TZ: ${TZ:-Europe/Paris}
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: 'true'
+      N8N_RUNNERS_ENABLED: 'true'
+      # Aucune donnée envoyée à l'éditeur de n8n ; pas de modèles ni d'annonces de version.
+      N8N_DIAGNOSTICS_ENABLED: 'false'
+      N8N_VERSION_NOTIFICATIONS_ENABLED: 'false'
+      N8N_TEMPLATES_ENABLED: 'false'
+      N8N_PERSONALIZATION_ENABLED: 'false'
+      # Données personnelles (adresses, numéros) : exécutions réussies non conservées, erreurs 14 jours.
+      EXECUTIONS_DATA_SAVE_ON_SUCCESS: none
+      EXECUTIONS_DATA_SAVE_ON_ERROR: all
+      EXECUTIONS_DATA_PRUNE: 'true'
+      EXECUTIONS_DATA_MAX_AGE: '336'
+      # Workflow « LJJ — Notification des communications aux parents » (deploy/n8n) : vérification de
+      # la signature (module crypto, secret lu dans l'environnement), appels à l'API interne.
+      NODE_FUNCTION_ALLOW_BUILTIN: crypto
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: 'false'
+      LJJ_API_URL: http://api:3000
+      LJJ_SHARED_SECRET: ${N8N_SHARED_SECRET:-}
+      LJJ_MAIL_FROM: ${N8N_MAIL_FROM:-}
+      WHATSAPP_GRAPH_VERSION: ${WHATSAPP_GRAPH_VERSION:-}
+      WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID:-}
+      WHATSAPP_TEMPLATE_NAME: ${WHATSAPP_TEMPLATE_NAME:-}
+      WHATSAPP_TEMPLATE_LANGUAGE: ${WHATSAPP_TEMPLATE_LANGUAGE:-fr}
+    volumes:
+      - n8n_data:/home/node/.n8n
+      # Workflow à importer (lecture seule) : voir docs/parent-communications.md.
+      - ./n8n:/workflows:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:5678/healthz >/dev/null 2>&1 || exit 1']
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1g
+    depends_on:
+      n8n-db:
+        condition: service_healthy
+
+  # Base dédiée à n8n : séparée de celle de l'application (aucun accès croisé).
+  n8n-db:
+    image: postgres:17
+    profiles: ['n8n']
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${N8N_POSTGRES_USER:-n8n}
+      POSTGRES_PASSWORD: ${N8N_POSTGRES_PASSWORD:-}
+      POSTGRES_DB: ${N8N_POSTGRES_DB:-n8n}
+    volumes:
+      - n8n_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512m
+
+  # Sauvegarde quotidienne de n8n (base + dossier /home/node/.n8n), mêmes scripts et même rotation
+  # que l'application, dans le sous-dossier n8n de BACKUP_DIR (et de BACKUP_OFFSITE_DIR).
+  n8n-backup:
+    image: postgres:17
+    profiles: ['n8n']
+    restart: unless-stopped
+    environment:
+      PGHOST: n8n-db
+      PGUSER: ${N8N_POSTGRES_USER:-n8n}
+      PGPASSWORD: ${N8N_POSTGRES_PASSWORD:-}
+      PGDATABASE: ${N8N_POSTGRES_DB:-n8n}
+      BACKUP_TIME: ${N8N_BACKUP_TIME:-02:45}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+      OFFSITE_ENABLED: ${BACKUP_OFFSITE_DIR:+1}
+      TZ: ${TZ:-Europe/Paris}
+    volumes:
+      - n8n_data:/data/files:ro
+      - ${BACKUP_DIR:-./backups}/n8n:/backups
+      - ./backup:/scripts:ro
+      - ${BACKUP_OFFSITE_DIR:-./backups}/n8n:/offsite
+    entrypoint: ['/bin/bash', '/scripts/run-nightly.sh']
+    healthcheck:
+      test: ['CMD-SHELL', 'test -n "$$(find /backups -maxdepth 1 -name "db-*.dump" -mmin -1560 -print -quit)"']
+      interval: 5m
+      timeout: 10s
+      start_period: 1m
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256m
+    depends_on:
+      n8n-db:
+        condition: service_healthy
 
   db:
     image: postgres:17
@@ -142,3 +283,5 @@ volumes:
   caddy_data:
   caddy_config:
   whisper_models:
+  n8n_data:
+  n8n_pgdata:

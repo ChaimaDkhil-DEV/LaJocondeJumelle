@@ -61,6 +61,8 @@ export function SocketProvider({
     socket.on('notification:new', (event?: NotificationEvent) => {
       invalidate(NOTIFICATIONS_KEY);
       invalidate(['requests', 'list']);
+      // Communication aux parents (015) : listes et détails relus par REST.
+      if (event?.kind === 'COMMUNICATION') invalidate(['parent-communications']);
       if (event) setLatest(event);
     });
     socket.on('request:updated', (event?: { requestId: string }) => {

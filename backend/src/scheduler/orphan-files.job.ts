@@ -10,12 +10,17 @@ import { FileStorageService } from '../files/file-storage.service';
 export const ORPHAN_MAX_AGE_MS = 24 * 3_600_000;
 const ORPHAN_INTERVAL_MS = 3_600_000;
 
-/** Fichier rattaché à rien : ni demande, ni message, ni vocal de demande ou de message. */
+/**
+ * Fichier rattaché à rien : ni demande, ni message, ni vocal de demande ou de message, ni vocal d'un
+ * brouillon ou d'une version de communication aux parents (015).
+ */
 const UNATTACHED = {
   requestId: null,
   messageId: null,
   voiceOfRequest: { is: null },
   voiceOfMessage: { is: null },
+  voiceOfCommunicationDrafts: { none: {} },
+  voiceOfCommunicationRevisions: { none: {} },
 } satisfies Prisma.FileWhereInput;
 
 /**

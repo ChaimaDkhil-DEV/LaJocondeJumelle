@@ -302,3 +302,41 @@ describe('loadConfig — notifications push (014)', () => {
     }
   });
 });
+
+/** 015 — automatisations externes (n8n) et canaux des communications aux parents : désactivés par défaut. */
+describe('loadConfig : n8n et canaux externes (015)', () => {
+  const secret = 's'.repeat(32);
+
+  it('sans variable : aucun envoi vers n8n, aucun canal externe', () => {
+    const config = loadConfig(valid);
+    expect(config.n8n).toBeNull();
+    expect(config.parentCommunicationChannels).toEqual([]);
+  });
+
+  it('URL et secret ensemble, délai par défaut de 10 s', () => {
+    const config = loadConfig({ ...valid, N8N_WEBHOOK_URL: 'http://n8n:5678/webhook/ljj', N8N_SHARED_SECRET: secret });
+    expect(config.n8n).toEqual({ webhookUrl: 'http://n8n:5678/webhook/ljj', secret, timeoutMs: 10_000 });
+  });
+
+  it.each([
+    [{ N8N_WEBHOOK_URL: 'http://n8n:5678/webhook/ljj' }, /N8N_SHARED_SECRET/],
+    [{ N8N_SHARED_SECRET: secret }, /N8N_WEBHOOK_URL/],
+    [{ N8N_WEBHOOK_URL: 'ftp://n8n', N8N_SHARED_SECRET: secret }, /N8N_WEBHOOK_URL/],
+    [{ N8N_WEBHOOK_URL: 'http://n8n:5678/x', N8N_SHARED_SECRET: 'court' }, /32 caractères/],
+    [{ N8N_WEBHOOK_URL: 'http://n8n:5678/x', N8N_SHARED_SECRET: secret, N8N_TIMEOUT_MS: '50' }, /N8N_TIMEOUT_MS/],
+    [{ PARENT_COMM_CHANNELS: 'EMAIL,SMS' }, /PARENT_COMM_CHANNELS/],
+  ])('refuse une configuration incomplète ou invalide (%j)', (extra, message) => {
+    expect(() => loadConfig({ ...valid, ...extra })).toThrow(message);
+  });
+
+  it('le secret n’apparaît jamais dans un message d’erreur', () => {
+    const leaky = 'secret-tres-confidentiel'.padEnd(40, 'x');
+    expect(() => loadConfig({ ...valid, N8N_WEBHOOK_URL: 'pas une url', N8N_SHARED_SECRET: leaky })).toThrow(
+      expect.objectContaining({ message: expect.not.stringContaining(leaky) }),
+    );
+  });
+
+  it('canaux activés : e-mail et WhatsApp Business, sans doublon ni espace', () => {
+    expect(loadConfig({ ...valid, PARENT_COMM_CHANNELS: ' whatsapp, EMAIL ,email' }).parentCommunicationChannels).toEqual(['EMAIL', 'WHATSAPP']);
+  });
+});

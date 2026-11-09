@@ -111,6 +111,14 @@ Push notifications (spec 014) are off by default: they are enabled only by setti
 `PUSH_VAPID_*` variables, after the school's decision and its entry in the processing register. See
 [docs/notifications-push.md](docs/notifications-push.md) (keys, time zone, iPhone, register entry).
 
+Teacher–parent communication (spec 015): teachers write a remark and record a voice message for a
+student's guardian; nothing reaches the parent before an authorised member of the administration
+approves it; parents (role `PARENT`, accounts created by the administration) read it in « Messages
+de l’école ». External notifications (email, WhatsApp Business Platform) are optional and go through
+a self-hosted n8n (profile `n8n` of `deploy/docker-compose.yml`), off by default. See
+[docs/parent-communications.md](docs/parent-communications.md) (rights, n8n installation, rollback,
+register entry).
+
 Lost super administrator password: the reset is recorded in the audit log, closes all their
 sessions and forces a new password at the next login.
 
@@ -174,6 +182,8 @@ be validated with the school (see the "Open points" section of the specification
 - Recipients of each category (including "Photocopies"), mandatory proof photo, closure mode.
 - Maximum duration and size of voice messages, attachment formats and size.
 - Read or listen receipts.
+- Teacher–parent communication: retention period of communications and voice messages, which
+  admins get the validation permission, and whether external channels (email, WhatsApp) are used.
 
 Still to be done: the manual check on a real iPhone
 ([docs/validation/iphone-manuel.md](docs/validation/iphone-manuel.md)) and the usability test with

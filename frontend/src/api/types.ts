@@ -3,7 +3,8 @@
  * par tests/api/enums-sync.test.ts.
  */
 
-export type Role = 'SUPER_ADMIN' | 'ADMIN' | 'EMPLOYEE';
+/** PARENT : représentant légal d'élève (015), limité à « Messages de l'école ». */
+export type Role = 'SUPER_ADMIN' | 'ADMIN' | 'EMPLOYEE' | 'PARENT';
 
 export type Priority = 'NORMAL' | 'MEDIUM' | 'HIGH' | 'URGENT';
 
