@@ -1,6 +1,7 @@
 import { Priority } from '@prisma/client';
 import { Transform } from 'class-transformer';
-import { IsEnum, IsISO8601, IsOptional, IsString, IsUUID, Matches, MaxLength } from 'class-validator';
+import { IsEnum, IsIn, IsISO8601, IsOptional, IsString, IsUUID, Matches, MaxLength } from 'class-validator';
+import { DASHBOARD_INDICATORS, type DashboardIndicator } from './domain/dashboard-metrics';
 
 const toArray = ({ value }: { value: unknown }) =>
   value === undefined ? undefined : Array.isArray(value) ? value : [value];
@@ -43,6 +44,21 @@ export class DashboardActivityQuery extends DashboardQuery {
   /** Position (seq) du dernier événement de la page précédente. */
   @IsOptional()
   @Matches(/^\d{1,19}$/)
+  cursor?: string;
+
+  @IsOptional()
+  @IsString()
+  limit?: string;
+}
+
+/** GET /admin/dashboard/requests : les demandes comptées par un chiffre de la synthèse. */
+export class DashboardRequestsQuery extends DashboardQuery {
+  @IsIn(DASHBOARD_INDICATORS)
+  indicator!: DashboardIndicator;
+
+  /** Position (createdAt, id) de la dernière demande de la page précédente. */
+  @IsOptional()
+  @IsString()
   cursor?: string;
 
   @IsOptional()

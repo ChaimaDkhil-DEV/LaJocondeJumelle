@@ -43,6 +43,21 @@ export const ASSIGNED_STATUSES: readonly RequestStatus[] = [...STATUS_GROUPS.pen
 
 export const DONE_STATUSES: readonly RequestStatus[] = STATUS_GROUPS.done;
 
+/** Chiffres de la situation actuelle : toutes périodes confondues (les autres filtres s'appliquent). */
+export const CURRENT_INDICATORS = ['overdueNow', 'urgentActive', 'unassigned'] as const;
+export type CurrentIndicator = (typeof CURRENT_INDICATORS)[number];
+
+/**
+ * Chiffres du tableau de bord qui ouvrent la liste de leurs demandes : ceux de la période (date de
+ * création dans la période) et ceux de la situation actuelle.
+ */
+export type DashboardIndicator = 'total' | StatusGroup | 'overdueInPeriod' | CurrentIndicator;
+export const DASHBOARD_INDICATORS: readonly DashboardIndicator[] = ['total', ...STATUS_GROUP_KEYS, 'overdueInPeriod', ...CURRENT_INDICATORS];
+
+export function isCurrentIndicator(indicator: DashboardIndicator): indicator is CurrentIndicator {
+  return (CURRENT_INDICATORS as readonly string[]).includes(indicator);
+}
+
 export function groupOf(status: RequestStatus): StatusGroup | null {
   for (const key of STATUS_GROUP_KEYS) {
     if ((STATUS_GROUPS[key] as readonly RequestStatus[]).includes(status)) return key;

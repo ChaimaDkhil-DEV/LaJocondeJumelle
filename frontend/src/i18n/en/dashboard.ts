@@ -92,6 +92,13 @@ export const dashboard: Record<string, string> = {
   ', affectée à': ', assigned to',
   'Survol d’une ligne : numéro complet, catégorie et échéance. Historique complet : ouvrir la demande.': 'Hover over a row: full number, category and due date. Full history: open the request.',
   'Afficher plus de demandes': 'Show more requests',
+  // Clickable figures (list of the requests counted by a figure)
+  '{label} : {value} — voir ces demandes': '{label}: {value} — view these requests',
+  'Voir toutes les demandes': 'View all requests',
+  '« {label} » : situation actuelle, toutes périodes confondues.': '“{label}”: current situation, all periods combined.',
+  '« {label} » : demandes créées sur la période.': '“{label}”: requests created in the period.',
+  'Aucune demande ne correspond à ce chiffre.': 'No request matches this figure.',
+  'Demandes : {label}': 'Requests: {label}',
   'Chargement de l’activité': 'Loading activity',
   'l’activité': 'the activity',
   'Aucune activité': 'No activity',

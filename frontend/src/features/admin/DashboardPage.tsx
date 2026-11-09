@@ -1,3 +1,4 @@
+import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import MenuItem from '@mui/material/MenuItem';
@@ -47,7 +48,6 @@ import { Person } from '../../components/UserAvatar';
 import { cardShadow, font, fontSize, icon, radius, tokensOf, type AccentName } from '../../design/tokens';
 import { locale, isPlural, t } from '../../i18n';
 import { useRequestList } from '../requests/api';
-import type { RequestSummary } from '../requests/types';
 import { describeEvent, EVENT_ICONS } from '../requests/HistoryTimeline';
 import { useAdminCategories, useAdminUsers } from './api';
 import { DailyChart, Sparkline, StatusDonut } from './DashboardCharts';
@@ -56,15 +56,23 @@ import { DelaysView } from './DelaysView';
 import { EmployeesView } from './EmployeesView';
 import { KpiCard } from './KpiCard';
 import {
-  DEFAULT_FILTERS,
+  CURRENT_INDICATORS,
+  filtersFromParams,
+  indicatorFromParams,
+  indicatorLink,
   periodOf,
   toDashboardQuery,
   toRequestListFilters,
   useDashboardActivity,
+  useDashboardRequests,
   useDashboardSummary,
+  withFilters,
+  withoutIndicator,
   type ActivityItem,
   type DashboardAlert,
   type DashboardFilters,
+  type DashboardIndicator,
+  type DashboardRequestRow,
   type DashboardSummary,
   type StatusGroup,
 } from './dashboardApi';
@@ -95,6 +103,19 @@ const GROUP_HINTS: Record<StatusGroup, string> = {
   rejected: t('Refusées par l’administration ou l’employé'),
   cancelled: t('Annulées par le demandeur'),
 };
+
+/** Libellé de chaque chiffre cliquable, repris dans le bandeau et le nom de sa liste. */
+const INDICATOR_LABELS: Record<DashboardIndicator, string> = {
+  total: t('Total'),
+  ...GROUP_LABELS,
+  overdueInPeriod: t('Hors délai'),
+  overdueNow: t('En retard'),
+  urgentActive: t('Urgentes en cours'),
+  unassigned: t('Sans employé affecté'),
+};
+
+/** Nom du lien d'un chiffre pour les lecteurs d'écran : libellé, valeur, destination. */
+const linkLabel = (label: string, value: number) => t('{label} : {value} — voir ces demandes', { label, value });
 
 const VIEWS = [
   { key: 'general', label: t('Vue générale') },
@@ -259,7 +280,7 @@ const GROUP_ACCENTS: Partial<Record<StatusGroup, AccentName>> = {
   done: 'green',
 };
 
-function GeneralView({ qs }: { qs: string }) {
+function GeneralView({ qs, linkTo }: { qs: string; linkTo: (indicator: DashboardIndicator) => string }) {
   const theme = useTheme();
   const tk = tokensOf(theme);
   const summary = useDashboardSummary(qs);
@@ -284,6 +305,8 @@ function GeneralView({ qs }: { qs: string }) {
             accent="indigo"
             hint={t('Hors brouillons')}
             trend={<Sparkline values={s.daily.map((d) => d.created)} color={tk.accents.indigo.main} />}
+            to={linkTo('total')}
+            linkLabel={linkLabel(t('Total'), s.counts.total)}
           />
           {groups.map((g) => (
             <KpiCard
@@ -295,6 +318,8 @@ function GeneralView({ qs }: { qs: string }) {
               tone="neutral"
               hint={GROUP_HINTS[g]}
               trend={g === 'done' ? <Sparkline kind="bars" values={s.daily.map((d) => d.completed)} color={tk.accents.green.main} /> : undefined}
+              to={linkTo(g)}
+              linkLabel={linkLabel(GROUP_LABELS[g], s.counts[g])}
             />
           ))}
           <KpiCard
@@ -305,6 +330,8 @@ function GeneralView({ qs }: { qs: string }) {
             icon={AlarmClock}
             hint={t('Au moins une étape en retard')}
             trend={s.byCategory.length > 1 ? <Sparkline kind="bars" values={s.byCategory.map((c) => c.overdue)} color={tk.accents.orange.main} /> : undefined}
+            to={linkTo('overdueInPeriod')}
+            linkLabel={linkLabel(t('Hors délai'), s.counts.overdueInPeriod)}
           />
         </Box>
       </Box>
@@ -332,9 +359,9 @@ function GeneralView({ qs }: { qs: string }) {
         <Figures
           label={t('Situation actuelle')}
           items={[
-            { label: t('En retard'), value: s.current.overdueNow, hint: t('Échéance de l’étape en cours dépassée'), alert: 'error' },
-            { label: t('Urgentes en cours'), value: s.current.urgentActive, hint: t('Priorité urgente, non terminées'), alert: 'warning' },
-            { label: t('Sans employé affecté'), value: s.current.unassigned, hint: t('Envoyées ou en cours sans employé affecté') },
+            { label: t('En retard'), value: s.current.overdueNow, hint: t('Échéance de l’étape en cours dépassée'), alert: 'error', to: linkTo('overdueNow') },
+            { label: t('Urgentes en cours'), value: s.current.urgentActive, hint: t('Priorité urgente, non terminées'), alert: 'warning', to: linkTo('urgentActive') },
+            { label: t('Sans employé affecté'), value: s.current.unassigned, hint: t('Envoyées ou en cours sans employé affecté'), to: linkTo('unassigned') },
           ]}
         />
         {s.alerts.length === 0 ? (
@@ -405,6 +432,8 @@ interface Figure {
   hint?: string;
   /** Couleur du chiffre quand il dépasse 0 : rouge (retard) ou ambre (urgence) ; absent : neutre. */
   alert?: 'error' | 'warning';
+  /** Chiffre cliquable : ouvre la liste des demandes comptées. */
+  to?: string;
 }
 
 /**
@@ -452,7 +481,24 @@ function Figures({ items, label, stackOnMobile = true }: { items: Figure[]; labe
               };
             }}
           >
-            {f.value}
+            {f.to ? (
+              <Box
+                component={RouterLink}
+                to={f.to}
+                aria-label={linkLabel(f.label, f.value)}
+                sx={(theme) => ({
+                  color: 'inherit',
+                  textDecoration: 'none',
+                  borderRadius: '2px',
+                  '&:hover': { textDecoration: 'underline', textUnderlineOffset: '4px' },
+                  '&:focus-visible': { outline: `2px solid ${theme.palette.primary.main}`, outlineOffset: 2 },
+                })}
+              >
+                {f.value}
+              </Box>
+            ) : (
+              f.value
+            )}
           </Box>
         </div>
       ))}
@@ -651,7 +697,7 @@ function priorityColor(theme: Theme, priority: Priority): string {
 }
 
 /** Détails au survol (ou au focus) d'une ligne : numéro complet, statut entier, catégorie, échéance. */
-function RequestRowDetails({ r }: { r: RequestSummary }) {
+function RequestRowDetails({ r }: { r: DashboardRequestRow }) {
   const due = r.overdueStage
     ? t('dépassée ({stage})', { stage: STAGE_LABELS[r.overdueStage] })
     : r.currentDueAt
@@ -668,26 +714,24 @@ function RequestRowDetails({ r }: { r: RequestSummary }) {
   );
 }
 
-function RequestsView({ filters }: { filters: string }) {
-  const list = useRequestList('all', [], filters);
-  const items = list.data?.pages.flatMap((p) => p.items) ?? [];
-  if (list.isPending) return <DashboardSkeleton label={t('Chargement des demandes')} shape="table" />;
-  if (list.error) return <ErrorState message={loadErrorMessage(list.error, t('les demandes'))} actionLabel={t('Réessayer')} onAction={() => void list.refetch()} />;
-  if (items.length === 0) {
-    return (
-      <Paper variant="elevated">
-        <EmptyState icon={SearchX} title={t('Aucune demande')} description={t('Aucune demande ne correspond à ces filtres.')} />
-      </Paper>
-    );
-  }
+interface RequestsTableProps {
+  items: DashboardRequestRow[];
+  /** Nom du tableau et de sa zone de défilement. */
+  label: string;
+  hasNextPage: boolean;
+  isFetchingNextPage: boolean;
+  onMore: () => void;
+}
+
+function RequestsTable({ items, label, hasNextPage, isFetchingNextPage, onMore }: RequestsTableProps) {
   return (
     <Box sx={{ display: 'grid', gap: 1.5 }}>
-      <TableContainer component={Paper} variant="elevated" sx={stickyArea} {...scrollRegion(t('Demandes de la période'))}>
+      <TableContainer component={Paper} variant="elevated" sx={stickyArea} {...scrollRegion(label)}>
         {/* Version allégée : 5 colonnes, lignes de hauteur fixe, texte simple (sans pilule). */}
         <Table
           size="small"
           stickyHeader
-          aria-label={t('Demandes de la période')}
+          aria-label={label}
           sx={(theme) => ({
             tableLayout: 'fixed',
             minWidth: 760,
@@ -762,13 +806,86 @@ function RequestsView({ filters }: { filters: string }) {
       <Typography variant="body2" color="text.secondary">
         {t('Survol d’une ligne : numéro complet, catégorie et échéance. Historique complet : ouvrir la demande.')}
       </Typography>
-      {list.hasNextPage && (
+      {hasNextPage && (
         <Box sx={{ textAlign: 'center' }}>
-          <Button variant="outlined" loading={list.isFetchingNextPage} onClick={() => void list.fetchNextPage()}>
+          <Button variant="outlined" loading={isFetchingNextPage} onClick={onMore}>
             {t('Afficher plus de demandes')}
           </Button>
         </Box>
       )}
+    </Box>
+  );
+}
+
+function RequestsView({ filters }: { filters: string }) {
+  const list = useRequestList('all', [], filters);
+  const items = list.data?.pages.flatMap((p) => p.items) ?? [];
+  if (list.isPending) return <DashboardSkeleton label={t('Chargement des demandes')} shape="table" />;
+  if (list.error) return <ErrorState message={loadErrorMessage(list.error, t('les demandes'))} actionLabel={t('Réessayer')} onAction={() => void list.refetch()} />;
+  if (items.length === 0) {
+    return (
+      <Paper variant="elevated">
+        <EmptyState icon={SearchX} title={t('Aucune demande')} description={t('Aucune demande ne correspond à ces filtres.')} />
+      </Paper>
+    );
+  }
+  return (
+    <RequestsTable
+      items={items}
+      label={t('Demandes de la période')}
+      hasNextPage={list.hasNextPage}
+      isFetchingNextPage={list.isFetchingNextPage}
+      onMore={() => void list.fetchNextPage()}
+    />
+  );
+}
+
+/**
+ * Demandes comptées par un chiffre de la vue générale : la liste vient du serveur, avec la même
+ * définition que le chiffre ; un bandeau dit lequel et ramène à la liste habituelle.
+ */
+function IndicatorRequestsView({ qs, indicator, onShowAll }: { qs: string; indicator: DashboardIndicator; onShowAll: () => void }) {
+  const list = useDashboardRequests(qs, indicator);
+  const items = list.data?.pages.flatMap((p) => p.items) ?? [];
+  const label = INDICATOR_LABELS[indicator];
+  const banner = (
+    <Alert
+      severity="info"
+      action={
+        <Button color="inherit" size="small" onClick={onShowAll}>
+          {t('Voir toutes les demandes')}
+        </Button>
+      }
+    >
+      {CURRENT_INDICATORS.includes(indicator)
+        ? t('« {label} » : situation actuelle, toutes périodes confondues.', { label })
+        : t('« {label} » : demandes créées sur la période.', { label })}
+    </Alert>
+  );
+  let content;
+  if (list.isPending) content = <DashboardSkeleton label={t('Chargement des demandes')} shape="table" />;
+  else if (list.error) content = <ErrorState message={loadErrorMessage(list.error, t('les demandes'))} actionLabel={t('Réessayer')} onAction={() => void list.refetch()} />;
+  else if (items.length === 0) {
+    content = (
+      <Paper variant="elevated">
+        <EmptyState icon={SearchX} title={t('Aucune demande')} description={t('Aucune demande ne correspond à ce chiffre.')} />
+      </Paper>
+    );
+  } else {
+    content = (
+      <RequestsTable
+        items={items}
+        label={t('Demandes : {label}', { label })}
+        hasNextPage={list.hasNextPage}
+        isFetchingNextPage={list.isFetchingNextPage}
+        onMore={() => void list.fetchNextPage()}
+      />
+    );
+  }
+  return (
+    <Box sx={{ display: 'grid', gap: 2 }}>
+      {banner}
+      {content}
     </Box>
   );
 }
@@ -866,8 +983,10 @@ function ActivityView({ qs }: { qs: string }) {
 
 /** Tableau de bord de supervision des demandes de travail (super administrateur). */
 export function DashboardPage() {
-  const [filters, setFilters] = useState<DashboardFilters>(DEFAULT_FILTERS);
   const [params, setParams] = useSearchParams();
+  // Filtres et chiffre ouvert dans l'adresse : une liste filtrée se garde et se partage.
+  const filters = filtersFromParams(params);
+  const indicator = indicatorFromParams(params);
   // Onglet par défaut (accueil du super administrateur après connexion) : « Vue générale ».
   const view: ViewKey = VIEWS.find((v) => v.key === params.get('vue'))?.key ?? 'general';
   const customIncomplete = filters.preset === 'custom' && (!filters.from || !filters.to);
@@ -877,7 +996,7 @@ export function DashboardPage() {
   // Période personnalisée : ses dates sont dans le panneau, qui s'ouvre alors de lui-même.
   const showFilters = filtersOpen || filters.preset === 'custom';
   const activeCount = activeFilterCount(filters);
-  const change = (patch: Partial<DashboardFilters>) => setFilters((f) => ({ ...f, ...patch }));
+  const change = (patch: Partial<DashboardFilters>) => setParams(withFilters(params, { ...filters, ...patch }), { replace: true });
 
   return (
     <Box>
@@ -917,7 +1036,8 @@ export function DashboardPage() {
         <Tabs
           value={view}
           onChange={(_, key: ViewKey) => {
-            const next = new URLSearchParams(params);
+            // Un onglet choisi à la main montre sa liste habituelle, pas celle d'un chiffre.
+            const next = withoutIndicator(params);
             next.set('vue', key);
             setParams(next, { replace: true });
           }}
@@ -938,13 +1058,17 @@ export function DashboardPage() {
             <EmptyState icon={CalendarRange} title={t('Période incomplète')} description={t('Choisissez une date de début et une date de fin.')} />
           </Paper>
         ) : view === 'general' ? (
-          <GeneralView qs={qs} />
+          <GeneralView qs={qs} linkTo={(i) => indicatorLink(params, i)} />
         ) : view === 'delais' ? (
           <DelaysView qs={qs} />
         ) : view === 'employes' ? (
           <EmployeesView qs={qs} />
         ) : view === 'demandes' ? (
-          <RequestsView filters={listFilters} />
+          indicator ? (
+            <IndicatorRequestsView qs={qs} indicator={indicator} onShowAll={() => setParams(withoutIndicator(params), { replace: true })} />
+          ) : (
+            <RequestsView filters={listFilters} />
+          )
         ) : (
           <ActivityView qs={qs} />
         )}

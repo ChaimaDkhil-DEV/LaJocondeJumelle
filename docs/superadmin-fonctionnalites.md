@@ -153,7 +153,8 @@ Journal d'audit (`AdminLayout.tsx:21-30`).
 
 | Feature | File / endpoint | Authorization | Status |
 | --- | --- | --- | --- |
-| Filters: period (7, 30, 90 days or custom), category, priority, employee | `DashboardPage.tsx` | `dashboard.controller.ts:8` | Complete |
+| Filters: period (7, 30, 90 days or custom), category, priority, employee; kept in the address (`periode`, `du`, `au`, `categorie`, `priorite`, `employe`), so a filtered page can be bookmarked or shared | `DashboardPage.tsx` | `dashboard.controller.ts:8` | Complete |
+| Clickable figures: each card of the period (total, every state group, out of deadline) and each figure of "À traiter maintenant" opens the Demandes tab on exactly the requests it counts (same filters and same condition as the figure, computed by the server; the period does not apply to the current situation), with a banner and « Voir toutes les demandes ». Address: `?vue=demandes&indicateur=<figure>` | `GET /api/admin/dashboard/requests?indicator=…` | same | Complete |
 | "À traiter maintenant" (To handle now): overdue, urgent in progress, with no assigned employee, alerts with link | `GET /api/admin/dashboard/summary` | same | Complete |
 | Counters per state, charts (breakdown, daily trend) with table view | same | same | Complete |
 | Deadlines: first response (first message from someone other than the requester), pick-up, net and gross handling, compliance rate, per priority | `GET …/performance` | same | Complete |
