@@ -72,6 +72,20 @@ module removed) confirmed it fails without the feature.
 - Backend `admin-routes-access.spec.ts`: guardians and teacher-classes routes added to `ADMIN_ALLOWED` (open to
   ADMIN by decision); `notifications.spec.ts`: each item now has `communication: null` for a request.
 
+## Deviations from principle I (tests first)
+
+Recorded before merging PR #94; check 4 of docs/procedure-fusion.md left unticked for this reason.
+
+1. Lot 1 (T001–T008) and the n8n backend (T040–T043): the tests were written before the code but not run, so
+   not seen failing first. Compensated by a mutation check: without the module, 18 / 18 and 6 / 6 of these
+   tests fail.
+2. Notification routing (`notificationPath`, `eventPath`) and the display of a communication in the bell
+   (`NotificationCenter`): coded before their test in `NotificationCenter.test.tsx`; only the live refresh
+   (`SocketProvider`) was seen failing first.
+3. n8n workflow, Compose profile, Caddy site, `deploy.sh`: no failing-first test is possible in the test
+   suites; checked after writing against a real n8n 2.44.7 (harness and opt-in live test,
+   docs/validation/verification-015.md).
+
 ## Defects found during verification
 
 - A user without the right received 400 (invalid body or filter) instead of 403 on the validation and teacher

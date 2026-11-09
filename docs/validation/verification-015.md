@@ -54,6 +54,12 @@ public subdomain certificate, `n8n-backup` on a server and a restore of n8n.
 Both are covered by tests written failing first; details in
 [tasks.md](../../specs/015-communication-parents/tasks.md#defects-found-during-verification).
 
+## Deviations from tests first
+
+Three deviations from principle I (tests seen failing before the code), recorded before merging:
+[tasks.md](../../specs/015-communication-parents/tasks.md#deviations-from-principle-i-tests-first). The
+repository owner decided to merge with check 4 left unticked.
+
 ## Known limit
 
 n8n deduplicates on the workflow's static data, saved at the end of an execution: two identical events a few
