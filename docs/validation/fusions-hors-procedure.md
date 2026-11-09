@@ -214,3 +214,38 @@ No fix or `git revert` needed.
 ### Reminder
 
 Write the failing test before the code, including for a small change requested during a session.
+
+## 09/11/2026 — pull request #94
+
+| Pull request | Content | Merged at (UTC) | Check not satisfied at merge time |
+|---------|---------|-------------------|-----------------------------------------------|
+| #94 (`015-communication-parents`) | Feature 015: teacher–parent communication validated by the administration, `PARENT` role, external notifications through n8n (off by default), migrations `0020` and `0021` | 16:09:58 | **4. Diff review**: three deviations from constitution principle I (tests seen failing before the code) |
+
+Checks 1 to 3 were ticked in the description of the pull request; check 4 was left unticked, with the reason. The merge
+was a deliberate decision of the repository owner, taken once these deviations had been reported and recorded.
+
+### Findings after the fact
+
+- Both runs on `75b9435` were green before the merge (42650050898 at 16:06:56, 42650056661 at 16:08:29), all steps
+  executed, including the Docker image build and the dependency audit. The branch was up to date with `master`, and the
+  merge was pinned to that commit.
+- `master` green after the merge: run 42651973931 on `819e7e2`.
+- The deviations are recorded in `specs/015-communication-parents/tasks.md` (« Deviations from principle I »):
+  1. Lot 1 and n8n backend tests written first but not run before the code; a mutation check made 18 / 18 and 6 / 6 of
+     them fail without the module.
+  2. Notification routing and the display of a communication in the bell coded before their test; only the live refresh
+     was seen failing first.
+  3. n8n workflow, Compose profile, Caddy site and `deploy.sh` checked after writing, against a real n8n 2.44.7.
+- The full diff review and verification before the merge found two defects, fixed in the pull request test first:
+  audit details dropped by the allowlist, and 400 instead of 403 for users without the right
+  ([verification-015.md](verification-015.md)).
+- Not verified at merge time: the full end-to-end run (the new scenario ran on Chromium only), a real SMTP server, the
+  real WhatsApp Business Platform, the public n8n subdomain and a restore of n8n on a server. External notifications stay
+  off until `N8N_WEBHOOK_URL`, `N8N_SHARED_SECRET` and `PARENT_COMM_CHANNELS` are set.
+
+No fix or `git revert` needed.
+
+### Reminder
+
+Write the failing test before the code, and run it to see it fail, including for a small change requested during a
+session.
