@@ -159,7 +159,7 @@ Journal d'audit (`AdminLayout.tsx:21-30`).
 | Counters per state, charts (breakdown, daily trend) with table view | same | same | Complete |
 | Deadlines: first response (first message from someone other than the requester), pick-up, net and gross handling, compliance rate, per priority | `GET …/performance` | same | Complete |
 | Activity per employee | `GET …/employees` | same | Complete |
-| List of requests | `GET /api/requests?scope=all` | request visibility | Complete |
+| List of requests (Demandes tab, no figure chosen): exactly the requests of the Total card, with the same filters (employee = requester or assignee, no draft) | `GET /api/admin/dashboard/requests?indicator=total` | same | Complete |
 | Activity feed (metadata only) | `GET …/activity` | same | Complete |
 | CSV export of the period's requests (same filters; metadata, dates and deadlines, without description or message) | `GET …/export.csv` | same | Complete |
 

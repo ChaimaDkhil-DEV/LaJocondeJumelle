@@ -47,7 +47,6 @@ import { STATUS_LABELS } from '../../components/StatusBadge';
 import { Person } from '../../components/UserAvatar';
 import { cardShadow, font, fontSize, icon, radius, tokensOf, type AccentName } from '../../design/tokens';
 import { locale, isPlural, t } from '../../i18n';
-import { useRequestList } from '../requests/api';
 import { describeEvent, EVENT_ICONS } from '../requests/HistoryTimeline';
 import { useAdminCategories, useAdminUsers } from './api';
 import { DailyChart, Sparkline, StatusDonut } from './DashboardCharts';
@@ -62,7 +61,6 @@ import {
   indicatorLink,
   periodOf,
   toDashboardQuery,
-  toRequestListFilters,
   useDashboardActivity,
   useDashboardRequests,
   useDashboardSummary,
@@ -817,74 +815,55 @@ function RequestsTable({ items, label, hasNextPage, isFetchingNextPage, onMore }
   );
 }
 
-function RequestsView({ filters }: { filters: string }) {
-  const list = useRequestList('all', [], filters);
-  const items = list.data?.pages.flatMap((p) => p.items) ?? [];
-  if (list.isPending) return <DashboardSkeleton label={t('Chargement des demandes')} shape="table" />;
-  if (list.error) return <ErrorState message={loadErrorMessage(list.error, t('les demandes'))} actionLabel={t('Réessayer')} onAction={() => void list.refetch()} />;
-  if (items.length === 0) {
-    return (
-      <Paper variant="elevated">
-        <EmptyState icon={SearchX} title={t('Aucune demande')} description={t('Aucune demande ne correspond à ces filtres.')} />
-      </Paper>
-    );
-  }
-  return (
-    <RequestsTable
-      items={items}
-      label={t('Demandes de la période')}
-      hasNextPage={list.hasNextPage}
-      isFetchingNextPage={list.isFetchingNextPage}
-      onMore={() => void list.fetchNextPage()}
-    />
-  );
-}
-
 /**
- * Demandes comptées par un chiffre de la vue générale : la liste vient du serveur, avec la même
- * définition que le chiffre ; un bandeau dit lequel et ramène à la liste habituelle.
+ * Onglet Demandes. Sans chiffre choisi : les demandes de la carte Total (mêmes filtres, employé
+ * demandeur ou affecté, sans brouillon). Avec un chiffre de la vue générale : ses demandes, et un
+ * bandeau qui dit lequel et ramène à la liste habituelle. La liste vient du serveur, avec la même
+ * définition que le chiffre.
  */
-function IndicatorRequestsView({ qs, indicator, onShowAll }: { qs: string; indicator: DashboardIndicator; onShowAll: () => void }) {
-  const list = useDashboardRequests(qs, indicator);
+function RequestsView({ qs, indicator, onShowAll }: { qs: string; indicator: DashboardIndicator | null; onShowAll: () => void }) {
+  const list = useDashboardRequests(qs, indicator ?? 'total');
   const items = list.data?.pages.flatMap((p) => p.items) ?? [];
-  const label = INDICATOR_LABELS[indicator];
-  const banner = (
-    <Alert
-      severity="info"
-      action={
-        <Button color="inherit" size="small" onClick={onShowAll}>
-          {t('Voir toutes les demandes')}
-        </Button>
-      }
-    >
-      {CURRENT_INDICATORS.includes(indicator)
-        ? t('« {label} » : situation actuelle, toutes périodes confondues.', { label })
-        : t('« {label} » : demandes créées sur la période.', { label })}
-    </Alert>
-  );
   let content;
   if (list.isPending) content = <DashboardSkeleton label={t('Chargement des demandes')} shape="table" />;
   else if (list.error) content = <ErrorState message={loadErrorMessage(list.error, t('les demandes'))} actionLabel={t('Réessayer')} onAction={() => void list.refetch()} />;
   else if (items.length === 0) {
     content = (
       <Paper variant="elevated">
-        <EmptyState icon={SearchX} title={t('Aucune demande')} description={t('Aucune demande ne correspond à ce chiffre.')} />
+        <EmptyState
+          icon={SearchX}
+          title={t('Aucune demande')}
+          description={indicator ? t('Aucune demande ne correspond à ce chiffre.') : t('Aucune demande ne correspond à ces filtres.')}
+        />
       </Paper>
     );
   } else {
     content = (
       <RequestsTable
         items={items}
-        label={t('Demandes : {label}', { label })}
+        label={indicator ? t('Demandes : {label}', { label: INDICATOR_LABELS[indicator] }) : t('Demandes de la période')}
         hasNextPage={list.hasNextPage}
         isFetchingNextPage={list.isFetchingNextPage}
         onMore={() => void list.fetchNextPage()}
       />
     );
   }
+  if (!indicator) return content;
+  const label = INDICATOR_LABELS[indicator];
   return (
     <Box sx={{ display: 'grid', gap: 2 }}>
-      {banner}
+      <Alert
+        severity="info"
+        action={
+          <Button color="inherit" size="small" onClick={onShowAll}>
+            {t('Voir toutes les demandes')}
+          </Button>
+        }
+      >
+        {CURRENT_INDICATORS.includes(indicator)
+          ? t('« {label} » : situation actuelle, toutes périodes confondues.', { label })
+          : t('« {label} » : demandes créées sur la période.', { label })}
+      </Alert>
       {content}
     </Box>
   );
@@ -991,7 +970,6 @@ export function DashboardPage() {
   const view: ViewKey = VIEWS.find((v) => v.key === params.get('vue'))?.key ?? 'general';
   const customIncomplete = filters.preset === 'custom' && (!filters.from || !filters.to);
   const qs = toDashboardQuery(filters);
-  const listFilters = toRequestListFilters(filters);
   const [filtersOpen, setFiltersOpen] = useState(false);
   // Période personnalisée : ses dates sont dans le panneau, qui s'ouvre alors de lui-même.
   const showFilters = filtersOpen || filters.preset === 'custom';
@@ -1064,11 +1042,7 @@ export function DashboardPage() {
         ) : view === 'employes' ? (
           <EmployeesView qs={qs} />
         ) : view === 'demandes' ? (
-          indicator ? (
-            <IndicatorRequestsView qs={qs} indicator={indicator} onShowAll={() => setParams(withoutIndicator(params), { replace: true })} />
-          ) : (
-            <RequestsView filters={listFilters} />
-          )
+          <RequestsView qs={qs} indicator={indicator} onShowAll={() => setParams(withoutIndicator(params), { replace: true })} />
         ) : (
           <ActivityView qs={qs} />
         )}

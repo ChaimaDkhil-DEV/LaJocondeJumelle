@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { HomePage } from '../../src/features/home/HomePage';
-import { filtersFromParams, formatDurationMs, indicatorLink, periodOf, toDashboardQuery, toRequestListFilters, withFilters, DEFAULT_FILTERS } from '../../src/features/admin/dashboardApi';
+import { filtersFromParams, formatDurationMs, indicatorLink, periodOf, toDashboardQuery, withFilters, DEFAULT_FILTERS } from '../../src/features/admin/dashboardApi';
 
 /** Tableau de bord du super administrateur : données de l'API, filtres, états, onglets. */
 
@@ -154,6 +154,7 @@ function setup(path = '/', handler: Handler = () => undefined, me: unknown = SUP
       if (url.startsWith('/api/admin/dashboard/activity')) return json(200, ACTIVITY);
       if (url.startsWith('/api/admin/dashboard/employees')) return json(200, { items: [] });
       if (url.startsWith('/api/requests')) return json(200, { items: REQUESTS, nextCursor: null });
+      if (url.startsWith('/api/admin/dashboard/requests')) return json(200, { items: REQUESTS, nextCursor: null });
       return json(404, { error: { code: 'NOT_FOUND', message: 'Élément introuvable.' } });
     }),
   );
@@ -427,10 +428,6 @@ describe('Paramètres du tableau de bord', () => {
     expect(params.get('employeeId')).toBe('e1');
   });
 
-  it('traduit l’employé en employé affecté pour la liste des demandes', () => {
-    expect(toRequestListFilters({ ...DEFAULT_FILTERS, employeeId: 'e1' }, today)).toContain('assigneeId=e1');
-  });
-
   it('lit les filtres dans l’adresse et ignore les valeurs inconnues', () => {
     expect(filtersFromParams(new URLSearchParams('periode=perso&du=2026-10-01&au=2026-10-15&categorie=c1&priorite=URGENT&employe=e1'))).toEqual({
       preset: 'custom',
@@ -582,12 +579,25 @@ describe('Chiffres cliquables du tableau de bord', () => {
     expect(screen.getByText('« Urgentes en cours » : situation actuelle, toutes périodes confondues.')).toBeVisible();
     const call = urls.find((u) => u.startsWith('/api/admin/dashboard/requests?'))!;
     expect(new URLSearchParams(call.split('?')[1]).get('indicator')).toBe('urgentActive');
-    expect(urls.some((u) => u.startsWith('/api/requests'))).toBe(false);
 
     await user.click(screen.getByRole('button', { name: 'Voir toutes les demandes' }));
     expect(await screen.findByRole('table', { name: 'Demandes de la période' })).toBeVisible();
     expect(new URLSearchParams(router.state.location.search).get('indicateur')).toBeNull();
-    expect(urls.some((u) => u.startsWith('/api/requests'))).toBe(true);
+    const indicators = urls.filter((u) => u.startsWith('/api/admin/dashboard/requests?')).map((u) => new URLSearchParams(u.split('?')[1]).get('indicator'));
+    expect(indicators).toEqual(['urgentActive', 'total']);
+    expect(urls.some((u) => u.startsWith('/api/requests'))).toBe(false);
+  });
+
+  it('onglet Demandes sans chiffre : les demandes de la carte Total (employé demandeur ou affecté, sans brouillon)', async () => {
+    const { urls } = setup('/?vue=demandes&employe=e1', indicatorRows);
+    const table = await screen.findByRole('table', { name: 'Demandes de la période' });
+    expect(within(table).getByRole('link', { name: /Réparation climatiseur/ })).toHaveAttribute('href', '/demandes/r4');
+    // Liste habituelle : pas de bandeau de chiffre.
+    expect(screen.queryByRole('button', { name: 'Voir toutes les demandes' })).toBeNull();
+    const call = new URLSearchParams(urls.find((u) => u.startsWith('/api/admin/dashboard/requests?'))!.split('?')[1]);
+    expect(call.get('indicator')).toBe('total');
+    expect(call.get('employeeId')).toBe('e1');
+    expect(urls.some((u) => u.startsWith('/api/requests'))).toBe(false);
   });
 
   it('chiffre de la période : le bandeau le dit ; un chiffre sans demande affiche un état vide', async () => {

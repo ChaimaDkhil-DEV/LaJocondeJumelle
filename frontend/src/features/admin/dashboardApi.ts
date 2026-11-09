@@ -59,19 +59,6 @@ export function toDashboardQuery(f: DashboardFilters, today = new Date()): strin
   return params.toString();
 }
 
-/** Paramètres équivalents pour la liste des demandes (GET /requests), qui filtre l'employé affecté. */
-export function toRequestListFilters(f: DashboardFilters, today = new Date()): string {
-  const params = new URLSearchParams();
-  const { from, to } = periodOf(f, today);
-  if (from) params.set('from', new Date(`${from}T00:00:00`).toISOString());
-  if (to) params.set('to', new Date(`${to}T23:59:59.999`).toISOString());
-  if (f.categoryId) params.set('categoryId', f.categoryId);
-  if (f.priority) params.set('priority', f.priority);
-  if (f.employeeId) params.set('assigneeId', f.employeeId);
-  const qs = params.toString();
-  return qs ? `&${qs}` : '';
-}
-
 export type StatusGroup = 'pendingValidation' | 'pendingTakeover' | 'inProgress' | 'done' | 'rejected' | 'cancelled';
 
 /**
