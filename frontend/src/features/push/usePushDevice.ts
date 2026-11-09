@@ -99,7 +99,9 @@ export function usePushDevice() {
       // Seule demande d'autorisation de l'application : jamais sans ce clic (FR-001).
       const permission = await Notification.requestPermission();
       if (permission !== 'granted') return;
-      const registration = await container.register(workerUrl(), { scope: '/', updateViaCache: 'none' });
+      await container.register(workerUrl(), { scope: '/', updateViaCache: 'none' });
+      // Le navigateur n'abonne qu'un service worker actif ; au premier enregistrement, il s'installe encore.
+      const registration = await container.ready;
       let subscription = await registration.pushManager.getSubscription();
       if (subscription && bufferToBase64url(subscription.options.applicationServerKey) !== publicKey) {
         await subscription.unsubscribe();

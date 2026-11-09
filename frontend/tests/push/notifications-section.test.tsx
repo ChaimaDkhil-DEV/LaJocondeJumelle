@@ -94,6 +94,17 @@ describe('Section « Notifications » — cet appareil (US2)', () => {
     expect(screen.getByRole('button', { name: 'Désactiver sur cet appareil' })).toBeVisible();
   });
 
+  it('première activation, service worker encore en installation : l’abonnement attend qu’il soit actif', async () => {
+    const user = userEvent.setup();
+    const { pushManager, calls } = setup({ browser: { activatesLater: true } });
+    await user.click(await screen.findByRole('button', { name: 'Activer les notifications sur cet appareil' }));
+
+    await expectStatus('Les notifications push sont actives sur cet appareil.');
+    expect(screen.queryByText('Activation impossible. Vérifiez votre connexion puis réessayez.')).toBeNull();
+    expect(pushManager.subscribe).toHaveBeenCalledTimes(1);
+    expect(calls.filter((c) => c.method === 'PUT')).toHaveLength(1);
+  });
+
   it('autorisation refusée au clic : message « refusé », rien n’est abonné', async () => {
     const user = userEvent.setup();
     const { pushManager, calls } = setup({ browser: { answer: 'denied' } });

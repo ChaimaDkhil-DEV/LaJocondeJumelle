@@ -74,6 +74,16 @@ Branch `014-notifications-push-preferences`. Specification, plan and tasks:
 rejection, which can stop the process. The dispatcher now treats a sender exception as a network error (bounded
 retry) and catches any error of a delivery.
 
+## Defect found in the pre-merge review and fixed (09/11/2026)
+
+The diff review of pull request #90 found that `usePushDevice.activate()` subscribed right after `register()`. On a
+first activation the service worker is still installing, and Chromium refuses to subscribe without an active one
+("Subscription failed - no active Service Worker"): the first click would have shown « Activation impossible ». The
+simulated browser in `frontend/tests/push/push-env.ts` always returned an active worker, so no test could see it. It
+now models a worker that becomes active later (`activatesLater`) and refuses `subscribe()` without one; the test
+« première activation, service worker encore en installation » in `notifications-section.test.tsx` failed first, then
+passed once `activate()` waits for `navigator.serviceWorker.ready`. Not yet checked on a real device (T073).
+
 ## Pending: manual checks in pre-production (T073)
 
 Not done: they need real devices and the pre-production server behind Caddy. Protocol in the

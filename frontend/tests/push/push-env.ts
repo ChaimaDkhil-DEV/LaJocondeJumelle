@@ -44,6 +44,11 @@ export interface BrowserOptions {
   maxTouchPoints?: number;
   standalone?: boolean;
   supported?: boolean;
+  /**
+   * Premier enregistrement : le service worker s'installe encore quand `register()` répond et ne devient actif
+   * qu'un instant plus tard, comme dans un vrai navigateur ; `ready` attend qu'il soit actif.
+   */
+  activatesLater?: boolean;
 }
 
 export function installBrowser(options: BrowserOptions = {}) {
@@ -57,9 +62,14 @@ export function installBrowser(options: BrowserOptions = {}) {
     return sub;
   };
   if (subscription) track(subscription);
+  type Registration = { pushManager: PushManagerFake; active: { scriptURL: string } | null };
+  type PushManagerFake = typeof pushManager;
+  let registration: Registration | undefined;
   const pushManager = {
     getSubscription: vi.fn(async () => subscription),
     subscribe: vi.fn(async (init: { userVisibleOnly?: boolean; applicationServerKey: Uint8Array }) => {
+      // Comme Chrome : pas d'abonnement sans service worker actif.
+      if (!registration?.active) throw new DOMException('Subscription failed - no active Service Worker', 'AbortError');
       const key = btoa(String.fromCharCode(...new Uint8Array(init.applicationServerKey)))
         .replace(/\+/g, '-')
         .replace(/\//g, '_')
@@ -68,14 +78,30 @@ export function installBrowser(options: BrowserOptions = {}) {
       return subscription;
     }),
   };
-  let registration: { pushManager: typeof pushManager; active: { scriptURL: string } } | undefined =
-    options.registeredScript ? { pushManager, active: { scriptURL: `http://localhost:3000${options.registeredScript}` } } : undefined;
+  let markReady: (value: Registration) => void = () => undefined;
+  const ready = new Promise<Registration>((resolve) => (markReady = resolve));
+  if (options.registeredScript) {
+    registration = { pushManager, active: { scriptURL: `http://localhost:3000${options.registeredScript}` } };
+    markReady(registration);
+  }
   const serviceWorker = {
     register: vi.fn(async (script: string) => {
-      registration = { pushManager, active: { scriptURL: `http://localhost:3000${script}` } };
+      const active = { scriptURL: `http://localhost:3000${script}` };
+      if (options.activatesLater && !registration?.active) {
+        const installing: Registration = { pushManager, active: null };
+        registration = installing;
+        setTimeout(() => {
+          installing.active = active;
+          markReady(installing);
+        }, 20);
+        return installing;
+      }
+      registration = { pushManager, active };
+      markReady(registration);
       return registration;
     }),
     getRegistration: vi.fn(async () => registration),
+    ready,
   };
   const notification = {
     permission: options.permission ?? 'default',
