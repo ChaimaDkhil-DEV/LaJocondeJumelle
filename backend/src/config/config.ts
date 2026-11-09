@@ -26,6 +26,21 @@ export interface AppConfig {
   schoolTimezone: string;
   /** Assistance IA à la création des demandes (spec 009) : désactivée par défaut. */
   assist: AssistConfig;
+  /**
+   * Notifications push (spec 014, D9) : clés d'identification du serveur (VAPID) et contact de
+   * l'établissement. null : push désactivé (aucune des trois variables). La clé privée ne quitte
+   * jamais le serveur et n'est jamais journalisée.
+   */
+  push: PushConfig | null;
+}
+
+export interface PushConfig {
+  /** Clé publique P-256 non compressée (65 octets), en base64url : transmise aux navigateurs. */
+  publicKey: string;
+  /** Clé privée P-256 (32 octets), en base64url. */
+  privateKey: string;
+  /** Contact de l'établissement, `mailto:` ou `https:` (exigé par les services de push). */
+  subject: string;
 }
 
 /**
@@ -182,6 +197,54 @@ function parseAssist(env: NodeJS.ProcessEnv, isProduction: boolean): AssistConfi
   };
 }
 
+const PUSH_VARIABLES = ['PUSH_VAPID_PUBLIC_KEY', 'PUSH_VAPID_PRIVATE_KEY', 'PUSH_VAPID_SUBJECT'] as const;
+const BASE64URL = /^[A-Za-z0-9_-]+$/;
+
+/** Octets d'une valeur base64url, ou null si elle n'en est pas une. */
+function base64urlBytes(value: string): Buffer | null {
+  return BASE64URL.test(value) ? Buffer.from(value, 'base64url') : null;
+}
+
+/** Sujet VAPID : adresse `mailto:` ou adresse `https:` valide. */
+function isPushSubject(value: string): boolean {
+  if (value.startsWith('mailto:')) return /^mailto:[^@\s]+@[^@\s]+$/.test(value);
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' && url.hostname !== '';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Notifications push (spec 014, D9, research R10) : les trois variables ou aucune. Une variable vide
+ * compte comme absente (docker-compose transmet des valeurs vides). Les clés sont contrôlées dès le
+ * démarrage ; la clé privée n'est jamais citée dans une erreur.
+ */
+function parsePush(env: NodeJS.ProcessEnv): PushConfig | null {
+  const [publicKey, privateKey, subject] = PUSH_VARIABLES.map((key) => trimmed(env[key]));
+  if (!publicKey && !privateKey && !subject) return null;
+
+  const missing = PUSH_VARIABLES.filter((key) => !trimmed(env[key]));
+  if (missing.length > 0) {
+    throw new ConfigError(
+      `Notifications push : variables manquantes : ${missing.join(', ')} (renseignez les trois ou aucune)`,
+    );
+  }
+  const publicBytes = base64urlBytes(publicKey!);
+  if (!publicBytes || publicBytes.length !== 65 || publicBytes[0] !== 0x04) {
+    throw new ConfigError('PUSH_VAPID_PUBLIC_KEY invalide : clé publique P-256 non compressée (65 octets) en base64url attendue');
+  }
+  const privateBytes = base64urlBytes(privateKey!);
+  if (!privateBytes || privateBytes.length !== 32) {
+    throw new ConfigError('PUSH_VAPID_PRIVATE_KEY invalide : clé privée P-256 (32 octets) en base64url attendue');
+  }
+  if (!isPushSubject(subject!)) {
+    throw new ConfigError('PUSH_VAPID_SUBJECT invalide : adresse mailto: ou https: attendue');
+  }
+  return { publicKey: publicKey!, privateKey: privateKey!, subject: subject! };
+}
+
 const MIN_SECRET_LENGTH = 32;
 const DEFAULT_LOGIN_RATE_LIMIT = 5;
 const TRUST_PROXY_NAMES = new Set(['loopback', 'linklocal', 'uniquelocal']);
@@ -252,5 +315,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     trustProxy: parseTrustProxy(env.TRUST_PROXY),
     schoolTimezone: parseSchoolTimezone(env.SCHOOL_TIMEZONE),
     assist: parseAssist(env, env.NODE_ENV === 'production'),
+    push: parsePush(env),
   };
 }

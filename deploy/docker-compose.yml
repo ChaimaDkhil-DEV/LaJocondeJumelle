@@ -58,6 +58,10 @@ services:
       # Connecteur Claude (service payant, décision de l'établissement requise) : clé jamais commitée.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       ASSIST_CLAUDE_MODEL: ${ASSIST_CLAUDE_MODEL:-}
+      # Notifications push (spec 014) : les trois ou aucune ; vides = push désactivé. Clé privée jamais commitée.
+      PUSH_VAPID_PUBLIC_KEY: ${PUSH_VAPID_PUBLIC_KEY:-}
+      PUSH_VAPID_PRIVATE_KEY: ${PUSH_VAPID_PRIVATE_KEY:-}
+      PUSH_VAPID_SUBJECT: ${PUSH_VAPID_SUBJECT:-}
     volumes:
       # Vocaux, photos et documents : jamais servis par Caddy, lus uniquement via l'API.
       - files:/data/files

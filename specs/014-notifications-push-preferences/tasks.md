@@ -50,9 +50,9 @@ description: "Liste des tâches : notifications push et préférences utilisateu
 
 ## Phase 1 : Mise en place
 
-- [ ] T001 Sur la branche `014-notifications-push-preferences`, lancer `npm run lint`, `npm test`, `npm run -w frontend typecheck`, `npm run -w backend typecheck` et `npm audit --audit-level=high` ; noter dans la description de la future pull request tout test déjà rouge avant la fonctionnalité
-- [ ] T002 Ajouter `web-push` en version exacte 3.6.7 aux dépendances de `backend/package.json` (`npm install -w backend web-push@3.6.7 --save-exact`) et `@types/web-push` en dépendance de développement, avec une version publiée depuis plus de deux semaines (`npm view @types/web-push time`). Relancer `npm audit --audit-level=high` : aucune vulnérabilité haute ou critique (research R1)
-- [ ] T003 [P] Dans `backend/.env.example` et `deploy/.env.example`, ajouter les variables commentées `PUSH_VAPID_PUBLIC_KEY`, `PUSH_VAPID_PRIVATE_KEY`, `PUSH_VAPID_SUBJECT` avec : « les trois ou aucune ; sans elles, le push est désactivé », la commande `npm exec -w backend -- web-push generate-vapid-keys`, et « sujet : mailto: ou https:, jamais localhost ». Dans `deploy/.env.example`, à côté de `SCHOOL_TIMEZONE`, préciser que la plage d'envoi des push utilise ce fuseau et qu'il vaut `Africa/Tunis` pour l'établissement (le défaut du code reste `Europe/Paris`)
+- [X] T001 Sur la branche `014-notifications-push-preferences`, lancer `npm run lint`, `npm test`, `npm run -w frontend typecheck`, `npm run -w backend typecheck` et `npm audit --audit-level=high` ; noter dans la description de la future pull request tout test déjà rouge avant la fonctionnalité
+- [X] T002 Ajouter `web-push` en version exacte 3.6.7 aux dépendances de `backend/package.json` (`npm install -w backend web-push@3.6.7 --save-exact`) et `@types/web-push` en dépendance de développement, avec une version publiée depuis plus de deux semaines (`npm view @types/web-push time`). Relancer `npm audit --audit-level=high` : aucune vulnérabilité haute ou critique (research R1)
+- [X] T003 [P] Dans `backend/.env.example` et `deploy/.env.example`, ajouter les variables commentées `PUSH_VAPID_PUBLIC_KEY`, `PUSH_VAPID_PRIVATE_KEY`, `PUSH_VAPID_SUBJECT` avec : « les trois ou aucune ; sans elles, le push est désactivé », la commande `npm exec -w backend -- web-push generate-vapid-keys`, et « sujet : mailto: ou https:, jamais localhost ». Dans `deploy/.env.example`, à côté de `SCHOOL_TIMEZONE`, préciser que la plage d'envoi des push utilise ce fuseau et qu'il vaut `Africa/Tunis` pour l'établissement (le défaut du code reste `Europe/Paris`). Ajouter aussi les trois variables à l'environnement du service `api` de `deploy/docker-compose.yml` (`${PUSH_VAPID_…:-}`), qui liste explicitement les variables transmises : sans cela, le push ne pourrait pas être activé en production (constat fait pendant l'implémentation)
 
 ---
 
@@ -62,7 +62,7 @@ description: "Liste des tâches : notifications push et préférences utilisateu
 
 **⚠️ Aucune user story ne commence avant la fin de cette phase.**
 
-- [ ] T004 [P] Tests en échec dans `backend/test/unit/config.spec.ts` pour `loadConfig(env).push` :
+- [X] T004 [P] Tests en échec dans `backend/test/unit/config.spec.ts` pour `loadConfig(env).push` :
   - aucune des trois variables → `null` ;
   - les trois valides → `{ publicKey, privateKey, subject }` ;
   - une ou deux absentes → `ConfigError` qui nomme les variables manquantes ;
@@ -71,13 +71,13 @@ description: "Liste des tâches : notifications push et préférences utilisateu
   - sujet qui ne commence ni par `mailto:` ni par `https:` → `ConfigError` ;
   - variables présentes mais vides ou faites d'espaces → traitées comme absentes (`null`) ;
   - la clé privée n'apparaît dans aucun message d'erreur.
-- [ ] T005 Implémenter `parsePush(env)` dans `backend/src/config/config.ts` et le champ `push: { publicKey: string; privateKey: string; subject: string } | null` d'`AppConfig` ; faire passer T004 (research R10)
-- [ ] T006 [P] Test de migration en échec `backend/test/integration/migration-0019.spec.ts`, sur le modèle de `migration-0018.spec.ts` (`openDatabase`, `seedBefore` jusqu'à `0018_clean_stale_category_managers`) :
+- [X] T005 Implémenter `parsePush(env)` dans `backend/src/config/config.ts` et le champ `push: { publicKey: string; privateKey: string; subject: string } | null` d'`AppConfig` ; faire passer T004 (research R10)
+- [X] T006 [P] Test de migration en échec `backend/test/integration/migration-0019.spec.ts`, sur le modèle de `migration-0018.spec.ts` (`openDatabase`, `seedBefore` jusqu'à `0018_clean_stale_category_managers`) :
   - `0019_push_notifications` conserve les données existantes et crée `PushSubscription` et `NotificationPreference` ;
   - l'unicité de `PushSubscription.endpoint` est appliquée ;
   - supprimer un `User` supprime ses abonnements et ses préférences (cascade) ;
   - `down.sql` supprime les deux tables et la ligne `_prisma_migrations` de `0019`, et laisse les autres tables intactes.
-- [ ] T007 Dans `backend/prisma/schema.prisma`, ajouter les modèles de [data-model.md](data-model.md), avec les relations `pushSubscriptions` et `notificationPreference` sur `User` :
+- [X] T007 Dans `backend/prisma/schema.prisma`, ajouter les modèles de [data-model.md](data-model.md), avec les relations `pushSubscriptions` et `notificationPreference` sur `User` :
   - `PushSubscription` :
     - `id` UUID ;
     - `userId` UUID → `User`, « `onDelete: Cascade` » ;
@@ -97,24 +97,24 @@ description: "Liste des tâches : notifications push et préférences utilisateu
     - `updatedAt` `@updatedAt`.
 
   Écrire ensuite **en une fois** `backend/prisma/migrations/0019_push_notifications/migration.sql`, à partir de la sortie de `npm exec -w backend -- prisma migrate diff --from-schema-datasource prisma/schema.prisma --to-schema-datamodel prisma/schema.prisma --script` (le hook l'applique à la base locale). Vérifier `npm exec -w backend -- prisma migrate status` → « Database schema is up to date! », puis `npm exec -w backend -- prisma generate`. Conformément à `CLAUDE.md`, lancer ensuite `npm exec -w backend -- prisma migrate dev --name push_notifications` : il doit répondre qu'aucun changement n'est à migrer, sans créer de dossier. S'il propose une réinitialisation (« reset »), refuser et signaler la dérive. Une fois appliqué, `migration.sql` n'est plus jamais modifié : toute correction passe par une nouvelle migration. Faire passer la partie « montée » de T006.
-- [ ] T008 Écrire `backend/prisma/migrations/0019_push_notifications/down.sql` sur le modèle de `0017_drop_coverage_target/down.sql` :
+- [X] T008 Écrire `backend/prisma/migrations/0019_push_notifications/down.sql` sur le modèle de `0017_drop_coverage_target/down.sql` :
   - en-tête « Retour arrière de 0019_push_notifications (non exécuté par Prisma) », avec la commande `npx prisma db execute --file …` ;
   - `BEGIN;`, `DROP TABLE` des deux tables, suppression de la ligne `_prisma_migrations` de `0019`, `COMMIT;`.
 
   Faire passer T006.
-- [ ] T009 [P] Ajouter dans `backend/src/common/errors.ts` les codes `PUSH_DISABLED` (409, « Les notifications push ne sont pas activées par l'établissement. ») et `PUSH_DEVICE_LIMIT` (409, « Vous avez déjà 10 appareils abonnés. Retirez-en un pour activer celui-ci. »)
-- [ ] T010 [P] Tests en échec dans `backend/test/unit/push-sender.spec.ts` pour `WebPushSender` (`backend/src/push/web-push.sender.ts`), avec `jest.mock('web-push')` :
+- [X] T009 [P] Ajouter dans `backend/src/common/errors.ts` les codes `PUSH_DISABLED` (409, « Les notifications push ne sont pas activées par l'établissement. ») et `PUSH_DEVICE_LIMIT` (409, « Vous avez déjà 10 appareils abonnés. Retirez-en un pour activer celui-ci. »)
+- [X] T010 [P] Tests en échec dans `backend/test/unit/push-sender.spec.ts` pour `WebPushSender` (`backend/src/push/web-push.sender.ts`), avec `jest.mock('web-push')` :
   - `send(subscription, payload, options)` appelle `sendNotification` avec `{ TTL: 1800, urgency: 'high', topic, timeout: 10000, vapidDetails: { subject, publicKey, privateKey } }` ;
   - renvoie `{ statusCode }` en cas de succès ;
   - une `WebPushError` devient `{ statusCode, retryAfterSeconds }` (en-tête `retry-after` lu s'il est présent) ;
   - une erreur réseau ou un délai dépassé devient `{ statusCode: null }` ;
   - aucune exception ne sort de `send`.
-- [ ] T011 Implémenter `backend/src/push/web-push.sender.ts` (interface `PushSender`, jeton `PUSH_SENDER`, classe `WebPushSender` construite avec `APP_CONFIG`) et `backend/src/push/push.module.ts` (fournit `PUSH_SENDER` ; `PushDispatcher` y est ajouté en T013) ; enregistrer `PushModule` dans `backend/src/app.module.ts` ; faire passer T010
-- [ ] T012 [P] Tests en échec dans `backend/test/unit/notification-publisher.spec.ts` pour `CompositeNotificationPublisher` :
+- [X] T011 Implémenter `backend/src/push/web-push.sender.ts` (interface `PushSender`, jeton `PUSH_SENDER`, classe `WebPushSender` construite avec `APP_CONFIG`) et `backend/src/push/push.module.ts` (fournit `PUSH_SENDER` ; `PushDispatcher` y est ajouté en T013) ; enregistrer `PushModule` dans `backend/src/app.module.ts` ; faire passer T010
+- [X] T012 [P] Tests en échec dans `backend/test/unit/notification-publisher.spec.ts` pour `CompositeNotificationPublisher` :
   - `publish(n)` attend la publication Socket.IO, puis appelle `PushDispatcher.enqueue(n)` **sans l'attendre** (une promesse d'`enqueue` jamais résolue ne bloque pas `publish`) ;
   - une exception ou un rejet d'`enqueue` ne remonte jamais ;
   - une liste vide n'appelle rien.
-- [ ] T013 Créer `backend/src/notifications/composite-notification.publisher.ts` et fournir `NOTIFICATION_PUBLISHER` avec cette classe dans `backend/src/notifications/notifications.module.ts` (importe `PushModule`, garde `SocketNotificationPublisher` comme fournisseur) ; créer `backend/src/push/push-dispatcher.service.ts` avec `enqueue(notifications): void`, qui ne fait rien si `config.push` est `null` (complété en US1), le déclarer et l'exporter dans `backend/src/push/push.module.ts` ; faire passer T012 ; les 8 appels à `flushAfterCommit` restent inchangés (research R2)
+- [X] T013 Créer `backend/src/notifications/composite-notification.publisher.ts` et fournir `NOTIFICATION_PUBLISHER` avec cette classe dans `backend/src/notifications/notifications.module.ts` (importe `PushModule`, garde `SocketNotificationPublisher` comme fournisseur) ; créer `backend/src/push/push-dispatcher.service.ts` avec `enqueue(notifications): void`, qui ne fait rien si `config.push` est `null` (complété en US1), le déclarer et l'exporter dans `backend/src/push/push.module.ts` ; faire passer T012 ; les 8 appels à `flushAfterCommit` restent inchangés (research R2)
 
 **Point d'étape** : configuration lue, tables créées, push branché après validation et sans effet tant qu'il est désactivé.
 
