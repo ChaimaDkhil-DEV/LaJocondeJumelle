@@ -129,3 +129,62 @@ export function useMarkRead() {
     onSettled: () => queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_KEY }),
   });
 }
+
+// ---------------------------------------------------------------------------
+// Préférences de notification (spec 014, FR-009) : catégories push et son des urgences, sur le compte.
+// ---------------------------------------------------------------------------
+
+export type PushCategoryName = 'urgent' | 'coverage' | 'unfilled' | 'attendance';
+
+export interface NotificationPreferences {
+  categories: Record<PushCategoryName, boolean>;
+  urgentSound: boolean;
+  /** false : son jamais réglé sur le compte (reprise unique de la valeur locale, NC-6). */
+  urgentSoundSet: boolean;
+}
+
+export interface NotificationPreferencesPatch {
+  categories?: Partial<Record<PushCategoryName, boolean>>;
+  urgentSound?: boolean;
+}
+
+/** Racine distincte de NOTIFICATIONS_KEY : marquer une notification lue ne relit pas les préférences. */
+export const PREFERENCES_KEY = ['notification-preferences'] as const;
+
+export function useNotificationPreferences() {
+  return useQuery({
+    queryKey: PREFERENCES_KEY,
+    queryFn: () => apiFetch<NotificationPreferences>('/api/notifications/preferences'),
+    staleTime: 60_000,
+  });
+}
+
+function applyPatch(current: NotificationPreferences, patch: NotificationPreferencesPatch): NotificationPreferences {
+  return {
+    categories: { ...current.categories, ...patch.categories },
+    urgentSound: patch.urgentSound ?? current.urgentSound,
+    urgentSoundSet: patch.urgentSound !== undefined ? true : current.urgentSoundSet,
+  };
+}
+
+/**
+ * Modification partielle, affichée aussitôt (mise à jour optimiste) ; en cas d'échec, l'ancienne valeur
+ * revient. La réponse du serveur, complète, remplace ensuite la valeur affichée.
+ */
+export function useUpdateNotificationPreferences() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (patch: NotificationPreferencesPatch) =>
+      apiFetch<NotificationPreferences>('/api/notifications/preferences', { method: 'PATCH', body: patch }),
+    onMutate: async (patch) => {
+      await queryClient.cancelQueries({ queryKey: PREFERENCES_KEY });
+      const previous = queryClient.getQueryData<NotificationPreferences>(PREFERENCES_KEY);
+      if (previous) queryClient.setQueryData(PREFERENCES_KEY, applyPatch(previous, patch));
+      return { previous };
+    },
+    onError: (_error, _patch, context) => {
+      if (context?.previous) queryClient.setQueryData(PREFERENCES_KEY, context.previous);
+    },
+    onSuccess: (preferences) => queryClient.setQueryData(PREFERENCES_KEY, preferences),
+  });
+}

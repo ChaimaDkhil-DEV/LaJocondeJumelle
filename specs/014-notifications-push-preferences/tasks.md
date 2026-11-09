@@ -132,7 +132,7 @@ marque la notification lue.
 
 ### Tests de la User Story 1 (écrits d'abord, vus en échec) ⚠️
 
-- [ ] T014 [P] [US1] Tests en échec dans `backend/test/unit/push-category.spec.ts` pour `pushCategoryOf(type, kind)` et `pushRecipientAllowed(type, recipientId, assigneeId)` (`backend/src/push/domain/push-category.ts`) :
+- [X] T014 [P] [US1] Tests en échec dans `backend/test/unit/push-category.spec.ts` pour `pushCategoryOf(type, kind)` et `pushRecipientAllowed(type, recipientId, assigneeId)` (`backend/src/push/domain/push-category.ts`) :
   - parcourir **toutes** les valeurs de `NotificationType` (`@prisma/client`) × `'WORK'`/`'COVERAGE'` contre la table attendue :
     - `URGENT`/WORK → `urgent` ;
     - `ASSIGNED`/COVERAGE → `coverage` ;
@@ -142,20 +142,20 @@ marque la notification lue.
     - tout le reste → `null`, y compris `ASSIGNED`/WORK, `MESSAGE_NEW`, `OVERDUE`, `UNASSIGNED`, `CLOSED`/`CANCELLED`/`STATUS_CHANGED` sur une garde, et les types de garde sur une demande WORK (NC-1, NC-2) ;
   - `pushRecipientAllowed('COVERAGE_TEACHER_ARRIVED', a, a)` → vrai, `(…, a, b)` → faux, `(…, a, null)` → faux ; vrai pour tout autre type (D4) ;
   - la signature ne reçoit pas de priorité.
-- [ ] T015 [P] [US1] Tests en échec dans `backend/test/unit/push-payload.spec.ts` pour `buildPushPayload({ notificationId, type, requestId, kind, reference, className })` (`backend/src/push/domain/push-payload.ts`) :
+- [X] T015 [P] [US1] Tests en échec dans `backend/test/unit/push-payload.spec.ts` pour `buildPushPayload({ notificationId, type, requestId, kind, reference, className })` (`backend/src/push/domain/push-payload.ts`) :
   - le JSON a exactement les clés `v`, `id`, `type`, `place`, `url` ;
   - `place` = `className` pour COVERAGE, `reference` pour WORK ;
   - `url` = `/gardes/<requestId>` ou `/demandes/<requestId>` ;
   - **SC-006** : pour chacun des 16 types envoyés en push, avec une demande dont le titre, la description, le message et les noms valent des sentinelles (`'TITRE-SECRET'`, `'DESCRIPTION-SECRETE'`, `'Mme Sentinelle'`), le JSON ne contient aucune sentinelle, ni `priority`, ni `status` ;
   - taille inférieure à 1 Ko.
-- [ ] T016 [P] [US1] Tests en échec dans `backend/test/unit/push-retry.spec.ts` pour `nextAttemptDelayMs(attempt, result, elapsedMs)` (`backend/src/push/domain/push-retry.ts`, attempt de 1 à 3, validité 1 800 000 ms) :
+- [X] T016 [P] [US1] Tests en échec dans `backend/test/unit/push-retry.spec.ts` pour `nextAttemptDelayMs(attempt, result, elapsedMs)` (`backend/src/push/domain/push-retry.ts`, attempt de 1 à 3, validité 1 800 000 ms) :
   - 2xx → `'done'` ;
   - 404 ou 410 → `'delete'` ;
   - 400, 403, 413 → `'drop'` ;
   - `null` (réseau ou délai), 429, 5xx → 5 000 après la tentative 1, 30 000 après la 2, `'drop'` après la 3 ;
   - `retryAfterSeconds` plus grand que le délai prévu → le délai devient `retryAfterSeconds × 1000` s'il tient dans la validité, sinon `'drop'` ;
   - jamais de délai qui dépasse la validité.
-- [ ] T017 [US1] Tests d'intégration en échec dans `backend/test/integration/push-dispatch.spec.ts` (push activé et envoyeur simulé, voir Conventions ; utilitaire `waitForSends(n)` qui attend les appels de l'envoyeur) :
+- [X] T017 [US1] Tests d'intégration en échec dans `backend/test/integration/push-dispatch.spec.ts` (push activé et envoyeur simulé, voir Conventions ; utilitaire `waitForSends(n)` qui attend les appels de l'envoyeur) :
   - (a) une garde affectée à un surveillant qui a deux abonnements → deux envois, contenu conforme à [push-payload.md](contracts/push-payload.md), `topic` = id sans tirets ;
   - (b) `ASSIGNED` d'une demande de travail non urgente → aucun envoi ;
   - (c) soumission d'une demande de travail urgente → un envoi `URGENT` avec `place` = référence ;
@@ -172,12 +172,14 @@ marque la notification lue.
 
     Ces trois cas n'utilisent que la base : T017 ne dépend ni de la route `PUT` (US2, T032) ni de la suppression à la déconnexion (US5, T063).
 
+    *Écart (implémentation)* : au lieu des minuteries simulées de Jest, qui risquaient de bloquer Prisma et le serveur HTTP, l'attente entre deux tentatives passe par un ordonnanceur injectable (`PUSH_SCHEDULER`, `timerScheduler` par défaut) ; le test le remplace et libère chaque attente lui-même. `PushDispatcher.settled()` attend la fin de tous les envois en cours.
+
 ### Implémentation de la User Story 1
 
-- [ ] T018 [P] [US1] Implémenter `backend/src/push/domain/push-category.ts` avec une table `Record<NotificationType, …>` exhaustive (research R3) ; faire passer T014
-- [ ] T019 [P] [US1] Implémenter `backend/src/push/domain/push-payload.ts` ; faire passer T015
-- [ ] T020 [P] [US1] Implémenter `backend/src/push/domain/push-retry.ts` (research R7) ; faire passer T016
-- [ ] T021 [US1] Compléter `enqueue` dans `backend/src/push/push-dispatcher.service.ts` :
+- [X] T018 [P] [US1] Implémenter `backend/src/push/domain/push-category.ts` avec une table `Record<NotificationType, …>` exhaustive (research R3) ; faire passer T014
+- [X] T019 [P] [US1] Implémenter `backend/src/push/domain/push-payload.ts` ; faire passer T015
+- [X] T020 [P] [US1] Implémenter `backend/src/push/domain/push-retry.ts` (research R7) ; faire passer T016
+- [X] T021 [US1] Compléter `enqueue` dans `backend/src/push/push-dispatcher.service.ts` :
   - pour chaque notification, lire la demande (`kind`, `reference`, `assigneeId`, nom de la classe via `coverage.class.name`) et le destinataire (`active`) ;
   - appliquer `pushCategoryOf` et `pushRecipientAllowed`, puis lire les abonnements du destinataire ;
   - envoyer chaque `buildPushPayload` par `PUSH_SENDER`, au plus 10 envois simultanés, avec nouvelles tentatives par `setTimeout` selon `nextAttemptDelayMs` ;
@@ -187,20 +189,20 @@ marque la notification lue.
   - toute erreur est attrapée.
 
   Faire passer T017.
-- [ ] T022 [P] [US1] Tests en échec dans `frontend/tests/push/sw.test.ts`, qui charge le texte de `frontend/public/sw.js` et l'exécute avec un `self` simulé (registre `addEventListener`, `registration.showNotification`, `clients.matchAll`, `clients.openWindow`, `location.search`, `navigator.userAgent`, `waitUntil`) :
+- [X] T022 [P] [US1] Tests en échec dans `frontend/tests/push/sw.test.ts`, qui charge le texte de `frontend/public/sw.js` et l'exécute avec un `self` simulé (registre `addEventListener`, `registration.showNotification`, `clients.matchAll`, `clients.openWindow`, `location.search`, `navigator.userAgent`, `waitUntil`) :
   - `push` valide avec `?lang=fr` → `showNotification('Classe vide signalée', { body: 'CE1 Vert', tag: <id>, data: { url, id } })` ; avec `?lang=en` → libellé anglais ;
   - fenêtre visible et active sur un agent utilisateur d'ordinateur ou Android → pas d'affichage ; même situation avec un agent utilisateur iPhone → affichage (D10, research R13) ;
   - contenu invalide (`v` ≠ 1, type inconnu, `url` absolue `https://exemple.test/`) → rien sur ordinateur, « Nouvelle notification » sur iPhone ;
   - `notificationclick` → met au premier plan une fenêtre existante et la dirige vers `url?notification=<id>`, sinon `openWindow` ; jamais une autre origine ;
   - aucun écouteur `fetch` enregistré ;
   - les libellés de `sw.js` sont égaux à `NOTIFICATION_LABELS` (`frontend/src/features/notifications/api.ts`) et à leur traduction anglaise pour les 16 types envoyés en push.
-- [ ] T023 [US1] Écrire `frontend/public/sw.js` (JavaScript simple, sans import ; `install` → `skipWaiting`, `activate` → `clients.claim` ; `push`, `notificationclick` ; libellés fr/en des 16 types ; icône `/icons/icon-192.png`) selon [contracts/push-payload.md](contracts/push-payload.md) ; faire passer T022
-- [ ] T024 [P] [US1] Tests en échec dans `frontend/tests/push/read-after-open.test.tsx` :
+- [X] T023 [US1] Écrire `frontend/public/sw.js` (JavaScript simple, sans import ; `install` → `skipWaiting`, `activate` → `clients.claim` ; `push`, `notificationclick` ; libellés fr/en des 16 types ; icône `/icons/icon-192.png`) selon [contracts/push-payload.md](contracts/push-payload.md) ; faire passer T022. *Ajout (implémentation)* : bloc `frontend/public/sw.js` dans `eslint.config.mjs` (`sourceType: 'script'`, `globals.serviceworker`), sans lequel le lint refuse `self`. Premier plan = fenêtre `visible` **et** `focused` ; tous les appareils Apple (iPhone, iPad, Safari macOS) affichent toujours.
+- [X] T024 [P] [US1] Tests en échec dans `frontend/tests/push/read-after-open.test.tsx` :
   - `CoverageDetailPage` (`/gardes/<id>?notification=<nid>`) et `RequestDetailPage` (`/demandes/<id>?notification=<nid>`) : après le chargement réussi → un seul `POST /api/notifications/read { ids: [nid] }`, puis le paramètre est retiré de l'adresse (`replace`) ;
   - chargement en 403 ou 404 → aucun `POST` ;
   - sans paramètre → aucun `POST` ;
   - **(US1-3)** sans session (`GET /api/auth/me` → 401) sur `/gardes/<id>?notification=<nid>` → redirection vers `/connexion` avec `state.from` = `/gardes/<id>?notification=<nid>`, aucun `POST` ; après connexion et retour vers `from`, chargement réussi → un seul `POST /api/notifications/read { ids: [nid] }`.
-- [ ] T025 [US1] Créer `frontend/src/features/push/useMarkReadFromPush.ts` (paramètre `notification`, réutilise `useMarkRead` de `frontend/src/features/notifications/api.ts`) et l'appeler dans `frontend/src/features/coverage/CoverageDetailPage.tsx` et `frontend/src/features/requests/RequestDetailPage.tsx` une fois les données chargées ; faire passer T024
+- [X] T025 [US1] Créer `frontend/src/features/push/useMarkReadFromPush.ts` (paramètre `notification`, réutilise `useMarkRead` de `frontend/src/features/notifications/api.ts`) et l'appeler dans `frontend/src/features/coverage/CoverageDetailPage.tsx` et `frontend/src/features/requests/RequestDetailPage.tsx` une fois les données chargées ; faire passer T024
 
 **Point d'étape** : la chaîne serveur → service de push simulé → service worker → page fonctionne pour tout
 abonnement en base.
@@ -218,18 +220,18 @@ après activation.
 
 ### Tests de la User Story 2 (écrits d'abord, vus en échec) ⚠️
 
-- [ ] T026 [P] [US2] Tests en échec dans `backend/test/unit/push-endpoint.spec.ts` pour `validatePushSubscription({ endpoint, keys })` (`backend/src/push/domain/push-endpoint.ts`) :
+- [X] T026 [P] [US2] Tests en échec dans `backend/test/unit/push-endpoint.spec.ts` pour `validatePushSubscription({ endpoint, keys })` (`backend/src/push/domain/push-endpoint.ts`) :
   - acceptés : `https://fcm.googleapis.com/fcm/send/x`, `https://updates.push.services.mozilla.com/wpush/v2/x`, `https://web.push.apple.com/x`, `https://wns2-par02p.notify.windows.com/w/?token=x` ;
   - refusés (champ `endpoint`) :
     - `http://fcm.googleapis.com/…`, `https://fcm.googleapis.com.evil.example/…`, `https://evil.example/…` ;
     - `https://user:pw@fcm.googleapis.com/…`, `https://fcm.googleapis.com:8443/…` ;
     - adresse de 2049 caractères ;
   - refusés (champ `keys`) : `p256dh` qui ne fait pas 65 octets ou ne commence pas par `0x04` ; `auth` qui ne fait pas 16 octets (research R9).
-- [ ] T027 [P] [US2] Tests en échec dans `backend/test/unit/device-label.spec.ts` pour `deviceLabel(userAgent)` (`backend/src/push/domain/device-label.ts`) :
+- [X] T027 [P] [US2] Tests en échec dans `backend/test/unit/device-label.spec.ts` pour `deviceLabel(userAgent)` (`backend/src/push/domain/device-label.ts`) :
   - agents utilisateurs réels → « iPhone · Safari », « iPad · Safari », « Android · Chrome », « Android · Samsung Internet », « Windows · Edge », « Windows · Chrome », « macOS · Safari », « Linux · Firefox » ;
   - vide ou inconnu → « Appareil inconnu » ;
   - résultat de 80 caractères au plus.
-- [ ] T028 [P] [US2] Tests d'intégration en échec dans `backend/test/integration/push-subscriptions.spec.ts` selon [contracts/http-api.md](contracts/http-api.md) :
+- [X] T028 [P] [US2] Tests d'intégration en échec dans `backend/test/integration/push-subscriptions.spec.ts` selon [contracts/http-api.md](contracts/http-api.md) :
   - `GET /api/push/config` → `{ enabled: true, publicKey }`, ou `{ enabled: false, publicKey: null }` sans clés ;
   - `PUT /api/push/subscriptions`, création :
     - 201 `{ id, deviceLabel: 'Android · Chrome', created: true }` avec un `User-Agent` Android ;
@@ -247,9 +249,10 @@ après activation.
 
 ### Implémentation de la User Story 2
 
-- [ ] T029 [P] [US2] Implémenter `backend/src/push/domain/push-endpoint.ts` (liste d'hôtes fixe, research R9) ; faire passer T026
-- [ ] T030 [P] [US2] Implémenter `backend/src/push/domain/device-label.ts` ; faire passer T027
-- [ ] T031 [US2] Créer `backend/src/push/push.dto.ts` (`UpsertPushSubscriptionDto` : `endpoint` chaîne de 2048 caractères au plus ; `keys` objet imbriqué `p256dh`, `auth`) et `backend/src/push/push-subscriptions.service.ts` :
+  *Écart (implémentation) : la règle des 24 h est vérifiée en reculant lastUsedAt en base (23 h, puis 25 h), faute d’horloge injectable dans les routes HTTP. Le format d’erreur réel est { error: { code, message, details } } ; contracts/http-api.md est corrigé.*
+- [X] T029 [P] [US2] Implémenter `backend/src/push/domain/push-endpoint.ts` (liste d'hôtes fixe, research R9) ; faire passer T026
+- [X] T030 [P] [US2] Implémenter `backend/src/push/domain/device-label.ts` ; faire passer T027
+- [X] T031 [US2] Créer `backend/src/push/push.dto.ts` (`UpsertPushSubscriptionDto` : `endpoint` chaîne de 2048 caractères au plus ; `keys` objet imbriqué `p256dh`, `auth`) et `backend/src/push/push-subscriptions.service.ts` :
   - `upsert(user, sessionId, dto, userAgent, now)` :
     - valide la configuration et `validatePushSubscription` ;
     - limite de 10 appareils (hors abonnement transféré ou déjà possédé) ;
@@ -257,16 +260,17 @@ après activation.
     - `lastUsedAt` réécrit seulement s'il date de plus de 24 h ;
   - `listForUser(userId, sessionId)` renvoie `current` ;
   - le libellé est calculé par `deviceLabel`, l'agent utilisateur brut n'est jamais conservé.
-- [ ] T032 [US2] Créer `backend/src/push/push.controller.ts` (`GET /api/push/config`, `PUT /api/push/subscriptions` avec 201 ou 200, `GET /api/push/subscriptions`) avec `@CurrentUser()` et la session courante, comme `auth.controller.ts` ; faire passer T028
-- [ ] T033 [P] [US2] Tests en échec dans `frontend/tests/push/push-support.test.ts` pour `pushSupportState(env)` (`frontend/src/features/push/pushSupport.ts`), où `env` contient `pushEnabled`, `hasServiceWorker`, `hasPushManager`, `hasNotification`, `permission`, `userAgent`, `platform`, `maxTouchPoints`, `standalone`, `subscriptionKey`, `serverKey` :
+- [X] T032 [US2] Créer `backend/src/push/push.controller.ts` (`GET /api/push/config`, `PUT /api/push/subscriptions` avec 201 ou 200, `GET /api/push/subscriptions`) avec `@CurrentUser()` et la session courante, comme `auth.controller.ts` ; faire passer T028
+  *Avancé depuis T063 (US5) : DELETE /api/push/subscriptions/current et deleteForSession, testés dans T028, car « Désactiver sur cet appareil » (US2) en a besoin.*
+- [X] T033 [P] [US2] Tests en échec dans `frontend/tests/push/push-support.test.ts` pour `pushSupportState(env)` (`frontend/src/features/push/pushSupport.ts`), où `env` contient `pushEnabled`, `hasServiceWorker`, `hasPushManager`, `hasNotification`, `permission`, `userAgent`, `platform`, `maxTouchPoints`, `standalone`, `subscriptionKey`, `serverKey` :
   - ordre `disabled` → `unsupported` → `ios-install` → `denied` → `reactivate` → `inactive` → `active` (research R12) ;
   - iPhone iOS 16.3 → `unsupported` ;
   - iPhone iOS 16.4 hors écran d'accueil → `ios-install` ;
   - iPadOS (`MacIntel` et `maxTouchPoints` 5) hors écran d'accueil → `ios-install` ;
   - Android Chrome hors écran d'accueil → `inactive` (pas d'installation exigée) ;
   - clés différentes → `reactivate`.
-- [ ] T034 [US2] Implémenter `frontend/src/features/push/pushSupport.ts` (fonction pure et lecteur `readPushEnvironment()` pour le navigateur) ; faire passer T033
-- [ ] T035 [P] [US2] Tests en échec dans `frontend/tests/push/notifications-section.test.tsx` (bloc « Cet appareil » de `NotificationsSection`) :
+- [X] T034 [US2] Implémenter `frontend/src/features/push/pushSupport.ts` (fonction pure et lecteur `readPushEnvironment()` pour le navigateur) ; faire passer T033
+- [X] T035 [P] [US2] Tests en échec dans `frontend/tests/push/notifications-section.test.tsx` (bloc « Cet appareil » de `NotificationsSection`) :
   - à l'affichage, `Notification.requestPermission` n'est **pas** appelé (FR-001) ;
   - le clic « Activer les notifications sur cet appareil » :
     - appelle `requestPermission`, `navigator.serviceWorker.register('/sw.js?lang=fr', { scope: '/', updateViaCache: 'none' })` et `pushManager.subscribe({ userVisibleOnly: true, applicationServerKey })` ;
@@ -277,17 +281,19 @@ après activation.
   - « Désactiver sur cet appareil » → `unsubscribe()` et `DELETE /api/push/subscriptions/current` ;
   - le bloc d'état a `role="status"` ;
   - la note sur les appareils partagés est affichée.
-- [ ] T036 [US2] Créer `frontend/src/features/push/api.ts` (requêtes TanStack Query : configuration, abonnements, `PUT`, `DELETE current`) et `frontend/src/features/push/usePushDevice.ts` :
+- [X] T036 [US2] Créer `frontend/src/features/push/api.ts` (requêtes TanStack Query : configuration, abonnements, `PUT`, `DELETE current`) et `frontend/src/features/push/usePushDevice.ts` :
   - enregistrement de `/sw.js?lang=<language()>` ;
   - abonnement, désabonnement, comparaison des clés.
-- [ ] T037 [US2] Créer `frontend/src/features/push/NotificationsSection.tsx` (titre de niveau 2 « Notifications », bloc « Cet appareil », note sur les appareils partagés) et l'ajouter en dernière `SectionCard` de `frontend/src/features/auth/ProfilePage.tsx` ; faire passer T035
-- [ ] T038 [P] [US2] Tests en échec dans `frontend/tests/push/push-sync.test.tsx` : au montage d'`AppLayout`, push activé, autorisation accordée et abonnement existant dans le navigateur avec la même clé → un seul `PUT /api/push/subscriptions` ; clé différente → aucun `PUT` ; push désactivé ou pas d'abonnement → aucun appel ni enregistrement du service worker
-- [ ] T039 [US2] Appeler la synchronisation de `usePushDevice` dans `frontend/src/app/AppLayout.tsx` (une fois par chargement, erreurs ignorées) ; faire passer T038
-- [ ] T040 [P] [US2] Tests en échec dans `frontend/tests/push/manifest.test.ts`, qui lit les fichiers :
+- [X] T037 [US2] Créer `frontend/src/features/push/NotificationsSection.tsx` (titre de niveau 2 « Notifications », bloc « Cet appareil », note sur les appareils partagés) et l'ajouter en dernière `SectionCard` de `frontend/src/features/auth/ProfilePage.tsx` ; faire passer T035
+  *Les tests existants frontend/tests/auth/profile.test.tsx et change-password.test.tsx visaient toute zone role="status" de « Mon profil » : ils visent désormais le message de confirmation du changement de mot de passe.*
+- [X] T038 [P] [US2] Tests en échec dans `frontend/tests/push/push-sync.test.tsx` : au montage d'`AppLayout`, push activé, autorisation accordée et abonnement existant dans le navigateur avec la même clé → un seul `PUT /api/push/subscriptions` ; clé différente → aucun `PUT` ; push désactivé ou pas d'abonnement → aucun appel ni enregistrement du service worker
+  *Écart TDD : usePushSync a été écrit avec usePushDevice (T036) avant ce test, qui a donc passé du premier coup. Contrôle par mutation : sans l’envoi au serveur, 2 tests sur 7 échouent.*
+- [X] T039 [US2] Appeler la synchronisation de `usePushDevice` dans `frontend/src/app/AppLayout.tsx` (une fois par chargement, erreurs ignorées) ; faire passer T038
+- [X] T040 [P] [US2] Tests en échec dans `frontend/tests/push/manifest.test.ts`, qui lit les fichiers :
   - `frontend/public/manifest.json` contient `name` « La Joconde Jumelle », `start_url` `/`, `scope` `/`, `display` `standalone`, des icônes 192 et 512 qui existent dans `frontend/public/icons/` ;
   - `frontend/index.html` contient `<link rel="manifest" href="/manifest.json">`, `<meta name="theme-color">` et `<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">`.
-- [ ] T041 [US2] Créer `frontend/public/manifest.json` et les icônes `frontend/public/icons/icon-192.png`, `icon-512.png`, `apple-touch-icon.png` (180 px), tirées une fois de `frontend/public/logo.png` avec `sharp` (déjà installé dans `backend`), en commande ponctuelle, sans script versionné ; ajouter les liens dans `frontend/index.html` ; faire passer T040
-- [ ] T042 [US2] Créer `frontend/src/i18n/en/push.ts` avec les traductions de tous les textes ajoutés en US1 et US2, l'enregistrer dans `frontend/src/i18n/en/index.ts`, et vérifier que les tests de `frontend/tests/i18n/` passent
+- [X] T041 [US2] Créer `frontend/public/manifest.json` et les icônes `frontend/public/icons/icon-192.png`, `icon-512.png`, `apple-touch-icon.png` (180 px), tirées une fois de `frontend/public/logo.png` avec `sharp` (déjà installé dans `backend`), en commande ponctuelle, sans script versionné ; ajouter les liens dans `frontend/index.html` ; faire passer T040
+- [X] T042 [US2] Créer `frontend/src/i18n/en/push.ts` avec les traductions de tous les textes ajoutés en US1 et US2, l'enregistrer dans `frontend/src/i18n/en/index.ts`, et vérifier que les tests de `frontend/tests/i18n/` passent
 
 **Point d'étape** : MVP (US1 + US2) utilisable sur appareil réel, push activé.
 
@@ -302,27 +308,28 @@ réglage est identique sur une seconde session.
 
 ### Tests de la User Story 3 (écrits d'abord, vus en échec) ⚠️
 
-- [ ] T043 [P] [US3] Tests d'intégration en échec dans `backend/test/integration/notification-preferences.spec.ts` :
+- [X] T043 [P] [US3] Tests d'intégration en échec dans `backend/test/integration/notification-preferences.spec.ts` :
   - `GET /api/notifications/preferences` sans ligne → toutes les catégories `true`, `urgentSound: true`, `urgentSoundSet: false` ;
   - `PATCH { categories: { coverage: false } }` → 200 avec les préférences complètes ; les autres champs sont inchangés ;
   - deux sessions du même utilisateur qui modifient des champs différents l'une après l'autre → les deux valeurs sont conservées (NC-9) ;
   - `PATCH { urgentSound: false }` → `urgentSoundSet: true` ;
   - corps vide, champ inconnu ou valeur non booléenne → 400 `VALIDATION_ERROR` ;
   - fonctionne avec le push désactivé.
-- [ ] T044 [P] [US3] Ajouter à `backend/test/integration/push-dispatch.spec.ts` des tests en échec : catégorie `coverage` désactivée → aucun envoi pour une affectation de garde, notification bien en base ; catégorie `urgent` toujours active → envoi pour une demande urgente
+- [X] T044 [P] [US3] Ajouter à `backend/test/integration/push-dispatch.spec.ts` des tests en échec : catégorie `coverage` désactivée → aucun envoi pour une affectation de garde, notification bien en base ; catégorie `urgent` toujours active → envoi pour une demande urgente
 
 ### Implémentation de la User Story 3
 
-- [ ] T045 [US3] Créer `backend/src/notifications/notification-preferences.service.ts` (`get(userId)` avec les défauts, `patch(userId, dto)` en upsert champ par champ) et `backend/src/notifications/notification-preferences.controller.ts` (`GET`, `PATCH` `/api/notifications/preferences`, DTO avec objet imbriqué `categories` de booléens facultatifs et `urgentSound` booléen facultatif, au moins un champ), déclarés dans `notifications.module.ts` ; faire passer T043
-- [ ] T046 [US3] Dans `backend/src/push/push-dispatcher.service.ts`, lire la ligne `NotificationPreference` du destinataire **directement par `PrismaService`** au moment de l'envoi (absente → tout actif) et ne rien envoyer si sa catégorie est désactivée. Ne pas injecter `NotificationPreferencesService` : `NotificationsModule` importe déjà `PushModule` (T013), l'inverse créerait une dépendance circulaire. Faire passer T044.
-- [ ] T047 [P] [US3] Tests en échec dans `frontend/tests/push/notifications-categories.test.tsx` (bloc « Catégories » de `NotificationsSection`) :
+- [X] T045 [US3] Créer `backend/src/notifications/notification-preferences.service.ts` (`get(userId)` avec les défauts, `patch(userId, dto)` en upsert champ par champ) et `backend/src/notifications/notification-preferences.controller.ts` (`GET`, `PATCH` `/api/notifications/preferences`, DTO avec objet imbriqué `categories` de booléens facultatifs et `urgentSound` booléen facultatif, au moins un champ), déclarés dans `notifications.module.ts` ; faire passer T043
+- [X] T046 [US3] Dans `backend/src/push/push-dispatcher.service.ts`, lire la ligne `NotificationPreference` du destinataire **directement par `PrismaService`** au moment de l'envoi (absente → tout actif) et ne rien envoyer si sa catégorie est désactivée. Ne pas injecter `NotificationPreferencesService` : `NotificationsModule` importe déjà `PushModule` (T013), l'inverse créerait une dépendance circulaire. Faire passer T044.
+- [X] T047 [P] [US3] Tests en échec dans `frontend/tests/push/notifications-categories.test.tsx` (bloc « Catégories » de `NotificationsSection`) :
   - quatre `Switch` avec les libellés et descriptions de [contracts/ui.md](contracts/ui.md) ;
   - un changement envoie aussitôt `PATCH` et annonce « Préférence enregistrée. » ; une erreur rétablit la valeur et affiche un message ;
   - désactiver « Couverture » prend 2 actions depuis « Mon profil » (SC-004 : 3 au plus) ;
   - bloc visible dans les états `disabled` et `unsupported` ;
   - mention « Ces choix s'appliquent à tous vos appareils abonnés. »
-- [ ] T048 [US3] Ajouter à `frontend/src/features/notifications/api.ts` les requêtes `useNotificationPreferences` et `useUpdateNotificationPreferences`, puis le bloc « Catégories » dans `NotificationsSection.tsx` ; faire passer T047
-- [ ] T049 [P] [US3] Tests en échec dans `frontend/tests/notifications/urgent-sound-account.test.tsx` :
+- [X] T048 [US3] Ajouter à `frontend/src/features/notifications/api.ts` les requêtes `useNotificationPreferences` et `useUpdateNotificationPreferences`, puis le bloc « Catégories » dans `NotificationsSection.tsx` ; faire passer T047
+  *Les préférences ont leur propre clé de requête (notification-preferences), distincte de celle des notifications, et la section lit les catégories avec prudence (valeur par défaut si la réponse est inattendue).*
+- [X] T049 [P] [US3] Tests en échec dans `frontend/tests/notifications/urgent-sound-account.test.tsx` :
   - `useUrgentSound` lit `urgentSound` du compte ;
   - le bouton de la cloche envoie `PATCH { urgentSound }` ;
   - valeur locale `lajoconde.signalSonoreUrgences` = `off` avec `urgentSoundSet: false` → un seul `PATCH { urgentSound: false }`, puis la clé locale est supprimée ;
@@ -330,7 +337,7 @@ réglage est identique sur une seconde session.
   - l'interrupteur « Signal sonore pour les urgences » de `NotificationsSection` partage la même valeur.
 
   Adapter les tests existants de `frontend/tests/notifications/urgent-alert.test.tsx` et `NotificationCenter.test.tsx` qui supposent le stockage local.
-- [ ] T050 [US3] Réécrire `frontend/src/features/notifications/useUrgentSound.ts` sur la préférence du compte, avec reprise unique (NC-6), et ajouter l'interrupteur du son dans `NotificationsSection.tsx` ; ajouter les traductions dans `frontend/src/i18n/en/push.ts` ; faire passer T049
+- [X] T050 [US3] Réécrire `frontend/src/features/notifications/useUrgentSound.ts` sur la préférence du compte, avec reprise unique (NC-6), et ajouter l'interrupteur du son dans `NotificationsSection.tsx` ; ajouter les traductions dans `frontend/src/i18n/en/push.ts` ; faire passer T049
 
 **Point d'étape** : préférences effectives à l'envoi, son des urgences partagé entre appareils.
 
@@ -414,6 +421,7 @@ lignes supprimées.
   - `backend/src/users/users.service.ts` : désactivation dans `update` et `resetPassword`, dans la transaction existante (FR-020).
 
   Faire passer T060.
+  *Déjà fait en US2 (T032) : DELETE /api/push/subscriptions/current et deleteForSession. Reste : DELETE /:id, les branchements auth et utilisateurs.*
 - [ ] T064 [US5] Créer `backend/src/scheduler/push-subscriptions-cleanup.job.ts` (`@Interval` d'une heure, suppression des `lastUsedAt` de plus de 90 jours, nombre supprimé journalisé) et l'enregistrer dans `backend/src/scheduler/scheduler.module.ts` ; faire passer T061
 - [ ] T065 [P] [US5] Tests en échec dans `frontend/tests/push/devices-list.test.tsx` et `frontend/tests/auth/logout-push.test.tsx` :
   - liste `<ul>` des appareils avec libellé, « Activé le … », « Dernière utilisation le … », badge « Cet appareil » ;

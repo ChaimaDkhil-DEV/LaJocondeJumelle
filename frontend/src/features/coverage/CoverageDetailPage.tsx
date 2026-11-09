@@ -30,6 +30,7 @@ import {
 } from './labels';
 import type { CoverageDetail, CoverageHistoryEntry, CoverageSource, CoverageStatus } from './types';
 import { isPlural, t } from '../../i18n';
+import { useMarkReadFromPush } from '../push/useMarkReadFromPush';
 
 const EVENT_LABELS: Record<string, string> = {
   CREATED: t('Affectation créée'),
@@ -220,6 +221,8 @@ function Times({ detail }: { detail: CoverageDetail }) {
 export function CoverageDetailPage() {
   const { id = '' } = useParams();
   const coverage = useCoverage(id);
+  // Ouverte depuis un push (014) : notification marquée lue après le chargement réussi.
+  useMarkReadFromPush(coverage.isSuccess);
   const back = { to: '/gardes', label: t('Surveillance') };
 
   if (coverage.isPending) return <LoadingState label={t('Chargement de la garde')} variant="detail" />;

@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
-import { PushDispatcher } from './push-dispatcher.service';
+import { PushController } from './push.controller';
+import { PUSH_SCHEDULER, PushDispatcher, timerScheduler } from './push-dispatcher.service';
+import { PushSubscriptionsService } from './push-subscriptions.service';
 import { PUSH_SENDER, WebPushSender } from './web-push.sender';
 
 /**
@@ -8,7 +10,13 @@ import { PUSH_SENDER, WebPushSender } from './web-push.sender';
  * (configuration, réglages, audit, Prisma).
  */
 @Module({
-  providers: [PushDispatcher, { provide: PUSH_SENDER, useClass: WebPushSender }],
-  exports: [PushDispatcher],
+  controllers: [PushController],
+  providers: [
+    PushDispatcher,
+    PushSubscriptionsService,
+    { provide: PUSH_SENDER, useClass: WebPushSender },
+    { provide: PUSH_SCHEDULER, useValue: timerScheduler },
+  ],
+  exports: [PushDispatcher, PushSubscriptionsService],
 })
 export class PushModule {}

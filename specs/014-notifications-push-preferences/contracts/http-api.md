@@ -2,7 +2,7 @@
 
 Toutes les routes exigent une session valide (`SessionGuard` global) et passent par le contrôle d'origine
 existant pour les écritures. Les erreurs suivent le format habituel
-`{ code, message, fields? }` (`backend/src/common/errors.ts`). Nouveaux codes :
+`{ error: { code, message, details? } }`, les champs invalides dans `details.fields` (`backend/src/common/errors.ts`, filtre d’exceptions). Nouveaux codes :
 
 | Code | Statut | Message |
 |---|---|---|

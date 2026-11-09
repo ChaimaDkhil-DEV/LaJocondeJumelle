@@ -22,6 +22,7 @@ import { useRequest } from './api';
 import { HistoryTimeline } from './HistoryTimeline';
 import { isReadOnlyStatus, readOnlyNotice } from './readOnly';
 import { RequestActions } from './RequestActions';
+import { useMarkReadFromPush } from '../push/useMarkReadFromPush';
 
 const BACK = { to: '/demandes', label: t('Retour aux demandes') };
 
@@ -42,6 +43,8 @@ export function RequestDetailPage() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
   const request = useRequest(id);
+  // Ouverte depuis un push (014) : notification marquée lue après le chargement réussi.
+  useMarkReadFromPush(request.isSuccess);
 
   if (request.isPending) return <LoadingState label={t('Chargement de la demande')} variant="detail" />;
   if (request.error) {

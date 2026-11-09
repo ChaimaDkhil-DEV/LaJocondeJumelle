@@ -188,8 +188,8 @@ Chaque point : décision, justification, alternatives écartées. Les constats r
 ## R13 — Application au premier plan (D10)
 
 - **Décision** : dans `push`, si une fenêtre de l'application est visible et active
-  (`clients.matchAll({ type: 'window', includeUncontrolled: true })`, `focused` ou `visibilityState === 'visible'`),
-  pas de notification système : l'alerte dans l'application arrive par Socket.IO. **Exception iPhone/iPad** :
+  (`clients.matchAll({ type: 'window', includeUncontrolled: true })`, `visibilityState === 'visible'` et `focused`),
+  pas de notification système : l'alerte dans l'application arrive par Socket.IO. **Exception appareils Apple** (iPhone, iPad, Safari macOS) :
   WebKit exige d'afficher chaque push et peut retirer l'abonnement sinon. La notification y est donc toujours
   affichée (limite déjà notée dans la spec).
 - **Alternatives écartées** : serveur qui saute le push si l'utilisateur a une connexion Socket.IO (empêcherait
