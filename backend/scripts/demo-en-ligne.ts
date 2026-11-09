@@ -5,8 +5,9 @@
  * chaque lancement. Usage : npm run -w backend demo:en-ligne   (Ctrl+C pour tout arrêter)
  *
  * Étapes : base locale (port 5433, démarrée si besoin), migrations, Whisper (Docker, si la
- * transcription est configurée), construction de l'API et de l'interface, tunnel, API avec
- * APP_ORIGIN = adresse du tunnel, `vite preview` (port 4173). Whisper reste démarré après Ctrl+C.
+ * transcription est configurée ; Docker Desktop est démarré s'il ne tourne pas), construction de
+ * l'API et de l'interface, tunnel, API avec APP_ORIGIN = adresse du tunnel, `vite preview`
+ * (port 4173). Docker Desktop et Whisper restent démarrés après Ctrl+C.
  */
 import { spawn, spawnSync, type ChildProcess, type SpawnOptions } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
@@ -14,6 +15,7 @@ import { connect } from 'node:net';
 import { join } from 'node:path';
 import { parseEnv } from 'node:util';
 import QRCode from 'qrcode';
+import { ensureDockerEngine, nodeDockerDeps } from './docker-desktop';
 
 const backendDir = join(__dirname, '..');
 const rootDir = join(backendDir, '..');
@@ -28,6 +30,10 @@ let stopping = false;
 
 function log(message: string): void {
   console.log(`[demo-en-ligne] ${message}`);
+}
+
+function warn(message: string): void {
+  console.warn(`[demo-en-ligne] ${message}`);
 }
 
 function fail(message: string): never {
@@ -135,10 +141,11 @@ async function startWhisper(): Promise<boolean | null> {
     log('Whisper répond déjà');
     return true;
   }
+  if (!(await ensureDockerEngine({ ...nodeDockerDeps, log, warn }))) return false;
   const command = 'docker compose -f deploy/docker-compose.dev.yml --profile whisper up -d whisper';
   log(`> ${command}`);
   if (spawnSync(command, { cwd: rootDir, stdio: 'inherit', shell: true }).status !== 0) {
-    console.warn('[demo-en-ligne] ATTENTION : Whisper non démarré. Ouvrez Docker Desktop, puis relancez.');
+    warn('ATTENTION : Whisper non démarré. Ouvrez Docker Desktop, puis relancez.');
     return false;
   }
   const deadline = Date.now() + WHISPER_TIMEOUT_MS;
@@ -149,7 +156,7 @@ async function startWhisper(): Promise<boolean | null> {
     }
     await new Promise((r) => setTimeout(r, 1000));
   }
-  console.warn(`[demo-en-ligne] ATTENTION : Whisper ne répond pas après ${WHISPER_TIMEOUT_MS / 1000} s.`);
+  warn(`ATTENTION : Whisper ne répond pas après ${WHISPER_TIMEOUT_MS / 1000} s.`);
   return false;
 }
 
