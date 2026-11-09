@@ -32,6 +32,8 @@ import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { LoadingState } from '../../components/LoadingState';
 import { useToast } from '../../components/Toast';
 import { icon } from '../../design/tokens';
+import { QrScannerDialog } from '../attendance/QrScannerDialog';
+import { classIdFromToken } from '../attendance/qrToken';
 import { ReasonDialog } from '../requests/ReasonDialog';
 import { useCandidates, useCoverageAction } from './api';
 import { CameraCapture, type CapturedPhoto } from './CameraCapture';
@@ -257,7 +259,7 @@ export function CoverageActions({
           pending={mutation.isPending}
           error={error}
           onClose={() => setOpen(null)}
-          onConfirm={(photoFileId) => run({ action: 'CONFIRM_PRESENCE', photoFileId })}
+          onConfirm={(proof) => run({ action: 'CONFIRM_PRESENCE', ...proof })}
         />
       )}
     </>
@@ -397,9 +399,11 @@ function AssignDialog({
 }
 
 /**
- * Confirmation de présence. Preuve « photo » : capture directe ici. Preuve « QR » ou « QR + photo » :
- * l'employé scanne le QR code de la classe avec l'appareil photo du téléphone ; la page ouverte par le QR
- * demande la photo si nécessaire, puis la validation explicite.
+ * Confirmation de présence. Preuve « photo » : capture directe ici, puis « Confirmer ma présence ». Preuve
+ * « QR » : le QR code de la classe est scanné dans l'application et la présence part dès la lecture, comme
+ * la déclaration d'une classe vide (013). Preuve « QR + photo » : les deux, dans l'ordre voulu ; la présence
+ * part dès que les deux sont faits. Le serveur revérifie le QR (signature, version, classe de la garde) ;
+ * la page ouverte par l'appareil photo du téléphone (PresencePage) reste inchangée.
  */
 function PresenceDialog({
   detail,
@@ -407,10 +411,44 @@ function PresenceDialog({
   error,
   onClose,
   onConfirm,
-}: DialogBase & { detail: CoverageDetail; onConfirm: (photoFileId: string) => void }) {
+}: DialogBase & { detail: CoverageDetail; onConfirm: (proof: { qrToken?: string; photoFileId?: string }) => void }) {
   const titleId = useId();
   const [photo, setPhoto] = useState<CapturedPhoto | null>(null);
+  const [scanning, setScanning] = useState(false);
+  /** QR lu en attendant la photo (preuve « QR + photo », scan fait en premier). */
+  const [qrToken, setQrToken] = useState<string | null>(null);
+  const [qrError, setQrError] = useState<string | null>(null);
   const needsQr = detail.proofMode !== 'PHOTO';
+  const needsPhoto = detail.proofMode !== 'QR';
+  const room = detail.class.room ? ` (${detail.class.room})` : '';
+
+  /** Envoie la présence ; après un refus du serveur, un nouveau scan renvoie, la photo reste. */
+  function send(token: string, withPhoto: CapturedPhoto | null): void {
+    setQrToken(null);
+    onConfirm({ qrToken: token, ...(withPhoto ? { photoFileId: withPhoto.id } : {}) });
+  }
+
+  function scanned(token: string): void {
+    setScanning(false);
+    const classId = classIdFromToken(token);
+    if (classId && classId !== detail.class.id.toLowerCase()) {
+      setQrError(
+        t('Ce QR code correspond à une autre classe que celle de votre garde : scannez celui de la classe {name}.', {
+          name: detail.class.name,
+        }),
+      );
+      return;
+    }
+    setQrError(null);
+    if (needsPhoto && !photo) setQrToken(token);
+    else send(token, photo);
+  }
+
+  function photoTaken(next: CapturedPhoto | null): void {
+    setPhoto(next);
+    if (next && needsQr && qrToken) send(qrToken, next);
+  }
+
   return (
     <Dialog open onClose={onClose} aria-labelledby={titleId} fullWidth maxWidth="sm">
       <DialogTitle id={titleId}>
@@ -422,23 +460,46 @@ function PresenceDialog({
             proof: PROOF_LABELS[detail.proofMode],
           })}
         </Typography>
-        {needsQr ? (
-          <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start' }}>
-            <QrCode size={icon.lg} aria-hidden="true" style={{ flex: 'none', marginTop: 2 }} />
+        {needsQr && (
+          <>
             <Typography variant="body2">
-              {detail.proofMode === 'BOTH'
+              {needsPhoto
                 ? t(
-                    'Ouvrez l’appareil photo de votre téléphone et scannez le QR code affiché dans la classe{room}. Une page s’ouvrira pour prendre la photo et confirmer votre présence.',
-                    { room: detail.class.room ? ` (${detail.class.room})` : '' },
+                    'Prenez la photo et scannez le QR code affiché dans la classe{room}, dans l’ordre que vous voulez : la présence est confirmée dès que les deux sont faits.',
+                    { room },
                   )
-                : t(
-                    'Ouvrez l’appareil photo de votre téléphone et scannez le QR code affiché dans la classe{room}. Une page s’ouvrira pour confirmer votre présence.',
-                    { room: detail.class.room ? ` (${detail.class.room})` : '' },
-                  )}
+                : t('Scannez le QR code affiché dans la classe{room} : la présence est confirmée dès qu’il est lu.', { room })}
             </Typography>
-          </Box>
-        ) : (
-          <CameraCapture value={photo} onChange={setPhoto} />
+            <Button
+              variant="contained"
+              size="large"
+              startIcon={<QrCode size={icon.md} aria-hidden="true" />}
+              disabled={pending}
+              onClick={() => {
+                setQrError(null);
+                setScanning(true);
+              }}
+              sx={{ minHeight: 48 }}
+            >
+              {t('Scanner le QR code de la classe')}
+            </Button>
+            {qrToken && (
+              <Alert severity="success" role="status">
+                {t('QR code de la classe lu : prenez maintenant la photo.')}
+              </Alert>
+            )}
+            {qrError && (
+              <Alert severity="warning" role="status">
+                {qrError}
+              </Alert>
+            )}
+          </>
+        )}
+        {needsPhoto && <CameraCapture value={photo} onChange={photoTaken} />}
+        {needsQr && pending && (
+          <Typography variant="body2" role="status">
+            {t('Confirmation de la présence…')}
+          </Typography>
         )}
         {error && <Alert severity="error">{error}</Alert>}
       </DialogContent>
@@ -449,12 +510,13 @@ function PresenceDialog({
             variant="contained"
             disabled={!photo}
             loading={pending}
-            onClick={() => photo && onConfirm(photo.id)}
+            onClick={() => photo && onConfirm({ photoFileId: photo.id })}
           >
             {t('Confirmer ma présence')}
           </Button>
         )}
       </DialogActions>
+      {scanning && <QrScannerDialog onToken={scanned} onClose={() => setScanning(false)} />}
     </Dialog>
   );
 }
