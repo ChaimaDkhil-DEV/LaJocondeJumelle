@@ -56,6 +56,12 @@ const RULES: Record<NotificationType, Rule> = {
   COVERAGE_MORNING_REMINDER: NONE,
   COVERAGE_CLOSE_REMINDER: NONE,
   COVERAGE_DUPLICATE: NONE,
+  // Communication enseignant / parents (015) : cloche seulement, jamais en push.
+  PARENT_COMM_TO_VALIDATE: NONE,
+  PARENT_COMM_RETURNED: NONE,
+  PARENT_COMM_APPROVED: NONE,
+  PARENT_COMM_REJECTED: NONE,
+  PARENT_MESSAGE_NEW: NONE,
 };
 
 /** Catégorie push d'une notification, ou null si elle reste dans l'application. */

@@ -32,6 +32,19 @@ describe('sanitizeAuditDetails', () => {
     ).toEqual({ action: 'UPDATED', guidelineId: 'g1', title: 'Pannes', fields: ['body'] });
   });
 
+  it('communication aux parents (015) : événement, version, identifiants et canaux, jamais le texte', () => {
+    expect(sanitizeAuditDetails({ event: 'SUBMITTED', revision: 2, text: 'remarque', voiceFileId: 'v1' })).toEqual({ event: 'SUBMITTED', revision: 2 });
+    expect(sanitizeAuditDetails({ event: 'CREATED', studentId: 's1', studentIds: ['s1', 's2'], guardianId: 'g1' })).toEqual({
+      event: 'CREATED',
+      studentId: 's1',
+      studentIds: ['s1', 's2'],
+      guardianId: 'g1',
+    });
+    expect(sanitizeAuditDetails({ classIds: ['c1'] })).toEqual({ classIds: ['c1'] });
+    expect(sanitizeAuditDetails({ event: 'DATA_READ', channels: ['EMAIL'], email: 'a@b.c', phone: '+216' })).toEqual({ event: 'DATA_READ', channels: ['EMAIL'] });
+    expect(sanitizeAuditDetails({ event: 'REPORT', channel: 'EMAIL', from: 'PENDING', to: 'SENT' })).toEqual({ event: 'REPORT', channel: 'EMAIL', from: 'PENDING', to: 'SENT' });
+  });
+
   it('renvoie undefined quand il ne reste rien', () => {
     expect(sanitizeAuditDetails({ password: 'x' })).toBeUndefined();
     expect(sanitizeAuditDetails(undefined)).toBeUndefined();

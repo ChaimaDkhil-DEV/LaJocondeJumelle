@@ -186,7 +186,7 @@ describe('Jeu de démonstration — demandes', () => {
     const requestIds = new Set(data.requests.map((r) => r.id));
     for (const n of data.notifications) {
       expect(ids.has(n.userId)).toBe(true);
-      expect(requestIds.has(n.requestId)).toBe(true);
+      expect(requestIds.has(n.requestId as string)).toBe(true);
       expect((n.createdAt as Date).getTime()).toBeLessThanOrEqual(END.getTime());
       if (n.readAt) expect((n.readAt as Date).getTime()).toBeGreaterThanOrEqual((n.createdAt as Date).getTime());
     }

@@ -39,6 +39,16 @@ if ! "${COMPOSE[@]}" run --rm --entrypoint /bin/bash backup /scripts/backup.sh; 
   exit 1
 fi
 
+# n8n (profil « n8n », spec 015) : sa base et ses identifiants chiffrés sont sauvegardés aussi
+# quand il tourne déjà (premier déploiement de n8n : rien à sauvegarder).
+if "${COMPOSE[@]}" ps --status running --services 2>/dev/null | grep -qx n8n-db; then
+  echo "[deploy] 1/2 : sauvegarde de n8n avant mise à jour"
+  if ! "${COMPOSE[@]}" run --rm --entrypoint /bin/bash n8n-backup /scripts/backup.sh; then
+    echo "[deploy] ÉCHEC de la sauvegarde de n8n : aucun conteneur modifié." >&2
+    exit 1
+  fi
+fi
+
 echo "[deploy] 2/2 : reconstruction et redémarrage"
 "${COMPOSE[@]}" up -d --build
 

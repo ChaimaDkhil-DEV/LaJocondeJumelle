@@ -64,6 +64,14 @@ const ADMIN_ALLOWED: readonly string[] = [
   `GET /api/admin/coverage/classes/${UUID}/qr`,
   `POST /api/admin/coverage/classes/${UUID}/qr/revoke`,
   'GET /api/admin/employees',
+  // Communication avec les parents (015) : représentants et classes des enseignants. La validation
+  // (/admin/parent-communications) dépend de la permission PARENT_COMMUNICATION_VALIDATE, absente par défaut.
+  'GET /api/admin/guardians',
+  'POST /api/admin/guardians',
+  `PATCH /api/admin/guardians/${UUID}`,
+  `POST /api/admin/guardians/${UUID}/account`,
+  'GET /api/admin/teacher-classes',
+  `PUT /api/admin/teacher-classes/${UUID}`,
 ];
 const key = ({ verb, path }: { verb: Verb; path: string }) => `${verb.toUpperCase()} ${path}`;
 

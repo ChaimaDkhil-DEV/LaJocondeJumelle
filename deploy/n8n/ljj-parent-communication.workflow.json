@@ -1,0 +1,463 @@
+{
+  "id": "LjjParentComm0001",
+  "name": "LJJ — Notification des communications aux parents",
+  "active": false,
+  "nodes": [
+    {
+      "id": "a1f0c0de-0000-4000-8000-000000000001",
+      "name": "Événement LJJ",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "b2e1d3c4-5f60-4a7b-9c8d-0e1f2a3b4c5d",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ljj-parent-communication",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "a1f0c0de-0000-4000-8000-000000000002",
+      "name": "Vérifier signature et doublon",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ],
+      "parameters": {
+        "jsCode": "// Vérifie l'événement de La Joconde Jumelle : signature HMAC-SHA256 de « horodatage.corps » avec le\n// secret partagé (LJJ_SHARED_SECRET), horodatage récent (5 min), identifiant d'événement jamais traité.\n// Réponse : 401 si la signature est invalide, 200 pour un doublon (déjà traité), 202 sinon.\nconst crypto = require('crypto');\nconst secret = $env.LJJ_SHARED_SECRET || '';\nconst MAX_SKEW_MS = 5 * 60 * 1000;\nconst KEEP_MS = 7 * 24 * 60 * 60 * 1000;\n\nconst item = $input.first().json;\nconst headers = item.headers || {};\nconst body = item.body || {};\nconst timestamp = String(headers['x-ljj-timestamp'] || '');\nconst signature = String(headers['x-ljj-signature'] || '');\nconst expected = 'sha256=' + crypto.createHmac('sha256', secret).update(timestamp + '.' + JSON.stringify(body)).digest('hex');\nconst signed = secret.length >= 32 && signature.length === expected.length && crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));\nconst fresh = /^\\d+$/.test(timestamp) && Math.abs(Date.now() - Number(timestamp)) <= MAX_SKEW_MS;\nconst uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;\nif (!signed || !fresh || body.type !== 'PARENT_COMMUNICATION_APPROVED' || !uuid.test(body.eventId || '') || !uuid.test(body.communicationId || '')) {\n  return [{ json: { accepted: false, statusCode: 401, response: { error: 'INVALID_SIGNATURE' } } }];\n}\n\n// Dédoublonnage : identifiants traités gardés 7 jours dans les données statiques du workflow.\nconst store = $getWorkflowStaticData('global');\nconst seen = store.seenEvents || {};\nconst now = Date.now();\nfor (const id of Object.keys(seen)) if (now - seen[id] > KEEP_MS) delete seen[id];\nif (seen[body.eventId]) {\n  store.seenEvents = seen;\n  return [{ json: { accepted: false, statusCode: 200, response: { received: true, duplicate: true } } }];\n}\nseen[body.eventId] = now;\nstore.seenEvents = seen;\nreturn [{ json: { accepted: true, statusCode: 202, response: { received: true }, eventId: body.eventId, communicationId: body.communicationId } }];\n"
+      }
+    },
+    {
+      "id": "a1f0c0de-0000-4000-8000-000000000003",
+      "name": "Répondre à LJJ",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        440,
+        300
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json.response) }}",
+        "options": {
+          "responseCode": "={{ $json.statusCode }}"
+        }
+      }
+    },
+    {
+      "id": "a1f0c0de-0000-4000-8000-000000000004",
+      "name": "Événement accepté",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        300
+      ],
+      "parameters": {
+        "jsCode": "// Seuls les événements acceptés continuent (signature valide, première réception).\nreturn $input.all().filter((item) => item.json.accepted === true).map((item) => ({ json: { eventId: item.json.eventId, communicationId: item.json.communicationId } }));\n"
+      }
+    },
+    {
+      "id": "a1f0c0de-0000-4000-8000-000000000005",
+      "name": "Lire les données minimales",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        300
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.LJJ_API_URL }}/api/integrations/n8n/parent-communications/{{ $json.communicationId }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.LJJ_SHARED_SECRET }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      }
+    },
+    {
+      "id": "a1f0c0de-0000-4000-8000-000000000006",
+      "name": "Préparer les envois",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        300
+      ],
+      "parameters": {
+        "jsCode": "// Une entrée par canal activé pour lequel le représentant a une coordonnée (calculé par l'API).\n// Aucune remarque ni aucun vocal : seulement l'invitation à lire le message dans l'espace parent.\nconst event = $('Événement accepté').first().json;\nconst data = $input.first().json;\nreturn (data.channels || []).map((channel) => ({\n  json: {\n    eventId: event.eventId,\n    communicationId: data.communicationId,\n    channel,\n    recipientFirstName: data.recipient.firstName,\n    email: data.recipient.email || null,\n    phone: data.recipient.phone || null,\n    studentFirstName: data.student.firstName,\n    teacherName: data.teacher.displayName,\n    link: data.link,\n  },\n}));\n"
+      }
+    },
+    {
+      "id": "a1f0c0de-0000-4000-8000-000000000007",
+      "name": "Canal e-mail",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        180
+      ],
+      "parameters": {
+        "jsCode": "// Canal EMAIL uniquement ; le lien avec l'entrée d'origine est conservé.\nreturn $input.all()\n  .map((item, index) => ({ item, index }))\n  .filter(({ item }) => item.json.channel === 'EMAIL')\n  .map(({ item, index }) => ({ json: item.json, pairedItem: { item: index } }));\n"
+      }
+    },
+    {
+      "id": "a1f0c0de-0000-4000-8000-000000000008",
+      "name": "Canal WhatsApp",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        440
+      ],
+      "parameters": {
+        "jsCode": "// Canal WHATSAPP uniquement ; le lien avec l'entrée d'origine est conservé.\nreturn $input.all()\n  .map((item, index) => ({ item, index }))\n  .filter(({ item }) => item.json.channel === 'WHATSAPP')\n  .map(({ item, index }) => ({ json: item.json, pairedItem: { item: index } }));\n"
+      }
+    },
+    {
+      "id": "a1f0c0de-0000-4000-8000-000000000009",
+      "name": "Envoyer l’e-mail",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1540,
+        180
+      ],
+      "onError": "continueErrorOutput",
+      "parameters": {
+        "fromEmail": "={{ $env.LJJ_MAIL_FROM }}",
+        "toEmail": "={{ $json.email }}",
+        "subject": "Nouveau message de l’école",
+        "emailFormat": "text",
+        "text": "=Bonjour {{ $json.recipientFirstName }},\n\n{{ $json.teacherName }} vous a adressé un message concernant {{ $json.studentFirstName }}.\nPour le lire, connectez-vous à votre espace parent :\n{{ $json.link }}\n\nCet e-mail est envoyé automatiquement ; merci de ne pas y répondre.",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "credentials": {
+        "smtp": {
+          "id": "ljjSmtpCredential01",
+          "name": "LJJ SMTP"
+        }
+      }
+    },
+    {
+      "id": "a1f0c0de-0000-4000-8000-00000000000a",
+      "name": "Envoyer le WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1540,
+        440
+      ],
+      "onError": "continueErrorOutput",
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.WHATSAPP_API_URL || 'https://graph.facebook.com' }}/{{ $env.WHATSAPP_GRAPH_VERSION }}/{{ $env.WHATSAPP_PHONE_NUMBER_ID }}/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ messaging_product: 'whatsapp', to: $json.phone.replace(/[^\\d]/g, ''), type: 'template', template: { name: $env.WHATSAPP_TEMPLATE_NAME, language: { code: $env.WHATSAPP_TEMPLATE_LANGUAGE || 'fr' }, components: [{ type: 'body', parameters: [{ type: 'text', text: $json.recipientFirstName }, { type: 'text', text: $json.studentFirstName }, { type: 'text', text: $json.link }] }] } }) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ljjWhatsappCredential1",
+          "name": "WhatsApp Business Platform"
+        }
+      }
+    },
+    {
+      "id": "a1f0c0de-0000-4000-8000-00000000000b",
+      "name": "Rapport e-mail envoyé",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        100
+      ],
+      "parameters": {
+        "jsCode": "// Compte rendu de livraison pour La Joconde Jumelle (idempotent côté API).\nconst src = $('Canal e-mail').item.json;\nreturn { json: {\n  eventId: src.eventId,\n  communicationId: src.communicationId,\n  channel: src.channel,\n  status: 'SENT',\n  providerMessageId: String($json.messageId || ($json.messages && $json.messages[0] && $json.messages[0].id) || '').slice(0, 200) || undefined,\n} };\n",
+        "mode": "runOnceForEachItem"
+      }
+    },
+    {
+      "id": "a1f0c0de-0000-4000-8000-00000000000c",
+      "name": "Rapport e-mail en échec",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        260
+      ],
+      "parameters": {
+        "jsCode": "// Compte rendu de livraison pour La Joconde Jumelle (idempotent côté API).\nconst src = $('Canal e-mail').item.json;\nreturn { json: {\n  eventId: src.eventId,\n  communicationId: src.communicationId,\n  channel: src.channel,\n  status: 'FAILED',\n  // Erreur du fournisseur sans donnée personnelle : adresses et numéros masqués, 500 caractères au plus.\n  error: String(($json.error && ($json.error.message || $json.error)) || 'Erreur du fournisseur')\n    .replace(/[^\\s@]+@[^\\s@]+/g, '[adresse masquée]')\n    .replace(/\\+?\\d[\\d\\s().-]{6,}\\d/g, '[numéro masqué]')\n    .slice(0, 500),\n} };\n",
+        "mode": "runOnceForEachItem"
+      }
+    },
+    {
+      "id": "a1f0c0de-0000-4000-8000-00000000000d",
+      "name": "Rapport WhatsApp envoyé",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        380
+      ],
+      "parameters": {
+        "jsCode": "// Compte rendu de livraison pour La Joconde Jumelle (idempotent côté API).\nconst src = $('Canal WhatsApp').item.json;\nreturn { json: {\n  eventId: src.eventId,\n  communicationId: src.communicationId,\n  channel: src.channel,\n  status: 'SENT',\n  providerMessageId: String($json.messageId || ($json.messages && $json.messages[0] && $json.messages[0].id) || '').slice(0, 200) || undefined,\n} };\n",
+        "mode": "runOnceForEachItem"
+      }
+    },
+    {
+      "id": "a1f0c0de-0000-4000-8000-00000000000e",
+      "name": "Rapport WhatsApp en échec",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        540
+      ],
+      "parameters": {
+        "jsCode": "// Compte rendu de livraison pour La Joconde Jumelle (idempotent côté API).\nconst src = $('Canal WhatsApp').item.json;\nreturn { json: {\n  eventId: src.eventId,\n  communicationId: src.communicationId,\n  channel: src.channel,\n  status: 'FAILED',\n  // Erreur du fournisseur sans donnée personnelle : adresses et numéros masqués, 500 caractères au plus.\n  error: String(($json.error && ($json.error.message || $json.error)) || 'Erreur du fournisseur')\n    .replace(/[^\\s@]+@[^\\s@]+/g, '[adresse masquée]')\n    .replace(/\\+?\\d[\\d\\s().-]{6,}\\d/g, '[numéro masqué]')\n    .slice(0, 500),\n} };\n",
+        "mode": "runOnceForEachItem"
+      }
+    },
+    {
+      "id": "a1f0c0de-0000-4000-8000-00000000000f",
+      "name": "Rapporter la livraison",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1980,
+        300
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.LJJ_API_URL }}/api/integrations/n8n/deliveries",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.LJJ_SHARED_SECRET }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 10000
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Événement LJJ": {
+      "main": [
+        [
+          {
+            "node": "Vérifier signature et doublon",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vérifier signature et doublon": {
+      "main": [
+        [
+          {
+            "node": "Répondre à LJJ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Répondre à LJJ": {
+      "main": [
+        [
+          {
+            "node": "Événement accepté",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Événement accepté": {
+      "main": [
+        [
+          {
+            "node": "Lire les données minimales",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lire les données minimales": {
+      "main": [
+        [
+          {
+            "node": "Préparer les envois",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Préparer les envois": {
+      "main": [
+        [
+          {
+            "node": "Canal e-mail",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Canal WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Canal e-mail": {
+      "main": [
+        [
+          {
+            "node": "Envoyer l’e-mail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Canal WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "Envoyer le WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Envoyer l’e-mail": {
+      "main": [
+        [
+          {
+            "node": "Rapport e-mail envoyé",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rapport e-mail en échec",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Envoyer le WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "Rapport WhatsApp envoyé",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rapport WhatsApp en échec",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rapport e-mail envoyé": {
+      "main": [
+        [
+          {
+            "node": "Rapporter la livraison",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rapport e-mail en échec": {
+      "main": [
+        [
+          {
+            "node": "Rapporter la livraison",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rapport WhatsApp envoyé": {
+      "main": [
+        [
+          {
+            "node": "Rapporter la livraison",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rapport WhatsApp en échec": {
+      "main": [
+        [
+          {
+            "node": "Rapporter la livraison",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "all",
+    "saveManualExecutions": false,
+    "timezone": "Europe/Paris"
+  },
+  "pinData": {},
+  "tags": []
+}

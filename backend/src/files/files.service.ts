@@ -8,7 +8,7 @@ import { PrismaService } from '../common/prisma.service';
 import type { AppConfig } from '../config/config';
 import { APP_CONFIG } from '../config/config.module';
 import { SettingsService } from '../settings/settings.service';
-import type { RequestFileAccess } from './file-access';
+import type { RequestFileAccess, StandaloneFileAccess } from './file-access';
 import { detectFileType, VOICE_CONTAINERS } from './file-signature';
 import { FileStorageService } from './file-storage.service';
 import type { FileResponse, UploadFileDto } from './files.dto';
@@ -59,6 +59,8 @@ export function toFileResponse(file: StoredFile): FileResponse {
 export class FilesService {
   /** Décision d'accès par type de demande, fournie par chaque domaine (R8) ; fermé par défaut. */
   private readonly access = new Map<RequestKind, RequestFileAccess>();
+  /** Fichiers rattachés à autre chose qu'une demande (communication aux parents, 015). */
+  private readonly standalone: StandaloneFileAccess[] = [];
 
   constructor(
     private readonly prisma: PrismaService,
@@ -71,6 +73,10 @@ export class FilesService {
   registerAccess(kind: RequestKind, access: RequestFileAccess): void {
     if (this.access.has(kind)) throw new Error(`Accès aux fichiers déjà enregistré pour ${kind}`);
     this.access.set(kind, access);
+  }
+
+  registerStandaloneAccess(access: StandaloneFileAccess): void {
+    this.standalone.push(access);
   }
 
   /** Téléverse un fichier ; sans requestId, il reste provisoire jusqu'à son rattachement. */
@@ -174,7 +180,14 @@ export class FilesService {
     if (!UUID.test(fileId)) return null;
     const file = await this.prisma.file.findUnique({ where: { id: fileId } });
     if (!file) return null;
-    if (file.requestId === null) return file.uploaderId === user.id ? file : null;
+    if (file.requestId === null) {
+      // Rattaché à un autre domaine (vocal de communication aux parents) : sa décision prime, auteur compris.
+      for (const access of this.standalone) {
+        const decision = await access.canRead(user, file);
+        if (decision !== null) return decision ? file : null;
+      }
+      return file.uploaderId === user.id ? file : null;
+    }
 
     const request = await this.prisma.request.findUnique({ where: { id: file.requestId } });
     const access = request && this.access.get(request.kind);

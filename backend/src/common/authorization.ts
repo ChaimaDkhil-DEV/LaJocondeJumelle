@@ -12,6 +12,7 @@ export const ALL_PERMISSIONS: readonly Permission[] = [
   'REQUEST_REASSIGN',
   'AUDIT_READ',
   'ADMIN_MANAGE',
+  'PARENT_COMMUNICATION_VALIDATE',
 ];
 
 export interface PolicyUser {

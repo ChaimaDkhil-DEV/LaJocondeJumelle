@@ -13,13 +13,37 @@ export class SocketNotificationPublisher implements NotificationPublisher {
   ) {}
 
   async publish(notifications: Notification[]): Promise<void> {
-    const requests = await this.prisma.request.findMany({
-      where: { id: { in: [...new Set(notifications.map((n) => n.requestId))] } },
-      select: { id: true, reference: true, title: true, kind: true },
-    });
-    const byId = new Map(requests.map((r) => [r.id, r]));
+    const requestIds = [...new Set(notifications.flatMap((n) => (n.requestId ? [n.requestId] : [])))];
+    const communicationIds = [...new Set(notifications.flatMap((n) => (n.communicationId ? [n.communicationId] : [])))];
+    const requests = requestIds.length
+      ? await this.prisma.request.findMany({ where: { id: { in: requestIds } }, select: { id: true, reference: true, title: true, kind: true } })
+      : [];
+    // Communication aux parents (015) : seul le nom de l'élève sert de titre, jamais la remarque.
+    const communications = communicationIds.length
+      ? await this.prisma.parentCommunication.findMany({
+          where: { id: { in: communicationIds } },
+          select: { id: true, student: { select: { firstName: true, lastName: true } } },
+        })
+      : [];
+    const requestById = new Map(requests.map((r) => [r.id, r]));
+    const communicationById = new Map(communications.map((c) => [c.id, c]));
     for (const n of notifications) {
-      const request = byId.get(n.requestId);
+      if (n.communicationId) {
+        const communication = communicationById.get(n.communicationId);
+        this.realtime.emitToUsers([n.userId], 'notification:new', {
+          id: n.id,
+          type: n.type,
+          priority: n.priority,
+          requestId: null,
+          communicationId: n.communicationId,
+          reference: '',
+          title: communication ? `${communication.student.firstName} ${communication.student.lastName}` : '',
+          kind: 'COMMUNICATION',
+          createdAt: n.createdAt,
+        });
+        continue;
+      }
+      const request = n.requestId ? requestById.get(n.requestId) : undefined;
       this.realtime.emitToUsers([n.userId], 'notification:new', {
         id: n.id,
         type: n.type,

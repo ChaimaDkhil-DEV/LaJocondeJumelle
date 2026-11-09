@@ -17,6 +17,8 @@ import { CategoriesAdminPage } from './CategoriesAdminPage';
 import { EmployeesAdminPage } from './EmployeesAdminPage';
 import { GuidelinesAdminPage } from './GuidelinesAdminPage';
 import { SettingsAdminPage } from './SettingsAdminPage';
+import { GuardiansAdminPage } from '../parent-communications/GuardiansAdminPage';
+import { TeacherClassesAdminPage } from '../parent-communications/TeacherClassesAdminPage';
 import { UsersAdminPage } from './UsersAdminPage';
 
 /** Ancienne adresse du tableau de bord, devenu la page d'accueil : la vue choisie (`?vue=`) est conservée. */
@@ -67,6 +69,9 @@ export const adminRoutes: RouteObject[] = [
       { path: 'eleves', element: <StudentsAdminPage /> },
       // Liste des employés en lecture seule (011) : admin ; le super administrateur garde « Comptes ».
       { path: 'employes', element: <EmployeesAdminPage /> },
+      // Communication avec les parents (015) : représentants et classes des enseignants.
+      { path: 'representants', element: <GuardiansAdminPage /> },
+      { path: 'classes-enseignants', element: <TeacherClassesAdminPage /> },
     ],
   },
 ];

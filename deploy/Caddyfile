@@ -48,6 +48,30 @@
 	}
 }
 
+# Éditeur n8n (spec 015, profil « n8n » de docker-compose.yml) : sous-domaine N8N_DOMAIN en HTTPS,
+# réservé aux adresses N8N_ALLOWED_IPS (par défaut : aucune adresse extérieure ; accès par tunnel SSH).
+# Sans N8N_DOMAIN, le site n8n.localhost (certificat interne) n'est joignable que depuis le serveur.
+# Les webhooks ne sont jamais publiés : l'API joint n8n par le réseau Docker (http://n8n:5678).
+{$N8N_DOMAIN:n8n.localhost} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-Frame-Options "DENY"
+		-Server
+	}
+
+	@webhooks path /webhook/* /webhook-test/* /webhook-waiting/* /form/* /form-test/* /form-waiting/* /mcp/* /mcp-test/*
+	respond @webhooks 404
+
+	@outside not remote_ip {$N8N_ALLOWED_IPS:127.0.0.1/32}
+	respond @outside 403
+
+	reverse_proxy {$N8N_UPSTREAM:n8n:5678}
+}
+
 # Relais HTTPS interne vers le serveur de transcription (spec 010, research R11). Le port 8444 n'est
 # jamais publié (docker-compose.yml) : seul le réseau Docker privé y accède. Certificat émis par
 # l'autorité interne de Caddy, reconnu par l'API grâce à ASSIST_WHISPER_CA_FILE. Sans le profil

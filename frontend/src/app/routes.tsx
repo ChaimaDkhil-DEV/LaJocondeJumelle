@@ -17,6 +17,12 @@ import { RequestDetailPage } from '../features/requests/RequestDetailPage';
 import { DraftPage } from '../features/requests/DraftPage';
 import { RequestListPage } from '../features/requests/RequestListPage';
 import { MealServicesPage } from '../features/students/MealServicesPage';
+import { CommunicationEditorPage } from '../features/parent-communications/CommunicationEditorPage';
+import { ParentMessagePage } from '../features/parent-communications/ParentMessagePage';
+import { ParentMessagesPage } from '../features/parent-communications/ParentMessagesPage';
+import { TeacherCommunicationsPage } from '../features/parent-communications/TeacherCommunicationsPage';
+import { ValidationDetailPage } from '../features/parent-communications/ValidationDetailPage';
+import { ValidationListPage } from '../features/parent-communications/ValidationListPage';
 import { AppLayout } from './AppLayout';
 
 export const routes: RouteObject[] = [
@@ -49,6 +55,14 @@ export const routes: RouteObject[] = [
       { path: 'gardes/:id', element: <CoverageDetailPage /> },
       // Service de restauration des élèves (rôles vérifiés par l'API).
       { path: 'restauration', element: <MealServicesPage /> },
+      // Communication enseignant / parents (015) : droits vérifiés par l'API.
+      { path: 'communications-parents', element: <TeacherCommunicationsPage /> },
+      { path: 'communications-parents/nouvelle', element: <CommunicationEditorPage /> },
+      { path: 'communications-parents/:id', element: <CommunicationEditorPage /> },
+      { path: 'communications-a-valider', element: <ValidationListPage /> },
+      { path: 'communications-a-valider/:id', element: <ValidationDetailPage /> },
+      { path: 'messages-ecole', element: <ParentMessagesPage /> },
+      { path: 'messages-ecole/:id', element: <ParentMessagePage /> },
       ...adminRoutes,
     ],
   },

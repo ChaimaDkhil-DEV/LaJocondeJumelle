@@ -59,6 +59,8 @@ describe('Notifications', () => {
       type: 'REQUEST_NEW',
       priority: 'NORMAL',
       request: { id: expect.any(String), reference: expect.stringMatching(/^D-/), title: 'Demande C', kind: 'WORK' },
+      // Communication aux parents (015) : null pour une notification de demande.
+      communication: null,
       createdAt: expect.any(String),
       readAt: null,
     });

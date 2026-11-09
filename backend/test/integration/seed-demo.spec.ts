@@ -114,7 +114,8 @@ describe('Seed de démonstration', () => {
     const notifications = await prisma.notification.findMany({ include: { request: { include: { category: { include: { managers: true } } } }, user: true } });
     expect(notifications.length).toBeGreaterThan(100);
     for (const n of notifications) {
-      const r = n.request;
+      // Le seed de démonstration ne crée que des notifications de demande.
+      const r = n.request!;
       const related =
         n.userId === r.requesterId ||
         n.userId === r.assigneeId ||

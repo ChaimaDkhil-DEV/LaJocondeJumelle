@@ -557,7 +557,7 @@ export class RequestsService {
       where: { userId, readAt: null, requestId: { in: requestIds } },
       _count: { _all: true },
     });
-    return new Map(groups.map((g) => [g.requestId, g._count._all]));
+    return new Map(groups.flatMap((g) => (g.requestId ? [[g.requestId, g._count._all] as const] : [])));
   }
 
   /**

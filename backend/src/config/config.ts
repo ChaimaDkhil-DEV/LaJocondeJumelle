@@ -1,3 +1,4 @@
+import type { CommunicationChannel } from '@prisma/client';
 import { isIP } from 'node:net';
 
 /**
@@ -32,6 +33,22 @@ export interface AppConfig {
    * jamais le serveur et n'est jamais journalisée.
    */
   push: PushConfig | null;
+  /**
+   * Automatisations externes (spec 015) : webhook n8n et secret partagé. null : rien n'est envoyé, les
+   * événements outbox attendent ; l'espace parent fonctionne normalement.
+   */
+  n8n: N8nConfig | null;
+  /** Canaux externes activés pour les communications aux parents (015) ; vide : espace parent seulement. */
+  parentCommunicationChannels: CommunicationChannel[];
+}
+
+export interface N8nConfig {
+  /** Adresse du webhook n8n (réseau interne Docker en production, ex. http://n8n:5678/webhook/…). */
+  webhookUrl: string;
+  /** Secret partagé (≥ 32 caractères) : signature des événements, jeton des appels de n8n. Jamais journalisé. */
+  secret: string;
+  /** Délai maximal d'un envoi à n8n (1 000 à 30 000 ms). */
+  timeoutMs: number;
 }
 
 export interface PushConfig {
@@ -245,6 +262,41 @@ function parsePush(env: NodeJS.ProcessEnv): PushConfig | null {
   return { publicKey: publicKey!, privateKey: privateKey!, subject: subject! };
 }
 
+const CHANNELS: readonly CommunicationChannel[] = ['EMAIL', 'WHATSAPP'];
+
+/**
+ * n8n (spec 015) : URL et secret ensemble, ou aucun. Une variable vide compte comme absente. Le secret
+ * n'est jamais cité dans une erreur.
+ */
+function parseN8n(env: NodeJS.ProcessEnv): N8nConfig | null {
+  const webhookUrl = trimmed(env.N8N_WEBHOOK_URL);
+  const secret = trimmed(env.N8N_SHARED_SECRET);
+  if (!webhookUrl && !secret) return null;
+  if (!webhookUrl) throw new ConfigError('N8N_WEBHOOK_URL manquante (renseignez N8N_WEBHOOK_URL et N8N_SHARED_SECRET, ou aucune)');
+  if (!secret) throw new ConfigError('N8N_SHARED_SECRET manquant (renseignez N8N_WEBHOOK_URL et N8N_SHARED_SECRET, ou aucune)');
+  let url: URL;
+  try {
+    url = new URL(webhookUrl);
+  } catch {
+    throw new ConfigError('N8N_WEBHOOK_URL doit être une adresse http(s) valide');
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new ConfigError('N8N_WEBHOOK_URL doit être une adresse http(s) valide');
+  if (secret.length < MIN_SECRET_LENGTH) throw new ConfigError(`N8N_SHARED_SECRET doit contenir au moins ${MIN_SECRET_LENGTH} caractères`);
+  const timeoutMs = trimmed(env.N8N_TIMEOUT_MS) ? Number(env.N8N_TIMEOUT_MS) : 10_000;
+  if (!Number.isInteger(timeoutMs) || timeoutMs < 1_000 || timeoutMs > 30_000) {
+    throw new ConfigError('N8N_TIMEOUT_MS doit être un entier entre 1000 et 30000');
+  }
+  return { webhookUrl: url.toString(), secret, timeoutMs };
+}
+
+/** PARENT_COMM_CHANNELS : liste séparée par des virgules parmi EMAIL et WHATSAPP (WhatsApp Business Platform). */
+function parseChannels(value: string | undefined): CommunicationChannel[] {
+  const names = (value ?? '').split(',').map((v) => v.trim().toUpperCase()).filter(Boolean);
+  const unknown = names.filter((n) => !(CHANNELS as readonly string[]).includes(n));
+  if (unknown.length > 0) throw new ConfigError(`PARENT_COMM_CHANNELS : canal inconnu (${unknown.join(', ')}) ; valeurs possibles : EMAIL, WHATSAPP`);
+  return CHANNELS.filter((c) => names.includes(c));
+}
+
 const MIN_SECRET_LENGTH = 32;
 const DEFAULT_LOGIN_RATE_LIMIT = 5;
 const TRUST_PROXY_NAMES = new Set(['loopback', 'linklocal', 'uniquelocal']);
@@ -316,5 +368,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     schoolTimezone: parseSchoolTimezone(env.SCHOOL_TIMEZONE),
     assist: parseAssist(env, env.NODE_ENV === 'production'),
     push: parsePush(env),
+    n8n: parseN8n(env),
+    parentCommunicationChannels: parseChannels(env.PARENT_COMM_CHANNELS),
   };
 }

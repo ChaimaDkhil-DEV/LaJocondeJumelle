@@ -57,7 +57,7 @@ import {
   type EmployeeStats,
 } from './dashboardApi';
 import { EmployeeDrawer } from './EmployeeDrawer';
-import { ROLE_LABELS } from './labels';
+import { ROLE_LABELS, STAFF_ROLES } from './labels';
 import { TemporaryPasswordDialog } from './TemporaryPasswordDialog';
 import { UserFormDialog } from './UserFormDialog';
 
@@ -510,7 +510,7 @@ export function EmployeesView({ qs }: { qs: string }) {
           slotProps={{ select: { displayEmpty: true } }}
         >
           <MenuItem value="">{t('Tous')}</MenuItem>
-          {(Object.keys(ROLE_LABELS) as Role[]).map((r) => (
+          {STAFF_ROLES.map((r) => (
             <MenuItem key={r} value={r}>
               {ROLE_LABELS[r]}
             </MenuItem>

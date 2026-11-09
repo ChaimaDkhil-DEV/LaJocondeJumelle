@@ -24,6 +24,7 @@ import { AppException } from '../common/errors';
 import { UploadFileDto, type FileResponse } from './files.dto';
 import { FilesService } from './files.service';
 import { UploadRateLimitGuard } from '../common/upload-rate-limit.guard';
+import { ParentAllowed } from '../auth/parent-allowed.decorator';
 
 /** Plafond technique de Multer ; les limites métier (réglages) sont vérifiées ensuite. */
 export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
@@ -60,6 +61,7 @@ export class FilesController {
   }
 
   /** Téléchargement protégé : contrôle d'accès à chaque requête, Range pris en charge (Safari). */
+  @ParentAllowed()
   @Get(':id')
   async download(
     @CurrentUser() user: AuthenticatedUser,

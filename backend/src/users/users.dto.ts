@@ -1,11 +1,11 @@
-import { Role } from '@prisma/client';
+import type { Role } from '@prisma/client';
 import { Transform } from 'class-transformer';
 import {
   ArrayMaxSize,
   ArrayUnique,
   IsArray,
   IsBoolean,
-  IsEnum,
+  IsIn,
   IsOptional,
   IsString,
   IsUUID,
@@ -14,6 +14,12 @@ import {
   MinLength,
   ValidateIf,
 } from 'class-validator';
+
+/**
+ * Rôles des comptes du personnel. Un compte parent (PARENT, 015) se crée uniquement depuis la fiche du
+ * représentant légal, jamais par la gestion des comptes.
+ */
+export const STAFF_ROLES: readonly Role[] = ['SUPER_ADMIN', 'ADMIN', 'EMPLOYEE'];
 
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
 const normalizeUsername = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim().toLowerCase() : value);
@@ -41,7 +47,7 @@ export class CreateUserDto {
   @MaxLength(100, { message: 'La fonction ne doit pas dépasser 100 caractères.' })
   jobTitle?: string | null;
 
-  @IsEnum(Role, { message: 'Rôle inconnu.' })
+  @IsIn(STAFF_ROLES, { message: 'Rôle inconnu.' })
   role!: Role;
 
   /**
@@ -78,7 +84,7 @@ export class UpdateUserDto {
   jobTitle?: string | null;
 
   @IsOptional()
-  @IsEnum(Role, { message: 'Rôle inconnu.' })
+  @IsIn(STAFF_ROLES, { message: 'Rôle inconnu.' })
   role?: Role;
 
   @IsOptional()

@@ -69,6 +69,7 @@ describe('Libellés du rôle Admin', () => {
       EMPLOYEE: 'Employé',
       ADMIN: 'Admin',
       SUPER_ADMIN: 'Super administrateur',
+      PARENT: 'Parent',
     });
     expect(CLOSURE_LABELS.MANAGER).toBe('Par un admin');
     expect(ASSIGNMENT_LABELS.MANUAL).toBe('Choisie par un admin');

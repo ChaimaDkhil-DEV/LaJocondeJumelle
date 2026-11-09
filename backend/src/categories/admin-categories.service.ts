@@ -337,7 +337,8 @@ export class AdminCategoriesService {
   }
 
   private async checkActiveUsers(userIds: string[], field: string) {
-    const users = await this.prisma.user.findMany({ where: { id: { in: userIds }, active: true }, select: { id: true, role: true } });
+    // Un compte parent (015) n'est jamais destinataire ni responsable d'une catégorie.
+    const users = await this.prisma.user.findMany({ where: { id: { in: userIds }, active: true, role: { not: 'PARENT' } }, select: { id: true, role: true } });
     if (users.length !== userIds.length) throw invalid(field, 'Un des comptes choisis est introuvable ou désactivé.');
     return users;
   }

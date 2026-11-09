@@ -40,7 +40,13 @@ export type NotificationType =
   | 'COVERAGE_TEACHER_ARRIVED'
   | 'COVERAGE_ATTENDANCE_ANOMALY'
   // Super administrateur : demande active sans employé affecté, délai bientôt dépassé
-  | 'UNASSIGNED';
+  | 'UNASSIGNED'
+  // Communication enseignant / parents (015)
+  | 'PARENT_COMM_TO_VALIDATE'
+  | 'PARENT_COMM_RETURNED'
+  | 'PARENT_COMM_APPROVED'
+  | 'PARENT_COMM_REJECTED'
+  | 'PARENT_MESSAGE_NEW';
 
 /** Demande de travail ou couverture de classe : détermine la page ouverte. */
 export type RequestKind = 'WORK' | 'COVERAGE';
@@ -49,7 +55,10 @@ export interface NotificationItem {
   id: string;
   type: NotificationType;
   priority: Priority;
-  request: { id: string; reference: string; title: string; kind?: RequestKind };
+  /** Demande liée ; null pour une communication aux parents (015). */
+  request: { id: string; reference: string; title: string; kind?: RequestKind } | null;
+  /** Communication aux parents liée (015) : le nom de l'élève sert de titre. */
+  communication?: { id: string; studentName: string } | null;
   createdAt: string;
   readAt: string | null;
 }
@@ -59,10 +68,12 @@ export interface NotificationEvent {
   id: string;
   type: NotificationType;
   priority: Priority;
-  requestId: string;
+  requestId: string | null;
+  /** Communication aux parents (015) : `kind` vaut alors COMMUNICATION. */
+  communicationId?: string | null;
   reference: string;
   title: string;
-  kind?: RequestKind;
+  kind?: RequestKind | 'COMMUNICATION';
   createdAt: string;
 }
 
@@ -101,7 +112,31 @@ export const NOTIFICATION_LABELS: Record<NotificationType, string> = {
   COVERAGE_TEACHER_ARRIVED: t('Enseignant arrivé'),
   COVERAGE_ATTENDANCE_ANOMALY: t('Absence annoncée mais enseignant présent'),
   UNASSIGNED: t('Demande sans employé affecté'),
+  PARENT_COMM_TO_VALIDATE: t('Communication aux parents à valider'),
+  PARENT_COMM_RETURNED: t('Communication retournée pour correction'),
+  PARENT_COMM_APPROVED: t('Communication approuvée et publiée'),
+  PARENT_COMM_REJECTED: t('Communication rejetée'),
+  PARENT_MESSAGE_NEW: t('Nouveau message de l’école'),
 };
+
+/** Page d'une communication aux parents selon le destinataire de la notification (015). */
+export function communicationPath(type: NotificationType, communicationId: string): string {
+  if (type === 'PARENT_MESSAGE_NEW') return `/messages-ecole/${communicationId}`;
+  if (type === 'PARENT_COMM_TO_VALIDATE') return `/communications-a-valider/${communicationId}`;
+  return `/communications-parents/${communicationId}`;
+}
+
+/** Page ouverte par une notification de la cloche : la demande, ou la communication aux parents. */
+export function notificationPath(item: NotificationItem): string {
+  if (item.communication) return communicationPath(item.type, item.communication.id);
+  return item.request ? requestPath(item.request.id, item.request.kind) : '/';
+}
+
+/** Page ouverte par le bandeau d'une notification reçue en direct. */
+export function eventPath(event: NotificationEvent): string {
+  if (event.communicationId) return communicationPath(event.type, event.communicationId);
+  return event.requestId ? requestPath(event.requestId, event.kind === 'COMMUNICATION' ? undefined : event.kind) : '/';
+}
 
 /** Page de la demande liée : les couvertures ont leurs propres écrans. */
 export function requestPath(requestId: string, kind: RequestKind | undefined): string {

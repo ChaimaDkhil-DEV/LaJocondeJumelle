@@ -21,6 +21,7 @@ const DEFAULT_PERMISSIONS: Record<Role, Permission[]> = {
   SUPER_ADMIN: [],
   EMPLOYEE: ['REQUEST_CREATE', 'PRIORITY_CHANGE_OWN'],
   ADMIN: ['REQUEST_CREATE', 'PRIORITY_CHANGE_OWN', 'PRIORITY_CHANGE_MANAGED', 'REQUEST_REASSIGN'],
+  PARENT: [],
 };
 
 function user(id: string, role: Role, extra: Partial<PolicyUser> = {}): PolicyUser {

@@ -7,6 +7,7 @@ const DEFAULT_PERMISSIONS: Record<Role, Permission[]> = {
   SUPER_ADMIN: [],
   EMPLOYEE: ['REQUEST_CREATE', 'PRIORITY_CHANGE_OWN'],
   ADMIN: ['REQUEST_CREATE', 'PRIORITY_CHANGE_OWN', 'PRIORITY_CHANGE_MANAGED', 'REQUEST_REASSIGN'],
+  PARENT: [],
 };
 
 function user(id: string, role: Role): PolicyUser {
@@ -19,7 +20,9 @@ const superadmin = user('superadmin', 'SUPER_ADMIN');
 
 describe('permissionsFor', () => {
   it('donne toutes les permissions au super administrateur, sans les stocker', () => {
-    expect(superadmin.permissions.size).toBe(6);
+    // 015 : PARENT_COMMUNICATION_VALIDATE s'ajoute aux six permissions existantes.
+    expect(superadmin.permissions.size).toBe(7);
+    expect(superadmin.permissions.has('PARENT_COMMUNICATION_VALIDATE')).toBe(true);
   });
 
   it('reprend les permissions configurées pour les autres rôles', () => {

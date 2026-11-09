@@ -15,7 +15,7 @@ import type { Role } from '../../api/types';
 import { t } from '../../i18n';
 import { useAdminFloors } from '../coverage/adminApi';
 import { adminKeys, useAdminCategories, type AdminUser } from './api';
-import { ROLE_LABELS } from './labels';
+import { ROLE_LABELS, STAFF_ROLES } from './labels';
 
 interface UserFormDialogProps {
   open: boolean;
@@ -222,7 +222,7 @@ export function UserFormDialog({
             disabled={isSelf}
             helperText={isSelf ? t('Vous ne pouvez pas modifier votre propre rôle.') : errors.role}
           >
-            {(Object.keys(ROLE_LABELS) as Role[]).map((role) => (
+            {STAFF_ROLES.map((role) => (
               <MenuItem key={role} value={role}>
                 {ROLE_LABELS[role]}
               </MenuItem>

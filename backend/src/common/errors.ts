@@ -92,6 +92,24 @@ export const ERROR_CATALOG = {
     status: 409,
     message: 'Vous avez déjà 10 appareils abonnés. Retirez-en un pour activer celui-ci.',
   },
+  // Communication enseignant / parents (015).
+  PARENT_COMM_NOT_EDITABLE: { status: 409, message: 'Cette communication ne peut plus être modifiée dans son statut actuel.' },
+  PARENT_COMM_INCOMPLETE: { status: 422, message: 'Ajoutez la remarque écrite et le message vocal avant de soumettre.' },
+  PARENT_COMM_ALREADY_DECIDED: { status: 409, message: 'Cette communication a déjà été traitée ou a changé entre-temps. Elle a été rechargée.' },
+  PARENT_COMM_SELF_DECISION:{ status: 403, message: 'Vous ne pouvez pas valider votre propre communication.' },
+  PARENT_COMM_REVISION_CHANGED: {
+    status: 409,
+    message: 'La communication a changé depuis votre examen. Relisez la nouvelle version avant de décider.',
+  },
+  PARENT_COMM_RECIPIENT_INVALID: {
+    status: 422,
+    message: 'Choisissez un élève de vos classes et un représentant lié à cet élève.',
+  },
+  PARENT_COMM_VOICE_INVALID: { status: 422, message: 'Ce message vocal est introuvable ou ne vous appartient pas.' },
+  INTEGRATION_UNAUTHORIZED: { status: 401, message: 'Appel d’intégration non autorisé.' },
+  CHANNEL_DISABLED: { status: 422, message: 'Ce canal de notification externe n’est pas activé.' },
+  GUARDIAN_STUDENT_INVALID: { status: 422, message: 'Un des élèves choisis est introuvable ou désactivé.' },
+  TEACHER_REQUIRED: { status: 422, message: 'Ce compte n’est pas un membre actif du groupe Enseignants.' },
   INTERNAL_ERROR: {
     status: 500,
     message: 'Une erreur inattendue est survenue. Réessayez plus tard.',

@@ -6,8 +6,11 @@ import Typography from '@mui/material/Typography';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import {
+  ClipboardCheck,
   Inbox,
   LayoutDashboard,
+  Mail,
+  MessagesSquare,
   LogOut,
   Menu,
   School,
@@ -109,6 +112,46 @@ const ADMIN_ITEM: NavItem = {
   icon: Settings,
   matches: (p) => p.startsWith('/admin'),
 };
+
+/** « Messages de l'école » : seul espace d'un compte parent (015), aussi sa page d'accueil. */
+const PARENT_MESSAGES_ITEM: NavItem = {
+  to: '/messages-ecole',
+  label: t('Messages de l’école'),
+  icon: Mail,
+  matches: (p) => p === '/' || p.startsWith('/messages-ecole'),
+};
+
+/** « Communication avec les parents » : membres du groupe Enseignants (015). */
+const PARENT_COMM_ITEM: NavItem = {
+  to: '/communications-parents',
+  label: t('Parents'),
+  icon: MessagesSquare,
+  matches: (p) => p.startsWith('/communications-parents'),
+};
+
+/** « Communications à valider » : permission PARENT_COMMUNICATION_VALIDATE (015). */
+const VALIDATION_ITEM: NavItem = {
+  to: '/communications-a-valider',
+  label: t('À valider'),
+  icon: ClipboardCheck,
+  matches: (p) => p.startsWith('/communications-a-valider'),
+};
+
+/** Entrées de navigation selon le rôle, les groupes et les permissions ; le serveur vérifie chaque route. */
+export function navItemsFor(me: Me | undefined): NavItem[] {
+  if (me?.role === 'PARENT') return [PARENT_MESSAGES_ITEM];
+  const superAdmin = me?.role === 'SUPER_ADMIN';
+  return [
+    ...(superAdmin ? [DASHBOARD_ITEM] : []),
+    requestsItem(!superAdmin),
+    ...NAV_ITEMS,
+    ...(canSeeCoverage(me) ? [COVERAGE_ITEM] : []),
+    ...(me?.isTeacher ? [PARENT_COMM_ITEM] : []),
+    ...(me?.permissions.includes('PARENT_COMMUNICATION_VALIDATE') ? [VALIDATION_ITEM] : []),
+    ...(superAdmin || me?.role === 'ADMIN' ? [MEAL_ITEM] : []),
+    ...(canUseAdministrationSpace(me) ? [ADMIN_ITEM] : []),
+  ];
+}
 
 /** Lien d'évitement : invisible jusqu'à ce qu'il reçoive le focus clavier. */
 function SkipLink() {
@@ -251,16 +294,7 @@ export function AppLayout() {
   // Appareil déjà abonné au push (014) : session et dernière utilisation transmises à chaque ouverture.
   usePushSync();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const showCoverage = canSeeCoverage(me.data);
-  const superAdmin = me.data?.role === 'SUPER_ADMIN';
-  const navItems = [
-    ...(superAdmin ? [DASHBOARD_ITEM] : []),
-    requestsItem(!superAdmin),
-    ...NAV_ITEMS,
-    ...(showCoverage ? [COVERAGE_ITEM] : []),
-    ...(superAdmin || me.data?.role === 'ADMIN' ? [MEAL_ITEM] : []),
-    ...(canUseAdministrationSpace(me.data) ? [ADMIN_ITEM] : []),
-  ];
+  const navItems = navItemsFor(me.data);
 
   function handleLogout(): void {
     logout.mutate(undefined, { onSettled: () => navigate('/connexion', { replace: true }) });
