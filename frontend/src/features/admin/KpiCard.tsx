@@ -4,6 +4,7 @@ import type { Theme } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { Link as RouterLink } from 'react-router';
 import { toneColors } from '../../components/Badge';
 import { font, fontSize, icon as iconSize, radius, tokensOf, type AccentName, type Tone } from '../../design/tokens';
 
@@ -31,6 +32,10 @@ interface KpiCardProps {
   singleLineHint?: boolean;
   /** Valeur absente (« Aucune donnée ») : plus petite et grise, distincte d'un zéro. */
   muted?: boolean;
+  /** Carte cliquable : ouvre la liste des demandes comptées (adresse relative, filtres compris). */
+  to?: string;
+  /** Nom du lien pour les lecteurs d'écran (libellé, valeur et destination). */
+  linkLabel?: string;
 }
 
 /**
@@ -38,10 +43,28 @@ interface KpiCardProps {
  * Structure stable pour les tests : le libellé est dans une div, la valeur est le seul paragraphe
  * de la carte (.MuiPaper-root).
  */
-export function KpiCard({ label, value, hint, icon: Icon, tone = 'accent', accent, trend, labelExtra, meta, delta, singleLineHint = false, muted = false }: KpiCardProps) {
+export function KpiCard({ label, value, hint, icon: Icon, tone = 'accent', accent, trend, labelExtra, meta, delta, singleLineHint = false, muted = false, to, linkLabel }: KpiCardProps) {
   const tile = (theme: Theme) => (accent ? tokensOf(theme).accents[accent] : toneColors(theme, tone));
+  const link = to ? { component: RouterLink, to, 'aria-label': linkLabel } : {};
   return (
-    <Paper variant="elevated" sx={{ p: { xs: 2, sm: 2.5 }, minWidth: 0, display: 'grid', gap: 1.5, alignContent: 'start' }}>
+    <Paper
+      variant="elevated"
+      {...link}
+      sx={(theme) => ({
+        p: { xs: 2, sm: 2.5 },
+        minWidth: 0,
+        display: 'grid',
+        gap: 1.5,
+        alignContent: 'start',
+        ...(to && {
+          color: 'inherit',
+          textDecoration: 'none',
+          transition: 'border-color 150ms, box-shadow 150ms',
+          '&:hover': { borderColor: tokensOf(theme).borderStrong, boxShadow: theme.shadows[2] },
+          '&:focus-visible': { outline: `2px solid ${theme.palette.primary.main}`, outlineOffset: 2 },
+        }),
+      })}
+    >
       {labelExtra ? (
         <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1, minWidth: 0 }}>
           <Box sx={{ fontSize: fontSize.sm, fontWeight: font.semibold, lineHeight: 1.35, color: 'text.primary', minWidth: 0 }}>{label}</Box>

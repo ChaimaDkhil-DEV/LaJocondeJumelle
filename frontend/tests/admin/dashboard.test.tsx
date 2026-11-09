@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { HomePage } from '../../src/features/home/HomePage';
-import { formatDurationMs, periodOf, toDashboardQuery, toRequestListFilters, DEFAULT_FILTERS } from '../../src/features/admin/dashboardApi';
+import { filtersFromParams, formatDurationMs, indicatorLink, periodOf, toDashboardQuery, toRequestListFilters, withFilters, DEFAULT_FILTERS } from '../../src/features/admin/dashboardApi';
 
 /** Tableau de bord du super administrateur : données de l'API, filtres, états, onglets. */
 
@@ -431,6 +431,28 @@ describe('Paramètres du tableau de bord', () => {
     expect(toRequestListFilters({ ...DEFAULT_FILTERS, employeeId: 'e1' }, today)).toContain('assigneeId=e1');
   });
 
+  it('lit les filtres dans l’adresse et ignore les valeurs inconnues', () => {
+    expect(filtersFromParams(new URLSearchParams('periode=perso&du=2026-10-01&au=2026-10-15&categorie=c1&priorite=URGENT&employe=e1'))).toEqual({
+      preset: 'custom',
+      from: '2026-10-01',
+      to: '2026-10-15',
+      categoryId: 'c1',
+      priority: 'URGENT',
+      employeeId: 'e1',
+    });
+    expect(filtersFromParams(new URLSearchParams('periode=12&du=hier&priorite=TRES_HAUTE'))).toEqual(DEFAULT_FILTERS);
+  });
+
+  it('écrit les filtres dans l’adresse sans les valeurs par défaut, en gardant la vue', () => {
+    const next = withFilters(new URLSearchParams('vue=delais&periode=7'), { ...DEFAULT_FILTERS, priority: 'HIGH' });
+    expect(next.toString()).toBe('vue=delais&priorite=HIGH');
+  });
+
+  it('lien d’un chiffre : onglet Demandes, indicateur et filtres en cours', () => {
+    const link = new URLSearchParams(indicatorLink(new URLSearchParams('periode=7&priorite=URGENT'), 'urgentActive').split('?')[1]);
+    expect(Object.fromEntries(link)).toEqual({ periode: '7', priorite: 'URGENT', vue: 'demandes', indicateur: 'urgentActive' });
+  });
+
   it('formate les durées', () => {
     expect(formatDurationMs(null)).toBe('—');
     expect(formatDurationMs(30_000)).toBe('30 s');
@@ -501,5 +523,104 @@ describe('Paramètres du tableau de bord', () => {
     expect(await screen.findByText('Demandes créées sur la période')).toBeVisible();
     expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Vue générale', 'Délais', 'Employés', 'Demandes', 'Activité']);
     expect(screen.getByRole('tab', { name: 'Vue générale' })).toHaveAttribute('aria-selected', 'true');
+  });
+});
+
+/**
+ * Chiffres cliquables : chaque chiffre des cartes de la période et de « À traiter maintenant » ouvre
+ * l'onglet Demandes sur exactement les demandes comptées (même route, mêmes filtres que la synthèse).
+ */
+describe('Chiffres cliquables du tableau de bord', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  const ROWS = [
+    {
+      id: 'r4',
+      reference: 'D-2026-000004',
+      title: 'Réparation climatiseur de la salle des professeurs, au deuxième étage du bâtiment B',
+      priority: 'URGENT',
+      status: 'SENT',
+      overdueStage: null,
+      currentDueAt: '2026-10-13T15:06:00.000Z',
+      createdAt: '2026-10-13T14:06:00.000Z',
+      category: { id: 'c2', name: 'Petits travaux' },
+      requester: person('sa', 'Super admin'),
+      assignee: person('t1', 'Technicien'),
+    },
+  ];
+  const indicatorRows: Handler = (url) =>
+    url.startsWith('/api/admin/dashboard/requests') ? json(200, { items: ROWS, nextCursor: null }) : undefined;
+  const linkParams = (name: string) =>
+    Object.fromEntries(new URLSearchParams(screen.getByRole('link', { name }).getAttribute('href')!.split('?')[1]));
+
+  it('chaque chiffre de la période et de la situation actuelle ouvre la liste de ses demandes, filtres compris', async () => {
+    setup('/?priorite=URGENT');
+    await screen.findByText('Demandes créées sur la période');
+    expect(linkParams('Total : 12 — voir ces demandes')).toEqual({ priorite: 'URGENT', vue: 'demandes', indicateur: 'total' });
+    expect(linkParams('En attente de prise en charge : 3 — voir ces demandes')).toMatchObject({ indicateur: 'pendingTakeover' });
+    expect(linkParams('Terminées : 4 — voir ces demandes')).toMatchObject({ indicateur: 'done' });
+    expect(linkParams('Hors délai : 2 — voir ces demandes')).toMatchObject({ indicateur: 'overdueInPeriod' });
+    expect(linkParams('En retard : 1 — voir ces demandes')).toMatchObject({ indicateur: 'overdueNow' });
+    expect(linkParams('Urgentes en cours : 2 — voir ces demandes')).toEqual({ priorite: 'URGENT', vue: 'demandes', indicateur: 'urgentActive' });
+    expect(linkParams('Sans employé affecté : 0 — voir ces demandes')).toMatchObject({ indicateur: 'unassigned' });
+    // Les échanges ne sont pas des demandes : pas de lien.
+    expect(screen.queryByRole('link', { name: /Écrits|Vocaux/ })).toBeNull();
+    // Les valeurs restent lisibles comme avant.
+    expect(kpi('Total')).toBe('12');
+    expect(figure('Urgentes en cours')).toHaveTextContent('2');
+  });
+
+  it('un clic ouvre l’onglet Demandes sur les demandes du chiffre, puis « Voir toutes les demandes » revient à la liste habituelle', async () => {
+    const user = userEvent.setup();
+    const { urls, router } = setup('/', indicatorRows);
+    await screen.findByText('Demandes créées sur la période');
+    await user.click(screen.getByRole('link', { name: 'Urgentes en cours : 2 — voir ces demandes' }));
+
+    expect(screen.getByRole('tab', { name: 'Demandes' })).toHaveAttribute('aria-selected', 'true');
+    const table = await screen.findByRole('table', { name: 'Demandes : Urgentes en cours' });
+    expect(within(table).getByRole('link', { name: /Réparation climatiseur/ })).toHaveAttribute('href', '/demandes/r4');
+    expect(screen.getByText('« Urgentes en cours » : situation actuelle, toutes périodes confondues.')).toBeVisible();
+    const call = urls.find((u) => u.startsWith('/api/admin/dashboard/requests?'))!;
+    expect(new URLSearchParams(call.split('?')[1]).get('indicator')).toBe('urgentActive');
+    expect(urls.some((u) => u.startsWith('/api/requests'))).toBe(false);
+
+    await user.click(screen.getByRole('button', { name: 'Voir toutes les demandes' }));
+    expect(await screen.findByRole('table', { name: 'Demandes de la période' })).toBeVisible();
+    expect(new URLSearchParams(router.state.location.search).get('indicateur')).toBeNull();
+    expect(urls.some((u) => u.startsWith('/api/requests'))).toBe(true);
+  });
+
+  it('chiffre de la période : le bandeau le dit ; un chiffre sans demande affiche un état vide', async () => {
+    setup('/?vue=demandes&indicateur=overdueInPeriod', (url) =>
+      url.startsWith('/api/admin/dashboard/requests') ? json(200, { items: [], nextCursor: null }) : undefined,
+    );
+    expect(await screen.findByText('« Hors délai » : demandes créées sur la période.')).toBeVisible();
+    expect(await screen.findByText('Aucune demande ne correspond à ce chiffre.')).toBeVisible();
+  });
+
+  it('changer d’onglet retire l’indicateur', async () => {
+    const user = userEvent.setup();
+    const { router } = setup('/?vue=demandes&indicateur=total', indicatorRows);
+    await screen.findByRole('table', { name: 'Demandes : Total' });
+    await user.click(screen.getByRole('tab', { name: 'Délais' }));
+    await user.click(screen.getByRole('tab', { name: 'Demandes' }));
+    expect(await screen.findByRole('table', { name: 'Demandes de la période' })).toBeVisible();
+    expect(new URLSearchParams(router.state.location.search).get('indicateur')).toBeNull();
+  });
+
+  it('les filtres sont dans l’adresse : relus à l’ouverture, écrits au changement', async () => {
+    const user = userEvent.setup();
+    const { urls, router } = setup('/?periode=7&categorie=c1&priorite=URGENT');
+    await screen.findByText('Demandes créées sur la période');
+    const first = new URLSearchParams(urls.find((u) => u.startsWith('/api/admin/dashboard/summary'))!.split('?')[1]);
+    expect(first.get('categoryId')).toBe('c1');
+    expect(first.get('priority')).toBe('URGENT');
+    expect(screen.getByRole('combobox', { name: 'Période' })).toHaveTextContent('7 derniers jours');
+
+    await user.click(screen.getByRole('button', { name: /^Filtres/ }));
+    await user.click(screen.getByRole('combobox', { name: 'Priorité' }));
+    await user.click(screen.getByRole('option', { name: 'Haute' }));
+    await waitFor(() => expect(new URLSearchParams(router.state.location.search).get('priorite')).toBe('HIGH'));
+    expect(new URLSearchParams(router.state.location.search).get('periode')).toBe('7');
   });
 });

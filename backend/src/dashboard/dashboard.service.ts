@@ -2,9 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { Prisma, type DeadlineStage, type Priority, type RequestEventType, type RequestStatus, type Role } from '@prisma/client';
 import { toCsv } from '../common/csv';
 import { AppException } from '../common/errors';
-import { parseLimit } from '../common/pagination';
+import { buildPage, decodeCursor, parseLimit, type Page } from '../common/pagination';
 import { PrismaService } from '../common/prisma.service';
-import type { DashboardActivityQuery, DashboardQuery } from './dashboard.dto';
+import type { DashboardActivityQuery, DashboardQuery, DashboardRequestsQuery } from './dashboard.dto';
 import {
   ACTIVE_STATUSES,
   ASSIGNED_STATUSES,
@@ -15,9 +15,11 @@ import {
   durationsOf,
   fillDays,
   hasTrackedDeadline,
+  isCurrentIndicator,
   isValidTimeZone,
   STATUS_GROUPS,
   summarizePerformance,
+  type DashboardIndicator,
   type DurationStats,
   type PerformanceRow,
   type RequestDurations,
@@ -77,6 +79,52 @@ export function resolveFilters(query: DashboardQuery, now = new Date()): Filters
 const statusArray = (statuses: readonly RequestStatus[]) => Prisma.sql`ARRAY[${Prisma.join([...statuses])}]::"RequestStatus"[]`;
 
 const OVERDUE_EXISTS = Prisma.sql`EXISTS (SELECT 1 FROM "RequestEvent" o WHERE o."requestId" = r."id" AND o."type" = 'OVERDUE')`;
+
+/** Conditions des chiffres de la situation actuelle, partagées par la synthèse et la liste de leurs demandes. */
+const IS_ACTIVE = Prisma.sql`r."status" = ANY(${statusArray(ACTIVE_STATUSES)})`;
+const OVERDUE_NOW = Prisma.sql`r."overdueStage" IS NOT NULL`;
+const URGENT = Prisma.sql`r."priority" = 'URGENT'`;
+const UNASSIGNED = Prisma.sql`r."assigneeId" IS NULL AND r."status" = ANY(${statusArray(ASSIGNED_STATUSES)})`;
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Condition propre à un chiffre, en plus des filtres communs : la même que pour le calculer dans la
+ * synthèse, pour que sa liste contienne exactement les demandes comptées.
+ */
+function indicatorCondition(indicator: DashboardIndicator): Prisma.Sql | null {
+  switch (indicator) {
+    case 'total':
+      return null;
+    case 'overdueInPeriod':
+      return OVERDUE_EXISTS;
+    case 'overdueNow':
+      return Prisma.sql`${IS_ACTIVE} AND ${OVERDUE_NOW}`;
+    case 'urgentActive':
+      return Prisma.sql`${IS_ACTIVE} AND ${URGENT}`;
+    case 'unassigned':
+      return Prisma.sql`${IS_ACTIVE} AND ${UNASSIGNED}`;
+    default:
+      return Prisma.sql`r."status" = ANY(${statusArray(STATUS_GROUPS[indicator])})`;
+  }
+}
+
+/** Champs d'une ligne de la liste : ceux qu'affiche le tableau, sans contenu de demande. */
+const REQUEST_ROW_SELECT = {
+  id: true,
+  reference: true,
+  title: true,
+  priority: true,
+  status: true,
+  overdueStage: true,
+  currentDueAt: true,
+  createdAt: true,
+  category: { select: { id: true, name: true } },
+  requester: { select: { id: true, displayName: true } },
+  assignee: { select: { id: true, displayName: true } },
+} satisfies Prisma.RequestSelect;
+
+export type DashboardRequestRow = Prisma.RequestGetPayload<{ select: typeof REQUEST_ROW_SELECT }>;
 
 /**
  * Condition SQL unique (alias `r`) de toutes les requêtes du tableau de bord : demandes de travail
@@ -159,10 +207,10 @@ export class DashboardService {
         SELECT r."status", count(*)::int AS "count" FROM "Request" r WHERE ${inPeriod} GROUP BY r."status"`,
       this.prisma.$queryRaw<Array<{ overdueNow: number; urgentActive: number; unassigned: number }>>`
         SELECT
-          count(*) FILTER (WHERE r."overdueStage" IS NOT NULL)::int AS "overdueNow",
-          count(*) FILTER (WHERE r."priority" = 'URGENT')::int AS "urgentActive",
-          count(*) FILTER (WHERE r."assigneeId" IS NULL AND r."status" = ANY(${statusArray(ASSIGNED_STATUSES)}))::int AS "unassigned"
-        FROM "Request" r WHERE ${now} AND r."status" = ANY(${statusArray(ACTIVE_STATUSES)})`,
+          count(*) FILTER (WHERE ${OVERDUE_NOW})::int AS "overdueNow",
+          count(*) FILTER (WHERE ${URGENT})::int AS "urgentActive",
+          count(*) FILTER (WHERE ${UNASSIGNED})::int AS "unassigned"
+        FROM "Request" r WHERE ${now} AND ${IS_ACTIVE}`,
       this.prisma.$queryRaw<Array<{ id: string; name: string; total: number; active: number; done: number; overdue: number }>>`
         SELECT c."id", c."name", count(*)::int AS "total",
           count(*) FILTER (WHERE r."status" = ANY(${statusArray(ACTIVE_STATUSES)}))::int AS "active",
@@ -209,6 +257,31 @@ export class DashboardService {
       ),
       alerts,
     };
+  }
+
+  /**
+   * Demandes comptées par un chiffre de la synthèse, les plus récentes d'abord : mêmes filtres, même
+   * condition ; la période ne s'applique pas aux chiffres de la situation actuelle.
+   */
+  async requests(query: DashboardRequestsQuery): Promise<Page<DashboardRequestRow>> {
+    const f = resolveFilters(query);
+    const limit = parseLimit(query.limit);
+    const conditions = [requestConditions(f, !isCurrentIndicator(query.indicator))];
+    const own = indicatorCondition(query.indicator);
+    if (own) conditions.push(own);
+    if (query.cursor) {
+      const { createdAt, id } = decodeCursor(query.cursor);
+      if (!UUID.test(id)) throw invalid('cursor', 'Curseur invalide');
+      conditions.push(Prisma.sql`(r."createdAt" < ${createdAt} OR (r."createdAt" = ${createdAt} AND r."id" < ${id}::uuid))`);
+    }
+    const rows = await this.prisma.$queryRaw<Array<{ id: string; createdAt: Date }>>`
+      SELECT r."id", r."createdAt" FROM "Request" r WHERE ${Prisma.join(conditions, ' AND ')}
+      ORDER BY r."createdAt" DESC, r."id" DESC
+      LIMIT ${limit + 1}`;
+    const page = buildPage(rows, limit);
+    const found = await this.prisma.request.findMany({ where: { id: { in: page.items.map((r) => r.id) } }, select: REQUEST_ROW_SELECT });
+    const byId = new Map(found.map((r) => [r.id, r]));
+    return { items: page.items.map((r) => byId.get(r.id)).filter((r): r is DashboardRequestRow => r !== undefined), nextCursor: page.nextCursor };
   }
 
   /** Demandes en retard ou urgentes à traiter maintenant (hors période), les retards d'abord. */

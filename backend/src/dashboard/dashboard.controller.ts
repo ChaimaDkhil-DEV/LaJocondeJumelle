@@ -2,7 +2,7 @@ import { Controller, Get, Query, Res, UseGuards } from '@nestjs/common';
 import type { Response } from 'express';
 import { SuperAdminGuard } from '../audit/super-admin.guard';
 import { setCsvDownloadHeaders } from '../common/csv';
-import { DashboardActivityQuery, DashboardQuery } from './dashboard.dto';
+import { DashboardActivityQuery, DashboardQuery, DashboardRequestsQuery } from './dashboard.dto';
 import { DashboardService } from './dashboard.service';
 
 /** Tableau de bord de supervision des demandes de travail : super administrateur uniquement, lecture seule. */
@@ -29,6 +29,12 @@ export class DashboardController {
   @Get('activity')
   activity(@Query() query: DashboardActivityQuery) {
     return this.dashboard.activity(query);
+  }
+
+  /** Demandes comptées par un chiffre de la synthèse (cartes et « À traiter maintenant »). */
+  @Get('requests')
+  requests(@Query() query: DashboardRequestsQuery) {
+    return this.dashboard.requests(query);
   }
 
   @Get('export.csv')
