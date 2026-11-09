@@ -43,13 +43,27 @@ export const attendance: Record<string, string> = {
 
   // QR scanner
   'Scanner le QR code de la classe': 'Scan the class QR code',
-  'La caméra n’est pas disponible sur cet appareil : collez le lien ou le code du QR code ci-dessous.':
-    'The camera is not available on this device: paste the QR code link or code below.',
-  'L’accès à la caméra n’est pas autorisé : collez le lien ou le code du QR code ci-dessous.':
-    'Camera access is not allowed: paste the QR code link or code below.',
+  'La caméra ne s’ouvre que sur une adresse sécurisée (https) : prenez une photo du QR code, ou ouvrez l’application par son adresse https.':
+    'The camera only opens on a secure (https) address: take a photo of the QR code, or open the app at its https address.',
+  'La caméra n’est pas disponible dans ce navigateur : prenez une photo du QR code, ou ouvrez le lien dans Safari ou Chrome.':
+    'The camera is not available in this browser: take a photo of the QR code, or open the link in Safari or Chrome.',
+  'L’accès à la caméra est refusé : autorisez la caméra pour ce site dans les réglages du navigateur, ou prenez une photo du QR code.':
+    'Camera access is denied: allow the camera for this site in the browser settings, or take a photo of the QR code.',
+  'Aucune caméra n’a été trouvée sur cet appareil : choisissez une photo du QR code, ou collez son lien ou son code.':
+    'No camera was found on this device: choose a photo of the QR code, or paste its link or code.',
+  'La caméra est déjà utilisée par une autre application : fermez-la, puis rouvrez le scan, ou prenez une photo du QR code.':
+    'The camera is already in use by another app: close it, then reopen the scan, or take a photo of the QR code.',
+  'La caméra n’a pas pu s’ouvrir : prenez une photo du QR code, ou collez son lien ou son code.':
+    'The camera could not open: take a photo of the QR code, or paste its link or code.',
   'Image de la caméra : placez le QR code de la classe dans le cadre': 'Camera image: place the class QR code in the frame',
   'Ce QR code n’est pas celui d’une classe.': 'This QR code is not a class QR code.',
-  'Sans caméra, collez le lien ou le code du QR code.': 'Without a camera, paste the QR code link or code.',
+  'Prendre une photo du QR code': 'Take a photo of the QR code',
+  'Lecture de la photo…': 'Reading the photo…',
+  'Aucun QR code n’a été trouvé sur la photo : reprenez-la de plus près, avec le QR code entier et net.':
+    'No QR code was found in the photo: take it again from closer, with the whole QR code sharp.',
+  'Cette photo n’a pas pu être lue : reprenez-la, ou collez le lien ou le code du QR code.':
+    'This photo could not be read: take it again, or paste the QR code link or code.',
+  'Saisir le lien ou le code du QR code': 'Enter the QR code link or code',
   'Lien ou code du QR code': 'QR code link or code',
   'Ce lien ou ce code n’est pas celui d’un QR code de classe.': 'This link or code is not a class QR code.',
   'Continuer': 'Continue',

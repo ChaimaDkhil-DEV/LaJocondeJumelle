@@ -61,12 +61,14 @@ address uses HTTPS, the microphone works on iPhone. Prerequisite:
 `winget install --id Cloudflare.cloudflared -e`.
 
 If `ASSIST_TRANSCRIPTION_PROVIDER=whisper` is set in `backend/.env`, the demo also starts the
-Whisper container: open Docker Desktop first. If Whisper cannot start, the demo carries on with a
-warning and only voice transcription is missing. Whisper keeps running after the demo stops.
+Whisper container. If Docker Desktop is not running, the demo starts it with `docker desktop start`
+(Docker Desktop 4.37 or later; allow up to 3 minutes). If Docker or Whisper cannot start, the demo
+carries on with a warning and only voice transcription is missing. Docker Desktop and Whisper keep
+running after the demo stops.
 
 The computer must stay on, the address changes on each run, and anyone who knows it reaches the
 login screen (local development database): share it only with the people concerned. Ctrl+C stops
-everything except Whisper. This mode does not replace the deployment described below.
+everything except Docker Desktop and Whisper. This mode does not replace the deployment described below.
 
 ## Deployment
 

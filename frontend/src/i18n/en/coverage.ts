@@ -109,8 +109,14 @@ export const coverage: Record<string, string> = {
   'Assigner': 'Assign',
   'Confirmer ma présence en classe {name}': 'Confirm my attendance in class {name}',
   'Preuve demandée : {proof}. L’heure enregistrée est celle du serveur.': 'Proof required: {proof}. The recorded time is the server’s.',
-  'Ouvrez l’appareil photo de votre téléphone et scannez le QR code affiché dans la classe{room}. Une page s’ouvrira pour prendre la photo et confirmer votre présence.': 'Open your phone’s camera and scan the QR code displayed in the classroom{room}. A page will open to take the photo and confirm your attendance.',
-  'Ouvrez l’appareil photo de votre téléphone et scannez le QR code affiché dans la classe{room}. Une page s’ouvrira pour confirmer votre présence.': 'Open your phone’s camera and scan the QR code displayed in the classroom{room}. A page will open to confirm your attendance.',
+  'Prenez la photo et scannez le QR code affiché dans la classe{room}, dans l’ordre que vous voulez : la présence est confirmée dès que les deux sont faits.':
+    'Take the photo and scan the QR code displayed in the classroom{room}, in either order: your attendance is confirmed as soon as both are done.',
+  'Scannez le QR code affiché dans la classe{room} : la présence est confirmée dès qu’il est lu.':
+    'Scan the QR code displayed in the classroom{room}: your attendance is confirmed as soon as it is read.',
+  'QR code de la classe lu : prenez maintenant la photo.': 'Class QR code read: now take the photo.',
+  'Ce QR code correspond à une autre classe que celle de votre garde : scannez celui de la classe {name}.':
+    'This QR code belongs to a class other than your assignment’s: scan the one of class {name}.',
+  'Confirmation de la présence…': 'Confirming your attendance…',
   'Fermer': 'Close',
   'Le nom est obligatoire.': 'The name is required.',
   'Choisissez l’étage de la classe.': 'Choose the class’s floor.',

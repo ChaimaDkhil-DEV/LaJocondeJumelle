@@ -1,5 +1,6 @@
 import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import { join } from 'node:path';
+import QRCode from 'qrcode';
 import type { AccountName } from './support/accounts';
 import { expectNoA11yViolations } from './support/axe';
 import { login } from './support/login';
@@ -466,10 +467,23 @@ test.describe('modification d’une affectation (spec 006)', () => {
       await expect(guard.filter({ hasText: '2e année Bleu' })).toBeVisible();
       await expect(guard.getByText('En route', { exact: true })).toBeVisible();
 
-      await supervisor.page.goto(await qrPath(superadmin.page, '2e année Bleu'));
-      await supervisor.page.getByLabel('Prendre la photo').setInputFiles(PHOTO);
-      await supervisor.page.getByRole('button', { name: 'Confirmer ma présence' }).click();
-      await expect(toast(supervisor.page, 'Présence confirmée en classe 2e année Bleu')).toBeVisible();
+      // Présence confirmée dans l'application (amendement 004) : la photo, puis le QR de la nouvelle classe lu
+      // par le lecteur intégré ; la présence part dès que les deux sont faits, sans autre appui.
+      const qrUrl = new URL(await qrPath(superadmin.page, '2e année Bleu'), supervisor.page.url()).href;
+      await guard.filter({ hasText: '2e année Bleu' }).getByRole('button', { name: 'Confirmer ma présence' }).click();
+      const presence = supervisor.page.getByRole('dialog', { name: 'Confirmer ma présence en classe 2e année Bleu' });
+      await presence.getByLabel('Prendre la photo').setInputFiles(PHOTO);
+      await expect(presence.getByRole('img', { name: 'Photo de présence en classe' })).toBeVisible();
+      await expectNoA11yViolations(supervisor.page);
+      await presence.getByRole('button', { name: 'Scanner le QR code de la classe' }).click();
+      const scanner = supervisor.page.getByRole('dialog', { name: 'Scanner le QR code de la classe' });
+      await scanner.locator('input[type="file"]').setInputFiles({
+        name: 'qr-classe.png',
+        mimeType: 'image/png',
+        buffer: await QRCode.toBuffer(qrUrl, { width: 600 }),
+      });
+      await expect(toast(supervisor.page, 'Présence confirmée.')).toBeVisible();
+      await expect(guard.filter({ hasText: '2e année Bleu' }).getByText('En cours', { exact: true })).toBeVisible();
     } finally {
       await cancelOpenCoverages(admin.page);
       for (const s of [admin, supervisor, superadmin]) await s.context.close();
