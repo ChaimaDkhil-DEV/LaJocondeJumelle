@@ -184,3 +184,33 @@ no review discussion was open, and the full diff had been read; none of this was
   integration tests were not run locally (no backend file changed); CI ran them.
 
 No fix or `git revert` needed. Same cause as #79: see its reminder.
+
+## 09/11/2026 — pull request #90
+
+| Pull request | Content | Merged at (UTC) | Check not satisfied at merge time |
+|---------|---------|-------------------|-----------------------------------------------|
+| #90 (`014-notifications-push-preferences`) | Feature 014: push notifications and user preferences, migration `0019`, off by default (no `PUSH_VAPID_*` keys) | 10:40:59 | **4. Diff review**: one test was written after its code (T038, `usePushSync`), not first as required by constitution principle I |
+
+Checks 1 to 3 were ticked in the description of the pull request; check 4 was left unticked, with the reason. The merge
+was a deliberate decision of the repository owner's account, taken once this deviation had been reported.
+
+### Findings after the fact
+
+- Both runs on `4978e03` were green before the merge (42601286850 at 10:40:05, 42601293382 at 10:39:21), all steps
+  executed, including the Docker image build and the dependency audit.
+- `master` green after the merge: run 42602699015 on `82264cf`.
+- The deviation is recorded in `specs/014-notifications-push-preferences/tasks.md` (T038): the test
+  `frontend/tests/push/push-sync.test.tsx` passed at its first run; a mutation check (no request to the server) made 2 of
+  its 7 tests fail. Every other test of the feature was written first.
+- The full diff review before the merge found a defect: the first activation subscribed before the service worker was
+  active, which Chromium refuses. It was fixed in the pull request, test first (commit `4978e03`, recorded in
+  [verification-014.md](verification-014.md)).
+- Not verified at merge time: the full end-to-end run (T072) and the manual checks on real Android and iPhone devices
+  in pre-production (T073), including the activation fix. Push stays off until the three `PUSH_VAPID_*` keys are set,
+  which must wait for T073.
+
+No fix or `git revert` needed.
+
+### Reminder
+
+Write the failing test before the code, including for a small change requested during a session.
