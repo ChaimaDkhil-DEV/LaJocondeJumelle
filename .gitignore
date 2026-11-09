@@ -5,6 +5,7 @@ build/
 /coverage/
 backend/coverage/
 frontend/coverage/
+frontend/.vitest/
 *.tsbuildinfo
 
 # Environnement et secrets
