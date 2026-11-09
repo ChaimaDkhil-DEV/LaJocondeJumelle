@@ -196,3 +196,28 @@ confirmation button are unchanged and nothing is declared before the click.
 - No change to the data model, the server rules or the notifications.
 - The « Déclarer une classe vide » button stays where it is today, in the « Surveillance » page header for
   supervisors.
+
+## Amendment (2026-11-09): reading the QR code from the image, more reliably
+
+**Why**: during the online demo, supervisors were asked to paste the link or code although they wanted the
+scan to read the QR code itself. The camera could not open (address without https, access refused, no camera,
+camera already in use) and the window gave the same message for every cause; when the camera did open, the
+paste field shown below it looked mandatory. The scanner is shared with the teachers' clock-in, which gets the
+same changes. Server rules are unchanged.
+
+- **FR-002a**: The camera MUST be requested at a higher definition (1280 × 720 ideal, back camera), and the QR
+  code MUST be read by the browser's own reader when it reads QR codes, otherwise by jsQR, which also tries
+  QR codes with inverted colours.
+- **FR-005 (amended)**: Without camera access, the scanning window MUST name the cause and the corrective
+  action: address without https, browser without camera access, access refused, no camera found, camera used
+  by another application, other error. The photo and the paste field MUST then be offered at once.
+- **FR-012**: The scanning window MUST offer « Prendre une photo du QR code »: it opens the phone's camera
+  (back camera) and reads the QR code in the photo, even when the camera cannot open inside the page. A class
+  QR code in the photo is used like a scanned one; a photo without a QR code, with another QR code, or that
+  cannot be read MUST send nothing and say what to do.
+- **FR-013**: While the camera is open, the paste field MUST be folded behind « Saisir le lien ou le code du
+  QR code » (a button that states whether it is open); without camera access it MUST be shown at once.
+
+Tests: `frontend/tests/attendance/qr-scanner.test.tsx` and `frontend/tests/attendance/qr-reader.test.ts`.
+The end-to-end scenarios (`e2e/empty-class-qr.spec.ts`, `e2e/attendance-qr.spec.ts`) unfold the paste field
+when the simulated camera opens (`e2e/support/qr-scanner.ts`).

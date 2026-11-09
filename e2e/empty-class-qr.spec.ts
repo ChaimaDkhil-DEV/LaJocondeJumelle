@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { expectNoA11yViolations } from './support/axe';
 import { login } from './support/login';
+import { manualQrField } from './support/qr-scanner';
 
 /**
  * 013 — Déclarer une classe vide en scannant le QR code de la porte, caméra dans l'application. La fausse caméra
@@ -50,7 +51,7 @@ test.describe('Classe vide déclarée par QR code (013)', () => {
       const dialog = page.getByRole('dialog', { name: 'Scanner le QR code de la classe' });
       await expect(dialog).toBeVisible();
       await expectNoA11yViolations(page);
-      await dialog.getByRole('textbox', { name: 'Lien ou code du QR code' }).fill(qrLink);
+      await (await manualQrField(dialog)).fill(qrLink);
       await dialog.getByRole('button', { name: 'Continuer' }).click();
 
       await expect(page.getByRole('heading', { level: 2, name: className })).toBeVisible();
