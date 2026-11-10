@@ -295,3 +295,52 @@ No fix or `git revert` needed.
 
 Write the failing test before the code, and run it to see it fail, including when the request lists the tests after the
 implementation. Add the checklist of `.github/pull_request_template.md` to every pull request description.
+
+## 10/11/2026 — pull requests #100 and #102
+
+| Pull request | Content | Merged at (UTC) | Check not satisfied at merge time |
+|---------|---------|-------------------|-----------------------------------------------|
+| #100 (`docs-registre-fusion-99`) | Register entry for #97, #98 and #99 (documentation only) | 21:24:28 | **3. No unresolved failure**: the branch was 2 commits behind `master` (#101 missing); **all four checkboxes unticked** |
+| #102 (`016-accueil-enseignant`) | Teacher home page (QR code scan, urgent / normal request, « Suivi de mes demandes »); two business priorities, URGENT and NORMAL; data migration `0024` | 21:24:55 | **1. CI**: both runs on `a225c20` were still in progress (42903715882 green at 21:27:24, 42903707588 green at 21:28:03); **4. Diff review**: deviation from constitution principle I recorded in the description; **all four checkboxes unticked** |
+
+Neither pull request was merged from the working session; both were merged from the owner's account, 27 s apart. For
+#100, the merge did not skip CI: both runs on `a9d8f04` had finished green in the morning (42777862468 at 07:58:33,
+42777865423 at 07:59:09), but on a state of `master` without #101.
+
+For #102, the owner had asked to merge « once CI is green », then chose to have the deviation checked first (tests run
+against the code of `master`). At merge time, the description recorded the deviation with check 4 unticked, and that
+check was still running in the working session.
+
+### Findings after the fact
+
+- #100: documentation only (the register this entry extends); #101 changed other files.
+- #102: both runs on `a225c20` finished green 2 min 29 s and 3 min 08 s after the merge, all steps executed, including
+  the Docker image build and the dependency audit. The branch was up to date with `master` (`68b98e1`), and no review
+  discussion was open. The earlier commits of the pull request (`6f2cdc2`, `101b30c`) had green runs too.
+- #102 deviation, recorded in the description of the pull request (« Écarts à la procédure ») and checked after the
+  merge:
+  1. Tests written after the code, never seen failing first: refusal of the retired priorities by the API
+     (`history-priority.spec.ts`, `requests-search.spec.ts`, `admin-categories.spec.ts`) and automatic suggestions
+     (`assist-sanitize.spec.ts`, `assist-demo-suggest.spec.ts`, `assist-claude.spec.ts`); the end-to-end tests were
+     written and run after the implementation.
+  2. Check: these tests of the branch were run against the code of `master` (worktree `origin/master` at `68b98e1`,
+     four-value schema, Prisma client regenerated). They all fail there — 8 unit cases, 3 integration cases (priority
+     change to `HIGH` and search `priority=HIGH` accepted, 200 instead of 400; deadline rules: the two-rule set refused,
+     400 instead of 200) — and pass on the branch.
+  3. Changed expectations of existing tests, only where they encoded the retired priorities or the former home page of
+     the teacher account: listed in the description of the pull request.
+- #102 locally, before the merge: lint, types, backend unit tests (1143), backend integration tests (1048, 2 skipped:
+  real Whisper and n8n, as on `master`), frontend tests (769, then 26 / 26 for `tests/app` after the last change) and
+  `npm audit --audit-level=high` green; migration `0024` applied to the development database, its `down.sql` tested by
+  `migration-0024.spec.ts` (rollback, then migration applied again).
+- Not verified at merge time for #102: the end-to-end run on the seven projects (the targeted files ran on Chromium and
+  at 320 px only), and migration `0024` on a copy of production data.
+- `master` green after the merges: run 42904748740 on `d3ef352` (merge of #100) at 21:33:55, run 42904821809 on `6ab2ee6` (merge of
+  #102) at 21:35:52.
+
+No fix or `git revert` needed.
+
+### Reminder
+
+Wait for CI on the latest commit of the pull request, then tick the four checks, before merging — including when the
+remaining step is only the Docker image build.
