@@ -7,7 +7,6 @@ import InputAdornment from '@mui/material/InputAdornment';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
-import { keyframes } from '@mui/material/styles';
 import TextField from '@mui/material/TextField';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
@@ -53,12 +52,14 @@ import {
   type DiscussionSummary,
   type Period,
 } from './api';
+import { dayLabel, fadeIn, reducedMotion, sameDay, shortWhen, timeOf } from './ChatParts';
 import { CommunicationHistory, DeliveryList } from './CommunicationParts';
 
 /**
  * « Communications à valider » (015) en messagerie : discussions à gauche (un enseignant, un élève,
- * un représentant), conversation à droite. Chaque message se modère seul : valider, retourner pour
- * correction ou rejeter n'agit que sur la version examinée de ce message.
+ * un représentant), conversation à droite, dans les deux sens (enseignant → parent et parent →
+ * enseignant). Chaque message se modère seul : valider, retourner pour correction ou rejeter n'agit
+ * que sur la version examinée de ce message.
  */
 
 // ------------------------------------------------------------------ Statuts
@@ -68,7 +69,7 @@ const MESSAGE_STATUS: Record<DiscussionStatus, { label: string; tone: Tone; icon
   APPROVED: { label: t('Validé'), tone: 'success', icon: CheckCheck },
   RETURNED_FOR_CORRECTION: { label: t('À corriger'), tone: 'info', icon: PenLine },
   REJECTED: { label: t('Rejeté'), tone: 'error', icon: Ban },
-  CANCELLED: { label: t('Annulé par l’enseignant'), tone: 'neutral', icon: CircleSlash },
+  CANCELLED: { label: t('Annulé par son auteur'), tone: 'neutral', icon: CircleSlash },
 };
 
 function MessageStatusBadge({ status }: { status: DiscussionStatus }) {
@@ -101,54 +102,12 @@ const discussionStatus = (d: DiscussionSummary): DiscussionStatus =>
 
 // ------------------------------------------------------------------ Dates
 
-const sameDay = (a: Date, b: Date) =>
-  a.getFullYear() === b.getFullYear() &&
-  a.getMonth() === b.getMonth() &&
-  a.getDate() === b.getDate();
-
-const timeOf = (value: string) =>
-  new Date(value).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' });
-
-/** Liste des discussions : l'heure aujourd'hui, sinon la date courte. */
-function shortWhen(value: string, now = new Date()): string {
-  const date = new Date(value);
-  if (sameDay(date, now)) return timeOf(value);
-  return date.toLocaleDateString(
-    locale(),
-    date.getFullYear() === now.getFullYear()
-      ? { day: 'numeric', month: 'short' }
-      : { day: '2-digit', month: '2-digit', year: 'numeric' },
-  );
-}
-
-/** Séparateur de jour dans la conversation. */
-function dayLabel(value: string, now = new Date()): string {
-  const date = new Date(value);
-  if (sameDay(date, now)) return t('Aujourd’hui');
-  const yesterday = new Date(now);
-  yesterday.setDate(now.getDate() - 1);
-  if (sameDay(date, yesterday)) return t('Hier');
-  return date.toLocaleDateString(locale(), {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    ...(date.getFullYear() === now.getFullYear() ? {} : { year: 'numeric' }),
-  });
-}
-
 /** Première soumission d'un message : sa place dans la conversation. */
 const sentAt = (m: CommunicationDetail) =>
   m.revisions[0]?.createdAt ?? m.submittedAt ?? m.createdAt;
 
 const normalize = (value: string) =>
   value.normalize('NFD').replace(/\p{M}/gu, '').toLocaleLowerCase(locale());
-
-const fadeIn = keyframes`
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: none; }
-`;
-
-const reducedMotion = { '@media (prefers-reduced-motion: reduce)': { animation: 'none' } } as const;
 
 // ------------------------------------------------------------------ Page
 
@@ -165,7 +124,7 @@ export function ValidationInboxPage() {
       <PageHeader
         title={t('Communications à valider')}
         description={t(
-          'Lisez chaque discussion et validez, retournez ou rejetez ses messages un par un : seul un message validé est publié au parent.',
+          'Lisez chaque discussion et validez, retournez ou rejetez ses messages un par un : seul un message validé est transmis, au parent ou à l’enseignant.',
         )}
       />
       <Paper
@@ -374,7 +333,7 @@ function DiscussionList({
                 }
                 description={
                   all.length === 0
-                    ? t('Les messages soumis par les enseignants apparaîtront ici.')
+                    ? t('Les messages soumis par les enseignants et les parents apparaîtront ici.')
                     : t('Changez de filtre, de période ou de recherche.')
                 }
               />
@@ -538,6 +497,7 @@ function DiscussionRow({
           <Box component="span" sx={visuallyHidden}>
             {status.label} —{' '}
           </Box>
+          {d.lastMessage.author === 'PARENT' ? t('Parent : ') : ''}
           {d.lastMessage.preview}
         </Typography>
         {pending > 0 ? (
@@ -580,6 +540,8 @@ function Conversation({ discussion: d, anchorId }: { discussion: Discussion; anc
   const me = useCurrentUser();
   const scroller = useRef<HTMLDivElement>(null);
   const pending = d.messages.filter((m) => m.status === 'PENDING_ADMIN_VALIDATION').length;
+  // Les deux sens dans la discussion : le nom de l'auteur s'affiche à chaque changement.
+  const mixed = new Set(d.messages.map((m) => m.author)).size > 1;
 
   // Ouverture : le message désigné par l'adresse (premier à examiner, lien d'une notification).
   useEffect(() => {
@@ -627,9 +589,7 @@ function Conversation({ discussion: d, anchorId }: { discussion: Discussion; anc
               className: d.student.class.name,
             })}
             {' · '}
-            {t('Destinataire : {name}', {
-              name: `${fullName(d.guardian)}${d.guardian.relationship ? ` (${d.guardian.relationship})` : ''}`,
-            })}
+            {t('Parent : {name}', { name: guardianName(d) })}
           </Typography>
         </Box>
         {pending > 0 && (
@@ -683,14 +643,25 @@ function Conversation({ discussion: d, anchorId }: { discussion: Discussion; anc
                     </Typography>
                   </Box>
                 )}
-                <li>
+                <Box component="li" sx={{ display: 'grid', gap: 0.5 }}>
+                  {mixed && (index === 0 || d.messages[index - 1]!.author !== m.author) && (
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ justifySelf: m.author === 'PARENT' ? 'end' : 'start', px: 0.5 }}
+                    >
+                      {m.author === 'PARENT'
+                        ? t('{name}, parent', { name: guardianName(d) })
+                        : d.teacher.displayName}
+                    </Typography>
+                  )}
                   <MessageBubble
                     message={m}
                     discussionId={anchorId}
                     highlighted={m.id === anchorId}
                     ownMessage={me.data?.id === m.teacher.id}
                   />
-                </li>
+                </Box>
               </Fragment>
             );
           })}
@@ -702,11 +673,21 @@ function Conversation({ discussion: d, anchorId }: { discussion: Discussion; anc
 
 // ------------------------------------------------------------------ Bulle d'un message
 
-const SUCCESS: Record<Decision, string> = {
-  APPROVE: t('Message validé et publié au parent.'),
-  RETURN: t('Message retourné à l’enseignant pour correction.'),
-  REJECT: t('Message rejeté.'),
+const SUCCESS: Record<'TEACHER' | 'PARENT', Record<Decision, string>> = {
+  TEACHER: {
+    APPROVE: t('Message validé et publié au parent.'),
+    RETURN: t('Message retourné à l’enseignant pour correction.'),
+    REJECT: t('Message rejeté.'),
+  },
+  PARENT: {
+    APPROVE: t('Message validé et transmis à l’enseignant.'),
+    RETURN: t('Message retourné au parent pour correction.'),
+    REJECT: t('Message rejeté.'),
+  },
 };
+
+const guardianName = (d: { guardian: Discussion['guardian'] }) =>
+  `${fullName(d.guardian)}${d.guardian.relationship ? ` (${d.guardian.relationship})` : ''}`;
 
 function MessageBubble({
   message: m,
@@ -736,18 +717,20 @@ function MessageBubble({
       sx={(theme) => {
         const tk = tokensOf(theme);
         return {
+          // Message du parent à droite, de l'enseignant à gauche.
+          justifySelf: m.author === 'PARENT' ? 'end' : 'start',
           maxWidth: { xs: '100%', sm: '82%', lg: '72%' },
           px: { xs: 1.5, sm: 2 },
           py: 1.5,
           display: 'grid',
           gap: 1.25,
-          bgcolor: tk.surface,
+          bgcolor: m.author === 'PARENT' ? tk.surfaceMuted : tk.surface,
           border: `1px solid ${highlighted ? tk.accent.border : tk.border}`,
           boxShadow: highlighted
             ? `0 0 0 3px ${tk.accent.soft}`
             : '0 1px 2px rgba(16, 24, 40, 0.04)',
-          // Bulle reçue : coin supérieur gauche resserré, comme une messagerie.
-          borderRadius: '4px 16px 16px 16px',
+          // Coin resserré du côté de l'auteur, comme une messagerie.
+          borderRadius: m.author === 'PARENT' ? '16px 4px 16px 16px' : '4px 16px 16px 16px',
           animation: `${fadeIn} ${motion.base}ms ${motion.easing}`,
           ...reducedMotion,
         };
@@ -758,11 +741,13 @@ function MessageBubble({
           <Typography sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
             {examined.text}
           </Typography>
-          <VoicePlayer
-            key={examined.voiceFileId}
-            src={`/api/files/${examined.voiceFileId}`}
-            durationSeconds={examined.durationSeconds ?? undefined}
-          />
+          {examined.voiceFileId && (
+            <VoicePlayer
+              key={examined.voiceFileId}
+              src={`/api/files/${examined.voiceFileId}`}
+              durationSeconds={examined.durationSeconds ?? undefined}
+            />
+          )}
         </>
       )}
 
@@ -824,7 +809,9 @@ function MessageBubble({
 
       {ownMessage && status === 'PENDING_ADMIN_VALIDATION' && (
         <Typography variant="caption" color="text.secondary">
-          {t('Vous êtes l’auteur de ce message : un autre responsable doit le valider.')}
+          {m.author === 'PARENT'
+            ? t('Ce message vous est adressé : un autre responsable doit le valider.')
+            : t('Vous êtes l’auteur de ce message : un autre responsable doit le valider.')}
         </Typography>
       )}
 
@@ -870,11 +857,13 @@ function MessageBubble({
                 >
                   {r.text}
                 </Typography>
-                <VoicePlayer
-                  key={r.voiceFileId}
-                  src={`/api/files/${r.voiceFileId}`}
-                  durationSeconds={r.durationSeconds ?? undefined}
-                />
+                {r.voiceFileId && (
+                  <VoicePlayer
+                    key={r.voiceFileId}
+                    src={`/api/files/${r.voiceFileId}`}
+                    durationSeconds={r.durationSeconds ?? undefined}
+                  />
+                )}
               </Box>
             ))}
             <CommunicationHistory events={m.events} />
@@ -937,7 +926,7 @@ function Moderation({
         ...(action === 'APPROVE' ? {} : { reason: trimmed }),
       },
       {
-        onSuccess: () => toast.success(SUCCESS[action]),
+        onSuccess: () => toast.success(SUCCESS[m.author][action]),
         onError: (e) =>
           setError(
             e instanceof ApiError
@@ -979,17 +968,25 @@ function Moderation({
     );
   }
 
+  const fromParent = m.author === 'PARENT';
   const copy = {
-    APPROVE: {
-      text: t('Publier ce message au parent ? La publication est définitive.'),
-      confirm: t('Valider et publier'),
-    },
+    APPROVE: fromParent
+      ? {
+          text: t('Transmettre ce message à l’enseignant ? La transmission est définitive.'),
+          confirm: t('Valider et transmettre'),
+        }
+      : {
+          text: t('Publier ce message au parent ? La publication est définitive.'),
+          confirm: t('Valider et publier'),
+        },
     RETURN: {
-      text: t('L’enseignant pourra modifier ce message puis le soumettre à nouveau.'),
+      text: fromParent
+        ? t('Le parent pourra modifier ce message puis le renvoyer.')
+        : t('L’enseignant pourra modifier ce message puis le soumettre à nouveau.'),
       confirm: t('Retourner'),
     },
     REJECT: {
-      text: t('Le rejet est définitif : ce message ne sera jamais publié.'),
+      text: t('Le rejet est définitif : ce message ne sera jamais transmis.'),
       confirm: t('Rejeter'),
     },
   }[open];
@@ -1025,7 +1022,9 @@ function Moderation({
           helperText={
             missing
               ? open === 'RETURN'
-                ? t('Indiquez ce que l’enseignant doit corriger.')
+                ? fromParent
+                  ? t('Indiquez ce que le parent doit corriger.')
+                  : t('Indiquez ce que l’enseignant doit corriger.')
                 : t('Indiquez le motif du rejet.')
               : undefined
           }

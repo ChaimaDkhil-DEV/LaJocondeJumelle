@@ -58,6 +58,7 @@ import {
 } from './api';
 import { useRealtime } from './SocketProvider';
 import { useUrgentSound } from './useUrgentSound';
+import { useCurrentUser } from '../auth/useCurrentUser';
 import { isPlural, t } from '../../i18n';
 
 const NOTIFICATION_ICONS: Record<NotificationType, LucideIcon> = {
@@ -100,6 +101,7 @@ const NOTIFICATION_ICONS: Record<NotificationType, LucideIcon> = {
   PARENT_COMM_APPROVED: MessageSquare,
   PARENT_COMM_REJECTED: MessageSquare,
   PARENT_MESSAGE_NEW: MessageSquare,
+  TEACHER_MESSAGE_NEW: MessageSquare,
 };
 
 function UrgentMark() {
@@ -181,6 +183,8 @@ export function NotificationCenter() {
   const unread = useUnreadNotifications();
   const markRead = useMarkRead();
   const { latest, dismissLatest } = useRealtime();
+  // Compte parent (015) : les notifications ouvrent la conversation du message.
+  const forParent = useCurrentUser().data?.role === 'PARENT';
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const sound = useUrgentSound();
   const { play } = sound;
@@ -198,7 +202,7 @@ export function NotificationCenter() {
   function open(item: NotificationItem): void {
     setAnchor(null);
     markRead.mutate({ ids: [item.id] });
-    navigate(notificationPath(item));
+    navigate(notificationPath(item, forParent));
   }
 
   return (
@@ -302,7 +306,7 @@ export function NotificationCenter() {
                 color="inherit"
                 size="small"
                 component={RouterLink}
-                to={eventPath(latest)}
+                to={eventPath(latest, forParent)}
                 onClick={dismissLatest}
                 sx={{
                   color: 'inherit',

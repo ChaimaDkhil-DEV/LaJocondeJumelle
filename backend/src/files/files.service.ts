@@ -82,6 +82,8 @@ export class FilesService {
   /** Téléverse un fichier ; sans requestId, il reste provisoire jusqu'à son rattachement. */
   async upload(user: AuthenticatedUser, temp: UploadedTempFile, dto: UploadFileDto): Promise<FileResponse> {
     try {
+      // Compte parent (015) : un vocal provisoire seulement, rattaché ensuite à son propre message.
+      if (user.role === 'PARENT' && (dto.kind !== 'VOICE' || dto.requestId)) throw new AppException('FORBIDDEN');
       if (dto.requestId) await this.assertCanAttach(user, dto.requestId);
 
       if (dto.kind === 'PHOTO') return await this.uploadPhoto(user, temp, dto);

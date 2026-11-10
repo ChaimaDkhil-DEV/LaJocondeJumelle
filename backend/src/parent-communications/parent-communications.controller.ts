@@ -29,6 +29,8 @@ import {
   GuardianAccountDto,
   GuardianDto,
   ListCommunicationsQuery,
+  ParentMessageDto,
+  ParentResubmitDto,
   TeacherClassesDto,
   UpdateCommunicationDto,
   UpdateGuardianDto,
@@ -50,6 +52,28 @@ export class TeacherCommunicationsController {
   @Get()
   list(@CurrentUser() user: AuthenticatedUser) {
     return this.communications.listMine(user);
+  }
+
+  /** Déclarées avant `:id` : « conversations » n'est pas un identifiant. */
+  @Get('conversations')
+  conversations(@CurrentUser() user: AuthenticatedUser) {
+    return this.communications.teacherConversations(user);
+  }
+
+  /** Conversation d'un message (lien d'une notification). */
+  @Get('messages/:id/conversation')
+  messageConversation(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.communications.teacherMessageConversation(user, id);
+  }
+
+  @Get('conversations/:studentId/:guardianId')
+  conversation(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('studentId') studentId: string,
+    @Param('guardianId') guardianId: string,
+    @Req() req: Request,
+  ) {
+    return this.communications.teacherConversation(user, studentId, guardianId, clientIp(req));
   }
 
   @Get(':id')
@@ -147,6 +171,67 @@ export class ParentMessagesController {
   @Get()
   list(@CurrentUser() user: AuthenticatedUser) {
     return this.communications.parentList(user);
+  }
+
+  /** Enfants du parent et enseignants affectés à leur classe. Routes déclarées avant `:id`. */
+  @Get('children')
+  children(@CurrentUser() user: AuthenticatedUser) {
+    return this.communications.parentChildren(user);
+  }
+
+  @Get('conversations')
+  conversations(@CurrentUser() user: AuthenticatedUser) {
+    return this.communications.parentConversations(user);
+  }
+
+  @Get('conversations/:teacherId/:studentId')
+  conversation(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('teacherId') teacherId: string,
+    @Param('studentId') studentId: string,
+    @Req() req: Request,
+  ) {
+    return this.communications.parentConversation(user, teacherId, studentId, clientIp(req));
+  }
+
+  /** Démarre la conversation (premier message) ou la poursuit : le message part à la validation. */
+  @Post('conversations/:teacherId/:studentId')
+  send(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('teacherId') teacherId: string,
+    @Param('studentId') studentId: string,
+    @Body() dto: ParentMessageDto,
+    @Req() req: Request,
+  ) {
+    return this.communications.parentSend(user, teacherId, studentId, dto, clientIp(req));
+  }
+
+  @Post(':id/resubmit')
+  @HttpCode(200)
+  resubmit(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: ParentResubmitDto,
+    @Req() req: Request,
+  ) {
+    return this.communications.parentResubmit(user, id, dto, clientIp(req));
+  }
+
+  @Post(':id/cancel')
+  @HttpCode(200)
+  cancel(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: VersionDto,
+    @Req() req: Request,
+  ) {
+    return this.communications.parentCancel(user, id, dto.version, clientIp(req));
+  }
+
+  /** Conversation d'un message (lien d'une notification). */
+  @Get(':id/conversation')
+  messageConversation(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.communications.parentMessageConversation(user, id);
   }
 
   @Get(':id')

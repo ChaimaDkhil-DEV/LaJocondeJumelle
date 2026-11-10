@@ -263,6 +263,8 @@ enum NotificationType {
   PARENT_COMM_APPROVED
   PARENT_COMM_REJECTED
   PARENT_MESSAGE_NEW
+  /// Enseignant : message d'un parent validé par l'administration (015, conversations).
+  TEACHER_MESSAGE_NEW
 }
 
 /// Origine d'une affectation (004).
@@ -1072,6 +1074,13 @@ enum ParentCommunicationStatus {
   CANCELLED
 }
 
+/// Auteur d'un message de la conversation (015) : l'enseignant (vers le parent) ou le parent (vers
+/// l'enseignant). Dans les deux sens, le message passe par la validation de l'administration.
+enum ParentCommunicationAuthor {
+  TEACHER
+  PARENT
+}
+
 enum ParentCommunicationEventType {
   CREATED
   UPDATED
@@ -1160,6 +1169,9 @@ model ParentCommunication {
   teacherId        String                    @db.Uuid
   studentId        String                    @db.Uuid
   guardianId       String                    @db.Uuid
+  /// TEACHER : message de l'enseignant au représentant ; PARENT : message du représentant (compte
+  /// parent) à l'enseignant. La conversation est le trio enseignant + élève + représentant.
+  author           ParentCommunicationAuthor @default(TEACHER)
   status           ParentCommunicationStatus @default(DRAFT)
   draftText        String?                   @db.VarChar(2000)
   draftVoiceFileId String?                   @db.Uuid
@@ -1190,6 +1202,7 @@ model ParentCommunication {
   @@index([teacherId, status])
   @@index([status, submittedAt])
   @@index([guardianId, status])
+  @@index([teacherId, studentId, guardianId])
 }
 
 /// Version soumise d'une communication — ajout seul (trigger) : une version approuvée n'est jamais modifiée.
@@ -1198,11 +1211,12 @@ model ParentCommunicationRevision {
   communicationId String   @db.Uuid
   number          Int
   text            String   @db.VarChar(2000)
-  voiceFileId     String   @db.Uuid
+  /// Obligatoire pour un message de l'enseignant ; facultatif pour un message du parent.
+  voiceFileId     String?  @db.Uuid
   createdAt       DateTime @default(now()) @db.Timestamptz(3)
 
   communication ParentCommunication @relation(fields: [communicationId], references: [id])
-  voiceFile     File                @relation(fields: [voiceFileId], references: [id])
+  voiceFile     File?               @relation(fields: [voiceFileId], references: [id], onDelete: Restrict)
 
   @@unique([communicationId, number])
 }

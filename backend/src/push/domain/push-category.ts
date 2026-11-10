@@ -62,6 +62,7 @@ const RULES: Record<NotificationType, Rule> = {
   PARENT_COMM_APPROVED: NONE,
   PARENT_COMM_REJECTED: NONE,
   PARENT_MESSAGE_NEW: NONE,
+  TEACHER_MESSAGE_NEW: NONE,
 };
 
 /** Catégorie push d'une notification, ou null si elle reste dans l'application. */

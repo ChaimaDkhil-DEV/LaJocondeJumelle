@@ -74,6 +74,30 @@ export class UpdateCommunicationDto {
   voiceFileId?: string | null;
 }
 
+/**
+ * Message d'un parent à l'enseignant de son enfant (POST /parent/messages/conversations/…) : texte
+ * obligatoire, vocal facultatif. Envoyé directement à la validation de l'administration.
+ */
+export class ParentMessageDto {
+  @Transform(trim)
+  @IsString()
+  @MinLength(1, { message: 'Écrivez votre message.' })
+  @MaxLength(REMARK_MAX, { message: `Le message ne doit pas dépasser ${REMARK_MAX} caractères.` })
+  text!: string;
+
+  @IsOptional()
+  @ValidateIf((_o, v) => v !== null)
+  @IsUUID()
+  voiceFileId?: string | null;
+}
+
+/** POST /parent/messages/:id/resubmit : correction d'un message retourné, nouvelle version à valider. */
+export class ParentResubmitDto extends ParentMessageDto {
+  @IsInt()
+  @Min(0)
+  version!: number;
+}
+
 export class VersionDto {
   @IsInt()
   @Min(0)

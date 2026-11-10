@@ -220,4 +220,90 @@ export const parentCommunications: Record<string, string> = {
     'The teacher will be able to edit this message and submit it again.',
   'Le rejet est définitif : ce message ne sera jamais publié.':
     'Rejection is final: this message will never be published.',
+  // Conversations parent ↔ enseignant (015)
+  'Nouveau message d’un parent': 'New message from a parent',
+  '{count} messages non lus': '{count} unread messages',
+  '{count} message non lu': '{count} unread message',
+  'Retour aux conversations': 'Back to conversations',
+  Transmis: 'Delivered',
+  Annulé: 'Cancelled',
+  'Message de {author}, {date}': 'Message from {author}, {date}',
+  Envoyer: 'Send',
+  'Ajoutez la remarque écrite et le message vocal avant d’envoyer.':
+    'Add the written remark and the voice message before sending.',
+  'Écrivez votre message avant de l’envoyer.': 'Write your message before sending it.',
+  'Le message n’a pas pu être envoyé.': 'The message could not be sent.',
+  'Échangez avec les enseignants de vos enfants. Chaque message est relu par l’administration avant d’être transmis.':
+    'Talk with your children’s teachers. Every message is reviewed by the administration before it is delivered.',
+  'Sélectionnez une conversation': 'Select a conversation',
+  'Choisissez une conversation à gauche, ou écrivez à un enseignant de votre enfant.':
+    'Choose a conversation on the left, or write to one of your child’s teachers.',
+  'Nouvelle conversation': 'New conversation',
+  'Chargement des conversations': 'Loading conversations',
+  'les conversations': 'the conversations',
+  'Aucune conversation': 'No conversations',
+  Conversations: 'Conversations',
+  'Vous : ': 'You: ',
+  'Chargement de vos enfants': 'Loading your children',
+  'vos enfants': 'your children',
+  'Choisissez votre enfant, puis l’enseignant à qui écrire.':
+    'Choose your child, then the teacher to write to.',
+  'Aucun enfant rattaché': 'No linked children',
+  'Contactez l’administration pour rattacher vos enfants à votre compte.':
+    'Contact the administration to link your children to your account.',
+  'Votre enfant': 'Your child',
+  'Enseignants de {name}': '{name}’s teachers',
+  'Aucun enseignant n’est encore affecté à la classe {className}.':
+    'No teacher is assigned to class {className} yet.',
+  'Chargement de la conversation': 'Loading the conversation',
+  'la conversation': 'the conversation',
+  'Votre message est relu par l’administration avant d’être transmis à l’enseignant. Le vocal est facultatif.':
+    'Your message is reviewed by the administration before it is delivered to the teacher. The voice message is optional.',
+  'Au sujet de {name} · {className}': 'About {name} · {className}',
+  'Écrivez votre premier message à {name}.': 'Write your first message to {name}.',
+  'Messages de la conversation': 'Conversation messages',
+  Vous: 'You',
+  'Renvoyer pour validation': 'Resubmit for review',
+  'Le message corrigé est de nouveau relu par l’administration.':
+    'The corrected message is reviewed again by the administration.',
+  'Message corrigé, renvoyé à l’administration.':
+    'Message corrected and resubmitted to the administration.',
+  'Message envoyé à l’administration pour validation.':
+    'Message sent to the administration for review.',
+  'Cet enseignant n’est plus affecté à la classe de votre enfant : la conversation est en lecture seule.':
+    'This teacher is no longer assigned to your child’s class: the conversation is read-only.',
+  'Abandonner ce message ?': 'Abandon this message?',
+  'Message abandonné.': 'Message abandoned.',
+  'L’action a échoué.': 'The action failed.',
+  'Il ne sera jamais transmis à l’enseignant.': 'It will never be delivered to the teacher.',
+  'Échangez avec les parents de vos élèves. Chaque message, dans les deux sens, est validé par l’administration avant d’être transmis.':
+    'Talk with your students’ parents. Every message, in both directions, is approved by the administration before it is delivered.',
+  'Choisissez une conversation à gauche, ou créez une communication pour l’un de vos élèves.':
+    'Choose a conversation on the left, or create a communication for one of your students.',
+  'Continuer le brouillon': 'Continue the draft',
+  'Remarque écrite et message vocal obligatoires. Votre message est validé par l’administration avant d’être transmis au parent.':
+    'Written remark and voice message required. Your message is approved by the administration before it is delivered to the parent.',
+  'Message soumis à l’administration.': 'Message submitted to the administration.',
+  'Le vocal est facultatif pour une réponse. Votre message est validé par l’administration avant d’être transmis au parent.':
+    'The voice message is optional for a reply. Your message is approved by the administration before it is delivered to the parent.',
+  'Annulé par son auteur': 'Cancelled by its author',
+  'Lisez chaque discussion et validez, retournez ou rejetez ses messages un par un : seul un message validé est transmis, au parent ou à l’enseignant.':
+    'Read each discussion and approve, return or reject its messages one by one: only an approved message is delivered, to the parent or to the teacher.',
+  'Les messages soumis par les enseignants et les parents apparaîtront ici.':
+    'Messages submitted by teachers and parents will appear here.',
+  'Parent : ': 'Parent: ',
+  'Parent : {name}': 'Parent: {name}',
+  '{name}, parent': '{name}, parent',
+  'Message validé et transmis à l’enseignant.': 'Message approved and delivered to the teacher.',
+  'Message retourné au parent pour correction.': 'Message returned to the parent for correction.',
+  'Ce message vous est adressé : un autre responsable doit le valider.':
+    'This message is addressed to you: another manager must approve it.',
+  'Transmettre ce message à l’enseignant ? La transmission est définitive.':
+    'Deliver this message to the teacher? Delivery is final.',
+  'Valider et transmettre': 'Approve and deliver',
+  'Le parent pourra modifier ce message puis le renvoyer.':
+    'The parent will be able to edit this message and send it again.',
+  'Le rejet est définitif : ce message ne sera jamais transmis.':
+    'Rejection is final: this message will never be delivered.',
+  'Indiquez ce que le parent doit corriger.': 'State what the parent must correct.',
 };

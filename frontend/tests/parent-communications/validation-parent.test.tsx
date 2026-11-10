@@ -1,15 +1,13 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ParentMessagePage } from '../../src/features/parent-communications/ParentMessagePage';
-import { ParentMessagesPage } from '../../src/features/parent-communications/ParentMessagesPage';
 import { ValidationInboxPage } from '../../src/features/parent-communications/ValidationInboxPage';
 import { detail, guardian, json, mockApi, renderRoutes, route, student, teacher } from './helpers';
 
 /**
  * 015 (US2, US3) — « Communications à valider » en messagerie : discussions (filtres, recherche),
- * bulles avec leur propre statut, décision sur un seul message (confirmation, motif obligatoire) ;
- * « Messages de l'école » : messages approuvés, lecture.
+ * bulles avec leur propre statut, décision sur un seul message (confirmation, motif obligatoire).
+ * L'espace parent (« Messages de l'école ») est testé dans conversations.test.tsx.
  */
 
 afterEach(() => vi.unstubAllGlobals());
@@ -435,71 +433,49 @@ describe('Communications à valider (messagerie)', () => {
     expect(within(own).queryByRole('button', { name: 'Valider' })).toBeNull();
   });
 
+  it('message d’un parent : bulle du parent, nom une seule fois hors des bulles, validation transmise à l’enseignant', async () => {
+    const user = userEvent.setup();
+    const FROM_PARENT = message('pc5', {
+      author: 'PARENT',
+      revisions: [
+        {
+          number: 1,
+          text: 'Lina sera absente vendredi.',
+          voiceFileId: null,
+          durationSeconds: null,
+          createdAt: '2026-11-09T11:05:00.000Z',
+        },
+      ],
+    });
+    const calls = mockApi((call) => {
+      if (call.url === LIST_URL) return json(200, SUMMARIES);
+      if (call.url === '/api/admin/parent-communications/pc5/discussion')
+        return json(200, discussionOf([APPROVED, FROM_PARENT]));
+      if (call.url === '/api/admin/parent-communications/pc5/decision')
+        return json(200, { ...FROM_PARENT, status: 'APPROVED', approvedRevision: 1, version: 3 });
+      return undefined;
+    });
+    renderRoutes(routes, '/communications-a-valider/pc5');
+    const parentBubble = await waitFor(() => bubble('Lina sera absente vendredi.'));
+    // Message écrit seulement : pas de lecteur vocal.
+    expect(parentBubble.querySelector('audio')).toBeNull();
+    expect(parentBubble).not.toHaveTextContent('Sonia Ben Salah');
+    const messages = screen.getByRole('list', { name: 'Messages de la discussion' });
+    expect(within(messages).getAllByText('Sonia Ben Salah (Mère), parent')).toHaveLength(1);
+    await user.click(within(parentBubble).getByRole('button', { name: 'Valider' }));
+    expect(within(parentBubble).getByText(/Transmettre ce message à l’enseignant/)).toBeVisible();
+    await user.click(within(parentBubble).getByRole('button', { name: 'Valider et transmettre' }));
+    await waitFor(() =>
+      expect(within(bubble('Lina sera absente vendredi.')).getByText('Validé')).toBeVisible(),
+    );
+    expect(calls.filter((c) => c.url.endsWith('/decision')).map((c) => c.body)).toEqual([
+      { action: 'APPROVE', revision: 1, version: 2 },
+    ]);
+  });
+
   it('erreur de chargement de la discussion : message et nouvel essai', async () => {
     mockApi((call) => (call.url === LIST_URL ? json(200, SUMMARIES) : undefined));
     renderRoutes(routes, '/communications-a-valider/pc1');
     expect(await screen.findByRole('button', { name: 'Réessayer' })).toBeVisible();
-  });
-});
-
-describe('Messages de l’école (parent)', () => {
-  const routes = [
-    route('/messages-ecole', <ParentMessagesPage />),
-    route('/messages-ecole/:id', <ParentMessagePage />),
-  ];
-  const MESSAGES = [
-    {
-      id: 'pc1',
-      teacher: { displayName: 'Mme Enseignante' },
-      student: { firstName: 'Lina', lastName: 'Ben Salah' },
-      approvedAt: '2026-11-09T11:00:00.000Z',
-      read: false,
-    },
-    {
-      id: 'pc2',
-      teacher: { displayName: 'M. Professeur' },
-      student: { firstName: 'Lina', lastName: 'Ben Salah' },
-      approvedAt: '2026-11-08T11:00:00.000Z',
-      read: true,
-    },
-  ];
-
-  it('liste les messages approuvés : enseignant, élève, date et état de lecture', async () => {
-    mockApi((call) => (call.url === '/api/parent/messages' ? json(200, MESSAGES) : undefined));
-    renderRoutes(routes, '/messages-ecole');
-    expect(
-      await screen.findByRole('heading', { level: 1, name: 'Messages de l’école' }),
-    ).toBeVisible();
-    const first = await screen.findByRole('link', { name: /Mme Enseignante/ });
-    expect(first).toHaveAttribute('href', '/messages-ecole/pc1');
-    expect(first).toHaveTextContent('Non lu');
-    expect(screen.getByRole('link', { name: /M. Professeur/ })).toHaveTextContent('Lu');
-  });
-
-  it('aucun message : état vide explicite', async () => {
-    mockApi((call) => (call.url === '/api/parent/messages' ? json(200, []) : undefined));
-    renderRoutes(routes, '/messages-ecole');
-    expect(await screen.findByText('Aucun message de l’école pour le moment.')).toBeVisible();
-  });
-
-  it('ouvre un message : remarque, vocal, enseignant et date', async () => {
-    mockApi((call) =>
-      call.url === '/api/parent/messages/pc1'
-        ? json(200, {
-            id: 'pc1',
-            teacher: { displayName: 'Mme Enseignante' },
-            student: { firstName: 'Lina', lastName: 'Ben Salah' },
-            text: 'Lina progresse en lecture.',
-            voiceFileId: 'v2',
-            durationSeconds: 5,
-            approvedAt: '2026-11-09T11:00:00.000Z',
-            readAt: '2026-11-09T12:00:00.000Z',
-          })
-        : undefined,
-    );
-    renderRoutes(routes, '/messages-ecole/pc1');
-    expect(await screen.findByText('Lina progresse en lecture.')).toBeVisible();
-    expect(screen.getByText(/Mme Enseignante/)).toBeVisible();
-    expect(document.querySelector('audio')).toHaveAttribute('src', '/api/files/v2');
   });
 });
