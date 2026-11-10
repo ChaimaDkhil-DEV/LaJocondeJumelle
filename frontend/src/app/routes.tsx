@@ -21,8 +21,7 @@ import { CommunicationEditorPage } from '../features/parent-communications/Commu
 import { ParentMessagePage } from '../features/parent-communications/ParentMessagePage';
 import { ParentMessagesPage } from '../features/parent-communications/ParentMessagesPage';
 import { TeacherCommunicationsPage } from '../features/parent-communications/TeacherCommunicationsPage';
-import { ValidationDetailPage } from '../features/parent-communications/ValidationDetailPage';
-import { ValidationListPage } from '../features/parent-communications/ValidationListPage';
+import { ValidationInboxPage } from '../features/parent-communications/ValidationInboxPage';
 import { AppLayout } from './AppLayout';
 
 export const routes: RouteObject[] = [
@@ -59,8 +58,8 @@ export const routes: RouteObject[] = [
       { path: 'communications-parents', element: <TeacherCommunicationsPage /> },
       { path: 'communications-parents/nouvelle', element: <CommunicationEditorPage /> },
       { path: 'communications-parents/:id', element: <CommunicationEditorPage /> },
-      { path: 'communications-a-valider', element: <ValidationListPage /> },
-      { path: 'communications-a-valider/:id', element: <ValidationDetailPage /> },
+      // Messagerie : la liste des discussions et, avec un message désigné, sa discussion.
+      { path: 'communications-a-valider/:id?', element: <ValidationInboxPage /> },
       { path: 'messages-ecole', element: <ParentMessagesPage /> },
       { path: 'messages-ecole/:id', element: <ParentMessagePage /> },
       ...adminRoutes,

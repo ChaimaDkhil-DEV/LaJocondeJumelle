@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../../api/client';
 import { t } from '../../i18n';
 
@@ -80,6 +80,36 @@ export interface CommunicationDetail extends CommunicationSummary {
     attempts: number;
     updatedAt: string;
   }>;
+}
+
+/** Statuts visibles par la validation (un brouillon jamais soumis reste privé à l'enseignant). */
+export type DiscussionStatus = Exclude<CommunicationStatus, 'DRAFT'>;
+
+/** Discussion de la validation : messages d'un enseignant au représentant d'un élève. */
+export interface DiscussionSummary {
+  key: string;
+  teacher: Person;
+  student: StudentRef;
+  guardian: GuardianRef;
+  lastMessage: {
+    id: string;
+    status: DiscussionStatus;
+    preview: string;
+    submittedAt: string | null;
+  };
+  /** Message en attente le plus ancien : celui à examiner en premier. */
+  firstPendingId: string | null;
+  counts: Record<DiscussionStatus, number>;
+  total: number;
+}
+
+/** Discussion complète : chaque message garde son propre statut et se décide seul. */
+export interface Discussion {
+  key: string;
+  teacher: Person;
+  student: StudentRef;
+  guardian: GuardianRef;
+  messages: CommunicationDetail[];
 }
 
 export interface TeacherStudent extends StudentRef {
@@ -171,8 +201,8 @@ export const commKeys = {
   students: ['parent-communications', 'students'] as const,
   mine: ['parent-communications', 'mine'] as const,
   one: (id: string) => ['parent-communications', 'one', id] as const,
-  validation: (qs: string) => ['parent-communications', 'validation', qs] as const,
-  validationOne: (id: string) => ['parent-communications', 'validation-one', id] as const,
+  discussions: ['parent-communications', 'discussions'] as const,
+  discussion: (id: string) => ['parent-communications', 'discussion', id] as const,
   parent: ['parent-communications', 'parent'] as const,
   parentOne: (id: string) => ['parent-communications', 'parent', id] as const,
   guardians: ['parent-communications', 'guardians'] as const,
@@ -257,32 +287,73 @@ export function useCommunicationMutations() {
 
 // ------------------------------------------------------------------ Validation
 
-export function useValidationList(qs: string) {
+/** Période de soumission, bornes incluses (« AAAA-MM-JJ »). */
+export interface Period {
+  from?: string;
+  to?: string;
+}
+
+/** Discussions, toutes ou celles qui ont un message soumis dans la période. */
+export function useDiscussions(period: Period = {}) {
+  const params = new URLSearchParams();
+  if (period.from) params.set('from', period.from);
+  if (period.to) params.set('to', period.to);
+  const qs = params.toString();
   return useQuery({
-    queryKey: commKeys.validation(qs),
-    queryFn: () => apiFetch<CommunicationSummary[]>(`/api/admin/parent-communications?${qs}`),
+    queryKey: [...commKeys.discussions, qs],
+    queryFn: () =>
+      apiFetch<DiscussionSummary[]>(
+        `/api/admin/parent-communications/discussions${qs ? `?${qs}` : ''}`,
+      ),
+    // Pendant la saisie d'une date, la liste précédente reste affichée.
+    placeholderData: keepPreviousData,
   });
 }
 
-export function useValidationDetail(id: string) {
+/** Discussion du message `id` (n'importe lequel de ses messages). */
+export function useDiscussion(id: string | undefined) {
   return useQuery({
-    queryKey: commKeys.validationOne(id),
-    queryFn: () => apiFetch<CommunicationDetail>(`/api/admin/parent-communications/${id}`),
+    queryKey: commKeys.discussion(id ?? ''),
+    queryFn: () => apiFetch<Discussion>(`/api/admin/parent-communications/${id}/discussion`),
+    enabled: Boolean(id),
   });
 }
 
-export function useDecision(id: string) {
+/**
+ * Décision sur un seul message (la version examinée). La bulle est mise à jour aussitôt avec la
+ * réponse, sans recharger la discussion ; seule la liste des discussions est actualisée.
+ */
+export function useMessageDecision(discussionId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (body: { action: Decision; revision: number; version: number; reason?: string }) =>
+    mutationFn: ({
+      id,
+      ...body
+    }: {
+      id: string;
+      action: Decision;
+      revision: number;
+      version: number;
+      reason?: string;
+    }) =>
       apiFetch<CommunicationDetail>(`/api/admin/parent-communications/${id}/decision`, {
         method: 'POST',
         body,
       }),
     onSuccess: (detail) => {
-      queryClient.setQueryData(commKeys.validationOne(id), detail);
-      void queryClient.invalidateQueries({ queryKey: ['parent-communications', 'validation'] });
+      queryClient.setQueryData<Discussion>(commKeys.discussion(discussionId), (current) =>
+        current
+          ? {
+              ...current,
+              messages: current.messages.map((m) => (m.id === detail.id ? detail : m)),
+            }
+          : current,
+      );
+      void queryClient.invalidateQueries({ queryKey: commKeys.discussions });
     },
+    // Décision refusée (déjà décidée, nouvelle version) : la discussion est relue.
+    onError: () =>
+      void queryClient.invalidateQueries({ queryKey: commKeys.discussion(discussionId) }),
   });
 }
 

@@ -32,7 +32,15 @@ test.describe('Espace Administrateur de l’admin (011)', () => {
     // --- Arrivée sur « Étages » : seules les sections de l'admin sont proposées.
     await expect(page.getByRole('heading', { name: 'Étages' })).toBeVisible();
     const sections = page.getByRole('navigation', { name: 'Sections de l’espace Administrateur' }).getByRole('link');
-    await expect(sections).toHaveText(['Étages', 'Niveaux', 'Classes', 'Élèves', 'Employés']);
+    await expect(sections).toHaveText([
+      'Étages',
+      'Niveaux',
+      'Classes',
+      'Élèves',
+      'Représentants',
+      'Classes des enseignants',
+      'Employés',
+    ]);
     await expectNoA11yViolations(page);
 
     await page.getByRole('button', { name: 'Nouvel étage' }).click();

@@ -113,8 +113,22 @@ export const STATUS_FILTERS = [
   'ALL',
 ] as const;
 
+/** Période de soumission, bornes incluses (AAAA-MM-JJ ou date-heure ISO 8601). */
+export class PeriodQuery {
+  @IsOptional()
+  @IsISO8601({ strict: true })
+  from?: string;
+
+  @IsOptional()
+  @IsISO8601({ strict: true })
+  to?: string;
+}
+
+/** GET /admin/parent-communications/discussions : toutes les discussions, ou celles de la période. */
+export class DiscussionsQuery extends PeriodQuery {}
+
 /** GET /admin/parent-communications : en attente par défaut. */
-export class ListCommunicationsQuery {
+export class ListCommunicationsQuery extends PeriodQuery {
   @IsOptional()
   @IsIn(STATUS_FILTERS)
   status?: Exclude<ParentCommunicationStatus, 'DRAFT'> | 'ALL';
@@ -130,15 +144,6 @@ export class ListCommunicationsQuery {
   @IsOptional()
   @IsUUID()
   classId?: string;
-
-  /** Date de soumission, bornes incluses (AAAA-MM-JJ ou date-heure ISO 8601). */
-  @IsOptional()
-  @IsISO8601({ strict: true })
-  from?: string;
-
-  @IsOptional()
-  @IsISO8601({ strict: true })
-  to?: string;
 }
 
 /** Représentant légal (administration). */
