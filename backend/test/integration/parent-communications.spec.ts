@@ -666,4 +666,284 @@ describe('Communication enseignant / parents (015)', () => {
       expect(await prisma.file.count({ where: { id: voice } })).toBe(1);
     });
   });
+
+  describe('discussions : modération message par message', () => {
+    let guardianC: string;
+    let parentC: string;
+
+    interface DiscussionSummary {
+      key: string;
+      teacher: { id: string; displayName: string };
+      student: { id: string; firstName: string; class: { name: string } };
+      guardian: { id: string; firstName: string; relationship: string | null };
+      lastMessage: { id: string; status: string; preview: string; submittedAt: string };
+      firstPendingId: string | null;
+      counts: Record<string, number>;
+      total: number;
+    }
+    interface Message {
+      id: string;
+      status: string;
+      version: number;
+      currentRevision: number;
+      approvedRevision: number | null;
+      decisionReason: string | null;
+      draft: unknown;
+      revisions: Array<{ number: number; text: string }>;
+    }
+
+    /** Message soumis au représentant C (discussion propre à ces tests). */
+    const sentToC = async (text: string) => {
+      const draft = await createDraft({
+        guardianId: guardianC,
+        text,
+        voiceFileId: await uploadVoice(),
+      });
+      const res = await send('post', `/api/parent-communications/${draft.id}/submit`, enseignante, {
+        version: draft.version,
+      });
+      expect(res.status).toBe(200);
+      return res.body as { id: string; version: number };
+    };
+    const discussionOf = async (id: string) => {
+      const res = await get(`/api/admin/parent-communications/${id}/discussion`, superadmin);
+      expect(res.status).toBe(200);
+      return res.body as {
+        key: string;
+        teacher: { id: string };
+        student: { id: string };
+        guardian: { id: string };
+        messages: Message[];
+      };
+    };
+    const statusOf = async (id: string) =>
+      (await prisma.parentCommunication.findUniqueOrThrow({ where: { id } })).status;
+    const summaryOf = async (key: string) => {
+      const res = await get('/api/admin/parent-communications/discussions', superadmin);
+      expect(res.status).toBe(200);
+      return (res.body as DiscussionSummary[]).find((d) => d.key === key);
+    };
+
+    beforeAll(async () => {
+      const c = await send('post', '/api/admin/guardians', admin, {
+        firstName: 'Mehdi',
+        lastName: 'Ben Salah',
+        relationship: 'Père',
+        studentIds: [studentA],
+      });
+      expect(c.status).toBe(201);
+      guardianC = c.body.id;
+      parentC = await parentAccount(guardianC, 'parent.lina.pere');
+    });
+
+    it('regroupe les messages d’un enseignant au représentant d’un élève ; chaque message garde son statut', async () => {
+      const m1 = await sentToC('Premier message à Mehdi');
+      const m2 = await sentToC('Deuxième message à Mehdi');
+      const m3 = await sentToC('Troisième message à Mehdi');
+      // Brouillon jamais soumis : privé à l'enseignant, absent de la discussion.
+      const draft = await createDraft({ guardianId: guardianC, text: 'Brouillon privé' });
+      const key = `${enseignanteId}.${studentA}.${guardianC}`;
+
+      const summary = await summaryOf(key);
+      expect(summary).toMatchObject({
+        teacher: { id: enseignanteId },
+        student: { id: studentA, firstName: 'Lina', class: { name: '1ère année Violet' } },
+        guardian: { id: guardianC, firstName: 'Mehdi', relationship: 'Père' },
+        lastMessage: {
+          id: m3.id,
+          status: 'PENDING_ADMIN_VALIDATION',
+          preview: 'Troisième message à Mehdi',
+        },
+        firstPendingId: m1.id,
+        counts: {
+          PENDING_ADMIN_VALIDATION: 3,
+          APPROVED: 0,
+          RETURNED_FOR_CORRECTION: 0,
+          REJECTED: 0,
+        },
+        total: 3,
+      });
+      // La discussion d'un autre représentant du même élève reste distincte.
+      expect(await summaryOf(`${enseignanteId}.${studentA}.${guardianA}`)).toBeDefined();
+
+      const discussion = await discussionOf(m2.id);
+      expect(discussion.key).toBe(key);
+      expect(discussion.messages.map((m) => m.id)).toEqual([m1.id, m2.id, m3.id]);
+      expect(discussion.messages.map((m) => m.id)).not.toContain(draft.id);
+      expect(discussion.messages.every((m) => m.draft === null)).toBe(true);
+      expect(discussion.messages[1]!.revisions.map((r) => r.text)).toEqual([
+        'Deuxième message à Mehdi',
+      ]);
+      expect(JSON.stringify(discussion)).not.toContain('Brouillon privé');
+    });
+
+    it('valider, retourner ou rejeter un message ne change jamais les autres messages de la discussion', async () => {
+      const m1 = await sentToC('À valider');
+      const m2 = await sentToC('À corriger');
+      const m3 = await sentToC('À rejeter');
+
+      const approved = await decide(m1.id, { action: 'APPROVE', revision: 1, version: m1.version });
+      expect(approved.status).toBe(200);
+      expect([await statusOf(m1.id), await statusOf(m2.id), await statusOf(m3.id)]).toEqual([
+        'APPROVED',
+        'PENDING_ADMIN_VALIDATION',
+        'PENDING_ADMIN_VALIDATION',
+      ]);
+
+      // Retour : motif obligatoire ; le message validé garde son état.
+      expect(
+        (await decide(m2.id, { action: 'RETURN', revision: 1, version: m2.version })).status,
+      ).toBe(422);
+      const returned = await decide(m2.id, {
+        action: 'RETURN',
+        revision: 1,
+        version: m2.version,
+        reason: 'Précisez la matière.',
+      });
+      expect(returned.status).toBe(200);
+      // Rejet : motif obligatoire ; les autres messages ne bougent pas.
+      expect(
+        (await decide(m3.id, { action: 'REJECT', revision: 1, version: m3.version })).status,
+      ).toBe(422);
+      expect(
+        (
+          await decide(m3.id, {
+            action: 'REJECT',
+            revision: 1,
+            version: m3.version,
+            reason: 'Hors du cadre scolaire.',
+          })
+        ).status,
+      ).toBe(200);
+      expect([await statusOf(m1.id), await statusOf(m2.id), await statusOf(m3.id)]).toEqual([
+        'APPROVED',
+        'RETURNED_FOR_CORRECTION',
+        'REJECTED',
+      ]);
+
+      // L'auteur corrige le message retourné et le soumet à nouveau : seul ce message repasse en attente.
+      const current = (await get(`/api/parent-communications/${m2.id}`, enseignante)).body as {
+        version: number;
+      };
+      const edited = await send('patch', `/api/parent-communications/${m2.id}`, enseignante, {
+        version: current.version,
+        text: 'À corriger : la matière est le français.',
+      });
+      expect(edited.status).toBe(200);
+      const resubmitted = await send(
+        'post',
+        `/api/parent-communications/${m2.id}/submit`,
+        enseignante,
+        { version: edited.body.version },
+      );
+      expect(resubmitted.status).toBe(200);
+      expect(resubmitted.body.currentRevision).toBe(2);
+
+      const discussion = await discussionOf(m1.id);
+      const byId = new Map(discussion.messages.map((m) => [m.id, m]));
+      expect(byId.get(m1.id)).toMatchObject({ status: 'APPROVED', approvedRevision: 1 });
+      expect(byId.get(m2.id)).toMatchObject({
+        status: 'PENDING_ADMIN_VALIDATION',
+        currentRevision: 2,
+        approvedRevision: null,
+      });
+      expect(byId.get(m2.id)!.revisions.map((r) => r.text)).toEqual([
+        'À corriger',
+        'À corriger : la matière est le français.',
+      ]);
+      expect(byId.get(m3.id)).toMatchObject({
+        status: 'REJECTED',
+        decisionReason: 'Hors du cadre scolaire.',
+      });
+
+      // Une seule publication : celle du message validé.
+      expect(
+        await prisma.outboxEvent.count({
+          where: {
+            type: 'PARENT_COMMUNICATION_APPROVED',
+            aggregateId: { in: [m1.id, m2.id, m3.id] },
+          },
+        }),
+      ).toBe(1);
+      expect(
+        await prisma.outboxEvent.count({
+          where: { type: 'PARENT_COMMUNICATION_APPROVED', aggregateId: m1.id },
+        }),
+      ).toBe(1);
+
+      // Le parent ne voit que le message validé.
+      const visible = (
+        (await get('/api/parent/messages', parentC)).body as Array<{ id: string }>
+      ).map((m) => m.id);
+      expect(visible).toContain(m1.id);
+      expect(visible).not.toContain(m2.id);
+      expect(visible).not.toContain(m3.id);
+      expect((await get(`/api/parent/messages/${m2.id}`, parentC)).status).toBe(404);
+      expect((await get(`/api/parent/messages/${m3.id}`, parentC)).status).toBe(404);
+      // Un autre parent ne voit aucun message de cette discussion.
+      expect((await get(`/api/parent/messages/${m1.id}`, parentB)).status).toBe(404);
+    });
+
+    it('réservées à la permission de validation : refus avant lecture, puis 404 pour un message invisible', async () => {
+      const sent = await sentToC('Message protégé');
+      for (const cookie of [admin, reprographie, enseignante, parentC]) {
+        expect((await get('/api/admin/parent-communications/discussions', cookie)).status).toBe(
+          403,
+        );
+        expect(
+          (await get(`/api/admin/parent-communications/${sent.id}/discussion`, cookie)).status,
+        ).toBe(403);
+      }
+      const draft = await createDraft({ guardianId: guardianC, text: 'Brouillon' });
+      for (const id of [draft.id, '00000000-0000-4000-8000-000000000000', 'pas-un-uuid']) {
+        expect(
+          (await get(`/api/admin/parent-communications/${id}/discussion`, superadmin)).status,
+        ).toBe(404);
+      }
+    });
+
+    it('période : seuls les messages soumis entre les deux dates (bornes incluses) sont comptés', async () => {
+      const early = await sentToC('Soumis le 10 janvier 2020');
+      const late = await sentToC('Soumis le 20 janvier 2020');
+      const outside = await sentToC('Soumis le 5 février 2020');
+      const at = (id: string, iso: string) =>
+        prisma.parentCommunication.update({ where: { id }, data: { submittedAt: new Date(iso) } });
+      await at(early.id, '2020-01-10T08:00:00Z');
+      await at(late.id, '2020-01-20T15:30:00Z');
+      await at(outside.id, '2020-02-05T09:00:00Z');
+      const key = `${enseignanteId}.${studentA}.${guardianC}`;
+      const listed = async (qs: string) => {
+        const res = await get(`/api/admin/parent-communications/discussions?${qs}`, superadmin);
+        expect(res.status).toBe(200);
+        return res.body as DiscussionSummary[];
+      };
+
+      const january = await listed('from=2020-01-01&to=2020-01-31');
+      // Les discussions sans message dans la période (soumis aujourd'hui) disparaissent.
+      expect(january.map((d) => d.key)).toEqual([key]);
+      expect(january[0]).toMatchObject({
+        total: 2,
+        counts: { PENDING_ADMIN_VALIDATION: 2 },
+        lastMessage: { id: late.id, preview: 'Soumis le 20 janvier 2020' },
+        firstPendingId: early.id,
+      });
+      // Une date seule couvre toute la journée.
+      expect((await listed('from=2020-01-10&to=2020-01-10'))[0]).toMatchObject({
+        total: 1,
+        lastMessage: { id: early.id },
+      });
+      expect((await listed('from=2020-02-01&to=2020-02-28'))[0]).toMatchObject({
+        key,
+        lastMessage: { id: outside.id },
+      });
+      expect(await listed('to=2019-12-31')).toEqual([]);
+      // Sans période, toute la discussion reste visible.
+      expect((await listed('')).find((d) => d.key === key)!.total).toBeGreaterThan(3);
+
+      for (const qs of ['from=hier', 'to=2020-13-01', 'teacherId=x']) {
+        const res = await get(`/api/admin/parent-communications/discussions?${qs}`, superadmin);
+        expect(res.status).toBe(400);
+      }
+    });
+  });
 });

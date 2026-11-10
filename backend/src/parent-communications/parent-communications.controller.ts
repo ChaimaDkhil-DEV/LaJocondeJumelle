@@ -25,6 +25,7 @@ import {
 import {
   CreateCommunicationDto,
   DecisionDto,
+  DiscussionsQuery,
   GuardianAccountDto,
   GuardianDto,
   ListCommunicationsQuery,
@@ -107,6 +108,17 @@ export class ValidationCommunicationsController {
   @Get()
   list(@CurrentUser() user: AuthenticatedUser, @Query() query: ListCommunicationsQuery) {
     return this.communications.listForValidation(user, query);
+  }
+
+  /** Déclarée avant `:id` : « discussions » n'est pas un identifiant. */
+  @Get('discussions')
+  discussions(@CurrentUser() user: AuthenticatedUser, @Query() query: DiscussionsQuery) {
+    return this.communications.listDiscussions(user, query);
+  }
+
+  @Get(':id/discussion')
+  discussion(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.communications.getDiscussion(user, id);
   }
 
   @Get(':id')

@@ -166,15 +166,17 @@ test('015 — l’enseignante soumet, la direction approuve, le parent lit et é
   await expect(
     director.getByRole('heading', { level: 1, name: 'Communications à valider' }),
   ).toBeVisible();
-  await director.getByRole('link', { name: new RegExp(data.studentName) }).click();
-  await expect(director.getByText(remark)).toBeVisible();
-  await expect(director.locator('audio')).toHaveAttribute('src', /^\/api\/files\//);
-  await director.getByRole('button', { name: 'Approuver et publier' }).click();
+  // Messagerie : la discussion de l'élève, puis la bulle du message, validée seule après confirmation.
   await director
-    .getByRole('dialog', { name: 'Approuver et publier cette communication ?' })
-    .getByRole('button', { name: 'Approuver et publier' })
+    .getByRole('list', { name: 'Discussions' })
+    .getByRole('link', { name: new RegExp(data.studentName) })
     .click();
-  await expect(director.getByText('Approuvée et publiée', { exact: true })).toBeVisible();
+  const bubble = director.getByRole('article').filter({ hasText: remark });
+  await expect(bubble).toBeVisible();
+  await expect(bubble.locator('audio')).toHaveAttribute('src', /^\/api\/files\//);
+  await bubble.getByRole('button', { name: 'Valider' }).click();
+  await bubble.getByRole('button', { name: 'Valider et publier' }).click();
+  await expect(bubble.getByText('Validé', { exact: true })).toBeVisible();
   await director.context().close();
 
   // Parent : le message apparaît, non lu ; à l'ouverture, remarque et vocal lisibles ; puis lu.

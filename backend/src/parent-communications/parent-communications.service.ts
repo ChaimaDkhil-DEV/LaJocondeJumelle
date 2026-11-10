@@ -22,10 +22,13 @@ import {
   validatorCanSee,
   type CommunicationAction,
 } from './domain/communication-workflow';
+import { discussionKey, groupDiscussions } from './domain/discussions';
 import type {
   CreateCommunicationDto,
   DecisionDto,
+  DiscussionsQuery,
   ListCommunicationsQuery,
+  PeriodQuery,
   UpdateCommunicationDto,
 } from './parent-communications.dto';
 
@@ -38,6 +41,9 @@ export interface ActionContext {
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Longueur de l'aperçu du dernier message dans la liste des discussions. */
+const PREVIEW_MAX = 140;
 
 const PERSON = { select: { id: true, displayName: true } } as const;
 
@@ -157,6 +163,17 @@ function upperBound(value: string): Date {
   const end = new Date(value);
   if (value.length === 10) end.setUTCDate(end.getUTCDate() + 1);
   return end;
+}
+
+/** Filtre de date de soumission, bornes incluses (une date seule couvre toute la journée). */
+function submittedWithin(period: PeriodQuery): Prisma.ParentCommunicationWhereInput {
+  if (!period.from && !period.to) return {};
+  return {
+    submittedAt: {
+      ...(period.from ? { gte: new Date(period.from) } : {}),
+      ...(period.to ? { lt: upperBound(period.to) } : {}),
+    },
+  };
 }
 
 /**
@@ -501,14 +518,7 @@ export class ParentCommunicationsService {
       ...(query.teacherId ? { teacherId: query.teacherId } : {}),
       ...(query.studentId ? { studentId: query.studentId } : {}),
       ...(query.classId ? { student: { classId: query.classId } } : {}),
-      ...(query.from || query.to
-        ? {
-            submittedAt: {
-              ...(query.from ? { gte: new Date(query.from) } : {}),
-              ...(query.to ? { lt: upperBound(query.to) } : {}),
-            },
-          }
-        : {}),
+      ...submittedWithin(query),
     };
     const rows = await this.prisma.parentCommunication.findMany({
       where,
@@ -527,6 +537,85 @@ export class ParentCommunicationsService {
     if (!row || !validatorCanSee(row.status, row.currentRevision))
       throw new AppException('NOT_FOUND');
     return toDetail(row, 'validator');
+  }
+
+  /**
+   * Discussions de la validation (messagerie) : messages soumis regroupés par enseignant, élève et
+   * représentant, avec le décompte par statut. Seul un aperçu du dernier message est renvoyé. Avec
+   * une période, seuls les messages soumis dans la période sont regroupés et comptés.
+   */
+  async listDiscussions(user: AuthenticatedUser, period: DiscussionsQuery = {}) {
+    this.assertValidator(user);
+    const rows = await this.prisma.parentCommunication.findMany({
+      where: { currentRevision: { gt: 0 }, status: { not: 'DRAFT' }, ...submittedWithin(period) },
+      select: {
+        id: true,
+        teacherId: true,
+        studentId: true,
+        guardianId: true,
+        status: true,
+        submittedAt: true,
+        ...SUMMARY_INCLUDE,
+        revisions: { orderBy: { number: 'desc' }, take: 1, select: { text: true } },
+      },
+      orderBy: [{ submittedAt: 'desc' }, { id: 'desc' }],
+    });
+    return groupDiscussions(rows).map(({ key, last, firstPending, counts, total }) => ({
+      key,
+      teacher: last.teacher,
+      student: last.student,
+      guardian: last.guardian,
+      lastMessage: {
+        id: last.id,
+        status: last.status,
+        preview: (last.revisions[0]?.text ?? '').slice(0, PREVIEW_MAX),
+        submittedAt: last.submittedAt,
+      },
+      firstPendingId: firstPending?.id ?? null,
+      counts,
+      total,
+    }));
+  }
+
+  /**
+   * Discussion d'un message : tous les messages soumis du même enseignant au même représentant du
+   * même élève, du plus ancien au plus récent, chacun avec son statut, ses versions et son historique.
+   */
+  async getDiscussion(user: AuthenticatedUser, id: string) {
+    this.assertValidator(user);
+    const anchor = UUID.test(id)
+      ? await this.prisma.parentCommunication.findUnique({
+          where: { id },
+          select: {
+            teacherId: true,
+            studentId: true,
+            guardianId: true,
+            status: true,
+            currentRevision: true,
+          },
+        })
+      : null;
+    if (!anchor || !validatorCanSee(anchor.status, anchor.currentRevision))
+      throw new AppException('NOT_FOUND');
+    const rows = await this.prisma.parentCommunication.findMany({
+      where: {
+        teacherId: anchor.teacherId,
+        studentId: anchor.studentId,
+        guardianId: anchor.guardianId,
+        currentRevision: { gt: 0 },
+        status: { not: 'DRAFT' },
+      },
+      include: DETAIL_INCLUDE,
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+    const first = rows[0]!;
+    return {
+      key: discussionKey(anchor),
+      teacher: first.teacher,
+      student: first.student,
+      guardian: first.guardian,
+      messages: rows.map((row) => toDetail(row, 'validator')),
+    };
   }
 
   /**

@@ -162,4 +162,62 @@ export const parentCommunications: Record<string, string> = {
   'Vocal enregistré : écoutez-le, ou réenregistrez-le ci-dessous pour le remplacer.':
     'Voice message recorded: listen to it, or record it again below to replace it.',
   WhatsApp: 'WhatsApp',
+  // « Communications à valider » en messagerie : modération message par message.
+  Validé: 'Approved',
+  Rejeté: 'Rejected',
+  'Annulé par l’enseignant': 'Cancelled by the teacher',
+  Validés: 'Approved',
+  Retournés: 'Returned',
+  Rejetés: 'Rejected',
+  'Aujourd’hui': 'Today',
+  Hier: 'Yesterday',
+  'Lisez chaque discussion et validez, retournez ou rejetez ses messages un par un : seul un message validé est publié au parent.':
+    'Read each conversation and approve, return or reject its messages one by one: only an approved message is published to the parent.',
+  Conversation: 'Conversation',
+  'Sélectionnez une discussion': 'Select a conversation',
+  'Choisissez une discussion à gauche pour lire ses messages et les modérer un par un.':
+    'Choose a conversation on the left to read its messages and moderate them one by one.',
+  'Chargement de la discussion': 'Loading the conversation',
+  'la discussion': 'the conversation',
+  'Enseignant, élève, classe…': 'Teacher, student, class…',
+  'Rechercher une discussion': 'Search conversations',
+  'Filtrer les discussions': 'Filter conversations',
+  'Chargement des discussions': 'Loading conversations',
+  'les discussions': 'the conversations',
+  Discussions: 'Conversations',
+  'Aucune communication à modérer': 'No communications to moderate',
+  'Aucune discussion ne correspond.': 'No conversation matches.',
+  'Les messages soumis par les enseignants apparaîtront ici.':
+    'Messages submitted by teachers will appear here.',
+  'Changez de filtre, de période ou de recherche.': 'Change the filter, the period or the search.',
+  'Période de soumission': 'Submission period',
+  'Effacer la période': 'Clear the period',
+  'La date de fin précède la date de début.': 'The end date is before the start date.',
+  '{count} messages en attente': '{count} messages pending',
+  '{count} message en attente': '{count} message pending',
+  'Retour aux discussions': 'Back to conversations',
+  'Élève : {name} · {className}': 'Student: {name} · {className}',
+  '{count} à valider': '{count} to approve',
+  'Messages de la discussion': 'Conversation messages',
+  'Message validé et publié au parent.': 'Message approved and published to the parent.',
+  'Message retourné à l’enseignant pour correction.':
+    'Message returned to the teacher for correction.',
+  'Message rejeté.': 'Message rejected.',
+  'Message du {date}': 'Message of {date}',
+  'Version {number}': 'Version {number}',
+  'corrigé à {time}': 'corrected at {time}',
+  'corrigé le {date}': 'corrected on {date}',
+  'validé par {name}': 'approved by {name}',
+  'Vous êtes l’auteur de ce message : un autre responsable doit le valider.':
+    'You wrote this message: another manager must approve it.',
+  'Version {number} · {date}': 'Version {number} · {date}',
+  Valider: 'Approve',
+  'Plus d’actions': 'More actions',
+  'Publier ce message au parent ? La publication est définitive.':
+    'Publish this message to the parent? Publication is final.',
+  'Valider et publier': 'Approve and publish',
+  'L’enseignant pourra modifier ce message puis le soumettre à nouveau.':
+    'The teacher will be able to edit this message and submit it again.',
+  'Le rejet est définitif : ce message ne sera jamais publié.':
+    'Rejection is final: this message will never be published.',
 };
