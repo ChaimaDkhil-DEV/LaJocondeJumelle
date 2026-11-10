@@ -78,6 +78,15 @@ export const PURGE_STATEMENTS: readonly string[] = [
   'UPDATE "Request" SET "voiceFileId" = NULL',
   'UPDATE "Message" SET "voiceFileId" = NULL',
   'DELETE FROM "Notification"',
+  // Communication avec les parents (015) : avant les fichiers, les élèves et les comptes.
+  'DELETE FROM "OutboxEvent"',
+  'DELETE FROM "ParentCommunicationDelivery"',
+  'DELETE FROM "ParentCommunicationEvent"',
+  'DELETE FROM "ParentCommunicationRevision"',
+  'DELETE FROM "ParentCommunication"',
+  'DELETE FROM "TeacherClass"',
+  'DELETE FROM "GuardianStudent"',
+  'DELETE FROM "Guardian"',
   'DELETE FROM "CoverageReminder"',
   'DELETE FROM "CoverageMergeProposal"',
   'DELETE FROM "CoverageSupport"',
@@ -116,6 +125,10 @@ const APPEND_ONLY_TRIGGERS = [
   ['AuditLog', 'AuditLog_no_truncate'],
   ['StudentMealChange', 'StudentMealChange_append_only'],
   ['StudentMealChange', 'StudentMealChange_no_truncate'],
+  ['ParentCommunicationRevision', 'ParentCommunicationRevision_append_only'],
+  ['ParentCommunicationRevision', 'ParentCommunicationRevision_no_truncate'],
+  ['ParentCommunicationEvent', 'ParentCommunicationEvent_append_only'],
+  ['ParentCommunicationEvent', 'ParentCommunicationEvent_no_truncate'],
 ] as const;
 
 export interface PurgeReport {

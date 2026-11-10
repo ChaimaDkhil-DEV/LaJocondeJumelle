@@ -2,6 +2,7 @@ import type { RequestStatus } from '@prisma/client';
 import { addWorkingMinutes, nextOpening } from '../../prisma/demo/calendar';
 import { stableId } from '../../prisma/demo/random';
 import { SCENARIOS } from '../../prisma/demo/request-scenarios';
+import { demoFamilies, demoTeacherClasses } from '../../prisma/demo/parents';
 import { assertLocalDevelopmentDatabase, backupName, PURGE_STATEMENTS } from '../../prisma/demo/reset';
 import { ALL_ACCOUNTS, CATEGORIES, CLASSES, FLOORS, GUIDELINES, LEVELS, STAFF, fictionalPhone } from '../../prisma/demo/school-data';
 import { markReadings, simulateDemo, type DemoData, type Directory } from '../../prisma/demo/simulate';
@@ -235,5 +236,37 @@ describe('Jeu de démonstration — sécurité de la remise à zéro', () => {
     expect(backupName(new Date(2026, 9, 30, 2, 5))).toBe('app_backup_20261030_0205');
     expect(PURGE_STATEMENTS.some((s) => /TRUNCATE|_prisma_migrations|DROP/i.test(s))).toBe(false);
     expect(PURGE_STATEMENTS.some((s) => /DELETE FROM "(Setting|RolePermission)"/.test(s))).toBe(false);
+  });
+
+  it('purge : la communication avec les parents est effacée avant les fichiers, les élèves et les comptes', () => {
+    const at = (table: string) => PURGE_STATEMENTS.findIndex((s) => s.startsWith(`DELETE FROM "${table}"`));
+    for (const table of ['ParentCommunicationRevision', 'ParentCommunication', 'GuardianStudent', 'Guardian', 'TeacherClass']) {
+      expect(at(table)).toBeGreaterThanOrEqual(0);
+      for (const later of ['File', 'Student', 'SchoolClass', 'User']) expect(at(table)).toBeLessThan(at(later));
+    }
+    expect(at('ParentCommunicationRevision')).toBeLessThan(at('ParentCommunication'));
+  });
+
+  it('communication avec les parents : titulaire dans sa classe, spécialistes partout ; trois familles, la première avec deux enfants dans deux classes', () => {
+    const assignments = demoTeacherClasses();
+    const teachers = STAFF.filter((s) => s.kind === 'teacher');
+    const specialists = STAFF.filter((s) => s.kind === 'specialist');
+    expect(assignments).toHaveLength(teachers.length + specialists.length);
+    for (const t of teachers) expect(assignments.find((a) => a.username === t.username)?.classKeys).toEqual([t.classKey]);
+    for (const s of specialists) expect(assignments.find((a) => a.username === s.username)?.classKeys).toHaveLength(CLASSES.length);
+
+    const students = [
+      { id: 's3', lastName: 'Trabelsi', classId: 'c1' },
+      { id: 's1', lastName: 'Ben Salah', classId: 'c1' },
+      { id: 's2', lastName: 'Ben Salah', classId: 'c2' },
+      { id: 's4', lastName: 'Kéfi', classId: 'c2' },
+    ];
+    const families = demoFamilies(students);
+    expect(families.map((f) => [f.username, f.studentIds])).toEqual([
+      ['parent.ben-salah', ['s1', 's2']],
+      ['parent.trabelsi', ['s3']],
+      ['parent.kefi', ['s4']],
+    ]);
+    expect(demoFamilies([...students].reverse())).toEqual(families);
   });
 });
