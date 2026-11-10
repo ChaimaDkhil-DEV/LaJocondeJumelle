@@ -69,7 +69,7 @@ describe('Création vocale assistée', () => {
     await prisma.guideline.create({
       data: {
         title: 'Pannes de reprographie',
-        body: 'Une photocopieuse en panne bloque les cours. Priorité : Haute.',
+        body: 'Une photocopieuse en panne bloque les cours. Priorité : Normale.',
         categoryId: photocopies,
         updatedById: id.superadmin,
       },
@@ -109,7 +109,7 @@ describe('Création vocale assistée', () => {
     expect(res.body.suggestion).toMatchObject({
       title: 'La photocopieuse du premier étage est en panne depuis ce matin',
       categoryId: photocopies,
-      priority: 'HIGH',
+      priority: 'NORMAL',
       recipientId: id.reprographie,
       recipientName: 'Reprographie',
       recipientReason: 'Seul destinataire prévu pour cette catégorie.',
@@ -179,7 +179,7 @@ describe('Création vocale assistée', () => {
     expect((await api().get(`/api/files/${voice.body.id}`).set('Cookie', autre)).status).toBe(404);
 
     const event = await prisma.requestEvent.findFirstOrThrow({ where: { requestId: sent.body.id, type: 'ASSIST_SUGGESTED' } });
-    expect(event.fromValue).toMatchObject({ categoryId: photocopies, priority: 'HIGH', recipientId: id.reprographie });
+    expect(event.fromValue).toMatchObject({ categoryId: photocopies, priority: 'NORMAL', recipientId: id.reprographie });
     expect(event.toValue).toMatchObject({ categoryId: photocopies, priority: 'URGENT', recipientId: id.reprographie });
   });
 
@@ -190,7 +190,7 @@ describe('Création vocale assistée', () => {
       title: 'Photocopieuse en panne',
       categoryId: photocopies,
       recipientId: id.autre,
-      priority: 'HIGH',
+      priority: 'URGENT',
       voiceFileId: voice.body.id,
       assistToken: body.token,
     });

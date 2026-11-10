@@ -17,6 +17,7 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { ALL_ACTIONS, type RequestAction } from './domain/request-state-machine';
+import { TRACKING_GROUP_NAMES, type TrackingGroup } from './domain/tracking';
 
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
 /** Chaîne vide après nettoyage → absente. */
@@ -116,6 +117,11 @@ export class ListRequestsQuery {
   @Transform(toArray)
   @IsEnum(Priority, { each: true })
   priority?: Priority[];
+
+  /** Groupe de « Suivi de mes demandes » (016) : remplace une liste de statuts tenue par l'interface. */
+  @IsOptional()
+  @IsIn(TRACKING_GROUP_NAMES)
+  tracking?: TrackingGroup;
 
   @IsOptional()
   @Transform(toArray)

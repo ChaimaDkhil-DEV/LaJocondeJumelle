@@ -5,7 +5,7 @@ const allowed = { categoryIds: ['cat-a', 'cat-b'], sourceIds: ['g1', 'g2'] };
 const valid = {
   title: '  Photocopieuse   en panne ',
   categoryId: 'cat-a',
-  priority: 'HIGH',
+  priority: 'URGENT',
   reason: 'D’après la consigne « Pannes ».',
   missing: ['Précisez l’étage.'],
   sourceIds: ['g1'],
@@ -17,7 +17,7 @@ describe('sanitizeSuggestion', () => {
       suggestion: {
         title: 'Photocopieuse en panne',
         categoryId: 'cat-a',
-        priority: 'HIGH',
+        priority: 'URGENT',
         reason: 'D’après la consigne « Pannes ».',
         missing: ['Précisez l’étage.'],
         sourceIds: ['g1'],
@@ -30,7 +30,9 @@ describe('sanitizeSuggestion', () => {
     ['catégorie inconnue', { categoryId: 'cat-x' }, 'categoryId'],
     ['catégorie non textuelle', { categoryId: 42 }, 'categoryId'],
     ['priorité inexistante', { priority: 'CRITICAL' }, 'priority'],
-    ['priorité en minuscules', { priority: 'high' }, 'priority'],
+    ['priorité en minuscules', { priority: 'urgent' }, 'priority'],
+    ['priorité retirée (MEDIUM, 016)', { priority: 'MEDIUM' }, 'priority'],
+    ['priorité retirée (HIGH, 016)', { priority: 'HIGH' }, 'priority'],
     ['titre trop long', { title: 'x'.repeat(121) }, 'title'],
     ['titre vide', { title: '   ' }, 'title'],
     ['justification trop longue', { reason: 'x'.repeat(501) }, 'reason'],

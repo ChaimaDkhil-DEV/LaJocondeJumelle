@@ -16,7 +16,7 @@ export async function userId(ctx: SeedContext, username: string): Promise<string
 export interface WorkRequestInput {
   title: string;
   category: string;
-  priority?: 'NORMAL' | 'MEDIUM' | 'HIGH' | 'URGENT';
+  priority?: 'NORMAL' | 'URGENT';
   description?: string;
   /** Compte destinataire (mode direct ou entre enseignants) ; absent : service par défaut. */
   recipient?: string;

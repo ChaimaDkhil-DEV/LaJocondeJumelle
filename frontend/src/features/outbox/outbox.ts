@@ -34,9 +34,18 @@ export async function saveToOutbox(entry: OutboxEntry): Promise<void> {
   await set(entry.id, entry, store);
 }
 
+/** Priorités retirées par la migration 0024 (016) et leur équivalent, pour une demande restée hors ligne. */
+const LEGACY_PRIORITIES: Record<string, NewRequestInput['priority']> = { MEDIUM: 'NORMAL', HIGH: 'URGENT' };
+
+function withCurrentPriority(entry: OutboxEntry): OutboxEntry {
+  if (entry.type === 'message') return entry;
+  const priority = LEGACY_PRIORITIES[entry.payload.priority as string];
+  return priority ? { ...entry, payload: { ...entry.payload, priority } } : entry;
+}
+
 export async function listOutbox(): Promise<OutboxEntry[]> {
   const entries = (await values(store)) as OutboxEntry[];
-  return entries.sort((a, b) => a.savedAt.localeCompare(b.savedAt));
+  return entries.map(withCurrentPriority).sort((a, b) => a.savedAt.localeCompare(b.savedAt));
 }
 
 export async function removeFromOutbox(id: string): Promise<void> {

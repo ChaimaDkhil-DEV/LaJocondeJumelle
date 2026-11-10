@@ -85,8 +85,8 @@ describe('Seed', () => {
       takeoverMinutes: 1440,
       completionMinutes: 4320,
     });
-    expect(rule('MEDIUM')).toMatchObject({ takeoverMinutes: 480, completionMinutes: 2880 });
-    expect(rule('HIGH')).toMatchObject({ takeoverMinutes: 120, completionMinutes: 1440 });
+    // 016 : deux priorités, deux règles.
+    expect(category.deadlineRules.map((r) => r.priority).sort()).toEqual(['NORMAL', 'URGENT']);
   });
 
   it('crée une catégorie de démonstration en circuit B avec validation finale et photo obligatoire', async () => {
@@ -165,7 +165,8 @@ describe('Seed', () => {
     expect(after.map((u) => u.passwordHash)).toEqual(before.map((u) => u.passwordHash));
     // 3 catégories de demandes de travail + « Garde de classe » (couverture), 4 priorités chacune.
     await expect(prisma.category.count()).resolves.toBe(4);
-    await expect(prisma.deadlineRule.count()).resolves.toBe(16);
+    // 4 catégories × 2 priorités (016).
+    await expect(prisma.deadlineRule.count()).resolves.toBe(8);
     await expect(prisma.employeeGroup.count()).resolves.toBe(2);
     await expect(prisma.schoolClass.count()).resolves.toBe(2);
     await expect(prisma.floor.count()).resolves.toBe(2);

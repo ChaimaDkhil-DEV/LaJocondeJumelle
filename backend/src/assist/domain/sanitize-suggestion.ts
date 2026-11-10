@@ -22,7 +22,7 @@ export interface SanitizeResult {
 }
 
 export const SUGGESTION_LIMITS = { title: 120, reason: 500, missing: 3, missingItem: 200 } as const;
-const PRIORITIES: readonly Priority[] = ['NORMAL', 'MEDIUM', 'HIGH', 'URGENT'];
+const PRIORITIES: readonly Priority[] = ['NORMAL', 'URGENT'];
 
 function cleanText(value: unknown, max: number): string | null {
   if (typeof value !== 'string') return null;

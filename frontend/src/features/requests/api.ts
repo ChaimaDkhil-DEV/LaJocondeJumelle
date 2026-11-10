@@ -10,7 +10,24 @@ export const requestKeys = {
   list: (scope: RequestScope, statuses: readonly string[] = [], filters = '') =>
     ['requests', 'list', scope, ...statuses, filters] as const,
   detail: (id: string) => ['requests', 'detail', id] as const,
+  /**
+   * Compteurs de « Suivi de mes demandes » (016). Rangés sous ['requests', 'list'] : chaque invalidation
+   * des listes (événements temps réel « request:updated » et « notification:new », actions sur une
+   * demande) les relit aussi, donc après chaque changement de statut.
+   */
+  tracking: ['requests', 'list', 'tracking-counts'] as const,
 };
+
+/** Groupes de « Suivi de mes demandes » : la liste des statuts de chacun est tenue par le serveur. */
+export type TrackingGroup = 'pending' | 'handled' | 'archived';
+
+/** Nombre de demandes envoyées par l'utilisateur connecté, par groupe (GET /api/requests/tracking). */
+export function useTracking() {
+  return useQuery({
+    queryKey: requestKeys.tracking,
+    queryFn: () => apiFetch<Record<TrackingGroup, number>>('/api/requests/tracking'),
+  });
+}
 
 /** Rechargée à chaque ouverture du formulaire : une catégorie créée ou réactivée par le super administrateur y apparaît aussitôt. */
 export function useCategories() {

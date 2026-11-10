@@ -212,14 +212,14 @@ describe('Historique et priorité', () => {
     it('n’est plus permis à la demandeuse après acceptation (403)', async () => {
       const { id, version } = await create();
       const accepted = await act(reprographie, id, { action: 'ACCEPT', version });
-      const res = await changePriority(enseignante, id, { priority: 'HIGH', version: accepted.body.version });
+      const res = await changePriority(enseignante, id, { priority: 'URGENT', version: accepted.body.version });
       expect(res.status).toBe(403);
     });
 
     it('mode direct : refusé à l’administration, qui consulte en lecture seule (403)', async () => {
       const { id, version } = await create();
       const accepted = await act(reprographie, id, { action: 'ACCEPT', version });
-      expect((await changePriority(responsable, id, { priority: 'HIGH', version: accepted.body.version })).status).toBe(403);
+      expect((await changePriority(responsable, id, { priority: 'URGENT', version: accepted.body.version })).status).toBe(403);
     });
 
     it('via l’administration : par un responsable de la catégorie tant que la demande n’est ni terminée ni finale', async () => {
@@ -231,16 +231,19 @@ describe('Historique et priorité', () => {
       const approved = await act(responsable, created.body.id, { action: 'APPROVE', version: created.body.version, assigneeId: reprographieId });
       const id = created.body.id as string;
       const accepted = await act(reprographie, id, { action: 'ACCEPT', version: approved.body.version });
-      const res = await changePriority(responsable, id, { priority: 'HIGH', version: accepted.body.version });
+      const res = await changePriority(responsable, id, { priority: 'URGENT', version: accepted.body.version });
       expect(res.status).toBe(200);
-      expect(res.body.priority).toBe('HIGH');
+      expect(res.body.priority).toBe('URGENT');
       // Demande terminée : refus couvert par messages.spec.ts (lecture seule côté serveur).
     });
 
     it('refuse une version périmée, une priorité inconnue ou une priorité identique', async () => {
       const { id, version } = await create();
-      expect((await changePriority(enseignante, id, { priority: 'HIGH', version: version + 5 })).body.error.code).toBe('STATE_CHANGED');
+      expect((await changePriority(enseignante, id, { priority: 'URGENT', version: version + 5 })).body.error.code).toBe('STATE_CHANGED');
       expect((await changePriority(enseignante, id, { priority: 'EXTREME', version })).status).toBe(400);
+      // 016 : deux priorités seulement, les anciennes sont refusées.
+      expect((await changePriority(enseignante, id, { priority: 'HIGH', version })).status).toBe(400);
+      expect((await changePriority(enseignante, id, { priority: 'MEDIUM', version })).status).toBe(400);
       expect((await changePriority(enseignante, id, { priority: 'NORMAL', version })).status).toBe(400);
     });
 

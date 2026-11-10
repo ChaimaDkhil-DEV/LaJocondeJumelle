@@ -23,7 +23,7 @@ const USERS = [
   { id: 'e2', username: 'technicien', displayName: 'Technicien', jobTitle: null, role: 'EMPLOYEE', active: true, mustChangePassword: true, createdAt: '2026-10-13T08:00:00.000Z', recipientCategories: [] },
 ];
 
-const RULES = (['NORMAL', 'MEDIUM', 'HIGH', 'URGENT'] as const).map((priority) => ({
+const RULES = (['NORMAL', 'URGENT'] as const).map((priority) => ({
   priority,
   validationMinutes: null,
   takeoverMinutes: 60,

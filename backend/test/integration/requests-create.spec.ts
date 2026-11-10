@@ -252,9 +252,9 @@ describe('Création de demandes', () => {
         .patch(`/api/requests/${id}`)
         .set('Cookie', enseignante)
         .set('Origin', TEST_ORIGIN)
-        .send({ title: 'Brouillon modifié', priority: 'HIGH', recipientId: reprographieId });
+        .send({ title: 'Brouillon modifié', priority: 'URGENT', recipientId: reprographieId });
       expect(patched.status).toBe(200);
-      expect(patched.body).toMatchObject({ title: 'Brouillon modifié', priority: 'HIGH' });
+      expect(patched.body).toMatchObject({ title: 'Brouillon modifié', priority: 'URGENT' });
 
       const forbidden = await api().delete(`/api/requests/${id}`).set('Cookie', responsable).set('Origin', TEST_ORIGIN);
       expect(forbidden.status).toBe(404);
@@ -299,7 +299,7 @@ describe('Création de demandes', () => {
     const secret = () => process.env.SESSION_SECRET!;
     let enseignanteId: string;
     const SOURCES = [{ id: '11111111-1111-4111-8111-111111111111', title: 'Pannes de reprographie' }];
-    const proposed = (): AssistTokenPayload => ({ title: 'Photocopieuse en panne', categoryId: photocopies, priority: 'HIGH', sources: SOURCES });
+    const proposed = (): AssistTokenPayload => ({ title: 'Photocopieuse en panne', categoryId: photocopies, priority: 'URGENT', sources: SOURCES });
     const assistEvents = (requestId: string) =>
       prisma.requestEvent.findMany({ where: { requestId, type: 'ASSIST_SUGGESTED' } });
 
@@ -325,7 +325,7 @@ describe('Création de demandes', () => {
         title: 'Photocopieuse en panne',
         categoryId: photocopies,
         categoryName: 'Photocopies',
-        priority: 'HIGH',
+        priority: 'URGENT',
         sources: SOURCES,
       });
       expect(event.toValue).toEqual({ title: 'Photocopieuse du 1er en panne', categoryId: photocopies, categoryName: 'Photocopies', priority: 'NORMAL' });

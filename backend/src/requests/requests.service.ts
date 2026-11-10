@@ -16,6 +16,7 @@ import { SettingsService } from '../settings/settings.service';
 import { allowedActions, canCreateInCategory, canPickRecipient, canReadRequest } from './domain/access-policy';
 import { applyAction, type TransitionResult } from './domain/request-state-machine';
 import { deadlineAfterPriorityChange, NO_DEADLINE, nextDeadlineState } from './domain/deadlines';
+import { TRACKING_GROUPS, TRACKING_GROUP_NAMES, type TrackingGroup } from './domain/tracking';
 import { visibleRequestsWhere } from './domain/visibility';
 import { RequestTransitionsService } from './request-transitions.service';
 import {
@@ -221,6 +222,7 @@ export class RequestsService {
     }
     if (query.status?.length) conditions.push({ status: { in: query.status } });
     if (query.priority?.length) conditions.push({ priority: { in: query.priority } });
+    if (query.tracking) conditions.push({ status: { in: [...TRACKING_GROUPS[query.tracking]] } });
     if (query.categoryId?.length) conditions.push({ categoryId: { in: query.categoryId } });
     if (query.assigneeId) conditions.push({ assigneeId: query.assigneeId });
     if (query.requesterId) conditions.push({ requesterId: query.requesterId });
@@ -253,6 +255,22 @@ export class RequestsService {
       items: page.items.map((r) => toRequestSummary(r, unread.get(r.id) ?? 0)),
       nextCursor: page.nextCursor,
     };
+  }
+
+  /**
+   * « Suivi de mes demandes » (016) : nombre de demandes envoyées par l'utilisateur dans chaque groupe
+   * de statuts. Toujours les siennes (aucun paramètre ne désigne un autre utilisateur), dans la
+   * visibilité habituelle : demandes de travail, brouillons exclus.
+   */
+  async tracking(user: AuthenticatedUser): Promise<Record<TrackingGroup, number>> {
+    const rows = await this.prisma.request.groupBy({
+      by: ['status'],
+      where: { AND: [visibleRequestsWhere(user), { requesterId: user.id, status: { not: 'DRAFT' } }] },
+      _count: { _all: true },
+    });
+    const count = (group: TrackingGroup) =>
+      rows.filter((r) => (TRACKING_GROUPS[group] as readonly string[]).includes(r.status)).reduce((n, r) => n + r._count._all, 0);
+    return Object.fromEntries(TRACKING_GROUP_NAMES.map((g) => [g, count(g)])) as Record<TrackingGroup, number>;
   }
 
   /**

@@ -62,7 +62,7 @@ describe('POST /api/assist/suggestions', () => {
       await prisma.guideline.create({
         data: {
           title: 'Pannes de reprographie',
-          body: 'Une photocopieuse en panne bloque les cours. Priorité : Haute.',
+          body: 'Une photocopieuse en panne bloque les cours. Priorité : Urgente.',
           categoryId: photocopiesId,
           updatedById: superadminId,
         },
@@ -82,7 +82,7 @@ describe('POST /api/assist/suggestions', () => {
     expect(res.body).toMatchObject({
       suggestion: {
         categoryId: photocopiesId,
-        priority: 'HIGH',
+        priority: 'URGENT',
         title: expect.any(String),
         reason: expect.stringContaining('Pannes de reprographie'),
         missing: expect.any(Array),
@@ -97,7 +97,7 @@ describe('POST /api/assist/suggestions', () => {
     expect(payload).toEqual({
       title: res.body.suggestion.title,
       categoryId: photocopiesId,
-      priority: 'HIGH',
+      priority: 'URGENT',
       // Seul destinataire de « Photocopies » : proposé d'après les règles d'affectation.
       recipientId: await userId(prisma, 'reprographie'),
       sources: [{ id: guidelineId, title: 'Pannes de reprographie' }],
@@ -370,7 +370,7 @@ describe('Indisponibilité et limite d’appels', () => {
   let mode: 'ok' | 'throw' | 'hang' = 'ok';
   const run = <T>(value: T) =>
     mode === 'throw' ? Promise.reject(new Error('panne du fournisseur')) : mode === 'hang' ? new Promise<T>(() => undefined) : Promise.resolve(value);
-  const suggestions = { name: 'test', suggest: () => run({ priority: 'HIGH' }) };
+  const suggestions = { name: 'test', suggest: () => run({ priority: 'URGENT' }) };
   const transcriptions = { name: 'test', transcribe: () => run('Texte transcrit.') };
 
   const suggest = (text = 'Texte confidentiel : la photocopieuse est en panne.') =>
@@ -457,7 +457,7 @@ describe('Délai propre à la transcription', () => {
   // Fournisseurs simulés qui répondent après 2 s : au-delà du délai des propositions (1 s),
   // en deçà de celui de la transcription (4 s).
   const slow = <T>(value: T) => new Promise<T>((resolve) => setTimeout(() => resolve(value), 2000));
-  const suggestions = { name: 'test', suggest: () => slow({ priority: 'HIGH' }) };
+  const suggestions = { name: 'test', suggest: () => slow({ priority: 'URGENT' }) };
   const transcriptions = { name: 'test', transcribe: () => slow('Texte transcrit lentement.') };
 
   beforeAll(async () => {

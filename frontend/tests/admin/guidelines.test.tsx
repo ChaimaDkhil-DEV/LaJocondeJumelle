@@ -26,7 +26,7 @@ const GUIDELINES = [
   {
     id: 'g1',
     title: 'Panne de photocopieuse',
-    body: 'Une photocopieuse en panne : Priorité : Haute.',
+    body: 'Une photocopieuse en panne : Priorité : Urgente.',
     categoryId: 'c1',
     categoryName: 'Photocopies',
     active: true,
@@ -114,7 +114,7 @@ describe('Consignes', () => {
     );
     await userEvent.click(await screen.findByRole('button', { name: 'Nouvelle consigne' }));
     const dialog = await screen.findByRole('dialog', { name: 'Nouvelle consigne' });
-    expect(within(dialog).getByText(/Priorité : Haute/)).toBeVisible();
+    expect(within(dialog).getByText(/Priorité : Urgente/)).toBeVisible();
 
     await userEvent.click(within(dialog).getByRole('button', { name: 'Enregistrer la consigne' }));
     expect(await within(dialog).findByText('Le titre est obligatoire.')).toBeVisible();
@@ -146,7 +146,7 @@ describe('Consignes', () => {
     await userEvent.click(within(listbox).getByRole('option', { name: 'Photocopies' }));
 
     await userEvent.type(within(dialog).getByLabelText(/Titre/), 'Toner');
-    await userEvent.type(within(dialog).getByLabelText(/Texte/), 'Toner vide : Priorité : Moyenne.');
+    await userEvent.type(within(dialog).getByLabelText(/Texte/), 'Toner vide : Priorité : Normale.');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Enregistrer la consigne' }));
     await waitFor(() => expect(calls.find((c) => c.method === 'POST')).toMatchObject({ body: { categoryId: 'c1' } }));
   });

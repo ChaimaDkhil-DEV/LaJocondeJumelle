@@ -165,7 +165,7 @@ function summary(over: Record<string, unknown> = {}) {
     reference: 'D-0001',
     title: 'Photocopies du contrôle',
     category: { id: 'cat-a', name: 'Photocopies' },
-    priority: 'HIGH',
+    priority: 'URGENT',
     status: 'DRAFT',
     requester: { id: 'u1', displayName: 'Enseignante' },
     assignee: { id: 'repro2', displayName: 'Reprographie 2' },
@@ -267,7 +267,7 @@ describe('page brouillon (US2)', () => {
     expect(await screen.findByRole('heading', { name: 'Brouillon de demande' })).toBeVisible();
     expect(await screen.findByRole('combobox', { name: 'Catégorie' })).toHaveTextContent('Photocopies');
     await waitFor(() => expect(screen.getByRole('combobox', { name: 'Destinataire (service)' })).toHaveTextContent('Reprographie 2'));
-    expect(screen.getByRole('radio', { name: 'Haute' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Urgente' })).toBeChecked();
     expect(screen.getByLabelText('Titre')).toHaveValue('Photocopies du contrôle');
     expect(screen.getByLabelText('Description (facultative)')).toHaveValue('Deux copies');
   });

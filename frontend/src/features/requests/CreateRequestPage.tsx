@@ -5,7 +5,9 @@ import GlobalStyles from '@mui/material/GlobalStyles';
 import { FilePen, Send } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRef, useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
+import type { Priority } from '../../api/types';
+import { isPriority, PriorityBadge } from '../../components/PriorityBadge';
 import { ApiError } from '../../api/client';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
@@ -33,17 +35,40 @@ const CARD_WIDTH = 640;
 /** Mobile : hauteur du bouton d'envoi fixé en bas de l'écran, avec ses marges. */
 const SEND_BAR_SPACE = 88;
 
-const header = (
-  <PageHeader
-    compact
-    title={t('Nouvelle demande')}
-    description={t('Parlez, on remplit le reste.')}
-    back={{ to: '/demandes', label: t('Retour aux demandes') }}
-  />
-);
+/** Titre de la page : la priorité choisie à l'accueil (016) reste nommée, et suit un changement dans le formulaire. */
+function titleFor(priority: Priority | '' | null): string {
+  if (priority === 'URGENT') return t('Demande urgente');
+  if (priority === 'NORMAL') return t('Demande normale');
+  return t('Nouvelle demande');
+}
+
+/**
+ * `preset` : priorité passée par l'accueil de l'enseignant (« Demande urgente », « Demande normale ») ;
+ * l'en-tête la rappelle, avec un retour vers l'accueil.
+ */
+function Header({ preset, priority }: { preset: boolean; priority: Priority | '' | null }) {
+  return (
+    <PageHeader
+      compact
+      title={titleFor(preset ? priority : null)}
+      description={t('Parlez, on remplit le reste.')}
+      back={preset ? { to: '/', label: t('Retour à l’accueil') } : { to: '/demandes', label: t('Retour aux demandes') }}
+    >
+      {preset && priority && (
+        <Box data-testid="preset-priority" sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+          {t('Priorité :')} <PriorityBadge priority={priority} />
+        </Box>
+      )}
+    </PageHeader>
+  );
+}
 
 export function CreateRequestPage() {
   const categories = useCategories();
+  const [params] = useSearchParams();
+  // Seule une priorité en vigueur est reprise de l'adresse (« ?priorite=HIGH » est ignorée).
+  const preset = params.get('priorite');
+  const presetPriority = isPriority(preset) ? preset : undefined;
 
   if (categories.isPending) return <LoadingState label={t('Chargement du formulaire')} variant="form" />;
   if (categories.error) {
@@ -55,16 +80,17 @@ export function CreateRequestPage() {
       />
     );
   }
-  return <CreateRequestForm categories={categories.data} />;
+  return <CreateRequestForm categories={categories.data} presetPriority={presetPriority} />;
 }
 
-function CreateRequestForm({ categories }: { categories: CategoryOption[] }) {
+function CreateRequestForm({ categories, presetPriority }: { categories: CategoryOption[]; presetPriority?: Priority }) {
   const navigate = useNavigate();
   const { voiceMaxSeconds, draftsEnabled } = useClientSettings();
   const queryClient = useQueryClient();
   const toast = useToast();
   const clientId = useRef(crypto.randomUUID());
-  const form = useRequestForm(categories);
+  // Priorité choisie à l'accueil : un choix de l'utilisateur, que les propositions automatiques ne remplacent pas.
+  const form = useRequestForm(categories, { priority: presetPriority });
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState<'send' | 'draft' | null>(null);
   const [assistToken, setAssistToken] = useState<string | null>(null);
@@ -157,7 +183,7 @@ function CreateRequestForm({ categories }: { categories: CategoryOption[] }) {
   // Maquette « Voix d'abord » : une seule carte centrée ; vocal, titre, champs, puis envoi.
   return (
     <Box sx={{ maxWidth: CARD_WIDTH, mx: 'auto' }}>
-      {header}
+      <Header preset={Boolean(presetPriority)} priority={form.priority} />
       <Box component="form" noValidate onSubmit={(e: FormEvent<HTMLFormElement>) => void handleSubmit(e)}>
         <RequestFields
           form={form}

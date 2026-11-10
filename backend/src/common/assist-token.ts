@@ -20,7 +20,7 @@ const VERSION = 1;
 const MAX_AGE_MS = 24 * 3600_000;
 /** Tolérance d'horloge pour un jeton émis « dans le futur ». */
 const CLOCK_SKEW_MS = 60_000;
-const PRIORITIES: readonly string[] = ['NORMAL', 'MEDIUM', 'HIGH', 'URGENT'];
+const PRIORITIES: readonly string[] = ['NORMAL', 'URGENT'];
 
 /** Clé propre à cet usage : un jeton de proposition ne peut servir de signature ailleurs. */
 function keyOf(secret: string): Buffer {

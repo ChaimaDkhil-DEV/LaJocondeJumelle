@@ -163,6 +163,56 @@ function RequestRow({ request, received }: { request: RequestSummary; received: 
   );
 }
 
+/**
+ * Liste de demandes : une ligne-lien par demande, puis « Afficher plus » tant que le serveur en a d'autres.
+ * Partagée par « Mes demandes » et les listes de « Suivi de mes demandes » (016).
+ */
+export function RequestRows({
+  requests,
+  received,
+  hasNextPage,
+  loadingMore,
+  onMore,
+}: {
+  requests: RequestSummary[];
+  received: boolean;
+  hasNextPage: boolean;
+  loadingMore: boolean;
+  onMore: () => void;
+}) {
+  return (
+    <>
+      <Box
+        component="ul"
+        sx={{
+          listStyle: 'none',
+          m: 0,
+          p: 0,
+          border: 1,
+          borderColor: 'divider',
+          borderRadius: 1.5,
+          bgcolor: 'background.paper',
+          overflow: 'hidden',
+          '& > li + li': { borderTop: 1, borderColor: 'divider' },
+        }}
+      >
+        {requests.map((r) => (
+          <li key={r.id}>
+            <RequestRow request={r} received={received} />
+          </li>
+        ))}
+      </Box>
+      {hasNextPage && (
+        <Box sx={{ mt: 2, textAlign: 'center' }}>
+          <Button variant="outlined" onClick={onMore} loading={loadingMore}>
+            {t('Afficher plus de demandes')}
+          </Button>
+        </Box>
+      )}
+    </>
+  );
+}
+
 export function RequestListPage() {
   const [params, setParams] = useSearchParams();
   const me = useCurrentUser();
@@ -245,33 +295,13 @@ export function RequestListPage() {
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
               {countLabel}
             </Typography>
-            <Box
-              component="ul"
-              sx={{
-                listStyle: 'none',
-                m: 0,
-                p: 0,
-                border: 1,
-                borderColor: 'divider',
-                borderRadius: 1.5,
-                bgcolor: 'background.paper',
-                overflow: 'hidden',
-                '& > li + li': { borderTop: 1, borderColor: 'divider' },
-              }}
-            >
-              {requests.map((r) => (
-                <li key={r.id}>
-                  <RequestRow request={r} received={tab.scope === 'assigned'} />
-                </li>
-              ))}
-            </Box>
-            {list.hasNextPage && (
-              <Box sx={{ mt: 2, textAlign: 'center' }}>
-                <Button variant="outlined" onClick={() => void list.fetchNextPage()} loading={list.isFetchingNextPage}>
-                  {t('Afficher plus de demandes')}
-                </Button>
-              </Box>
-            )}
+            <RequestRows
+              requests={requests}
+              received={tab.scope === 'assigned'}
+              hasNextPage={list.hasNextPage}
+              loadingMore={list.isFetchingNextPage}
+              onMore={() => void list.fetchNextPage()}
+            />
           </>
         )}
       </Box>

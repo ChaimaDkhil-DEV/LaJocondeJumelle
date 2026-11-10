@@ -226,22 +226,17 @@ export interface CategorySeed {
  */
 const SCHOOL_DEADLINES: Record<Priority, DeadlineDurations> = {
   NORMAL: { validationMinutes: 2880, takeoverMinutes: 2880, completionMinutes: 7200 },
-  MEDIUM: { validationMinutes: 1440, takeoverMinutes: 1440, completionMinutes: 4320 },
-  HIGH: { validationMinutes: 240, takeoverMinutes: 240, completionMinutes: 1440 },
   URGENT: { validationMinutes: 30, takeoverMinutes: 30, completionMinutes: 240 },
 };
 
 const SUPERVISION_DEADLINES: Record<Priority, DeadlineDurations> = {
   NORMAL: { validationMinutes: 1440, takeoverMinutes: 1440, completionMinutes: 2880 },
-  MEDIUM: { validationMinutes: 480, takeoverMinutes: 480, completionMinutes: 1440 },
-  HIGH: { validationMinutes: 60, takeoverMinutes: 60, completionMinutes: 480 },
   URGENT: { validationMinutes: 15, takeoverMinutes: 10, completionMinutes: 60 },
 };
 
 const WORKS_DEADLINES: Record<Priority, DeadlineDurations> = {
   ...SCHOOL_DEADLINES,
   NORMAL: { validationMinutes: 2880, takeoverMinutes: 2880, completionMinutes: 10080 },
-  MEDIUM: { validationMinutes: 1440, takeoverMinutes: 1440, completionMinutes: 5760 },
 };
 
 export const CATEGORIES: readonly CategorySeed[] = [
@@ -328,7 +323,7 @@ export const GUIDELINES: ReadonlyArray<{ key: string; title: string; body: strin
   {
     key: 'informatique',
     title: 'Pannes informatiques en classe',
-    body: 'Consigne de démonstration. Vidéoprojecteur, tableau interactif ou ordinateur indispensable au cours : Priorité : Haute. Installation de logiciel ou compte à créer : Priorité : Normale.',
+    body: 'Consigne de démonstration. Vidéoprojecteur, tableau interactif ou ordinateur indispensable au cours : Priorité : Urgente. Installation de logiciel ou compte à créer : Priorité : Normale.',
     category: 'it',
   },
   {

@@ -20,7 +20,7 @@ async function seedAssistGuideline(prisma: PrismaClient): Promise<void> {
   await prisma.guideline.create({
     data: {
       title: 'Pannes de reprographie',
-      body: 'Une photocopieuse en panne bloque les cours : Priorité : Haute.',
+      body: 'Une photocopieuse en panne bloque les cours : Priorité : Urgente.',
       categoryId: category.id,
       updatedById: superadmin.id,
     },

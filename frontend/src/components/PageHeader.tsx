@@ -120,6 +120,7 @@ export function PageHeader({ title, description, eyebrow, actions, back, breadcr
             {description}
           </Typography>
         )}
+        {children && <Box sx={{ mt: 1 }}>{children}</Box>}
       </Box>
     );
   }

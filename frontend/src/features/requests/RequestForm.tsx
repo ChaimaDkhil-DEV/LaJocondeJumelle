@@ -19,7 +19,7 @@ import type { Priority } from '../../api/types';
 import { visuallyHidden } from '../../components/a11y';
 import { Badge } from '../../components/Badge';
 import { fieldIcon } from '../../components/fieldIcon';
-import { PRIORITY_LABELS, PRIORITY_STYLE } from '../../components/PriorityBadge';
+import { PRIORITIES, PRIORITY_LABELS, PRIORITY_STYLE } from '../../components/PriorityBadge';
 import { font, fontSize, icon, tokensOf } from '../../design/tokens';
 import { t } from '../../i18n';
 import { VoiceHero } from '../voice/VoiceHero';
@@ -27,7 +27,6 @@ import type { VoiceRecording } from '../voice/VoiceRecorder';
 import { useRecipients } from './api';
 import type { CategoryOption } from './types';
 
-const PRIORITIES: Priority[] = ['NORMAL', 'MEDIUM', 'HIGH', 'URGENT'];
 /** Phrase unique, sous le vocal, pour les champs remplis par les propositions (badge « Suggéré »). */
 export const SUGGESTED_HINT = t('Champs préremplis d’après votre message : vérifiez-les.');
 
@@ -524,10 +523,7 @@ export function RequestFields({
           onChange={(e) => form.setPriority(e.target.value as Priority)}
           sx={{
             display: 'grid',
-            gridTemplateColumns: {
-              xs: 'repeat(2, minmax(0, 1fr))',
-              sm: 'repeat(4, minmax(0, 1fr))',
-            },
+            gridTemplateColumns: `repeat(${PRIORITIES.length}, minmax(0, 1fr))`,
             gap: { xs: 1, sm: 0 },
           }}
         >

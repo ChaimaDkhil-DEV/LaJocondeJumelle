@@ -7,6 +7,7 @@ import { avatar } from './avatar';
 import { common } from './common';
 import { coverage } from './coverage';
 import { dashboard } from './dashboard';
+import { home } from './home';
 import { imports } from './imports';
 import { notifications } from './notifications';
 import { outbox } from './outbox';
@@ -28,6 +29,7 @@ export const en: Record<string, string> = {
   ...attendance,
   ...admin,
   ...dashboard,
+  ...home,
   ...thread,
   ...voice,
   ...notifications,

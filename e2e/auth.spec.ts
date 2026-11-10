@@ -26,7 +26,8 @@ test('un identifiant incorrect affiche un message clair', async ({ page }) => {
 
 test('connexion, page d’accueil accessible puis déconnexion', async ({ page }) => {
   await login(page, 'enseignante');
-  await expect(page.getByRole('heading', { name: 'Mes demandes' })).toBeVisible();
+  // 016 : membre du groupe Enseignants, son accueil est « Accueil » (scan, demandes rapides, suivi).
+  await expect(page.getByRole('heading', { level: 1, name: 'Accueil' })).toBeVisible();
   await expectNoA11yViolations(page);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);

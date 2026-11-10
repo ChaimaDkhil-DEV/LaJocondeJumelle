@@ -38,7 +38,7 @@ const RESULT = {
   suggestion: {
     title: 'Photocopieuse du 1er en panne',
     categoryId: 'cat-b',
-    priority: 'HIGH',
+    priority: 'URGENT',
     reason: 'D’après la consigne « Pannes de reprographie ».',
     missing: ['Numéro de la salle'],
   },
@@ -50,7 +50,7 @@ const PEER_RESULT = {
   suggestion: {
     title: 'Copies du contrôle pour Paul Martin',
     categoryId: 'cat-p',
-    priority: 'MEDIUM',
+    priority: 'NORMAL',
     recipientId: 'martin',
     recipientName: 'Paul Martin',
     recipientReason: '« Paul Martin » est cité et fait partie des destinataires autorisés.',
@@ -159,7 +159,7 @@ describe('Propositions automatiques', () => {
     await analysisDone();
     expect(screen.getByLabelText('Titre')).toHaveValue('Photocopieuse du 1er en panne');
     expect(screen.getByRole('combobox', { name: 'Catégorie' })).toHaveTextContent('Intervention technique');
-    expect(screen.getByRole('radio', { name: 'Haute' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Urgente' })).toBeChecked();
     expect(screen.getAllByText('Suggéré')).toHaveLength(3);
     expect(screen.getAllByText(SUGGESTED_HINT)).toHaveLength(1);
     // Aucun texte explicatif affiché : la justification reste repliée derrière « Voir pourquoi ».
@@ -196,14 +196,15 @@ describe('Propositions automatiques', () => {
     await analysisDone();
     await userEvent.clear(screen.getByLabelText('Titre'));
     await userEvent.type(screen.getByLabelText('Titre'), 'Titre corrigé');
-    await userEvent.click(screen.getByRole('radio', { name: 'Urgente' }));
+    // Proposition « Urgente » : l'utilisateur choisit l'autre priorité.
+    await userEvent.click(screen.getByRole('radio', { name: 'Normale' }));
     expect(screen.getAllByText('Suggéré')).toHaveLength(1);
 
     await userEvent.click(screen.getByRole('button', { name: 'Relancer l’analyse' }));
     await waitFor(() => expect(suggestionCalls(calls)).toHaveLength(2));
     await analysisDone();
     expect(screen.getByLabelText('Titre')).toHaveValue('Titre corrigé');
-    expect(screen.getByRole('radio', { name: 'Urgente' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Normale' })).toBeChecked();
     expect(screen.getAllByText('Suggéré')).toHaveLength(1);
   });
 
@@ -226,7 +227,7 @@ describe('Propositions automatiques', () => {
     expect(calls.find((c) => c.url === '/api/requests' && c.method === 'POST')?.body).toMatchObject({
       categoryId: 'cat-p',
       recipientId: 'durand',
-      priority: 'MEDIUM',
+      priority: 'NORMAL',
       assistToken: 'jeton-p',
     });
   });
@@ -270,7 +271,7 @@ describe('Propositions automatiques', () => {
       json(200, {
         ...RESULT,
         similar: [
-          { id: 'r42', reference: 'D-2026-000042', title: 'Photocopieuse du 1er en panne', categoryName: 'Photocopies', priority: 'HIGH', status: 'IN_PROGRESS' },
+          { id: 'r42', reference: 'D-2026-000042', title: 'Photocopieuse du 1er en panne', categoryName: 'Photocopies', priority: 'URGENT', status: 'IN_PROGRESS' },
         ],
       }),
     );
@@ -344,7 +345,7 @@ describe('Propositions automatiques', () => {
     expect(calls.find((c) => c.url === '/api/requests' && c.method === 'POST')?.body).toMatchObject({
       title: 'Photocopieuse du 1er en panne',
       categoryId: 'cat-b',
-      priority: 'HIGH',
+      priority: 'URGENT',
       assistToken: 'jeton-1',
     });
   });
@@ -417,7 +418,7 @@ describe('Propositions automatiques : vocal, disponibilité et erreurs (T035)', 
     expect(await screen.findByText(SUGGESTED_HINT)).toBeVisible();
     expect(suggestionCalls(calls).map((c) => c.body)).toEqual([{ text: 'La photocopieuse du premier étage est en panne.' }]);
     expect(screen.getByLabelText('Titre')).toHaveValue('Photocopieuse du 1er en panne');
-    expect(screen.getByRole('radio', { name: 'Haute' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Urgente' })).toBeChecked();
     // La transcription n'est pas affichée ; le vocal reste dans le formulaire, avec son lecteur.
     expect(screen.queryByLabelText('Transcription (à vérifier)')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Lire le message vocal' })).toBeVisible();
@@ -538,7 +539,7 @@ describe('Propositions automatiques : vocal, disponibilité et erreurs (T035)', 
       title: 'Photocopieuse en panne',
       categoryId: 'cat-a',
       recipientId: 'repro',
-      priority: 'HIGH',
+      priority: 'URGENT',
       voiceFileId: 'f-voice',
     });
   });

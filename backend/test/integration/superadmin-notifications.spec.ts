@@ -125,7 +125,7 @@ describe('Notifications du super administrateur', () => {
 
   it('passage en « Urgente » : une seule alerte, même après plusieurs changements', async () => {
     const id = await create('NORMAL');
-    for (const priority of ['URGENT', 'HIGH', 'URGENT']) {
+    for (const priority of ['URGENT', 'NORMAL', 'URGENT']) {
       const { version } = await prisma.request.findUniqueOrThrow({ where: { id } });
       const res = await api().patch(`/api/requests/${id}/priority`).set('Cookie', enseignante).set('Origin', TEST_ORIGIN).send({ priority, version });
       expect(res.status).toBe(200);

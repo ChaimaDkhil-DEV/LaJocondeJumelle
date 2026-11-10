@@ -57,7 +57,8 @@ describe('Administration des catégories et réglages', () => {
         recipients: [{ id: reprographieId, displayName: 'Reprographie' }],
         managers: [{ id: responsableId, displayName: 'Admin — surveillante générale' }],
       });
-      expect(photocopies.deadlineRules).toHaveLength(4);
+      // 016 : une règle par priorité, deux priorités.
+      expect(photocopies.deadlineRules.map((r: { priority: string }) => r.priority)).toEqual(['NORMAL', 'URGENT']);
     });
 
     it('crée une catégorie avec les délais par défaut, et l’audite', async () => {
@@ -131,7 +132,7 @@ describe('Administration des catégories et réglages', () => {
 
     it('règle les délais par priorité (entiers positifs ou vides), audités', async () => {
       const id = await categoryId(prisma, CATEGORIES.circuitB);
-      const rules = ['NORMAL', 'MEDIUM', 'HIGH', 'URGENT'].map((priority) => ({
+      const rules = ['NORMAL', 'URGENT'].map((priority) => ({
         priority,
         validationMinutes: 60,
         takeoverMinutes: priority === 'URGENT' ? 5 : null,
@@ -142,8 +143,10 @@ describe('Administration des catégories et réglages', () => {
       expect(res.body.find((r: { priority: string }) => r.priority === 'URGENT')).toMatchObject({ takeoverMinutes: 5 });
       await expect(prisma.auditLog.count({ where: { action: 'DEADLINE_RULE_CHANGED', targetId: id } })).resolves.toBe(1);
 
-      expect((await send('put', `/api/admin/categories/${id}/deadlines`, { rules: rules.slice(0, 3) })).status).toBe(400);
+      expect((await send('put', `/api/admin/categories/${id}/deadlines`, { rules: rules.slice(0, 1) })).status).toBe(400);
       expect((await send('put', `/api/admin/categories/${id}/deadlines`, { rules: rules.map((r) => ({ ...r, completionMinutes: 0 })) })).status).toBe(400);
+      // 016 : les priorités retirées ne sont plus acceptées.
+      expect((await send('put', `/api/admin/categories/${id}/deadlines`, { rules: [...rules, { ...rules[0], priority: 'HIGH' }] })).status).toBe(400);
       const photocopies = await categoryId(prisma, CATEGORIES.photocopies);
       expect((await send('put', `/api/admin/categories/${photocopies}/deadlines`, { rules })).status).toBe(400); // validation en circuit A
     });

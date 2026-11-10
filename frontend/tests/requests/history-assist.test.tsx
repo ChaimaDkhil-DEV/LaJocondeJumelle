@@ -22,6 +22,7 @@ function assisted(fromValue: Record<string, unknown>, toValue: Record<string, un
   };
 }
 
+// Historique antérieur à 016 : les événements conservent les anciennes priorités (« Haute »), toujours affichées.
 const RETAINED = { title: 'Photocopieuse en panne', categoryId: 'c1', categoryName: 'Photocopies', priority: 'HIGH' };
 
 describe('Historique : propositions automatiques', () => {

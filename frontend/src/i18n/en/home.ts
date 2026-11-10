@@ -1,0 +1,23 @@
+/** Teacher home page (016): quick actions and request tracking. */
+export const home: Record<string, string> = {
+  'Vos actions rapides et le suivi de vos demandes.': 'Your quick actions and the follow-up of your requests.',
+  'Scanner un QR code': 'Scan a QR code',
+  'La caméra s’ouvre : visez le QR code affiché dans la classe.': 'The camera opens: point it at the QR code displayed in the classroom.',
+  'Demande normale': 'Normal request',
+  'Demande urgente': 'Urgent request',
+  'Suivi de mes demandes': 'Tracking my requests',
+  'Impossible de charger le nombre de vos demandes.': 'Unable to load the number of your requests.',
+  'nombre en cours de chargement': 'number loading',
+  'nombre indisponible': 'number unavailable',
+  'En attente': 'Pending',
+  'Demandes envoyées qui attendent une validation ou sont en cours de traitement.': 'Sent requests awaiting validation or being processed.',
+  'Aucune demande en attente pour le moment.': 'No pending requests for now.',
+  'Validées / traitées': 'Validated / handled',
+  'Demandes réalisées par la personne chargée.': 'Requests completed by the person in charge.',
+  'Aucune demande validée ou traitée pour le moment.': 'No validated or handled requests for now.',
+  'Archives': 'Archives',
+  'Historique des demandes clôturées, refusées ou annulées.': 'History of closed, refused or cancelled requests.',
+  'Aucune demande archivée pour le moment.': 'No archived requests for now.',
+  'Retour à l’accueil': 'Back to home',
+  'Priorité :': 'Priority:',
+};

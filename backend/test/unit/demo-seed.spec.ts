@@ -129,11 +129,12 @@ describe('Jeu de démonstration — demandes', () => {
     expect(hours.some((h) => h >= 16)).toBe(true);
   });
 
-  it('priorités réalistes : surtout normales et moyennes, peu d’urgences', () => {
+  it('priorités réalistes (016 : deux priorités) : surtout normales, peu d’urgences', () => {
     const count = (p: string) => data.requests.filter((r) => r.priority === p).length;
-    expect(count('NORMAL') + count('MEDIUM')).toBeGreaterThan(data.requests.length * 0.6);
+    expect(count('NORMAL') + count('URGENT')).toBe(data.requests.length);
+    expect(count('NORMAL')).toBeGreaterThan(data.requests.length * 0.6);
     expect(count('URGENT')).toBeLessThanOrEqual(data.requests.length * 0.1);
-    expect(count('HIGH')).toBeGreaterThan(0);
+    expect(count('URGENT')).toBeGreaterThan(0);
   });
 
   it('tous les statuts du workflow sont représentés', () => {

@@ -207,7 +207,7 @@ describe('Circuit B — validation administrative', () => {
 
     const { id, version } = await submit();
     let res = await act(responsable, id, { action: 'APPROVE', version, assigneeId: reprographieId });
-    res = await api().patch(`/api/requests/${id}/priority`).set('Cookie', responsable).set('Origin', TEST_ORIGIN).send({ priority: 'HIGH', version: res.body.version });
+    res = await api().patch(`/api/requests/${id}/priority`).set('Cookie', responsable).set('Origin', TEST_ORIGIN).send({ priority: 'URGENT', version: res.body.version });
     expect(res.status).toBe(200);
     res = await act(reprographie, id, { action: 'ACCEPT', version: res.body.version });
     res = await act(reprographie, id, { action: 'START', version: res.body.version });
@@ -220,7 +220,7 @@ describe('Circuit B — validation administrative', () => {
 
     expect(await managed(id)).toEqual([
       { actorId: responsableId, details: { action: 'APPROVE', status: 'SENT', before: { assigneeId: null }, after: { assigneeId: reprographieId } } },
-      { actorId: responsableId, details: { action: 'CHANGE_PRIORITY', before: { priority: 'NORMAL' }, after: { priority: 'HIGH' } } },
+      { actorId: responsableId, details: { action: 'CHANGE_PRIORITY', before: { priority: 'NORMAL' }, after: { priority: 'URGENT' } } },
       { actorId: responsableId, details: { action: 'REQUEST_CORRECTION', status: 'TO_CORRECT', reasonGiven: true } },
       { actorId: responsableId, details: { action: 'VALIDATE_FINAL', status: 'CLOSED' } },
     ]);

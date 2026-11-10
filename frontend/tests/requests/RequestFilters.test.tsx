@@ -91,9 +91,15 @@ describe('RequestFilters', () => {
   });
 
   it('reprend les filtres présents dans l’URL et indique leur nombre', async () => {
-    const { lastList } = setup('/?onglet=envoyees&statut=DONE&priorite=HIGH&retard=1');
+    const { lastList } = setup('/?onglet=envoyees&statut=DONE&priorite=URGENT&retard=1');
     expect(await screen.findByRole('button', { name: 'Filtres (3 actifs)' })).toBeVisible();
-    await waitFor(() => expect(lastList()).toBe('/api/requests?scope=mine&status=DONE&priority=HIGH&overdue=true'));
+    await waitFor(() => expect(lastList()).toBe('/api/requests?scope=mine&status=DONE&priority=URGENT&overdue=true'));
+  });
+
+  it('ignore une priorité retirée restée dans un lien enregistré (016 : priorite=HIGH)', async () => {
+    const { lastList } = setup('/?onglet=envoyees&priorite=HIGH&priorite=URGENT');
+    expect(await screen.findByRole('button', { name: 'Filtres (1 actif)' })).toBeVisible();
+    await waitFor(() => expect(lastList()).toBe('/api/requests?scope=mine&priority=URGENT'));
   });
 
   it('réinitialise les filtres et annonce une liste vide filtrée', async () => {
