@@ -4,14 +4,15 @@ import type { RequestStatus } from '@prisma/client';
  * « Suivi de mes demandes » (016, accueil de l'enseignant) : les statuts d'une demande envoyée,
  * regroupés en trois groupes. Seule source de cette correspondance : l'interface passe le nom du
  * groupe, jamais la liste des statuts.
- *   - pending : validation attendue ou traitement en cours ;
- *   - handled : acceptée ou terminée ;
+ *   - pending : validation attendue, acceptée ou traitement en cours (D2 : une demande acceptée est en
+ *     cours de traitement ; elle ne repasse donc pas d'un groupe à l'autre quand le travail commence) ;
+ *   - handled : terminée ;
  *   - archived : clôturée, refusée ou annulée.
  * Le brouillon n'est d'aucun groupe (il n'est pas envoyé).
  */
 export const TRACKING_GROUPS = {
-  pending: ['PENDING_ADMIN_VALIDATION', 'SENT', 'IN_PROGRESS', 'TO_CORRECT', 'PENDING_FINAL_VALIDATION'],
-  handled: ['ACCEPTED', 'DONE'],
+  pending: ['PENDING_ADMIN_VALIDATION', 'SENT', 'ACCEPTED', 'IN_PROGRESS', 'TO_CORRECT', 'PENDING_FINAL_VALIDATION'],
+  handled: ['DONE'],
   archived: ['CLOSED', 'REJECTED', 'CANCELLED'],
 } as const satisfies Record<string, readonly RequestStatus[]>;
 

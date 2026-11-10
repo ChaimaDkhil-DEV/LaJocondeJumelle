@@ -13,7 +13,7 @@ export const home: Record<string, string> = {
   'Demandes envoyées qui attendent une validation ou sont en cours de traitement.': 'Sent requests awaiting validation or being processed.',
   'Aucune demande en attente pour le moment.': 'No pending requests for now.',
   'Validées / traitées': 'Validated / handled',
-  'Demandes acceptées ou réalisées.': 'Requests accepted or completed.',
+  'Demandes réalisées par la personne chargée.': 'Requests completed by the person in charge.',
   'Aucune demande validée ou traitée pour le moment.': 'No validated or handled requests for now.',
   'Archives': 'Archives',
   'Historique des demandes clôturées, refusées ou annulées.': 'History of closed, refused or cancelled requests.',

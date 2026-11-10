@@ -10,12 +10,18 @@ describe('Groupes de suivi des demandes', () => {
     expect(Object.keys(TRACKING_GROUPS)).toEqual(['pending', 'handled', 'archived']);
   });
 
-  it('en attente : validation attendue ou traitement en cours', () => {
-    expect(TRACKING_GROUPS.pending).toEqual(['PENDING_ADMIN_VALIDATION', 'SENT', 'IN_PROGRESS', 'TO_CORRECT', 'PENDING_FINAL_VALIDATION']);
+  // D2 (décision du 2026-11-10) : une demande acceptée est en cours de traitement, donc « En attente ».
+  it('en attente : validation attendue, acceptée ou traitement en cours', () => {
+    expect(TRACKING_GROUPS.pending).toEqual(['PENDING_ADMIN_VALIDATION', 'SENT', 'ACCEPTED', 'IN_PROGRESS', 'TO_CORRECT', 'PENDING_FINAL_VALIDATION']);
   });
 
-  it('validées / traitées : acceptées ou terminées', () => {
-    expect(TRACKING_GROUPS.handled).toEqual(['ACCEPTED', 'DONE']);
+  it('validées / traitées : terminées', () => {
+    expect(TRACKING_GROUPS.handled).toEqual(['DONE']);
+  });
+
+  it('envoyée, acceptée puis commencée : toujours « En attente » ; « Validées / traitées » une fois terminée', () => {
+    expect(['SENT', 'ACCEPTED', 'IN_PROGRESS'].map((s) => trackingGroupOf(s as never))).toEqual(['pending', 'pending', 'pending']);
+    expect(trackingGroupOf('DONE')).toBe('handled');
   });
 
   it('archives : clôturées, refusées ou annulées', () => {

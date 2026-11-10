@@ -44,8 +44,8 @@ A « Suivi de mes demandes » section shows three large horizontal link-buttons,
 
 | Button | Colour | Statuses (server side) |
 | --- | --- | --- |
-| En attente | orange | `PENDING_ADMIN_VALIDATION`, `SENT`, `IN_PROGRESS`, `TO_CORRECT`, `PENDING_FINAL_VALIDATION` |
-| Validées / traitées | green | `ACCEPTED`, `DONE` |
+| En attente | orange | `PENDING_ADMIN_VALIDATION`, `SENT`, `ACCEPTED`, `IN_PROGRESS`, `TO_CORRECT`, `PENDING_FINAL_VALIDATION` |
+| Validées / traitées | green | `DONE` |
 | Archives | grey | `CLOSED`, `REJECTED`, `CANCELLED` |
 
 Each has an icon, a title, a short description, a live counter and a chevron, and opens
@@ -71,15 +71,15 @@ tokens, seeds and demo data. The API rejects `MEDIUM` and `HIGH` (400).
   `RequestFilters.test.tsx`, `HistoryTimeline.test.tsx`, `outbox-priorities.test.ts`.
 - `e2e/teacher-home.spec.ts` — axe, no horizontal scroll (320 px project included).
 
-## Decisions (to confirm with the school)
+## Decisions (D1, D3–D5 to confirm with the school; D2 decided)
 
 - **D1 — Migration mapping**: `MEDIUM → NORMAL`, `HIGH → URGENT` (a « Haute » request keeps its pressing
   character; over-alerting is safer than losing an urgent case). Running deadlines are **not** recomputed
   (rules snapshot and due date kept), so no request becomes overdue because of the migration.
-- **D2 — Tracking groups**: the literal reading of the request: « acceptées ou traitées » → `ACCEPTED`,
-  `DONE`; « en cours de traitement » → `IN_PROGRESS`, `TO_CORRECT`. Consequence: a request goes from
-  « Validées / traitées » (accepted) back to « En attente » (started), then again to « Validées / traitées »
-  (done). Alternative: `ACCEPTED` in « En attente ». The mapping is one constant, `TRACKING_GROUPS`
+- **D2 — Tracking groups** (decided by the user, 2026-11-10): `ACCEPTED` is in « En attente », with
+  `IN_PROGRESS` and `TO_CORRECT` (being processed); « Validées / traitées » holds `DONE` only. A request
+  therefore no longer goes back from green to orange when work starts (only a correction requested after
+  `DONE` brings it back to « En attente »). The mapping is one constant, `TRACKING_GROUPS`
   (`backend/src/requests/domain/tracking.ts`).
 - **D3 — Who gets the teacher home**: `EMPLOYEE` members of the « Enseignants » group. An admin who is also a
   teacher keeps « Mes demandes » (validation tabs); the super administrator keeps the dashboard.

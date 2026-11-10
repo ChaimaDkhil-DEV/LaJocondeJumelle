@@ -33,7 +33,7 @@ export const TRACKING_VIEWS: readonly TrackingView[] = [
     group: 'handled',
     slug: 'traitees',
     title: t('Validées / traitées'),
-    description: t('Demandes acceptées ou réalisées.'),
+    description: t('Demandes réalisées par la personne chargée.'),
     empty: t('Aucune demande validée ou traitée pour le moment.'),
     icon: CircleCheck,
     colors: (c) => ({ bg: c.success.soft, border: c.success.main, accent: c.success.text }),

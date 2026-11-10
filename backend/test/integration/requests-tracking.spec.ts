@@ -45,8 +45,9 @@ describe('Suivi de mes demandes', () => {
     return row.id;
   }
 
-  const PENDING: RequestStatus[] = ['PENDING_ADMIN_VALIDATION', 'SENT', 'IN_PROGRESS', 'TO_CORRECT', 'PENDING_FINAL_VALIDATION'];
-  const HANDLED: RequestStatus[] = ['ACCEPTED', 'DONE'];
+  // D2 : une demande acceptée est en cours de traitement (« En attente »).
+  const PENDING: RequestStatus[] = ['PENDING_ADMIN_VALIDATION', 'SENT', 'ACCEPTED', 'IN_PROGRESS', 'TO_CORRECT', 'PENDING_FINAL_VALIDATION'];
+  const HANDLED: RequestStatus[] = ['DONE'];
   const ARCHIVED: RequestStatus[] = ['CLOSED', 'REJECTED', 'CANCELLED'];
 
   beforeAll(async () => {
