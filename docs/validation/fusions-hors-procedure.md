@@ -249,3 +249,49 @@ No fix or `git revert` needed.
 
 Write the failing test before the code, and run it to see it fail, including for a small change requested during a
 session.
+
+## 10/11/2026 — pull requests #97, #98 and #99
+
+| Pull request | Content | Merged at (UTC) | Check not satisfied at merge time |
+|---------|---------|-------------------|-----------------------------------------------|
+| #97 (`015-validation-messagerie`) | « Communications à valider » as a messaging view, per-message moderation, period filter; fix of the outdated end-to-end test of the Administrator space | 00:26:40 | **All four checkboxes missing**: the description had no checklist |
+| #98 (`015-admin-valide-communications`) | The general supervisor (role ADMIN) validates parent communications by default; permission settable for ADMIN only; data migration `0022` | 05:32:22 | **1. CI**: both runs on `6aadb07` were still in progress (42762520999 green at 05:40:28, 42762559994 green at 05:40:38); **all four checkboxes missing** |
+| #99 (`015-conversations-parents`) | Parent ↔ teacher conversations: the parent starts a conversation with a teacher of their child, every message validated in both directions; migration `0023` | 07:38:11 | **4. Diff review**: deviation from constitution principle I (tests written after the code for the main feature) |
+
+#98 was not merged from the working session: it was merged while its CI was still running, and without a checklist in
+its description. For #97, the merge did not skip CI: both runs on `85e68d4` had finished green before the merge
+(42725537022 at 00:14:43, 42725586128 at 00:16:02).
+
+For #99, checks 1 to 3 were ticked in the description of the pull request; check 4 was left unticked, with the reason.
+The merge was a deliberate decision of the repository owner, taken once the deviation had been reported.
+
+### Findings after the fact
+
+- #97: `master` green after the merge: run 42728346884 on `de18754`.
+- #98: both runs finished green, all steps executed, including the Docker image build and the dependency audit.
+  `master` green after the merge: run 42762761485 on `967b3f3`. The tests of #98 were written first and seen failing,
+  except the navigation test (« À valider » menu), which passed at once because the menu already depended on the
+  permission.
+- #99: both runs on `c74e57f` were green before the merge (42773709116 at 07:21:35, 42773650006 at 07:22:12), all steps
+  executed. The branch was up to date with `master` (`967b3f3`), and no review discussion was open. `master` after the
+  merge: run 42776673961 on `ad7563b` — still in progress when this entry was written, to check before merging this entry.
+- #99 deviations, recorded in the description of the pull request (« Écarts à la procédure »):
+  1. The domain rules, the service, the routes and the pages were coded before their tests; the tests were written
+     afterwards and pass. Only the later change « optional voice message for a teacher reply » was done test first
+     (tests seen failing, then code).
+  2. Changed expectations of existing tests, because the pages they covered are replaced by the messaging view:
+     `frontend/tests/parent-communications/teacher.test.tsx` (the teacher's list), `validation-parent.test.tsx` (three
+     tests of the former « Messages de l'école » list and message page, now covered by `conversations.test.tsx`) and the
+     parent part of `e2e/parent-communications.spec.ts`.
+- #99 locally, before the merge: one run of the full backend integration suite had one failure in
+  `parent-communications-n8n.spec.ts` (fake n8n server with 1 to 2 s timeouts). The failing test was not captured; the
+  file passed 4 times out of 4 on its own, in the two previous full runs and in CI.
+- Not verified at merge time for #99: the end-to-end run on the seven projects (the 015 scenario ran on Chromium only),
+  and the refusal of `0023`'s `down.sql` when parent messages exist.
+
+No fix or `git revert` needed.
+
+### Reminder
+
+Write the failing test before the code, and run it to see it fail, including when the request lists the tests after the
+implementation. Add the checklist of `.github/pull_request_template.md` to every pull request description.
