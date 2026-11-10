@@ -71,7 +71,7 @@ tokens, seeds and demo data. The API rejects `MEDIUM` and `HIGH` (400).
   `RequestFilters.test.tsx`, `HistoryTimeline.test.tsx`, `outbox-priorities.test.ts`.
 - `e2e/teacher-home.spec.ts` — axe, no horizontal scroll (320 px project included).
 
-## Decisions (D1, D3–D5 to confirm with the school; D2 decided)
+## Decisions (all validated by the user on 2026-11-10: D2 changed as described, D1, D3, D4, D5 as proposed)
 
 - **D1 — Migration mapping**: `MEDIUM → NORMAL`, `HIGH → URGENT` (a « Haute » request keeps its pressing
   character; over-alerting is safer than losing an urgent case). Running deadlines are **not** recomputed
