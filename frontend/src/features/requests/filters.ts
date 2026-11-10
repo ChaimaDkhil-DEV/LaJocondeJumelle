@@ -1,3 +1,5 @@
+import { isPriority } from '../../components/PriorityBadge';
+
 /**
  * Filtres de la liste des demandes, conservés dans l'URL (partage de lien, retour arrière) :
  * q, statut (répété), priorite (répété), categorie, destinataire, du, au, retard=1.
@@ -30,7 +32,8 @@ export function readFilters(params: URLSearchParams): RequestFilters {
   return {
     q: params.get(PARAM.q) ?? '',
     statuses: params.getAll(PARAM.statuses),
-    priorities: params.getAll(PARAM.priorities),
+    // Seules les priorités en vigueur : un lien enregistré avant 016 (« priorite=HIGH ») ne casse pas la liste.
+    priorities: params.getAll(PARAM.priorities).filter(isPriority),
     categoryId: params.get(PARAM.categoryId) ?? '',
     assigneeId: params.get(PARAM.assigneeId) ?? '',
     from: params.get(PARAM.from) ?? '',

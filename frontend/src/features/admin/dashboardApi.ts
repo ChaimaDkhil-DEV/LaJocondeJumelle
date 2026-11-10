@@ -83,7 +83,7 @@ const INDICATORS: readonly DashboardIndicator[] = [
 const PARAMS = { preset: 'periode', from: 'du', to: 'au', categoryId: 'categorie', priority: 'priorite', employeeId: 'employe' } as const;
 const INDICATOR_PARAM = 'indicateur';
 const PRESETS: Record<string, PeriodPreset> = { '7': '7', '30': '30', '90': '90', perso: 'custom' };
-const PRIORITIES: readonly string[] = ['URGENT', 'HIGH', 'MEDIUM', 'NORMAL'];
+const PRIORITIES: readonly string[] = ['URGENT', 'NORMAL'];
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Filtres lus dans l'adresse ; une valeur inconnue est ignorée (valeur par défaut). */

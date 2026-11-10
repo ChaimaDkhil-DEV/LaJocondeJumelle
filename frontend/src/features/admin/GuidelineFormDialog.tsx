@@ -134,7 +134,7 @@ export function GuidelineFormDialog({ open, guideline, onClose, onSaved }: Guide
             error={Boolean(errors.body)}
             helperText={
               errors.body ??
-              t('Vous pouvez indiquer une priorité sous la forme « Priorité : Haute ». {count} / {max}', {
+              t('Vous pouvez indiquer une priorité sous la forme « Priorité : Urgente » ou « Priorité : Normale ». {count} / {max}', {
                 count: values.body.length,
                 max: BODY_MAX.toLocaleString(locale()),
               })

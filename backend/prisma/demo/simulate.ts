@@ -89,17 +89,17 @@ export interface DemoData {
 type Step = 'APPROVE' | 'ACCEPT' | 'START' | 'COMPLETE' | 'CLOSE' | 'VALIDATE' | 'CORRECT' | 'RESUME' | 'CANCEL' | 'REFUSE' | 'REASSIGN';
 
 const DELAYS: Record<Step, Record<Priority, readonly [number, number]>> = {
-  APPROVE: { URGENT: [3, 12], HIGH: [10, 60], MEDIUM: [30, 200], NORMAL: [45, 420] },
-  ACCEPT: { URGENT: [2, 8], HIGH: [5, 45], MEDIUM: [15, 150], NORMAL: [20, 300] },
-  START: { URGENT: [2, 6], HIGH: [5, 60], MEDIUM: [20, 360], NORMAL: [30, 600] },
-  COMPLETE: { URGENT: [15, 80], HIGH: [30, 300], MEDIUM: [60, 700], NORMAL: [90, 1200] },
-  CLOSE: { URGENT: [20, 300], HIGH: [30, 600], MEDIUM: [90, 1500], NORMAL: [120, 2400] },
-  VALIDATE: { URGENT: [15, 240], HIGH: [30, 480], MEDIUM: [60, 900], NORMAL: [90, 1500] },
-  CORRECT: { URGENT: [10, 60], HIGH: [15, 120], MEDIUM: [20, 180], NORMAL: [20, 240] },
-  RESUME: { URGENT: [5, 30], HIGH: [15, 120], MEDIUM: [30, 300], NORMAL: [60, 600] },
-  CANCEL: { URGENT: [5, 30], HIGH: [10, 90], MEDIUM: [15, 120], NORMAL: [20, 180] },
-  REFUSE: { URGENT: [5, 30], HIGH: [15, 120], MEDIUM: [30, 240], NORMAL: [45, 480] },
-  REASSIGN: { URGENT: [5, 20], HIGH: [15, 60], MEDIUM: [30, 180], NORMAL: [60, 300] },
+  APPROVE: { URGENT: [3, 12], NORMAL: [45, 420] },
+  ACCEPT: { URGENT: [2, 8], NORMAL: [20, 300] },
+  START: { URGENT: [2, 6], NORMAL: [30, 600] },
+  COMPLETE: { URGENT: [15, 80], NORMAL: [90, 1200] },
+  CLOSE: { URGENT: [20, 300], NORMAL: [120, 2400] },
+  VALIDATE: { URGENT: [15, 240], NORMAL: [90, 1500] },
+  CORRECT: { URGENT: [10, 60], NORMAL: [20, 240] },
+  RESUME: { URGENT: [5, 30], NORMAL: [60, 600] },
+  CANCEL: { URGENT: [5, 30], NORMAL: [20, 180] },
+  REFUSE: { URGENT: [5, 30], NORMAL: [45, 480] },
+  REASSIGN: { URGENT: [5, 20], NORMAL: [60, 300] },
 };
 
 const ACKNOWLEDGEMENTS = [
@@ -597,7 +597,7 @@ export function simulateDemo(scenarios: readonly Scenario[], directory: Director
       const [min, max] = DELAYS[planned.step][priority];
       const minutes = random.int(min, max) * (plan.slow && planned.step !== 'CANCEL' ? random.int(2, 4) : 1);
       // Demandes courantes souvent traitées le lendemain matin (file d'attente de l'employé).
-      const nextMorning = (priority === 'NORMAL' || priority === 'MEDIUM') && ['APPROVE', 'ACCEPT', 'START'].includes(planned.step) && random.chance(0.4);
+      const nextMorning = priority === 'NORMAL' && ['APPROVE', 'ACCEPT', 'START'].includes(planned.step) && random.chance(0.4);
       const next =
         priority === 'URGENT'
           ? addMinutes(time, minutes)

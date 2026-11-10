@@ -63,7 +63,7 @@ const PERF_STATS = {
 const PERFORMANCE = {
   period: SUMMARY.period,
   overall: PERF_STATS,
-  byPriority: ['URGENT', 'HIGH', 'MEDIUM', 'NORMAL'].map((priority) => ({ priority, total: 3, ...PERF_STATS })),
+  byPriority: ['URGENT', 'NORMAL'].map((priority) => ({ priority, total: 3, ...PERF_STATS })),
 };
 
 const ACTIVITY = {
@@ -107,7 +107,7 @@ const REQUESTS = [
     reference: 'D-2026-000004',
     title: 'Réparation climatiseur de la salle des professeurs, au deuxième étage du bâtiment B',
     category: { id: 'c2', name: 'Petits travaux' },
-    priority: 'HIGH',
+    priority: 'URGENT',
     status: 'SENT',
     requester: person('sa', 'Super admin'),
     assignee: person('t1', 'Technicien'),
@@ -364,9 +364,7 @@ describe('Tableau de bord', () => {
             overall: { ...empty, takeover: { avgMs: 60_000, count: 1 }, compliance: { evaluated: 1, onTime: 1, rate: 1 } },
             byPriority: [
               { priority: 'URGENT', total: 1, ...empty, takeover: { avgMs: 60_000, count: 1 }, compliance: { evaluated: 1, onTime: 1, rate: 1 } },
-              { priority: 'HIGH', total: 2, ...empty, compliance: { evaluated: 2, onTime: 0, rate: 0 } },
-              { priority: 'MEDIUM', total: 0, ...empty },
-              { priority: 'NORMAL', total: 0, ...empty },
+              { priority: 'NORMAL', total: 2, ...empty, compliance: { evaluated: 2, onTime: 0, rate: 0 } },
             ],
           })
         : undefined,
@@ -377,12 +375,13 @@ describe('Tableau de bord', () => {
     expect(kpi('Première réponse moyenne')).toBe('Aucune donnée');
     expect(kpi('Prise en charge moyenne')).toBe('1 min');
     const rows = within(table).getAllByRole('row');
-    // Urgente : 100 % (1/1) ; Haute : 0 % (0/2), sous l'objectif ; Moyenne : aucune demande, 0 et « Aucune donnée ».
+    // 016 : deux priorités. Urgente : 100 % (1/1) ; Normale : 0 % (0/2), sous l'objectif, durées « Aucune donnée ».
+    expect(rows).toHaveLength(3);
     expect(rows[1]).toHaveTextContent('100 %(1/1)');
     expect(within(rows[1]).getByRole('img', { name: '100 % des demandes dans les délais' })).toBeInTheDocument();
     expect(rows[2]).toHaveTextContent('Sous l’objectif0 %(0/2)');
-    expect(within(rows[3]).getAllByText('Aucune donnée')).toHaveLength(5);
-    expect(within(rows[3]).getAllByRole('cell')[1]).toHaveTextContent(/^0$/);
+    expect(within(rows[2]).getAllByText('Aucune donnée').length).toBeGreaterThan(0);
+    expect(within(rows[2]).getAllByRole('cell')[1]).toHaveTextContent(/^2$/);
     expect(within(table).queryByText('—')).not.toBeInTheDocument();
   });
 
@@ -391,7 +390,7 @@ describe('Tableau de bord', () => {
     const empty = { validation: none, firstReply: none, takeover: none, resolution: none, grossResolution: none, compliance: { evaluated: 0, onTime: 0, rate: null } };
     setup('/?vue=delais', (url) =>
       url.startsWith('/api/admin/dashboard/performance')
-        ? json(200, { period: SUMMARY.period, overall: empty, byPriority: ['URGENT', 'HIGH', 'MEDIUM', 'NORMAL'].map((priority) => ({ priority, total: 0, ...empty })) })
+        ? json(200, { period: SUMMARY.period, overall: empty, byPriority: ['URGENT', 'NORMAL'].map((priority) => ({ priority, total: 0, ...empty })) })
         : undefined,
     );
     expect(await screen.findByText('Aucun délai à mesurer')).toBeVisible();
@@ -441,8 +440,8 @@ describe('Paramètres du tableau de bord', () => {
   });
 
   it('écrit les filtres dans l’adresse sans les valeurs par défaut, en gardant la vue', () => {
-    const next = withFilters(new URLSearchParams('vue=delais&periode=7'), { ...DEFAULT_FILTERS, priority: 'HIGH' });
-    expect(next.toString()).toBe('vue=delais&priorite=HIGH');
+    const next = withFilters(new URLSearchParams('vue=delais&periode=7'), { ...DEFAULT_FILTERS, priority: 'NORMAL' });
+    expect(next.toString()).toBe('vue=delais&priorite=NORMAL');
   });
 
   it('lien d’un chiffre : onglet Demandes, indicateur et filtres en cours', () => {
@@ -494,7 +493,7 @@ describe('Paramètres du tableau de bord', () => {
     // Titre sur une ligne, numéro court ; « En retard » remplace le statut ; noms fusionnés.
     expect(within(late!).getByRole('link', { name: /Réparation climatiseur/ })).toHaveAttribute('href', '/demandes/r4');
     expect(within(late!).getByText('#004')).toBeVisible();
-    expect(within(late!).getByText('Haute')).toBeVisible();
+    expect(within(late!).getByText('Urgente')).toBeVisible();
     expect(within(late!).getByText('En retard')).toBeVisible();
     expect(within(late!).queryByText('Envoyée')).not.toBeInTheDocument();
     expect(late).toHaveTextContent(/Super admin\s*→\s*, affectée à Technicien/);
@@ -629,8 +628,10 @@ describe('Chiffres cliquables du tableau de bord', () => {
 
     await user.click(screen.getByRole('button', { name: /^Filtres/ }));
     await user.click(screen.getByRole('combobox', { name: 'Priorité' }));
-    await user.click(screen.getByRole('option', { name: 'Haute' }));
-    await waitFor(() => expect(new URLSearchParams(router.state.location.search).get('priorite')).toBe('HIGH'));
+    // 016 : deux priorités au choix, plus « Toutes ».
+    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['Toutes', 'Urgente', 'Normale']);
+    await user.click(screen.getByRole('option', { name: 'Normale' }));
+    await waitFor(() => expect(new URLSearchParams(router.state.location.search).get('priorite')).toBe('NORMAL'));
     expect(new URLSearchParams(router.state.location.search).get('periode')).toBe('7');
   });
 });

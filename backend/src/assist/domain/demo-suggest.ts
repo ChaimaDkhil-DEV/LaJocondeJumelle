@@ -23,7 +23,11 @@ export interface DemoSuggestion {
   sourceIds: string[];
 }
 
-const PRIORITY_WORDS: Record<string, Priority> = { normale: 'NORMAL', moyenne: 'MEDIUM', haute: 'HIGH', urgente: 'URGENT' };
+/**
+ * Deux priorités (016). « Moyenne » et « Haute », encore écrites dans des consignes plus anciennes, se
+ * lisent comme la migration 0024 les a converties : Normale et Urgente.
+ */
+const PRIORITY_WORDS: Record<string, Priority> = { normale: 'NORMAL', moyenne: 'NORMAL', haute: 'URGENT', urgente: 'URGENT' };
 const PRIORITY_LINE = /priorit[ée]\s*:\s*(normale|moyenne|haute|urgente)/i;
 const MIN_WORDS = 4;
 
@@ -91,10 +95,10 @@ function factualPriority(textWords: string[]): { priority: Priority; reason: str
   if (soon && impact) {
     return saidUrgent
       ? { priority: 'URGENT', reason: 'Priorité Urgente : besoin immédiat qui bloque l’activité.', danger: false }
-      : { priority: 'HIGH', reason: 'Priorité Haute : échéance proche et impact sur l’activité.', danger: false };
+      : { priority: 'URGENT', reason: 'Priorité Urgente : échéance proche et impact sur l’activité.', danger: false };
   }
   if (impact || saidUrgent) {
-    return { priority: 'MEDIUM', reason: 'Priorité Moyenne : gêne signalée, sans échéance immédiate.', danger: false };
+    return { priority: 'NORMAL', reason: 'Priorité Normale : gêne signalée, sans échéance immédiate.', danger: false };
   }
   return null;
 }

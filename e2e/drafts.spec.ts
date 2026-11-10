@@ -77,6 +77,8 @@ test.describe('Brouillons de demande (spec 007)', () => {
 
     // Reprise : formulaire pré-rempli, vocal réécoutable, description ajoutée, envoi.
     await login(page, 'enseignante');
+    // 016 : l'accueil de l'enseignante n'est plus la liste ; « Mes demandes » est sur /demandes.
+    await page.goto('/demandes');
     await page.getByRole('tab', { name: 'Brouillons' }).click();
     await page.getByRole('link', { name: byTitle(title) }).click();
     await expect(page.getByRole('heading', { name: 'Brouillon de demande' })).toBeVisible();
@@ -120,7 +122,7 @@ test.describe('Brouillons de demande (spec 007)', () => {
     await expect(page.getByRole('heading', { name: 'Mes demandes' })).toBeVisible();
 
     // L'onglet reste affichable par l'adresse, même vide : le brouillon n'y est plus.
-    await page.goto('/?onglet=brouillons');
+    await page.goto('/demandes?onglet=brouillons');
     await expect(page.getByRole('tab', { name: 'Brouillons' })).toHaveAttribute('aria-selected', 'true');
     await expect(page.getByRole('link', { name: byTitle(title) })).toHaveCount(0);
   });

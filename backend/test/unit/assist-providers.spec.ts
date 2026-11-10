@@ -14,7 +14,7 @@ const env = {
 const INPUT: SuggestionInput = {
   text: 'La photocopieuse du premier étage est en panne, c’est urgent.',
   categories: [{ id: 'c1', name: 'Photocopies' }],
-  guidelines: [{ id: 'g1', title: 'Pannes de reprographie', body: 'Priorité : Haute.', categoryId: 'c1' }],
+  guidelines: [{ id: 'g1', title: 'Pannes de reprographie', body: 'Priorité : Urgente.', categoryId: 'c1' }],
   similar: [],
 };
 

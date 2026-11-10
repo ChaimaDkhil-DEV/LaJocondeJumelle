@@ -95,7 +95,7 @@ describe('Seed de démonstration', () => {
     expect(requests[0].reference).toBe('D-2026-000001');
     expect(requests.every((r) => r.category.kind === 'WORK')).toBe(true);
     expect(new Set(requests.map((r) => r.status)).size).toBe(11);
-    expect(new Set(requests.map((r) => r.priority))).toEqual(new Set(['NORMAL', 'MEDIUM', 'HIGH', 'URGENT']));
+    expect(new Set(requests.map((r) => r.priority))).toEqual(new Set(['NORMAL', 'URGENT']));
   });
 
   it('historique : chronologique, ordre d’écriture (seq) cohérent, statut final atteint', async () => {

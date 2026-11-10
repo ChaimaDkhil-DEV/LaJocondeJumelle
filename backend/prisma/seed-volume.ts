@@ -8,7 +8,7 @@ import { randomUUID } from 'node:crypto';
 import { guardSeedCommand } from './demo/local-database';
 
 const STATUSES: RequestStatus[] = ['SENT', 'ACCEPTED', 'IN_PROGRESS', 'DONE', 'TO_CORRECT', 'CLOSED', 'REJECTED', 'CANCELLED'];
-const PRIORITIES: Priority[] = ['NORMAL', 'MEDIUM', 'HIGH', 'URGENT'];
+const PRIORITIES: Priority[] = ['NORMAL', 'URGENT'];
 const TITLES = ['Photocopies', 'Affiches', 'Étagère', 'Vidéoprojecteur', 'Fournitures', 'Clés', 'Chauffage', 'Rideaux'];
 /** Numéros réservés au jeu de volume, loin de la séquence des demandes réelles. */
 const NUMBER_OFFSET = 2_000_000;

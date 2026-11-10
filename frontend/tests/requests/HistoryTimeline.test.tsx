@@ -45,6 +45,20 @@ describe('HistoryTimeline', () => {
     expect(within(list).getAllByRole('listitem')[0].querySelector('time')).toHaveAttribute('datetime', '2026-10-12T08:00:00.000Z');
   });
 
+  it('016 : la conversion des anciennes priorités (migration 0024) reste lisible dans l’historique', () => {
+    const migrated = (from: string, to: string): HistoryEvent => ({
+      id: 'm',
+      type: 'PRIORITY_CHANGED',
+      actor: null,
+      fromValue: { priority: from, dueAt: null },
+      toValue: { priority: to, dueAt: null },
+      comment: 'migration-0024',
+      createdAt: '2026-11-10T08:00:00.000Z',
+    });
+    expect(describeEvent(migrated('HIGH', 'URGENT'))).toBe('Priorité : Haute → Urgente');
+    expect(describeEvent(migrated('MEDIUM', 'NORMAL'))).toBe('Priorité : Moyenne → Normale');
+  });
+
   it('indique la source de l’affectation décidée à l’approbation', () => {
     const assigned = (assigneeSource?: string): HistoryEvent => ({
       id: 'a',

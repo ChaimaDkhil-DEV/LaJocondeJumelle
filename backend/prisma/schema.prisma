@@ -27,10 +27,10 @@ enum AvatarType {
   CUSTOM
 }
 
+/// Deux priorités métier (016). MEDIUM et HIGH ont été converties par la migration 0024 (MEDIUM → NORMAL,
+/// HIGH → URGENT) ; l'historique des demandes peut encore les citer.
 enum Priority {
   NORMAL
-  MEDIUM
-  HIGH
   URGENT
 }
 

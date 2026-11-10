@@ -44,8 +44,10 @@ test('V1 — l’enseignante envoie une demande vocale, la reprographie l’éco
   const title = uniqueTitle('Photocopies du contrôle', testInfo);
 
   await login(page, 'enseignante');
-  await page.getByRole('link', { name: 'Nouvelle demande' }).first().click();
-  await expect(page.getByRole('heading', { name: 'Nouvelle demande' })).toBeVisible();
+  // 016 : depuis l'accueil de l'enseignante, « Demande urgente » ouvre le formulaire vocal, priorité cochée.
+  await page.getByRole('link', { name: 'Demande urgente' }).click();
+  await expect(page.getByRole('heading', { name: 'Demande urgente' })).toBeVisible();
+  await expect(page.getByRole('radio', { name: 'Urgente' })).toBeChecked();
   await expectNoA11yViolations(page);
 
   await fillCommonFields(page, title, 'Urgente');
@@ -111,12 +113,14 @@ test('V3 — une coupure réseau conserve la demande, renvoyée une seule fois',
   await expect(sendError).toContainText('boîte d’envoi');
   await page.context().setOffline(false);
 
+  // 016 : la boîte d'envoi est aussi sur l'accueil de l'enseignante.
   await page.goto('/');
   const outbox = page.getByRole('region', { name: 'Boîte d’envoi' });
   await expect(outbox).toContainText(title);
   await outbox.getByRole('button', { name: 'Réessayer' }).click();
   await expect(outbox).toBeHidden();
 
+  await page.goto('/demandes');
   await page.getByRole('tab', { name: 'Envoyées' }).click();
   await expect(page.getByRole('link', { name: new RegExp(title.replace(/[[\]]/g, '\\$&')) })).toHaveCount(1);
 });

@@ -32,7 +32,7 @@ function json(status: number, body?: unknown): Response {
 
 type Calls = Array<{ url: string; method: string; body: unknown }>;
 
-function setup(onCreate: (body: unknown) => Response | Promise<Response>): Calls {
+function setup(onCreate: (body: unknown) => Response | Promise<Response>, entry = '/demandes/nouvelle'): Calls {
   const calls: Calls = [];
   vi.stubGlobal(
     'fetch',
@@ -52,7 +52,7 @@ function setup(onCreate: (body: unknown) => Response | Promise<Response>): Calls
       { path: '/demandes/nouvelle', element: <CreateRequestPage /> },
       { path: '/demandes/:id', element: <p>Détail de la demande</p> },
     ],
-    { initialEntries: ['/demandes/nouvelle'] },
+    { initialEntries: [entry] },
   );
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
@@ -161,6 +161,58 @@ describe('CreateRequestPage', () => {
     await waitFor(() => expect(store.size).toBe(1));
     const [entry] = [...store.values()] as Array<{ payload: { title: string; clientId: string } }>;
     expect(entry.payload).toMatchObject({ title: 'Affiches', clientId: expect.any(String) });
+  });
+});
+
+describe('CreateRequestPage — priorité choisie depuis l’accueil (016)', () => {
+  beforeEach(() => {
+    store.clear();
+    installFakeMedia();
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('deux priorités seulement : Normale et Urgente', async () => {
+    setup(() => json(201, { id: 'r1' }));
+    await screen.findByRole('heading', { name: 'Nouvelle demande' });
+    const group = screen.getByRole('radiogroup');
+    expect(within(group).getAllByRole('radio').map((r) => r.closest('label')?.textContent)).toEqual(['Normale', 'Urgente']);
+  });
+
+  it.each([
+    ['URGENT', 'Urgente', 'Demande urgente'],
+    ['NORMAL', 'Normale', 'Demande normale'],
+  ])('?priorite=%s : priorité cochée et rappelée en tête, enregistreur vocal en premier, envoyée telle quelle', async (value, label, heading) => {
+    const calls = setup(() => json(201, { id: 'r1' }), `/demandes/nouvelle?priorite=${value}`);
+    expect(await screen.findByRole('heading', { level: 1, name: heading })).toBeVisible();
+    expect(screen.getByRole('radio', { name: label })).toBeChecked();
+    expect(screen.getByTestId('preset-priority')).toHaveTextContent(`Priorité : ${label}`);
+    // Formulaire vocal : l'enregistreur est le premier champ, sans focus imposé (jsx-a11y/no-autofocus).
+    const record = screen.getByRole('button', { name: 'Enregistrer un message vocal' });
+    expect(record.compareDocumentPosition(screen.getByRole('radio', { name: label })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Retour à l’accueil' })).toHaveAttribute('href', '/');
+
+    await choose('Catégorie', 'Photocopies');
+    await choose('Destinataire', 'Reprographie — Reprographie');
+    await userEvent.type(screen.getByLabelText('Titre'), 'Photocopies du contrôle');
+    await userEvent.type(screen.getByLabelText('Description (facultative)'), '30 exemplaires');
+    await userEvent.click(screen.getByRole('button', { name: 'Envoyer la demande' }));
+    await waitFor(() => expect(calls.find((c) => c.method === 'POST')?.body).toMatchObject({ priority: value }));
+  });
+
+  it('la priorité rappelée en tête suit un changement dans le formulaire', async () => {
+    setup(() => json(201, { id: 'r1' }), '/demandes/nouvelle?priorite=URGENT');
+    await screen.findByRole('heading', { level: 1, name: 'Demande urgente' });
+    await userEvent.click(screen.getByRole('radio', { name: 'Normale' }));
+    expect(screen.getByTestId('preset-priority')).toHaveTextContent('Priorité : Normale');
+    expect(screen.getByRole('heading', { level: 1, name: 'Demande normale' })).toBeVisible();
+  });
+
+  it('valeur inconnue ou retirée (?priorite=HIGH) : ignorée, rien n’est coché', async () => {
+    setup(() => json(201, { id: 'r1' }), '/demandes/nouvelle?priorite=HIGH');
+    expect(await screen.findByRole('heading', { level: 1, name: 'Nouvelle demande' })).toBeVisible();
+    expect(screen.getByRole('radio', { name: 'Normale' })).not.toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Urgente' })).not.toBeChecked();
+    expect(screen.queryByTestId('preset-priority')).not.toBeInTheDocument();
   });
 });
 

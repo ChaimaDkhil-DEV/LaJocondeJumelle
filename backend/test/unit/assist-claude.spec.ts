@@ -18,8 +18,8 @@ const INPUT: SuggestionInput = {
     { id: 'c1', name: 'Photocopies' },
     { id: 'c2', name: 'Petits travaux' },
   ],
-  guidelines: [{ id: 'g1', title: 'Pannes de reprographie', body: 'Priorité : Haute.', categoryId: 'c1' }],
-  similar: [{ title: 'Photocopieuse du 1er en panne', categoryName: 'Photocopies', priority: 'HIGH' }],
+  guidelines: [{ id: 'g1', title: 'Pannes de reprographie', body: 'Priorité : Urgente.', categoryId: 'c1' }],
+  similar: [{ title: 'Photocopieuse du 1er en panne', categoryName: 'Photocopies', priority: 'URGENT' }],
 };
 
 const answer = (payload: unknown, extra: Record<string, unknown> = {}) => ({
@@ -41,7 +41,7 @@ describe('claudeSuggestionProvider', () => {
 
   it('demande une sortie structurée contrainte aux listes autorisées, texte délimité comme une donnée', async () => {
     create.mockResolvedValue(
-      answer({ title: 'Photocopieuse en panne', categoryId: 'c1', priority: 'HIGH', reason: 'D’après la consigne.', missing: [], sourceIds: ['g1'] }),
+      answer({ title: 'Photocopieuse en panne', categoryId: 'c1', priority: 'URGENT', reason: 'D’après la consigne.', missing: [], sourceIds: ['g1'] }),
     );
     const provider = claudeSuggestionProvider({ apiKey: 'k', model: 'claude-opus-5-5' });
     const signal = new AbortController().signal;
@@ -49,7 +49,7 @@ describe('claudeSuggestionProvider', () => {
     await expect(provider.suggest(INPUT, signal)).resolves.toEqual({
       title: 'Photocopieuse en panne',
       categoryId: 'c1',
-      priority: 'HIGH',
+      priority: 'URGENT',
       reason: 'D’après la consigne.',
       missing: [],
       sourceIds: ['g1'],
@@ -68,7 +68,7 @@ describe('claudeSuggestionProvider', () => {
     expect(schema.additionalProperties).toBe(false);
     expect(schema.required).toEqual(['title', 'categoryId', 'priority', 'reason', 'missing', 'sourceIds']);
     expect(schema.properties.categoryId.enum).toEqual(['c1', 'c2', null]);
-    expect(schema.properties.priority.enum).toEqual(['NORMAL', 'MEDIUM', 'HIGH', 'URGENT', null]);
+    expect(schema.properties.priority.enum).toEqual(['NORMAL', 'URGENT', null]);
 
     expect(params.system).toMatch(/donnée/);
     const content: string = params.messages[0].content;

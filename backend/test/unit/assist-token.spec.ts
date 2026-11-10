@@ -6,7 +6,7 @@ const NOW = new Date('2026-10-27T10:00:00Z');
 const PAYLOAD: AssistTokenPayload = {
   title: 'Photocopieuse en panne',
   categoryId: '6f1c0b0e-1111-4c2a-9b1a-000000000001',
-  priority: 'HIGH',
+  priority: 'NORMAL',
   sources: [{ id: '6f1c0b0e-2222-4c2a-9b1a-000000000002', title: 'Pannes de reprographie' }],
 };
 

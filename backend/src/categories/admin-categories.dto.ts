@@ -1,5 +1,6 @@
 import { AssignmentMode, Circuit, ClosureMode, Priority, ProofMode, RequestKind, Role, RoutingMode } from '@prisma/client';
 import { Transform, Type } from 'class-transformer';
+import { PRIORITY_ORDER } from './category-defaults';
 import {
   ArrayMaxSize,
   ArrayMinSize,
@@ -189,8 +190,8 @@ export class DeadlineRuleDto {
 
 export class DeadlineRulesDto {
   @IsArray()
-  @ArrayMinSize(4, { message: 'Une règle par priorité est attendue (4).' })
-  @ArrayMaxSize(4, { message: 'Une règle par priorité est attendue (4).' })
+  @ArrayMinSize(PRIORITY_ORDER.length, { message: `Une règle par priorité est attendue (${PRIORITY_ORDER.length}).` })
+  @ArrayMaxSize(PRIORITY_ORDER.length, { message: `Une règle par priorité est attendue (${PRIORITY_ORDER.length}).` })
   @ValidateNested({ each: true })
   @Type(() => DeadlineRuleDto)
   rules!: DeadlineRuleDto[];

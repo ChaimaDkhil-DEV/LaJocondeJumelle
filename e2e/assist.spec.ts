@@ -30,7 +30,7 @@ test('le super administrateur crée une consigne ; l’enseignante applique les 
   await page.getByRole('button', { name: 'Nouvelle consigne' }).click();
   const dialog = page.getByRole('dialog', { name: 'Nouvelle consigne' });
   await dialog.getByLabel('Titre').fill(guideline);
-  await dialog.getByLabel('Texte').fill('Toner épuisé sur une imprimante : Priorité : Moyenne.');
+  await dialog.getByLabel('Texte').fill('Toner épuisé sur une imprimante : Priorité : Normale.');
   await dialog.getByRole('button', { name: 'Enregistrer la consigne' }).click();
   await expect(page.getByRole('list', { name: 'Consignes' }).getByText(guideline)).toBeVisible();
   await expectNoA11yViolations(page);
@@ -48,7 +48,7 @@ test('le super administrateur crée une consigne ; l’enseignante applique les 
   await expectNoA11yViolations(page);
 
   await expect(page.getByRole('combobox', { name: 'Catégorie' })).toHaveText('Photocopies');
-  await expect(page.getByRole('radio', { name: 'Haute' })).toBeChecked();
+  await expect(page.getByRole('radio', { name: 'Urgente' })).toBeChecked();
   const title = await page.getByLabel('Titre', { exact: true }).inputValue();
   expect(title).toContain('La photocopieuse du premier étage est en panne');
   // Seul destinataire de « Photocopies » : déjà prérempli.
@@ -57,7 +57,7 @@ test('le super administrateur crée une consigne ; l’enseignante applique les 
 
   await expect(page.getByText('Votre demande a été envoyée.')).toBeVisible();
   const history = page.getByRole('list', { name: 'Historique' });
-  await expect(history.getByText(/^Propositions automatiques : catégorie « Photocopies » \(retenue\), priorité Haute \(retenue\)/)).toBeVisible();
+  await expect(history.getByText(/^Propositions automatiques : catégorie « Photocopies » \(retenue\), priorité Urgente \(retenue\)/)).toBeVisible();
   await expect(history.getByText('Consignes : Pannes de reprographie')).toBeVisible();
   await expectNoA11yViolations(page);
 });
@@ -87,8 +87,8 @@ test('un vocal est analysé dès la fin de l’enregistrement, envoyé avec la d
   // Les propositions restent modifiables : titre propre à ce test.
   const title = `Vocal transmis (${testInfo.project.name} ${Date.now()})`;
   await page.getByLabel('Titre', { exact: true }).fill(title);
-  await clickInView(page.getByRole('radio', { name: 'Moyenne' }));
-  await expect(page.getByRole('radio', { name: 'Moyenne' })).toBeChecked();
+  await clickInView(page.getByRole('radio', { name: 'Normale' }));
+  await expect(page.getByRole('radio', { name: 'Normale' })).toBeChecked();
   await clickInView(page.getByRole('button', { name: 'Envoyer la demande' }));
   await expect(page.getByText('Votre demande a été envoyée.')).toBeVisible();
   await expect(page.getByRole('heading', { name: title })).toBeVisible();
@@ -126,7 +126,7 @@ test('les demandes similaires visibles s’affichent, ouvertes dans un nouvel on
       description: 'Salle 12.',
       categoryId: photocopies.id,
       recipientId: recipients[0].id,
-      priority: 'HIGH',
+      priority: 'URGENT',
     },
   });
   expect(created.status()).toBe(201);

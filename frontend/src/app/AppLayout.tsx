@@ -7,6 +7,7 @@ import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import {
   ClipboardCheck,
+  House,
   Inbox,
   LayoutDashboard,
   Mail,
@@ -29,6 +30,7 @@ import { visuallyHidden } from '../components/a11y';
 import { Person } from '../components/UserAvatar';
 import { font, fontSize, icon, layout, motion, radius, tokensOf } from '../design/tokens';
 import { canUseAdministrationSpace } from '../features/admin/access';
+import { hasTeacherHome } from '../features/home/access';
 import { ROLE_LABELS } from '../features/admin/labels';
 import { useCurrentUser, useLogout } from '../features/auth/useCurrentUser';
 import { NotificationCenter } from '../features/notifications/NotificationCenter';
@@ -54,9 +56,17 @@ const DASHBOARD_ITEM: NavItem = {
   matches: (p) => p === '/',
 };
 
+/** Accueil de l'enseignant (016) : scan du QR code, demandes rapides et suivi de ses demandes. */
+const TEACHER_HOME_ITEM: NavItem = {
+  to: '/',
+  label: t('Accueil'),
+  icon: House,
+  matches: (p) => p === '/' || p.startsWith('/demandes/suivi/'),
+};
+
 /**
- * « Mes demandes » (`/demandes`) ; pour les rôles sans tableau de bord, c'est aussi la page
- * d'accueil `/`.
+ * « Mes demandes » (`/demandes`) ; pour les rôles sans tableau de bord ni accueil d'enseignant, c'est
+ * aussi la page d'accueil `/`.
  */
 function requestsItem(isHome: boolean): NavItem {
   const current = (p: string) => p === '/demandes' || (isHome && p === '/');
@@ -65,7 +75,7 @@ function requestsItem(isHome: boolean): NavItem {
     label: t('Mes demandes'),
     icon: Inbox,
     current,
-    matches: (p) => current(p) || (p.startsWith('/demandes/') && p !== '/demandes/nouvelle'),
+    matches: (p) => current(p) || (p.startsWith('/demandes/') && p !== '/demandes/nouvelle' && !p.startsWith('/demandes/suivi/')),
   };
 }
 
@@ -141,9 +151,11 @@ const VALIDATION_ITEM: NavItem = {
 export function navItemsFor(me: Me | undefined): NavItem[] {
   if (me?.role === 'PARENT') return [PARENT_MESSAGES_ITEM];
   const superAdmin = me?.role === 'SUPER_ADMIN';
+  const teacherHome = hasTeacherHome(me);
   return [
     ...(superAdmin ? [DASHBOARD_ITEM] : []),
-    requestsItem(!superAdmin),
+    ...(teacherHome ? [TEACHER_HOME_ITEM] : []),
+    requestsItem(!superAdmin && !teacherHome),
     ...NAV_ITEMS,
     ...(canSeeCoverage(me) ? [COVERAGE_ITEM] : []),
     ...(me?.isTeacher ? [PARENT_COMM_ITEM] : []),

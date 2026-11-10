@@ -6,6 +6,7 @@ import { clientIp, requestPath } from '../common/request-info';
 import type { Page } from '../common/pagination';
 import { RequestTransitionsService } from './request-transitions.service';
 import { ChangePriorityDto, CreateRequestDto, ListRequestsQuery, RequestActionDto, UpdateDraftDto } from './requests.dto';
+import type { TrackingGroup } from './domain/tracking';
 import type { RequestDetail, RequestSummary } from './requests.mapper';
 import { RequestsService, type RequestContext } from './requests.service';
 
@@ -36,6 +37,12 @@ export class RequestsController {
   @Get()
   list(@CurrentUser() user: AuthenticatedUser, @Query() query: ListRequestsQuery): Promise<Page<RequestSummary>> {
     return this.requests.list(user, query);
+  }
+
+  /** « Suivi de mes demandes » (016) : compteurs des demandes envoyées par l'utilisateur connecté. Avant `:id`. */
+  @Get('tracking')
+  tracking(@CurrentUser() user: AuthenticatedUser): Promise<Record<TrackingGroup, number>> {
+    return this.requests.tracking(user);
   }
 
   @Get(':id')

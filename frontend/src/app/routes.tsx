@@ -10,6 +10,7 @@ import { CoverageStatsPage } from '../features/coverage/CoverageStatsPage';
 import { CreateCoveragePage } from '../features/coverage/CreateCoveragePage';
 import { EmptyClassPage } from '../features/coverage/EmptyClassPage';
 import { HomePage } from '../features/home/HomePage';
+import { TrackingListPage } from '../features/home/TrackingListPage';
 import { TeacherRequestPage } from '../features/coverage/TeacherRequestPage';
 import { QrEntryPage } from '../features/attendance/QrEntryPage';
 import { CreateRequestPage } from '../features/requests/CreateRequestPage';
@@ -42,6 +43,8 @@ export const routes: RouteObject[] = [
       { index: true, element: <HomePage /> },
       { path: 'demandes', element: <RequestListPage /> },
       { path: 'demandes/nouvelle', element: <CreateRequestPage /> },
+      // « Suivi de mes demandes » (016) : en attente, validées / traitées, archives.
+      { path: 'demandes/suivi/:groupe', element: <TrackingListPage /> },
       { path: 'demandes/:id/brouillon', element: <DraftPage /> },
       { path: 'demandes/:id', element: <RequestDetailPage /> },
       { path: 'profil', element: <ProfilePage /> },

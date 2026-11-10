@@ -65,7 +65,7 @@ export function GuidelinesAdminPage() {
         <ErrorState message={t('Impossible de charger les consignes.')} actionLabel={t('Réessayer')} onAction={() => void guidelines.refetch()} />
       ) : guidelines.data.length === 0 ? (
         <Paper variant="outlined">
-          <EmptyState title={t('Aucune consigne.')} description={t('Créez une consigne, par exemple « Panne de photocopieuse : Priorité : Haute ».')} />
+          <EmptyState title={t('Aucune consigne.')} description={t('Créez une consigne, par exemple « Panne de photocopieuse : Priorité : Urgente ».')} />
         </Paper>
       ) : (
         <Paper variant="outlined" sx={{ overflow: 'hidden' }}>

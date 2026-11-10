@@ -14,7 +14,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { apiFetch } from '../../api/client';
-import type { Priority, RequestStatus } from '../../api/types';
+import type { RequestStatus } from '../../api/types';
 import { STAGE_LABELS, type DeadlineStage } from '../../components/Countdown';
 import { ErrorState } from '../../components/ErrorState';
 import { formatDateTime } from '../../components/format';
@@ -22,7 +22,7 @@ import { LoadingState } from '../../components/LoadingState';
 import { SectionCard } from '../../components/SectionCard';
 import { font, icon, tokensOf } from '../../design/tokens';
 import { t } from '../../i18n';
-import { PRIORITY_LABELS } from '../../components/PriorityBadge';
+import { historyPriorityLabel } from '../../components/PriorityBadge';
 import { STATUS_LABELS } from '../../components/StatusBadge';
 
 type EventValue = Record<string, unknown> | null;
@@ -67,11 +67,11 @@ function describeAssist(from: Record<string, unknown>, to: Record<string, unknow
   }
   if (from.priority !== undefined) {
     const kept = from.priority === to.priority;
-    const priority = PRIORITY_LABELS[from.priority as Priority];
+    const priority = historyPriorityLabel(from.priority);
     parts.push(
       kept
         ? t('priorité {priority} (retenue)', { priority })
-        : t('priorité {priority} (retenue : {kept})', { priority, kept: PRIORITY_LABELS[to.priority as Priority] }),
+        : t('priorité {priority} (retenue : {kept})', { priority, kept: historyPriorityLabel(to.priority) }),
     );
   }
   if (from.title !== undefined) parts.push(from.title === to.title ? t('titre proposé (retenu)') : t('titre proposé (modifié)'));
@@ -102,8 +102,8 @@ export function describeEvent(e: HistoryEvent): string {
       });
     case 'PRIORITY_CHANGED':
       return t('Priorité : {from} → {to}', {
-        from: PRIORITY_LABELS[from.priority as Priority],
-        to: PRIORITY_LABELS[to.priority as Priority],
+        from: historyPriorityLabel(from.priority),
+        to: historyPriorityLabel(to.priority),
       });
     case 'ASSIGNED': {
       const source = ASSIGNEE_SOURCE_LABELS[String(to.assigneeSource)];

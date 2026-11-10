@@ -32,7 +32,8 @@ describe('StatusChip', () => {
 
 describe('PriorityChip', () => {
   it('a un libellé français pour chaque priorité', () => {
-    expect(PRIORITY_LABELS).toEqual({ NORMAL: 'Normale', MEDIUM: 'Moyenne', HIGH: 'Haute', URGENT: 'Urgente' });
+    // 016 : deux priorités métier.
+    expect(PRIORITY_LABELS).toEqual({ NORMAL: 'Normale', URGENT: 'Urgente' });
   });
 
   it('signale « Urgente » par une icône et un texte', () => {

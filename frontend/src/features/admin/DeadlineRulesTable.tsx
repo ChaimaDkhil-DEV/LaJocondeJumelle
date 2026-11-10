@@ -2,13 +2,13 @@ import Box from '@mui/material/Box';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import type { Priority } from '../../api/types';
-import { PRIORITY_LABELS, PRIORITY_STYLE } from '../../components/PriorityBadge';
+import { PRIORITIES, PRIORITY_LABELS, PRIORITY_STYLE } from '../../components/PriorityBadge';
 import { font, icon } from '../../design/tokens';
 import { t } from '../../i18n';
 import type { CategoryKind, Circuit, DeadlineRule } from './api';
 import { formatMinutes } from './labels';
 
-export const PRIORITIES: readonly Priority[] = ['NORMAL', 'MEDIUM', 'HIGH', 'URGENT'];
+export { PRIORITIES };
 
 type Field = 'validationMinutes' | 'takeoverMinutes' | 'completionMinutes' | 'arrivalMinutes';
 
@@ -91,7 +91,7 @@ interface DeadlineRulesTableProps {
   onChange: (value: DeadlineDraft) => void;
 }
 
-/** Délais par priorité (4 priorités × 2 ou 3 délais), présentés en groupes pour rester lisibles à 320 px. */
+/** Délais par priorité (2 priorités × 2 ou 3 délais), présentés en groupes pour rester lisibles à 320 px. */
 export function DeadlineRulesTable({ circuit, kind = 'WORK', value, errors, onChange }: DeadlineRulesTableProps) {
   const fields = fieldsFor(circuit, kind);
 

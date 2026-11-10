@@ -53,7 +53,7 @@ test('V15 — filtres combinés statut + priorité, puis historique complet de l
   await page.getByRole('button', { name: 'Se déconnecter' }).click();
   await login(page, 'enseignante');
 
-  await page.goto('/?onglet=envoyees');
+  await page.goto('/demandes?onglet=envoyees');
   await page.getByRole('button', { name: /^Filtres/ }).click();
   await page.getByLabel('Rechercher dans les titres').fill(marker);
   await page.getByLabel('Rechercher dans les titres').press('Enter');

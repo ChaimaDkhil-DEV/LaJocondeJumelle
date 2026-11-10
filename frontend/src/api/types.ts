@@ -6,7 +6,8 @@
 /** PARENT : représentant légal d'élève (015), limité à « Messages de l'école ». */
 export type Role = 'SUPER_ADMIN' | 'ADMIN' | 'EMPLOYEE' | 'PARENT';
 
-export type Priority = 'NORMAL' | 'MEDIUM' | 'HIGH' | 'URGENT';
+/** Deux priorités métier (016) ; MEDIUM et HIGH, converties par la migration 0024, ne restent que dans l'historique. */
+export type Priority = 'NORMAL' | 'URGENT';
 
 export type RequestStatus =
   | 'DRAFT'

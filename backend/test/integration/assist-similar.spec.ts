@@ -26,7 +26,7 @@ describe('SimilarRequestsService', () => {
       .post('/api/requests')
       .set('Cookie', cookie)
       .set('Origin', TEST_ORIGIN)
-      .send({ clientId: randomUUID(), title, description: 'Rien ne s’imprime.', categoryId: photocopies, recipientId: reprographieId, priority: 'HIGH', ...extra });
+      .send({ clientId: randomUUID(), title, description: 'Rien ne s’imprime.', categoryId: photocopies, recipientId: reprographieId, priority: 'URGENT', ...extra });
     if (res.status !== 201) throw new Error(`${title} : ${res.status} ${JSON.stringify(res.body)}`);
     return res.body.id;
   }
@@ -65,7 +65,7 @@ describe('SimilarRequestsService', () => {
       reference: expect.stringMatching(/^D-\d{4}-\d{6}$/),
       title: 'Photocopieuse du premier étage en panne',
       categoryName: 'Photocopies',
-      priority: 'HIGH',
+      priority: 'URGENT',
       status: expect.any(String),
     });
     // Aucun champ au-delà du contrat (ni description, ni personnes).

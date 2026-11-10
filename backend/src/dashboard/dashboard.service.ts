@@ -356,7 +356,7 @@ export class DashboardService {
   async performance(query: DashboardQuery) {
     const f = resolveFilters(query);
     const rows = await this.cohort(f);
-    const priorities: Priority[] = ['URGENT', 'HIGH', 'MEDIUM', 'NORMAL'];
+    const priorities: Priority[] = ['URGENT', 'NORMAL'];
     return {
       period: { from: f.from, to: f.to },
       overall: summarizePerformance(rows),
@@ -556,7 +556,7 @@ const STATUS_LABELS: Record<RequestStatus, string> = {
   PENDING: 'En attente',
 };
 
-const PRIORITY_LABELS: Record<Priority, string> = { NORMAL: 'Normale', MEDIUM: 'Moyenne', HIGH: 'Haute', URGENT: 'Urgente' };
+const PRIORITY_LABELS: Record<Priority, string> = { NORMAL: 'Normale', URGENT: 'Urgente' };
 
 const STAGE_LABELS: Record<DeadlineStage, string> = {
   VALIDATION: 'validation',

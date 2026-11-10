@@ -82,7 +82,15 @@ test('V18 — chaque écran livré tient en 320 px, sans violation axe', async (
   await login(page, 'enseignante');
   const id = await createRequestByApi(page, `Écrans 320 px ${Date.now()}`);
 
+  // 016 : l'enseignante arrive sur son accueil (scan, demandes rapides, suivi) ; « Mes demandes » est sur /demandes.
   await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1, name: 'Accueil' })).toBeVisible();
+  await checkScreen(page, 'accueil de l’enseignante');
+  await page.goto('/demandes/suivi/en-attente');
+  await expect(page.getByRole('heading', { level: 1, name: 'En attente' })).toBeVisible();
+  await checkScreen(page, 'suivi : en attente');
+
+  await page.goto('/demandes');
   await expect(page.getByRole('tab', { name: 'Envoyées' })).toBeVisible();
   await checkScreen(page, 'liste');
   await page.getByRole('button', { name: /^Filtres/ }).click();
@@ -309,7 +317,7 @@ test('007 — brouillons à 320 px : enregistrement au clavier, page brouillon, 
   await expect(page.getByLabel('Titre')).toHaveValue(title);
   await checkScreen(page, 'page brouillon');
 
-  await page.goto('/?onglet=brouillons');
+  await page.goto('/demandes?onglet=brouillons');
   await expect(page.getByRole('tab', { name: 'Brouillons' })).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByRole('link', { name: new RegExp(title) })).toBeVisible();
   await checkScreen(page, 'onglet brouillons');
@@ -336,7 +344,7 @@ test('009 — propositions automatiques et consignes à 320 px, au clavier, sans
   await page.keyboard.press('Enter');
   // Les champs vides reçoivent les propositions ; l'analyse se relance au clavier.
   await expect(page.getByText(/^Champs préremplis d’après votre message/)).toBeVisible();
-  await expect(page.getByRole('radio', { name: 'Haute' })).toBeChecked();
+  await expect(page.getByRole('radio', { name: 'Urgente' })).toBeChecked();
   await tabTo(page, page.getByRole('button', { name: 'Relancer l’analyse' }));
   await checkScreen(page, 'création avec propositions');
 

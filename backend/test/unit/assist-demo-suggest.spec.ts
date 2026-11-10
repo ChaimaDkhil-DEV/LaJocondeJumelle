@@ -8,7 +8,7 @@ const categories = [
 const pannes = {
   id: 'g-pannes',
   title: 'Pannes de reprographie',
-  body: 'Photocopieuse en panne, bourrage, toner vide.\nPriorité : Haute',
+  body: 'Photocopieuse en panne, bourrage, toner vide.\nPriorité : Urgente',
   categoryId: 'cat-copies',
 };
 const generale = { id: 'g-gen', title: 'Sécurité', body: 'Tout danger immédiat. Priorité : Urgente', categoryId: null };
@@ -20,7 +20,7 @@ describe('demoSuggest', () => {
     ).toEqual({
       title: 'La photocopieuse du premier étage est en panne',
       categoryId: 'cat-copies',
-      priority: 'HIGH',
+      priority: 'URGENT',
       reason: 'D’après la consigne « Pannes de reprographie ».',
       missing: [],
       sourceIds: ['g-pannes'],
@@ -90,16 +90,16 @@ describe('demoSuggest', () => {
       expect(priorityOf('Il y a une fuite d’eau importante dans le couloir du deuxième')).toBe('URGENT');
     });
 
-    it('échéance proche et impact sur les cours : Haute', () => {
-      expect(priorityOf('Le vidéoprojecteur de la salle 12 ne fonctionne plus et j’ai cours ce matin')).toBe('HIGH');
+    it('échéance proche et impact sur les cours : Urgente', () => {
+      expect(priorityOf('Le vidéoprojecteur de la salle 12 ne fonctionne plus et j’ai cours ce matin')).toBe('URGENT');
     });
 
-    it('mécontentement et « urgent » sans fait précis : Moyenne, jamais Urgente', () => {
-      expect(priorityOf('C’est inadmissible, encore une fois, c’est urgent, faites quelque chose')).toBe('MEDIUM');
+    it('mécontentement et « urgent » sans fait précis : Normale, jamais Urgente', () => {
+      expect(priorityOf('C’est inadmissible, encore une fois, c’est urgent, faites quelque chose')).toBe('NORMAL');
     });
 
-    it('gêne sans échéance : Moyenne', () => {
-      expect(priorityOf('La photocopieuse du premier étage est en panne')).toBe('MEDIUM');
+    it('gêne sans échéance : Normale', () => {
+      expect(priorityOf('La photocopieuse du premier étage est en panne')).toBe('NORMAL');
     });
 
     it('aucun fait d’urgence : priorité laissée à l’utilisateur', () => {
@@ -107,12 +107,21 @@ describe('demoSuggest', () => {
     });
 
     it('une consigne fixe la priorité ; seul un danger la relève', () => {
-      expect(demoSuggest({ text: 'La photocopieuse est en panne, il y a de la fumée', categories, guidelines: [pannes] }).priority).toBe(
+      const normale = { ...pannes, body: 'Photocopieuse en panne.\nPriorité : Normale' };
+      expect(demoSuggest({ text: 'La photocopieuse est en panne, il y a de la fumée', categories, guidelines: [normale] }).priority).toBe(
         'URGENT',
       );
       expect(
-        demoSuggest({ text: 'La photocopieuse est en panne, c’est urgent pour ce matin', categories, guidelines: [pannes] }).priority,
-      ).toBe('HIGH');
+        demoSuggest({ text: 'La photocopieuse est en panne, c’est urgent pour ce matin', categories, guidelines: [normale] }).priority,
+      ).toBe('NORMAL');
+    });
+
+    it.each([
+      ['Moyenne', 'NORMAL'],
+      ['Haute', 'URGENT'],
+    ])('consigne ancienne « Priorité : %s » : lue comme la migration 0024 l’a convertie (%s)', (word, expected) => {
+      const ancienne = { ...pannes, body: `Photocopieuse en panne.\nPriorité : ${word}` };
+      expect(demoSuggest({ text: 'La photocopieuse est en panne', categories, guidelines: [ancienne] }).priority).toBe(expected);
     });
   });
 

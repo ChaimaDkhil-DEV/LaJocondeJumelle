@@ -125,7 +125,8 @@ const VIEWS = [
 
 type ViewKey = (typeof VIEWS)[number]['key'];
 
-const PRIORITIES: Priority[] = ['URGENT', 'HIGH', 'MEDIUM', 'NORMAL'];
+/** Filtre : l'urgence d'abord (016 : deux priorités). */
+const PRIORITIES: Priority[] = ['URGENT', 'NORMAL'];
 
 /** Tableau défilant (mobile) : atteignable au clavier et nommé pour les lecteurs d’écran. */
 function scrollRegion(label: string) {
@@ -688,10 +689,10 @@ function shortNumber(reference: string): string {
 /** Date et heure sans l'année (« 13 oct., 14:12 ») : la liste couvre une période récente. */
 const shortDateTime = new Intl.DateTimeFormat(locale(), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
-/** Une seule couleur d'alerte : rouge pour l'urgence (et le retard), ambre pour « Haute », gris sinon. */
+/** Une seule couleur d'alerte : rouge pour l'urgence (et le retard), gris sinon. */
 function priorityColor(theme: Theme, priority: Priority): string {
   const t = tokensOf(theme);
-  return priority === 'URGENT' ? t.error.text : priority === 'HIGH' ? t.warning.text : t.textSecondary;
+  return priority === 'URGENT' ? t.error.text : t.textSecondary;
 }
 
 /** Détails au survol (ou au focus) d'une ligne : numéro complet, statut entier, catégorie, échéance. */
@@ -779,7 +780,7 @@ function RequestsTable({ items, label, hasNextPage, isFetchingNextPage, onMore }
                       </Box>
                     </Box>
                   </TableCell>
-                  <TableCell sx={(theme) => ({ color: priorityColor(theme, r.priority), fontWeight: r.priority === 'URGENT' || r.priority === 'HIGH' ? font.medium : font.regular })}>
+                  <TableCell sx={(theme) => ({ color: priorityColor(theme, r.priority), fontWeight: r.priority === 'URGENT' ? font.medium : font.regular })}>
                     {PRIORITY_LABELS[r.priority]}
                   </TableCell>
                   {/* « En retard » remplace le statut quand une étape a dépassé son échéance. */}

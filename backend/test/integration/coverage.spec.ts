@@ -990,7 +990,7 @@ describe('Affectations : parcours conservés de la garde de classe', () => {
       .set('Cookie', cookies.superadmin)
       .set('Origin', TEST_ORIGIN)
       .send({
-        rules: ['NORMAL', 'MEDIUM', 'HIGH', 'URGENT'].map((priority) => ({
+        rules: ['NORMAL', 'URGENT'].map((priority) => ({
           priority,
           validationMinutes: null,
           takeoverMinutes: 3,
