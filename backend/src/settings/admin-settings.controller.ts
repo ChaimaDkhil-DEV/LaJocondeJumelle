@@ -2,6 +2,7 @@ import { Body, Controller, Get, Put, Req, UseGuards } from '@nestjs/common';
 import type { Request } from 'express';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/current-user.decorator';
+import { ParentAllowed } from '../auth/parent-allowed.decorator';
 import { clientIp } from '../common/request-info';
 import { SuperAdminGuard } from '../audit/super-admin.guard';
 import { AdminSettingsService } from './admin-settings.service';
@@ -38,6 +39,8 @@ export class AdminSettingsController {
 export class ClientSettingsController {
   constructor(private readonly admin: AdminSettingsService) {}
 
+  /** Aussi pour les parents (015) : durée maximale d'un vocal adressé à l'enseignant. */
+  @ParentAllowed()
   @Get('client')
   client() {
     return this.admin.clientSettings();

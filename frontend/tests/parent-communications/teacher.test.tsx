@@ -72,21 +72,15 @@ beforeAll(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('Communication avec les parents — enseignant', () => {
-  it('liste ses communications avec leur statut et propose d’en créer une', async () => {
+  it('page d’accueil : conversations (aucune pour l’instant) et création d’une communication', async () => {
     api((call) =>
-      call.url === '/api/parent-communications'
-        ? json(200, [
-            detail({ status: 'RETURNED_FOR_CORRECTION', decisionReason: 'Précisez la matière.' }),
-            detail({ id: 'pc2', status: 'APPROVED' }),
-          ])
-        : undefined,
+      call.url === '/api/parent-communications/conversations' ? json(200, []) : undefined,
     );
     renderRoutes(routes, '/communications-parents');
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Communication avec les parents' }),
     ).toBeVisible();
-    expect(await screen.findByText('Retournée pour correction')).toBeVisible();
-    expect(screen.getByText('Approuvée et publiée')).toBeVisible();
+    expect(await screen.findByText('Aucune conversation')).toBeVisible();
     expect(screen.getByRole('link', { name: 'Nouvelle communication' })).toHaveAttribute(
       'href',
       '/communications-parents/nouvelle',

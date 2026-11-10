@@ -46,7 +46,8 @@ export type NotificationType =
   | 'PARENT_COMM_RETURNED'
   | 'PARENT_COMM_APPROVED'
   | 'PARENT_COMM_REJECTED'
-  | 'PARENT_MESSAGE_NEW';
+  | 'PARENT_MESSAGE_NEW'
+  | 'TEACHER_MESSAGE_NEW';
 
 /** Demande de travail ou couverture de classe : détermine la page ouverte. */
 export type RequestKind = 'WORK' | 'COVERAGE';
@@ -117,24 +118,34 @@ export const NOTIFICATION_LABELS: Record<NotificationType, string> = {
   PARENT_COMM_APPROVED: t('Communication approuvée et publiée'),
   PARENT_COMM_REJECTED: t('Communication rejetée'),
   PARENT_MESSAGE_NEW: t('Nouveau message de l’école'),
+  TEACHER_MESSAGE_NEW: t('Nouveau message d’un parent'),
 };
 
-/** Page d'une communication aux parents selon le destinataire de la notification (015). */
-export function communicationPath(type: NotificationType, communicationId: string): string {
-  if (type === 'PARENT_MESSAGE_NEW') return `/messages-ecole/${communicationId}`;
+/**
+ * Page d'une communication aux parents selon le destinataire de la notification (015). Un parent
+ * ouvre toujours la conversation du message (le sien, retourné ou rejeté, ou celui de l'école).
+ */
+export function communicationPath(
+  type: NotificationType,
+  communicationId: string,
+  forParent = false,
+): string {
+  if (forParent || type === 'PARENT_MESSAGE_NEW') return `/messages-ecole/${communicationId}`;
   if (type === 'PARENT_COMM_TO_VALIDATE') return `/communications-a-valider/${communicationId}`;
+  if (type === 'TEACHER_MESSAGE_NEW') return `/communications-parents/message/${communicationId}`;
   return `/communications-parents/${communicationId}`;
 }
 
 /** Page ouverte par une notification de la cloche : la demande, ou la communication aux parents. */
-export function notificationPath(item: NotificationItem): string {
-  if (item.communication) return communicationPath(item.type, item.communication.id);
+export function notificationPath(item: NotificationItem, forParent = false): string {
+  if (item.communication) return communicationPath(item.type, item.communication.id, forParent);
   return item.request ? requestPath(item.request.id, item.request.kind) : '/';
 }
 
 /** Page ouverte par le bandeau d'une notification reçue en direct. */
-export function eventPath(event: NotificationEvent): string {
-  if (event.communicationId) return communicationPath(event.type, event.communicationId);
+export function eventPath(event: NotificationEvent, forParent = false): string {
+  if (event.communicationId)
+    return communicationPath(event.type, event.communicationId, forParent);
   return event.requestId ? requestPath(event.requestId, event.kind === 'COMMUNICATION' ? undefined : event.kind) : '/';
 }
 

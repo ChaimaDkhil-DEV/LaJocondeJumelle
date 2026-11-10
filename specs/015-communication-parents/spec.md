@@ -27,6 +27,17 @@ permissions, validation and statuses.
     messages: the ADMIN role now has the permission **by default** (default permissions and data migration
     `0022_admin_validates_parent_communications`). The super administrator can withdraw it, or grant it again,
     in « Réglages › Permissions par rôle ». It can be set for the ADMIN role only, never for EMPLOYEE or PARENT.
+- Q: Can a parent start a conversation? → **Amended 2026-11-10: yes.** The parent chooses one of their
+  children, then a teacher assigned to that child's class, and writes (text required, voice optional). A
+  conversation is the trio teacher + student + representative: two children means two conversations. Every
+  message, in both directions, goes through the same per-message validation (`author` = `TEACHER` or
+  `PARENT`, migration `0023_parent_conversations`). The recipient never sees a message that is not
+  approved; the teacher sees a conversation opened by a parent only once its first message is approved.
+  Parent messages create no outbox event and no external delivery (n8n only notifies parents). The
+  teacher's first message in a conversation keeps the existing rule (remark and voice message required);
+  a teacher reply in a started conversation (one of their messages already submitted, or an approved
+  parent message) has an optional voice message. A parent message still pending does not count, so the
+  teacher cannot infer it.
 
 ## User Scenarios
 

@@ -20,7 +20,10 @@ import { MealServicesPage } from '../features/students/MealServicesPage';
 import { CommunicationEditorPage } from '../features/parent-communications/CommunicationEditorPage';
 import { ParentMessagePage } from '../features/parent-communications/ParentMessagePage';
 import { ParentMessagesPage } from '../features/parent-communications/ParentMessagesPage';
-import { TeacherCommunicationsPage } from '../features/parent-communications/TeacherCommunicationsPage';
+import {
+  TeacherCommunicationsPage,
+  TeacherMessageRedirect,
+} from '../features/parent-communications/TeacherCommunicationsPage';
 import { ValidationInboxPage } from '../features/parent-communications/ValidationInboxPage';
 import { AppLayout } from './AppLayout';
 
@@ -58,9 +61,19 @@ export const routes: RouteObject[] = [
       { path: 'communications-parents', element: <TeacherCommunicationsPage /> },
       { path: 'communications-parents/nouvelle', element: <CommunicationEditorPage /> },
       { path: 'communications-parents/:id', element: <CommunicationEditorPage /> },
+      {
+        path: 'communications-parents/conversation/:studentId/:guardianId',
+        element: <TeacherCommunicationsPage />,
+      },
+      { path: 'communications-parents/message/:id', element: <TeacherMessageRedirect /> },
       // Messagerie : la liste des discussions et, avec un message désigné, sa discussion.
       { path: 'communications-a-valider/:id?', element: <ValidationInboxPage /> },
       { path: 'messages-ecole', element: <ParentMessagesPage /> },
+      { path: 'messages-ecole/nouvelle', element: <ParentMessagesPage mode="new" /> },
+      {
+        path: 'messages-ecole/conversation/:teacherId/:studentId',
+        element: <ParentMessagesPage />,
+      },
       { path: 'messages-ecole/:id', element: <ParentMessagePage /> },
       ...adminRoutes,
     ],

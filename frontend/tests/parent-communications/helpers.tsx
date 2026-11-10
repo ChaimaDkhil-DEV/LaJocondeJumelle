@@ -34,6 +34,7 @@ export const guardian = {
 export function detail(overrides: Record<string, unknown> = {}) {
   return {
     id: 'pc1',
+    author: 'TEACHER',
     status: 'DRAFT',
     version: 1,
     currentRevision: 0,

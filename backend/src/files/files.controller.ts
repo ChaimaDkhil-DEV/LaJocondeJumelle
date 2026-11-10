@@ -41,6 +41,8 @@ export class FilesController {
     mkdirSync(UPLOAD_TMP_DIR, { recursive: true });
   }
 
+  /** Un compte parent ne téléverse qu'un vocal provisoire (message à l'enseignant, 015) : voir le service. */
+  @ParentAllowed()
   @Post()
   @UseGuards(UploadRateLimitGuard)
   @UseInterceptors(

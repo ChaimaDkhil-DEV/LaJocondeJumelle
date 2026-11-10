@@ -12,7 +12,9 @@ import { login } from './support/login';
 /**
  * 015 (T050) — Communication enseignant / parents : l'enseignante écrit et enregistre un vocal, soumet ;
  * rien n'est visible du parent avant l'approbation ; la surveillante générale (admin) examine et approuve ;
- * le parent lit le message et l'écoute, puis il est marqué lu. Rejouable : élève, représentant et compte parent uniques.
+ * le parent lit le message dans sa conversation et l'écoute, puis il est marqué lu. Le parent répond :
+ * sa réponse est validée par l'administration avant d'apparaître chez l'enseignante. Rejouable : élève,
+ * représentant et compte parent uniques.
  */
 
 const PARENT_PASSWORD = 'Parent-mot-de-passe-2026!';
@@ -109,7 +111,7 @@ async function parentFirstLogin(
   return page;
 }
 
-test('015 — l’enseignante soumet, la surveillante générale approuve, le parent lit et écoute', async ({
+test('015 — l’enseignante soumet, la surveillante générale approuve, le parent lit, écoute et répond', async ({
   page,
   browser,
 }, testInfo) => {
@@ -180,21 +182,53 @@ test('015 — l’enseignante soumet, la surveillante générale approuve, le pa
   await expect(bubble.getByText('Validé', { exact: true })).toBeVisible();
   await director.context().close();
 
-  // Parent : le message apparaît, non lu ; à l'ouverture, remarque et vocal lisibles ; puis lu.
+  // Parent : la conversation apparaît, non lue ; à l'ouverture, remarque et vocal lisibles ; puis lue.
   await parent.reload();
   const link = parent
-    .getByRole('list', { name: 'Messages de l’école' })
+    .getByRole('list', { name: 'Conversations' })
     .getByRole('link')
     .filter({ hasText: data.studentName });
-  await expect(link).toContainText('Non lu');
+  await expect(link.getByLabel('1 message non lu')).toBeVisible();
   await link.click();
-  await expect(parent.getByText(remark)).toBeVisible();
+  await expect(parent.getByRole('article').filter({ hasText: remark })).toBeVisible();
   const audio = parent.locator('audio');
   await expect(audio).toHaveAttribute('src', /^\/api\/files\//);
   const voice = await parent.request.get((await audio.getAttribute('src'))!);
   expect(voice.status()).toBe(200);
   expect(voice.headers()['content-type']).toMatch(/^audio\//);
-  await parent.getByRole('link', { name: 'Messages de l’école' }).first().click();
-  await expect(link).toContainText('Lu');
-  await expect(link).not.toContainText('Non lu');
+  await expect(link.getByLabel('1 message non lu')).toHaveCount(0);
+
+  // Le parent répond : sa réponse part à la validation, invisible pour l'enseignante en attendant.
+  const answer = `Merci beaucoup, nous continuons la lecture à la maison (${Date.now()}).`;
+  await parent.getByRole('textbox', { name: 'Votre message' }).fill(answer);
+  await parent.getByRole('button', { name: 'Envoyer' }).click();
+  const sent = parent.getByRole('article').filter({ hasText: answer });
+  await expect(sent.getByText('En attente de validation', { exact: true })).toBeVisible();
+
+  const reviewer = await pageAs(browser, testInfo, 'admin');
+  await reviewer.goto('/communications-a-valider');
+  await reviewer
+    .getByRole('list', { name: 'Discussions' })
+    .getByRole('link', { name: new RegExp(data.studentName) })
+    .click();
+  const reply = reviewer.getByRole('article').filter({ hasText: answer });
+  await reply.getByRole('button', { name: 'Valider' }).click();
+  await reply.getByRole('button', { name: 'Valider et transmettre' }).click();
+  await expect(reply.getByText('Validé', { exact: true })).toBeVisible();
+  await reviewer.context().close();
+
+  // Le parent voit sa réponse transmise ; l'enseignante la lit dans la conversation.
+  await parent.reload();
+  await expect(
+    parent.getByRole('article').filter({ hasText: answer }).getByText('Transmis', { exact: true }),
+  ).toBeVisible();
+  const teacherAgain = await pageAs(browser, testInfo, 'enseignante');
+  await teacherAgain.goto('/communications-parents');
+  await teacherAgain
+    .getByRole('list', { name: 'Conversations' })
+    .getByRole('link')
+    .filter({ hasText: data.studentName })
+    .click();
+  await expect(teacherAgain.getByRole('article').filter({ hasText: answer })).toBeVisible();
+  await teacherAgain.context().close();
 });

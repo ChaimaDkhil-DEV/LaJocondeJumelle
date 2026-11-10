@@ -62,6 +62,13 @@ describe('Notifications d’une communication', () => {
     expect(notificationPath(item('PARENT_MESSAGE_NEW'))).toBe('/messages-ecole/pc1');
     expect(notificationPath(item('PARENT_COMM_TO_VALIDATE'))).toBe('/communications-a-valider/pc1');
     expect(notificationPath(item('PARENT_COMM_RETURNED'))).toBe('/communications-parents/pc1');
+    // Conversations (015) : message d'un parent validé → conversation de l'enseignant ; un compte
+    // parent ouvre toujours la conversation du message (le sien retourné, rejeté ou transmis).
+    expect(notificationPath(item('TEACHER_MESSAGE_NEW'))).toBe(
+      '/communications-parents/message/pc1',
+    );
+    expect(notificationPath(item('PARENT_COMM_RETURNED'), true)).toBe('/messages-ecole/pc1');
+    expect(notificationPath(item('PARENT_COMM_APPROVED'), true)).toBe('/messages-ecole/pc1');
     expect(
       notificationPath({
         id: 'n',

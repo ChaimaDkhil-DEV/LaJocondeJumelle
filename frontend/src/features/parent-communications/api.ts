@@ -16,6 +16,8 @@ export type CommunicationEventType =
 export type DeliveryStatus =
   'PENDING' | 'PROCESSING' | 'SENT' | 'DELIVERED' | 'FAILED' | 'RETRYING';
 export type Decision = 'APPROVE' | 'RETURN' | 'REJECT';
+/** Auteur d'un message : l'enseignant (vers le parent) ou le parent (vers l'enseignant). */
+export type MessageAuthor = 'TEACHER' | 'PARENT';
 
 interface Person {
   id: string;
@@ -36,6 +38,7 @@ export interface StudentRef {
 
 export interface CommunicationSummary {
   id: string;
+  author: MessageAuthor;
   status: CommunicationStatus;
   version: number;
   currentRevision: number;
@@ -52,7 +55,8 @@ export interface CommunicationSummary {
 export interface Revision {
   number: number;
   text: string;
-  voiceFileId: string;
+  /** Facultatif pour un message du parent. */
+  voiceFileId: string | null;
   durationSeconds: number | null;
   createdAt: string;
 }
@@ -93,6 +97,7 @@ export interface DiscussionSummary {
   guardian: GuardianRef;
   lastMessage: {
     id: string;
+    author: MessageAuthor;
     status: DiscussionStatus;
     preview: string;
     submittedAt: string | null;
@@ -129,10 +134,87 @@ export interface ParentMessageDetail {
   teacher: { displayName: string };
   student: { firstName: string; lastName: string };
   text: string;
-  voiceFileId: string;
+  /** Absent pour une réponse de l'enseignant sans vocal. */
+  voiceFileId: string | null;
   durationSeconds: number | null;
   approvedAt: string;
   readAt: string | null;
+}
+
+// ------------------------------------------------------------------ Conversations
+
+/**
+ * Message d'une conversation vu par le parent ou l'enseignant. Son propre message (`own`) : état de
+ * modération et motif éventuel. Message reçu : toujours validé, sans motif ni état interne.
+ */
+export interface ConversationMessage {
+  id: string;
+  author: MessageAuthor;
+  own: boolean;
+  status: CommunicationStatus;
+  /** Verrou de modification : seulement pour ses propres messages. */
+  version: number | null;
+  revision: number | null;
+  text: string | null;
+  voiceFileId: string | null;
+  durationSeconds: number | null;
+  sentAt: string;
+  editedAt: string | null;
+  decidedAt: string | null;
+  decisionReason: string | null;
+  readAt: string | null;
+}
+
+export interface TeacherCard {
+  id: string;
+  displayName: string;
+  jobTitle: string | null;
+}
+
+export interface ParentChild extends StudentRef {
+  teachers: TeacherCard[];
+}
+
+interface ConversationSummaryBase {
+  key: string;
+  lastMessage: {
+    id: string;
+    author: MessageAuthor;
+    status: CommunicationStatus;
+    preview: string;
+    sentAt: string;
+  };
+  /** Messages reçus pas encore lus. */
+  unread: number;
+  /** Ses propres messages en attente de validation, ou retournés pour correction. */
+  pending: number;
+  returned: number;
+}
+
+export interface ParentConversationSummary extends ConversationSummaryBase {
+  teacher: TeacherCard;
+  student: StudentRef;
+}
+
+export interface TeacherConversationSummary extends ConversationSummaryBase {
+  student: StudentRef;
+  guardian: GuardianRef;
+}
+
+export interface ParentConversation {
+  key: string;
+  teacher: TeacherCard;
+  student: StudentRef;
+  /** L'enfant est lié et l'enseignant toujours affecté à sa classe. */
+  canSend: boolean;
+  messages: ConversationMessage[];
+}
+
+export interface TeacherConversation {
+  key: string;
+  student: StudentRef;
+  guardian: GuardianRef;
+  messages: ConversationMessage[];
 }
 
 export interface Guardian {
@@ -205,6 +287,15 @@ export const commKeys = {
   discussion: (id: string) => ['parent-communications', 'discussion', id] as const,
   parent: ['parent-communications', 'parent'] as const,
   parentOne: (id: string) => ['parent-communications', 'parent', id] as const,
+  parentChildren: ['parent-communications', 'parent-children'] as const,
+  parentConversations: ['parent-communications', 'parent-conversations'] as const,
+  parentConversation: (teacherId: string, studentId: string) =>
+    ['parent-communications', 'parent-conversations', teacherId, studentId] as const,
+  messageConversation: (id: string) =>
+    ['parent-communications', 'message-conversation', id] as const,
+  teacherConversations: ['parent-communications', 'teacher-conversations'] as const,
+  teacherConversation: (studentId: string, guardianId: string) =>
+    ['parent-communications', 'teacher-conversations', studentId, guardianId] as const,
   guardians: ['parent-communications', 'guardians'] as const,
   teacherClasses: ['parent-communications', 'teacher-classes'] as const,
 };
@@ -375,6 +466,149 @@ export function useParentMessage(id: string) {
       // La lecture est notée par le serveur : la liste affichera « Lu ».
       void queryClient.invalidateQueries({ queryKey: commKeys.parent, exact: true });
       return message;
+    },
+  });
+}
+
+// ------------------------------------------------------------------ Conversations (parent)
+
+export function useParentChildren() {
+  return useQuery({
+    queryKey: commKeys.parentChildren,
+    queryFn: () => apiFetch<ParentChild[]>('/api/parent/messages/children'),
+  });
+}
+
+export function useParentConversations() {
+  return useQuery({
+    queryKey: commKeys.parentConversations,
+    queryFn: () => apiFetch<ParentConversationSummary[]>('/api/parent/messages/conversations'),
+  });
+}
+
+export function useParentConversation(
+  teacherId: string | undefined,
+  studentId: string | undefined,
+) {
+  const queryClient = useQueryClient();
+  return useQuery({
+    queryKey: commKeys.parentConversation(teacherId ?? '', studentId ?? ''),
+    queryFn: async () => {
+      const conversation = await apiFetch<ParentConversation>(
+        `/api/parent/messages/conversations/${teacherId}/${studentId}`,
+      );
+      // La lecture est notée par le serveur : les compteurs « non lus » sont relus.
+      void queryClient.invalidateQueries({ queryKey: commKeys.parentConversations, exact: true });
+      return conversation;
+    },
+    enabled: Boolean(teacherId && studentId),
+  });
+}
+
+/** Conversation d'un message (lien d'une notification). */
+export function useMessageConversation<T>(id: string | undefined, url: (id: string) => string) {
+  return useQuery({
+    queryKey: commKeys.messageConversation(id ?? ''),
+    queryFn: () => apiFetch<T>(url(id!)),
+    enabled: Boolean(id),
+  });
+}
+
+export function useParentMessageMutations(teacherId: string, studentId: string) {
+  const queryClient = useQueryClient();
+  const refresh = () => {
+    void queryClient.invalidateQueries({
+      queryKey: commKeys.parentConversation(teacherId, studentId),
+    });
+    void queryClient.invalidateQueries({ queryKey: commKeys.parentConversations, exact: true });
+  };
+  return {
+    send: useMutation({
+      mutationFn: (body: { text: string; voiceFileId: string | null }) =>
+        apiFetch<ConversationMessage>(
+          `/api/parent/messages/conversations/${teacherId}/${studentId}`,
+          { method: 'POST', body },
+        ),
+      onSuccess: refresh,
+    }),
+    resubmit: useMutation({
+      mutationFn: ({
+        id,
+        ...body
+      }: {
+        id: string;
+        version: number;
+        text: string;
+        voiceFileId: string | null;
+      }) =>
+        apiFetch<ConversationMessage>(`/api/parent/messages/${id}/resubmit`, {
+          method: 'POST',
+          body,
+        }),
+      onSuccess: refresh,
+    }),
+    cancel: useMutation({
+      mutationFn: ({ id, version }: { id: string; version: number }) =>
+        apiFetch<ConversationMessage>(`/api/parent/messages/${id}/cancel`, {
+          method: 'POST',
+          body: { version },
+        }),
+      onSuccess: refresh,
+    }),
+  };
+}
+
+// ------------------------------------------------------------------ Conversations (enseignant)
+
+export function useTeacherConversations() {
+  return useQuery({
+    queryKey: commKeys.teacherConversations,
+    queryFn: () =>
+      apiFetch<TeacherConversationSummary[]>('/api/parent-communications/conversations'),
+  });
+}
+
+export function useTeacherConversation(
+  studentId: string | undefined,
+  guardianId: string | undefined,
+) {
+  const queryClient = useQueryClient();
+  return useQuery({
+    queryKey: commKeys.teacherConversation(studentId ?? '', guardianId ?? ''),
+    queryFn: async () => {
+      const conversation = await apiFetch<TeacherConversation>(
+        `/api/parent-communications/conversations/${studentId}/${guardianId}`,
+      );
+      void queryClient.invalidateQueries({ queryKey: commKeys.teacherConversations, exact: true });
+      return conversation;
+    },
+    enabled: Boolean(studentId && guardianId),
+  });
+}
+
+/**
+ * Message de l'enseignant dans une conversation : brouillon puis soumission. Le vocal est obligatoire
+ * pour le premier message, facultatif pour une réponse (contrôlé aussi par le serveur).
+ */
+export function useTeacherReply(studentId: string, guardianId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: { text: string; voiceFileId: string | null }) => {
+      const draft = await apiFetch<CommunicationDetail>('/api/parent-communications', {
+        method: 'POST',
+        body: { studentId, guardianId, ...body },
+      });
+      return apiFetch<CommunicationDetail>(`/api/parent-communications/${draft.id}/submit`, {
+        method: 'POST',
+        body: { version: draft.version },
+      });
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({
+        queryKey: commKeys.teacherConversation(studentId, guardianId),
+      });
+      void queryClient.invalidateQueries({ queryKey: commKeys.teacherConversations, exact: true });
+      void queryClient.invalidateQueries({ queryKey: commKeys.mine });
     },
   });
 }

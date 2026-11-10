@@ -140,10 +140,35 @@ export class AvatarService {
     return (await stat(path).catch(() => null)) ? path : null;
   }
 
-  /** Photos personnalisées de tous les comptes, pour l'affichage partout (quelques dizaines). */
-  async list(): Promise<Array<{ id: string; avatarUrl: string }>> {
+  /**
+   * Comptes dont la photo est visible pour un parent (015) : le sien et les enseignants affectés à la
+   * classe de ses enfants. null : pas de restriction (personnel de l'établissement).
+   */
+  private async parentScope(viewer: AuthenticatedUser): Promise<string[] | null> {
+    if (viewer.role !== 'PARENT') return null;
+    const teachers = await this.prisma.teacherClass.findMany({
+      where: {
+        class: {
+          students: {
+            some: { active: true, guardians: { some: { guardian: { userId: viewer.id, active: true } } } },
+          },
+        },
+      },
+      select: { teacherId: true },
+    });
+    return [viewer.id, ...teachers.map((t) => t.teacherId)];
+  }
+
+  async visibleTo(viewer: AuthenticatedUser, userId: string): Promise<boolean> {
+    const scope = await this.parentScope(viewer);
+    return scope === null || scope.includes(userId);
+  }
+
+  /** Photos personnalisées des comptes visibles, pour l'affichage partout (quelques dizaines). */
+  async list(viewer: AuthenticatedUser): Promise<Array<{ id: string; avatarUrl: string }>> {
+    const scope = await this.parentScope(viewer);
     const rows = await this.prisma.user.findMany({
-      where: { avatarType: 'CUSTOM', avatarUrl: { not: null } },
+      where: { avatarType: 'CUSTOM', avatarUrl: { not: null }, ...(scope ? { id: { in: scope } } : {}) },
       select: { id: true, avatarUrl: true },
     });
     return rows.map((r) => ({ id: r.id, avatarUrl: r.avatarUrl! }));

@@ -11,6 +11,7 @@ import { clientIp, requestPath } from '../common/request-info';
 import { UPLOAD_TMP_DIR } from '../files/files.controller';
 import { AvatarService, type AvatarContext, type AvatarState } from './avatar.service';
 import { UploadRateLimitGuard } from '../common/upload-rate-limit.guard';
+import { ParentAllowed } from '../auth/parent-allowed.decorator';
 
 /**
  * Plafond technique de réception : la limite métier (2 Mo) est vérifiée ensuite, avec un message
@@ -30,15 +31,17 @@ export class AvatarController {
   }
 
   /** Comptes qui ont une photo : l'interface affiche les autres avec l'avatar par défaut. */
+  @ParentAllowed()
   @Get('avatars')
-  list(): Promise<Array<{ id: string; avatarUrl: string }>> {
-    return this.avatars.list();
+  list(@CurrentUser() user: AuthenticatedUser): Promise<Array<{ id: string; avatarUrl: string }>> {
+    return this.avatars.list(user);
   }
 
   /** Image WebP 256 × 256. L'adresse est versionnée : mise en cache longue sans risque. */
+  @ParentAllowed()
   @Get(':id/avatar')
-  async read(@Param('id', ParseUUIDPipe) id: string, @Res() res: Response): Promise<void> {
-    const path = await this.avatars.file(id);
+  async read(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string, @Res() res: Response): Promise<void> {
+    const path = (await this.avatars.visibleTo(user, id)) ? await this.avatars.file(id) : null;
     if (!path) throw new AppException('NOT_FOUND');
     res.setHeader('Content-Type', 'image/webp');
     res.setHeader('X-Content-Type-Options', 'nosniff');
