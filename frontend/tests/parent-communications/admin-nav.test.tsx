@@ -38,6 +38,13 @@ describe('Navigation', () => {
     ).toContain('À valider');
     expect(labels(me({}))).not.toContain('Parents');
   });
+
+  it('la surveillante générale (admin) voit « À valider » avec la permission, plus si elle lui est retirée', () => {
+    expect(labels(me({ role: 'ADMIN', permissions: ['PARENT_COMMUNICATION_VALIDATE'] }))).toContain(
+      'À valider',
+    );
+    expect(labels(me({ role: 'ADMIN', permissions: [] }))).not.toContain('À valider');
+  });
 });
 
 describe('Notifications d’une communication', () => {

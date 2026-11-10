@@ -318,27 +318,69 @@ describe('Communication enseignant / parents (015)', () => {
   });
 
   describe('validation', () => {
-    it('réservée à la permission : un admin sans elle est refusé, puis accepté quand le rôle la reçoit', async () => {
+    it('la surveillante générale (admin) valide par défaut ; le super administrateur peut lui retirer ce droit', async () => {
       const sent = await submitted();
-      expect((await get('/api/admin/parent-communications', admin)).status).toBe(403);
+      // Prévenue de la soumission, comme le super administrateur.
       expect(
-        (await decide(sent.id, { action: 'APPROVE', revision: 1, version: sent.version }, admin))
-          .status,
-      ).toBe(403);
-      await prisma.rolePermission.create({
-        data: { role: 'ADMIN', permission: 'PARENT_COMMUNICATION_VALIDATE' },
-      });
-      try {
-        const list = await get('/api/admin/parent-communications', admin);
-        expect(list.status).toBe(200);
-        expect(list.body.map((c: { id: string }) => c.id)).toContain(sent.id);
-      } finally {
-        await prisma.rolePermission.delete({
+        await prisma.notification.count({
           where: {
-            role_permission: { role: 'ADMIN', permission: 'PARENT_COMMUNICATION_VALIDATE' },
+            communicationId: sent.id,
+            userId: await userId(prisma, 'admin'),
+            type: 'PARENT_COMM_TO_VALIDATE',
           },
-        });
+        }),
+      ).toBe(1);
+      const list = await get('/api/admin/parent-communications', admin);
+      expect(list.status).toBe(200);
+      expect(list.body.map((c: { id: string }) => c.id)).toContain(sent.id);
+      expect((await get('/api/admin/parent-communications/discussions', admin)).status).toBe(200);
+      expect(
+        (await get(`/api/admin/parent-communications/${sent.id}/discussion`, admin)).status,
+      ).toBe(200);
+      const approved = await decide(
+        sent.id,
+        { action: 'APPROVE', revision: 1, version: sent.version },
+        admin,
+      );
+      expect(approved.status).toBe(200);
+      expect(approved.body.status).toBe('APPROVED');
+
+      // Retirée depuis les réglages : refus dès la requête suivante, puis rétablie.
+      const permissions = (await get('/api/admin/role-permissions', superadmin)).body as {
+        EMPLOYEE: string[];
+        ADMIN: string[];
+      };
+      expect(permissions.ADMIN).toContain('PARENT_COMMUNICATION_VALIDATE');
+      const withdrawn = await send('put', '/api/admin/role-permissions', superadmin, {
+        ...permissions,
+        ADMIN: permissions.ADMIN.filter((p) => p !== 'PARENT_COMMUNICATION_VALIDATE'),
+      });
+      expect(withdrawn.status).toBe(200);
+      try {
+        const other = await submitted();
+        expect((await get('/api/admin/parent-communications', admin)).status).toBe(403);
+        expect((await get('/api/admin/parent-communications/discussions', admin)).status).toBe(403);
+        expect(
+          (
+            await decide(
+              other.id,
+              { action: 'APPROVE', revision: 1, version: other.version },
+              admin,
+            )
+          ).status,
+        ).toBe(403);
+        // Plus prévenue des nouvelles soumissions.
+        expect(
+          await prisma.notification.count({
+            where: { communicationId: other.id, userId: await userId(prisma, 'admin') },
+          }),
+        ).toBe(0);
+      } finally {
+        expect(
+          (await send('put', '/api/admin/role-permissions', superadmin, permissions)).status,
+        ).toBe(200);
       }
+      expect((await get('/api/admin/parent-communications', admin)).status).toBe(200);
     });
 
     it('refus avant toute lecture de la requête : 403 journalisé, même avec un corps ou un filtre invalide', async () => {
@@ -350,14 +392,14 @@ describe('Communication enseignant / parents (015)', () => {
       ).toBe(403);
       expect(
         (
-          await send('post', `/api/admin/parent-communications/${id}/decision`, admin, {
+          await send('post', `/api/admin/parent-communications/${id}/decision`, reprographie, {
             action: 'X',
           })
         ).status,
       ).toBe(403);
-      expect((await get('/api/admin/parent-communications?status=INCONNU', admin)).status).toBe(
-        403,
-      );
+      expect(
+        (await get('/api/admin/parent-communications?status=INCONNU', reprographie)).status,
+      ).toBe(403);
       // Hors groupe Enseignants : refus avant la validation du brouillon.
       expect((await send('post', '/api/parent-communications', reprographie, {})).status).toBe(403);
       expect(
@@ -886,7 +928,8 @@ describe('Communication enseignant / parents (015)', () => {
 
     it('réservées à la permission de validation : refus avant lecture, puis 404 pour un message invisible', async () => {
       const sent = await sentToC('Message protégé');
-      for (const cookie of [admin, reprographie, enseignante, parentC]) {
+      // L'admin a la permission par défaut ; les autres employés et les parents, jamais.
+      for (const cookie of [reprographie, enseignante, parentC]) {
         expect((await get('/api/admin/parent-communications/discussions', cookie)).status).toBe(
           403,
         );
