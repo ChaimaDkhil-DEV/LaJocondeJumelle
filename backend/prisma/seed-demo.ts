@@ -7,6 +7,8 @@
  *   npm run -w backend db:seed:demo              ajoute ce qui manque (idempotent)
  *   npm run -w backend db:seed:demo -- --reset   sauvegarde la base, efface les anciennes données
  *                                                de test, puis crée le jeu de démonstration
+ *   npm run -w backend db:seed:demo -- --parents seulement la communication avec les parents
+ *                                                (classes des enseignants, familles, comptes parents)
  * Mot de passe commun des comptes : variable DEMO_PASSWORD (sinon tiré au hasard et affiché une fois).
  */
 import { PrismaClient, type Prisma, type Role } from '@prisma/client';
@@ -18,6 +20,7 @@ import { schoolTimezoneFromEnv } from '../src/config/config';
 import { loadEnvFile } from '../src/config/load-env-file';
 import { Random, stableId } from './demo/random';
 import { SCENARIOS } from './demo/request-scenarios';
+import { seedParentCommunicationDemo, type DemoFamily } from './demo/parents';
 import { assertLocalDevelopmentDatabase, backupDatabase, purgeLocalData } from './demo/reset';
 import {
   ALL_ACCOUNTS,
@@ -60,6 +63,9 @@ export interface DemoSeedReport {
   requests: number;
   skippedRequests: boolean;
   cutoff: Date;
+  /** Communication avec les parents (015) : familles avec un compte parent, comptes parents créés. */
+  families: DemoFamily[];
+  createdParents: string[];
 }
 
 const BATCH = 500;
@@ -249,11 +255,14 @@ export async function runDemoSeed(prisma: PrismaClient, options: DemoSeedOptions
   });
   await inBatches(students, (data) => prisma.student.createMany({ data, skipDuplicates: true }));
 
+  // --- Communication avec les parents (015) : classes des enseignants, familles, comptes parents.
+  const { families, createdParents } = await seedParentCommunicationDemo(prisma, { password: options.password, createdAt: rentree });
+
   // --- Demandes, historique, messages, notifications et audit : en une transaction, une seule fois.
   const already = await prisma.request.count({ where: { id: { in: SCENARIOS.map((_s, i) => stableId(`request:${i}`)) } } });
   if (already > 0) {
     log(`Demandes de démonstration déjà présentes (${already}) : rien n'est ajouté. Utilisez --reset pour les recréer.`);
-    return { createdUsers, students: students.length, requests: 0, skippedRequests: true, cutoff };
+    return { createdUsers, students: students.length, requests: 0, skippedRequests: true, cutoff, families, createdParents };
   }
 
   const directory: Directory = {
@@ -301,7 +310,7 @@ export async function runDemoSeed(prisma: PrismaClient, options: DemoSeedOptions
     { timeout: 300_000, maxWait: 30_000 },
   );
 
-  return { createdUsers, students: students.length, requests: data.requests.length, skippedRequests: false, cutoff };
+  return { createdUsers, students: students.length, requests: data.requests.length, skippedRequests: false, cutoff, families, createdParents };
 }
 
 async function main(): Promise<void> {
@@ -309,6 +318,8 @@ async function main(): Promise<void> {
   const url = process.env.DATABASE_URL;
   const target = assertLocalDevelopmentDatabase(url);
   const reset = process.argv.includes('--reset');
+  const parentsOnly = process.argv.includes('--parents');
+  if (reset && parentsOnly) throw new Error('--reset et --parents ne se combinent pas.');
   const generated = !process.env.DEMO_PASSWORD;
   const password = process.env.DEMO_PASSWORD || randomBytes(9).toString('base64url');
   console.log(`Base ciblée : ${target.host}:${target.port}/${target.database} (développement local).`);
@@ -316,6 +327,13 @@ async function main(): Promise<void> {
   if (reset) await backupDatabase(url!);
   const prisma = new PrismaClient();
   try {
+    if (parentsOnly) {
+      // N'ajoute que la communication avec les parents, sans toucher aux comptes ni aux demandes.
+      const report = await seedParentCommunicationDemo(prisma, { password });
+      console.log(`Classes des enseignants ajoutées : ${report.teacherClasses}.`);
+      printFamilies(report.families, report.createdParents.length > 0, generated, password);
+      return;
+    }
     if (reset) {
       const report = await purgeLocalData(prisma, url!, process.env.FILES_DIR);
       console.log(`Anciennes données supprimées : ${Object.entries(report.counts).map(([k, v]) => `${k} ${v}`).join(', ')} ; fichiers retirés : ${report.removedFiles}.`);
@@ -332,9 +350,21 @@ async function main(): Promise<void> {
       );
       console.log('Comptes : direction (super administratrice), samira.belkhodja (surveillante générale), prenom.nom pour le personnel.');
     }
+    printFamilies(report.families, report.createdParents.length > 0 && report.createdUsers === 0, generated, password);
   } finally {
     await prisma.$disconnect();
   }
+}
+
+function printFamilies(families: DemoFamily[], newAccounts: boolean, generated: boolean, password: string): void {
+  console.log('Comptes parents (« Messages de l’école ») :');
+  for (const f of families) console.log(`  ${f.username} — ${f.firstName} ${f.lastName} (${f.relationship}), ${f.studentIds.length} enfant(s)`);
+  if (newAccounts)
+    console.log(
+      generated
+        ? `Mot de passe des comptes parents créés : ${password} (affiché une seule fois ; DEMO_PASSWORD pour le choisir).`
+        : 'Mot de passe des comptes parents créés : valeur de DEMO_PASSWORD.',
+    );
 }
 
 if (require.main === module) {

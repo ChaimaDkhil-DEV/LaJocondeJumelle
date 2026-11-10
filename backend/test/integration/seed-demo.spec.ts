@@ -57,7 +57,8 @@ describe('Seed de démonstration', () => {
   });
 
   it('personnel : 49 membres + la direction, rôles existants, groupes Enseignants (35) et Surveillants (10)', async () => {
-    const users = await prisma.user.findMany();
+    // Les comptes parents (015) ne font pas partie du personnel.
+    const users = await prisma.user.findMany({ where: { role: { not: 'PARENT' } } });
     expect(users).toHaveLength(50);
     expect(users.filter((u) => u.role === 'SUPER_ADMIN').map((u) => u.username)).toEqual(['direction']);
     expect(users.filter((u) => u.role === 'ADMIN').map((u) => u.username)).toEqual(['samira.belkhodja']);
@@ -167,6 +168,22 @@ describe('Seed de démonstration', () => {
     expect(audit?.details).toEqual({ action: 'create', classId });
   });
 
+  it('communication avec les parents : classes des enseignants, trois familles avec un compte parent prêt à écrire', async () => {
+    const classes = await prisma.schoolClass.findMany({ include: { teachers: true } });
+    // Titulaire + trois enseignants spécialistes par classe.
+    expect(classes.every((c) => c.teachers.length === 4)).toBe(true);
+    const parents = await prisma.user.findMany({ where: { role: 'PARENT' }, include: { guardianAccount: { include: { students: true } } } });
+    expect(parents).toHaveLength(3);
+    expect(parents.every((p) => p.active && !p.mustChangePassword && p.guardianAccount?.active)).toBe(true);
+    const family = parents.find((p) => (p.guardianAccount?.students.length ?? 0) === 2)!;
+    const cookie = await login(family.username);
+    const children = await request(app.getHttpServer()).get('/api/parent/messages/children').set('Cookie', cookie);
+    expect(children.status).toBe(200);
+    expect(children.body).toHaveLength(2);
+    expect(new Set(children.body.map((c: { class: { id: string } }) => c.class.id)).size).toBe(2);
+    expect(children.body.every((c: { teachers: unknown[] }) => c.teachers.length === 4)).toBe(true);
+  });
+
   it('idempotent : une nouvelle exécution ne duplique rien', async () => {
     const counts = async () => ({
       users: await prisma.user.count(),
@@ -177,6 +194,8 @@ describe('Seed de démonstration', () => {
       notifications: await prisma.notification.count(),
       categories: await prisma.category.count(),
       floors: await prisma.floor.count(),
+      guardians: await prisma.guardian.count(),
+      teacherClasses: await prisma.teacherClass.count(),
     });
     const before = await counts();
     const report = await runDemoSeed(prisma, { password: SEED_PASSWORD, now: NOW, log: () => undefined });
