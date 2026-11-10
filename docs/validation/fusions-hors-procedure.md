@@ -274,7 +274,7 @@ The merge was a deliberate decision of the repository owner, taken once the devi
   permission.
 - #99: both runs on `c74e57f` were green before the merge (42773709116 at 07:21:35, 42773650006 at 07:22:12), all steps
   executed. The branch was up to date with `master` (`967b3f3`), and no review discussion was open. `master` after the
-  merge: run 42776673961 on `ad7563b` — still in progress when this entry was written, to check before merging this entry.
+  merge: run 42776673961 on `ad7563b`, green at 07:47:29.
 - #99 deviations, recorded in the description of the pull request (« Écarts à la procédure »):
   1. The domain rules, the service, the routes and the pages were coded before their tests; the tests were written
      afterwards and pass. Only the later change « optional voice message for a teacher reply » was done test first
