@@ -23,6 +23,10 @@ permissions, validation and statuses.
   each teacher (member of the Enseignants group); a teacher only sees the students of these classes.
 - Q: Who validates? → A: **new permission** `PARENT_COMMUNICATION_VALIDATE`: the super administrator always has
   it and can grant it to the ADMIN role in the existing role permissions settings.
+  - **Amended 2026-11-10:** the general supervisor (« surveillante générale », role ADMIN) validates the
+    messages: the ADMIN role now has the permission **by default** (default permissions and data migration
+    `0022_admin_validates_parent_communications`). The super administrator can withdraw it, or grant it again,
+    in « Réglages › Permissions par rôle ». It can be set for the ADMIN role only, never for EMPLOYEE or PARENT.
 
 ## User Scenarios
 

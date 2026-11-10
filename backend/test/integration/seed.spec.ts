@@ -44,6 +44,8 @@ describe('Seed', () => {
         .sort();
     expect(byRole('EMPLOYEE')).toEqual(['PRIORITY_CHANGE_OWN', 'REQUEST_CREATE']);
     expect(byRole('ADMIN')).toEqual([
+      // 015 : la surveillante générale valide les communications aux parents.
+      'PARENT_COMMUNICATION_VALIDATE',
       'PRIORITY_CHANGE_MANAGED',
       'PRIORITY_CHANGE_OWN',
       'REQUEST_CREATE',

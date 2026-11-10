@@ -333,6 +333,11 @@ function SettingsForm({ settings }: { settings: AdminSettings }) {
 
 const ROLES: ConfigurableRole[] = ['EMPLOYEE', 'ADMIN'];
 
+/** Réglables pour le rôle ADMIN seulement, comme côté serveur (015 : la surveillante générale valide). */
+const ADMIN_ONLY_PERMISSIONS = new Set(['PARENT_COMMUNICATION_VALIDATE']);
+const permissionsFor = (role: ConfigurableRole) =>
+  Object.entries(PERMISSION_LABELS).filter(([permission]) => role === 'ADMIN' || !ADMIN_ONLY_PERMISSIONS.has(permission));
+
 function RolePermissionsForm({ permissions }: { permissions: RolePermissions }) {
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<RolePermissions>(permissions);
@@ -365,7 +370,7 @@ function RolePermissionsForm({ permissions }: { permissions: RolePermissions }) 
           <FormControl key={role} component="fieldset">
             <FormLabel component="legend">{ROLE_LABELS[role]}</FormLabel>
             <FormGroup>
-              {Object.entries(PERMISSION_LABELS).map(([permission, label]) => (
+              {permissionsFor(role).map(([permission, label]) => (
                 <FormControlLabel
                   key={permission}
                   label={label}

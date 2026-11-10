@@ -70,6 +70,8 @@ describe('Rôle Admin (ex-Responsable)', () => {
     const me = await get('admin', '/api/auth/me');
     expect(me.body).toMatchObject({ role: 'ADMIN' });
     expect(me.body.permissions).toEqual([
+      // 015 : la surveillante générale valide les communications aux parents.
+      'PARENT_COMMUNICATION_VALIDATE',
       'PRIORITY_CHANGE_MANAGED',
       'PRIORITY_CHANGE_OWN',
       'REQUEST_CREATE',

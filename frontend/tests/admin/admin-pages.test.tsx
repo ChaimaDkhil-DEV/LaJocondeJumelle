@@ -404,6 +404,26 @@ describe('Réglages', () => {
     );
     expect(await screen.findByText('Permissions enregistrées.')).toBeVisible();
   });
+
+  it('validation des communications aux parents : réglable pour le rôle Admin seulement', async () => {
+    const { calls } = setup('/admin/reglages', (url, method) =>
+      url === '/api/admin/role-permissions' && method === 'PUT'
+        ? json(200, { EMPLOYEE: ['PRIORITY_CHANGE_OWN', 'REQUEST_CREATE'], ADMIN: ['PARENT_COMMUNICATION_VALIDATE', 'REQUEST_CREATE'] })
+        : undefined,
+    );
+    const manager = await screen.findByRole('group', { name: 'Admin' });
+    const employee = screen.getByRole('group', { name: 'Employé' });
+    expect(within(employee).queryByRole('checkbox', { name: 'Valider les communications aux parents' })).toBeNull();
+    const validate = within(manager).getByRole('checkbox', { name: 'Valider les communications aux parents' });
+    expect(validate).not.toBeChecked();
+    await userEvent.click(validate);
+    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer les permissions' }));
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === 'PUT')).toMatchObject({
+        body: { EMPLOYEE: ['PRIORITY_CHANGE_OWN', 'REQUEST_CREATE'], ADMIN: ['PARENT_COMMUNICATION_VALIDATE', 'REQUEST_CREATE'] },
+      }),
+    );
+  });
 });
 
 describe('Journal d’audit', () => {

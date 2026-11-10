@@ -12,13 +12,21 @@ import { isSettingKey, settingError, SettingsService, type SettingKey, type Sett
 export const CONFIGURABLE_ROLES = ['EMPLOYEE', 'ADMIN'] as const;
 export type ConfigurableRole = (typeof CONFIGURABLE_ROLES)[number];
 
-/** Permissions attribuables à ces rôles ; l'administration et l'audit restent au super administrateur. */
-export const CONFIGURABLE_PERMISSIONS: readonly Permission[] = [
+const REQUEST_PERMISSIONS: readonly Permission[] = [
   'REQUEST_CREATE',
   'PRIORITY_CHANGE_OWN',
   'PRIORITY_CHANGE_MANAGED',
   'REQUEST_REASSIGN',
 ];
+
+/**
+ * Permissions attribuables à chaque rôle ; l'administration et l'audit restent au super administrateur.
+ * La validation des communications aux parents (015) ne se règle que pour le rôle ADMIN.
+ */
+export const CONFIGURABLE_PERMISSIONS: Record<ConfigurableRole, readonly Permission[]> = {
+  EMPLOYEE: REQUEST_PERMISSIONS,
+  ADMIN: [...REQUEST_PERMISSIONS, 'PARENT_COMMUNICATION_VALIDATE'],
+};
 
 export type RolePermissions = Record<ConfigurableRole, Permission[]>;
 
@@ -131,10 +139,10 @@ export class AdminSettingsService {
       const value = body?.[role];
       if (
         !Array.isArray(value) ||
-        !value.every((p) => typeof p === 'string' && CONFIGURABLE_PERMISSIONS.includes(p as Permission)) ||
+        !value.every((p) => typeof p === 'string' && CONFIGURABLE_PERMISSIONS[role].includes(p as Permission)) ||
         new Set(value).size !== value.length
       ) {
-        errors.push({ field: role, messages: [`Liste de permissions parmi : ${CONFIGURABLE_PERMISSIONS.join(', ')}.`] });
+        errors.push({ field: role, messages: [`Liste de permissions parmi : ${CONFIGURABLE_PERMISSIONS[role].join(', ')}.`] });
       } else next[role] = [...(value as Permission[])].sort();
     }
     if (errors.length > 0) throw invalid(errors);

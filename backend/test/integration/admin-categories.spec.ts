@@ -154,13 +154,22 @@ describe('Administration des catégories et réglages', () => {
       const current = await api().get('/api/admin/role-permissions').set('Cookie', superadmin);
       expect(current.body).toEqual({
         EMPLOYEE: ['PRIORITY_CHANGE_OWN', 'REQUEST_CREATE'],
-        ADMIN: ['PRIORITY_CHANGE_MANAGED', 'PRIORITY_CHANGE_OWN', 'REQUEST_CREATE', 'REQUEST_REASSIGN'],
+        // La surveillante générale (ADMIN) valide les communications aux parents par défaut (015).
+        ADMIN: ['PARENT_COMMUNICATION_VALIDATE', 'PRIORITY_CHANGE_MANAGED', 'PRIORITY_CHANGE_OWN', 'REQUEST_CREATE', 'REQUEST_REASSIGN'],
       });
       const res = await send('put', '/api/admin/role-permissions', { EMPLOYEE: ['REQUEST_CREATE'], ADMIN: current.body.ADMIN });
       expect(res.status).toBe(200);
       expect(res.body.EMPLOYEE).toEqual(['REQUEST_CREATE']);
       await expect(prisma.auditLog.count({ where: { action: 'ROLE_PERMISSIONS_CHANGED' } })).resolves.toBe(1);
       expect((await send('put', '/api/admin/role-permissions', { EMPLOYEE: ['ADMIN_MANAGE'], ADMIN: [] })).status).toBe(400);
+      // Validation des communications aux parents : retirable et attribuable au rôle ADMIN seulement.
+      const withdrawn = await send('put', '/api/admin/role-permissions', { EMPLOYEE: current.body.EMPLOYEE, ADMIN: ['REQUEST_CREATE'] });
+      expect(withdrawn.status).toBe(200);
+      expect(withdrawn.body.ADMIN).toEqual(['REQUEST_CREATE']);
+      const granted = await send('put', '/api/admin/role-permissions', { EMPLOYEE: current.body.EMPLOYEE, ADMIN: ['PARENT_COMMUNICATION_VALIDATE', 'REQUEST_CREATE'] });
+      expect(granted.status).toBe(200);
+      expect(granted.body.ADMIN).toEqual(['PARENT_COMMUNICATION_VALIDATE', 'REQUEST_CREATE']);
+      expect((await send('put', '/api/admin/role-permissions', { EMPLOYEE: ['PARENT_COMMUNICATION_VALIDATE'], ADMIN: [] })).status).toBe(400);
       await send('put', '/api/admin/role-permissions', current.body).expect(200);
     });
   });

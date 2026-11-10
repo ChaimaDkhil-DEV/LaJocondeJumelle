@@ -11,8 +11,8 @@ import { login } from './support/login';
 
 /**
  * 015 (T050) — Communication enseignant / parents : l'enseignante écrit et enregistre un vocal, soumet ;
- * rien n'est visible du parent avant l'approbation ; la direction examine et approuve ; le parent lit le
- * message et l'écoute, puis il est marqué lu. Rejouable : élève, représentant et compte parent uniques.
+ * rien n'est visible du parent avant l'approbation ; la surveillante générale (admin) examine et approuve ;
+ * le parent lit le message et l'écoute, puis il est marqué lu. Rejouable : élève, représentant et compte parent uniques.
  */
 
 const PARENT_PASSWORD = 'Parent-mot-de-passe-2026!';
@@ -109,7 +109,7 @@ async function parentFirstLogin(
   return page;
 }
 
-test('015 — l’enseignante soumet, la direction approuve, le parent lit et écoute', async ({
+test('015 — l’enseignante soumet, la surveillante générale approuve, le parent lit et écoute', async ({
   page,
   browser,
 }, testInfo) => {
@@ -157,8 +157,9 @@ test('015 — l’enseignante soumet, la direction approuve, le parent lit et é
   const nav = parent.getByRole('navigation', { name: 'Navigation principale' });
   await expect(nav.getByRole('link')).toHaveText(['Messages de l’école']);
 
-  // Direction : examen de la version soumise, approbation confirmée.
-  const director = await pageAs(browser, testInfo, 'superadmin');
+  // Surveillante générale (rôle ADMIN, permission de validation par défaut) : examen de la version
+  // soumise, approbation confirmée.
+  const director = await pageAs(browser, testInfo, 'admin');
   await director
     .getByRole('navigation', { name: 'Navigation principale' })
     .getByRole('link', { name: 'À valider' })
