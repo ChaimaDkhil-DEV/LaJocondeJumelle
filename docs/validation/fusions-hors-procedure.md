@@ -435,3 +435,26 @@ No fix or `git revert` needed so far; `master` CI after the merge: see the CI of
 
 Wait for CI on the latest commit of the pull request, then tick the four checks, before merging; with a recorded
 deviation, check 4 stays unticked and the merge is the owner's explicit decision.
+
+## 11/11/2026 — pull request #108
+
+| Pull request | Content | Merged at (UTC) | Check not satisfied at merge time |
+|---------|---------|-------------------|-----------------------------------------------|
+| #108 (`docs-registre-fusion-107`) | Register entry for #107 (documentation only) | 21:16:46 | **1. CI**: both runs on `19a4ad1` were in progress (43101173475, 43101164807); **all four checkboxes unticked** |
+
+The pull request was opened at 21:13:13 and merged from the owner's account 3 min 33 s later.
+
+### Findings after the fact
+
+- Both branch runs on `19a4ad1` finished with success, at 21:21:03 and 21:24:13.
+- `master` CI after the merge: run 43101669588 on `b74f3af`, success (21:26:06). It also checks the code merged by #107,
+  whose own `master` run (43096646287) stayed queued after the GitHub Actions outage.
+- Full end-to-end suite on `b74f3af` (7 profiles), run afterwards: 208 passed, 4 failed, none caused by #107 or #108
+  (see `docs/validation/verification-017.md`); the three WebKit failures are fixed by the pull request that carries
+  this entry.
+
+No fix or `git revert` needed.
+
+### Reminder
+
+Wait for CI on the latest commit of the pull request, then tick the four checks, before merging.

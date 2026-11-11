@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { expectNoA11yViolations } from './support/axe';
+import { installFakeMediaRecorder } from './support/fake-media-recorder';
 import { login } from './support/login';
 import { manualQrField } from './support/qr-scanner';
 
@@ -14,7 +15,9 @@ async function noHorizontalScroll(page: import('@playwright/test').Page): Promis
   expect(overflow).toBeLessThanOrEqual(0);
 }
 
-test('accueil de l’enseignante : actions rapides et suivi, accessibles', async ({ page }) => {
+test('accueil de l’enseignante : actions rapides et suivi, accessibles', async ({ page, browserName }) => {
+  // WebKit sous Windows n'a pas MediaRecorder : sans simulation, le bouton d'enregistrement n'est pas proposé.
+  if (browserName === 'webkit') await installFakeMediaRecorder(page);
   await login(page, 'enseignante');
   await expect(page.getByRole('heading', { level: 1, name: 'Accueil' })).toBeVisible();
   const tracking = page.getByRole('region', { name: 'Suivi de mes demandes' });
