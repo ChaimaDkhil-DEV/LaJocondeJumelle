@@ -6,7 +6,6 @@ import Typography from '@mui/material/Typography';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import {
-  ClipboardCheck,
   House,
   Inbox,
   LayoutDashboard,
@@ -75,7 +74,11 @@ function requestsItem(isHome: boolean): NavItem {
     label: t('Mes demandes'),
     icon: Inbox,
     current,
-    matches: (p) => current(p) || (p.startsWith('/demandes/') && p !== '/demandes/nouvelle' && !p.startsWith('/demandes/suivi/')),
+    matches: (p) =>
+      current(p) ||
+      (p.startsWith('/demandes/') &&
+        p !== '/demandes/nouvelle' &&
+        !p.startsWith('/demandes/suivi/')),
   };
 }
 
@@ -131,20 +134,12 @@ const PARENT_MESSAGES_ITEM: NavItem = {
   matches: (p) => p === '/' || p.startsWith('/messages-ecole'),
 };
 
-/** « Communication avec les parents » : membres du groupe Enseignants (015). */
-const PARENT_COMM_ITEM: NavItem = {
-  to: '/communications-parents',
-  label: t('Parents'),
+/** « Communications » (017) : enseignants (groupe Enseignants) et administration. */
+const COMMUNICATIONS_ITEM: NavItem = {
+  to: '/communications',
+  label: t('Communications'),
   icon: MessagesSquare,
-  matches: (p) => p.startsWith('/communications-parents'),
-};
-
-/** « Communications à valider » : permission PARENT_COMMUNICATION_VALIDATE (015). */
-const VALIDATION_ITEM: NavItem = {
-  to: '/communications-a-valider',
-  label: t('À valider'),
-  icon: ClipboardCheck,
-  matches: (p) => p.startsWith('/communications-a-valider'),
+  matches: (p) => p.startsWith('/communications'),
 };
 
 /** Entrées de navigation selon le rôle, les groupes et les permissions ; le serveur vérifie chaque route. */
@@ -158,8 +153,7 @@ export function navItemsFor(me: Me | undefined): NavItem[] {
     requestsItem(!superAdmin && !teacherHome),
     ...NAV_ITEMS,
     ...(canSeeCoverage(me) ? [COVERAGE_ITEM] : []),
-    ...(me?.isTeacher ? [PARENT_COMM_ITEM] : []),
-    ...(me?.permissions.includes('PARENT_COMMUNICATION_VALIDATE') ? [VALIDATION_ITEM] : []),
+    ...(me?.isTeacher || canUseAdministrationSpace(me) ? [COMMUNICATIONS_ITEM] : []),
     ...(superAdmin || me?.role === 'ADMIN' ? [MEAL_ITEM] : []),
     ...(canUseAdministrationSpace(me) ? [ADMIN_ITEM] : []),
   ];
@@ -193,7 +187,10 @@ function Brand() {
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0 }}>
       <AppLogo />
-      <Typography component="p" sx={{ fontSize: fontSize.sm, fontWeight: font.semibold, lineHeight: 1.25 }}>
+      <Typography
+        component="p"
+        sx={{ fontSize: fontSize.sm, fontWeight: font.semibold, lineHeight: 1.25 }}
+      >
         La Joconde Jumelle
       </Typography>
     </Box>
@@ -214,7 +211,11 @@ function NavList({ items, onNavigate }: { items: NavItem[]; onNavigate?: () => v
                 component={RouterLink}
                 to={item.to}
                 onClick={onNavigate}
-                aria-current={active && (item.current ?? ((p: string) => p === item.to))(pathname) ? 'page' : undefined}
+                aria-current={
+                  active && (item.current ?? ((p: string) => p === item.to))(pathname)
+                    ? 'page'
+                    : undefined
+                }
                 sx={(theme) => ({
                   display: 'flex',
                   alignItems: 'center',
@@ -382,7 +383,8 @@ export function AppLayout() {
                 minHeight: 56,
                 px: 1,
                 bgcolor: 'background.paper',
-                boxShadow: (t) => `0 1px 0 ${tokensOf(t).border}, 0 4px 16px rgba(35, 42, 89, 0.04)`,
+                boxShadow: (t) =>
+                  `0 1px 0 ${tokensOf(t).border}, 0 4px 16px rgba(35, 42, 89, 0.04)`,
               }}
             >
               <IconAction
@@ -411,7 +413,16 @@ export function AppLayout() {
               >
                 <Brand />
                 <NavList items={navItems} onNavigate={() => setDrawerOpen(false)} />
-                <Box sx={{ mt: 'auto', pt: 2, borderTop: 1, borderColor: 'divider', display: 'grid', gap: 1.5 }}>
+                <Box
+                  sx={{
+                    mt: 'auto',
+                    pt: 2,
+                    borderTop: 1,
+                    borderColor: 'divider',
+                    display: 'grid',
+                    gap: 1.5,
+                  }}
+                >
                   {me.data && <ProfileLink me={me.data} onNavigate={() => setDrawerOpen(false)} />}
                   <LanguageSwitcher />
                 </Box>

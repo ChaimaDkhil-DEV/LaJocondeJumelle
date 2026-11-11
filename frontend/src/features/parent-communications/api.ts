@@ -1,8 +1,13 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../../api/client';
+import { uploadFile } from '../../api/uploads';
 import { t } from '../../i18n';
+import type { VoiceRecording } from '../voice/VoiceRecorder';
 
-/** Communication enseignant / parents (015) : types et appels de l'API. */
+/**
+ * Communications (017) : conversations INTERNAL (enseignant ↔ administration) et PARENT (administration ↔
+ * représentant), archives 015 ; types et appels de l'API (contracts/api.md).
+ */
 
 export type CommunicationStatus =
   | 'DRAFT'
@@ -10,14 +15,25 @@ export type CommunicationStatus =
   | 'RETURNED_FOR_CORRECTION'
   | 'APPROVED'
   | 'REJECTED'
-  | 'CANCELLED';
+  | 'CANCELLED'
+  | 'SENT';
 export type CommunicationEventType =
-  'CREATED' | 'UPDATED' | 'SUBMITTED' | 'APPROVED' | 'RETURNED' | 'REJECTED' | 'CANCELLED' | 'READ';
+  | 'CREATED'
+  | 'UPDATED'
+  | 'SUBMITTED'
+  | 'APPROVED'
+  | 'RETURNED'
+  | 'REJECTED'
+  | 'CANCELLED'
+  | 'READ'
+  | 'SENT';
 export type DeliveryStatus =
   'PENDING' | 'PROCESSING' | 'SENT' | 'DELIVERED' | 'FAILED' | 'RETRYING';
 export type Decision = 'APPROVE' | 'RETURN' | 'REJECT';
-/** Auteur d'un message : l'enseignant (vers le parent) ou le parent (vers l'enseignant). */
-export type MessageAuthor = 'TEACHER' | 'PARENT';
+export type AuthorKind = 'TEACHER' | 'PARENT' | 'ADMIN';
+export type ConversationType = 'INTERNAL' | 'PARENT' | 'LEGACY_TEACHER_PARENT';
+export type ConversationStatus = 'OPEN' | 'CLOSED';
+export type SendMode = 'DIRECT' | 'SUBMIT' | 'FORBIDDEN';
 
 interface Person {
   id: string;
@@ -36,41 +52,94 @@ export interface StudentRef {
   class: { id: string; name: string };
 }
 
-export interface CommunicationSummary {
+export interface Message {
   id: string;
-  author: MessageAuthor;
+  authorKind: AuthorKind;
+  /** D7 : « Administration (Prénom Nom) » pour l'enseignant, « L'école » pour le parent. */
+  authorLabel: string;
+  mine: boolean;
   status: CommunicationStatus;
-  version: number;
-  currentRevision: number;
-  approvedRevision: number | null;
-  decisionReason: string | null;
-  submittedAt: string | null;
-  decidedAt: string | null;
-  updatedAt: string;
-  teacher: Person;
-  student: StudentRef;
-  guardian: GuardianRef;
-}
-
-export interface Revision {
-  number: number;
-  text: string;
-  /** Facultatif pour un message du parent. */
-  voiceFileId: string | null;
-  durationSeconds: number | null;
+  text: string | null;
+  voice: { fileId: string; durationSeconds: number | null } | null;
   createdAt: string;
-}
-
-export interface CommunicationDetail extends CommunicationSummary {
   readAt: string | null;
-  createdAt: string;
-  decidedBy: Person | null;
-  /** Vue enseignant seulement : copie de travail. */
-  draft: {
-    text: string | null;
-    voice: { id: string; durationSeconds: number | null } | null;
+  /** Administration seulement. */
+  validation?: {
+    revision: number;
+    version: number;
+    decisionReason: string | null;
+    decidedAt: string | null;
+  };
+}
+
+export interface ConversationSummary {
+  id: string;
+  type: ConversationType;
+  status: ConversationStatus;
+  student: StudentRef;
+  teacher?: Person;
+  guardian?: GuardianRef;
+  responsibleAdmin?: Person | null;
+  linkedInternalId?: string | null;
+  lastMessage: {
+    at: string;
+    authorKind: AuthorKind;
+    authorLabel: string;
+    hasVoice: boolean;
+    excerpt: string | null;
   } | null;
-  revisions: Revision[];
+  unread: number;
+  createdAt: string;
+  lastMessageAt: string;
+}
+
+export interface ConversationDetail extends ConversationSummary {
+  messages: Message[];
+  canPost: boolean;
+}
+
+export interface Recipients {
+  student: StudentRef;
+  teachers: Person[];
+  guardians: Array<GuardianRef & { hasActiveAccount: boolean }>;
+}
+
+export interface ValidationItem {
+  id: string;
+  status: CommunicationStatus;
+  author: Person | null;
+  mine: boolean;
+  decidable: boolean;
+  conversation: {
+    id: string;
+    type: ConversationType;
+    status: ConversationStatus;
+    student: StudentRef;
+    guardian: GuardianRef | null;
+    teacher: Person | null;
+  };
+  submittedAt: string | null;
+  validation: {
+    revision: number;
+    version: number;
+    decisionReason: string | null;
+    decidedAt: string | null;
+  };
+  hasVoice: boolean;
+  excerpt: string | null;
+}
+
+export interface ValidationDetail extends Omit<ValidationItem, 'hasVoice' | 'excerpt'> {
+  authorKind: AuthorKind;
+  text: string | null;
+  voice: Message['voice'];
+  revisions: Array<{
+    number: number;
+    text: string | null;
+    voiceFileId: string | null;
+    durationSeconds: number | null;
+    createdAt: string;
+  }>;
   events: Array<{
     type: CommunicationEventType;
     actor: Person | null;
@@ -84,137 +153,6 @@ export interface CommunicationDetail extends CommunicationSummary {
     attempts: number;
     updatedAt: string;
   }>;
-}
-
-/** Statuts visibles par la validation (un brouillon jamais soumis reste privé à l'enseignant). */
-export type DiscussionStatus = Exclude<CommunicationStatus, 'DRAFT'>;
-
-/** Discussion de la validation : messages d'un enseignant au représentant d'un élève. */
-export interface DiscussionSummary {
-  key: string;
-  teacher: Person;
-  student: StudentRef;
-  guardian: GuardianRef;
-  lastMessage: {
-    id: string;
-    author: MessageAuthor;
-    status: DiscussionStatus;
-    preview: string;
-    submittedAt: string | null;
-  };
-  /** Message en attente le plus ancien : celui à examiner en premier. */
-  firstPendingId: string | null;
-  counts: Record<DiscussionStatus, number>;
-  total: number;
-}
-
-/** Discussion complète : chaque message garde son propre statut et se décide seul. */
-export interface Discussion {
-  key: string;
-  teacher: Person;
-  student: StudentRef;
-  guardian: GuardianRef;
-  messages: CommunicationDetail[];
-}
-
-export interface TeacherStudent extends StudentRef {
-  guardians: GuardianRef[];
-}
-
-export interface ParentMessage {
-  id: string;
-  teacher: { displayName: string };
-  student: { firstName: string; lastName: string };
-  approvedAt: string;
-  read: boolean;
-}
-
-export interface ParentMessageDetail {
-  id: string;
-  teacher: { displayName: string };
-  student: { firstName: string; lastName: string };
-  text: string;
-  /** Absent pour une réponse de l'enseignant sans vocal. */
-  voiceFileId: string | null;
-  durationSeconds: number | null;
-  approvedAt: string;
-  readAt: string | null;
-}
-
-// ------------------------------------------------------------------ Conversations
-
-/**
- * Message d'une conversation vu par le parent ou l'enseignant. Son propre message (`own`) : état de
- * modération et motif éventuel. Message reçu : toujours validé, sans motif ni état interne.
- */
-export interface ConversationMessage {
-  id: string;
-  author: MessageAuthor;
-  own: boolean;
-  status: CommunicationStatus;
-  /** Verrou de modification : seulement pour ses propres messages. */
-  version: number | null;
-  revision: number | null;
-  text: string | null;
-  voiceFileId: string | null;
-  durationSeconds: number | null;
-  sentAt: string;
-  editedAt: string | null;
-  decidedAt: string | null;
-  decisionReason: string | null;
-  readAt: string | null;
-}
-
-export interface TeacherCard {
-  id: string;
-  displayName: string;
-  jobTitle: string | null;
-}
-
-export interface ParentChild extends StudentRef {
-  teachers: TeacherCard[];
-}
-
-interface ConversationSummaryBase {
-  key: string;
-  lastMessage: {
-    id: string;
-    author: MessageAuthor;
-    status: CommunicationStatus;
-    preview: string;
-    sentAt: string;
-  };
-  /** Messages reçus pas encore lus. */
-  unread: number;
-  /** Ses propres messages en attente de validation, ou retournés pour correction. */
-  pending: number;
-  returned: number;
-}
-
-export interface ParentConversationSummary extends ConversationSummaryBase {
-  teacher: TeacherCard;
-  student: StudentRef;
-}
-
-export interface TeacherConversationSummary extends ConversationSummaryBase {
-  student: StudentRef;
-  guardian: GuardianRef;
-}
-
-export interface ParentConversation {
-  key: string;
-  teacher: TeacherCard;
-  student: StudentRef;
-  /** L'enfant est lié et l'enseignant toujours affecté à sa classe. */
-  canSend: boolean;
-  messages: ConversationMessage[];
-}
-
-export interface TeacherConversation {
-  key: string;
-  student: StudentRef;
-  guardian: GuardianRef;
-  messages: ConversationMessage[];
 }
 
 export interface Guardian {
@@ -247,21 +185,29 @@ export interface GuardianInput {
 export const STATUS_LABELS: Record<CommunicationStatus, string> = {
   DRAFT: t('Brouillon'),
   PENDING_ADMIN_VALIDATION: t('En attente de validation'),
-  RETURNED_FOR_CORRECTION: t('Retournée pour correction'),
-  APPROVED: t('Approuvée et publiée'),
-  REJECTED: t('Rejetée'),
-  CANCELLED: t('Annulée'),
+  RETURNED_FOR_CORRECTION: t('Renvoyé pour correction'),
+  APPROVED: t('Validé et transmis'),
+  REJECTED: t('Rejeté'),
+  CANCELLED: t('Annulé'),
+  SENT: t('Envoyé'),
 };
 
 export const EVENT_LABELS: Record<CommunicationEventType, string> = {
   CREATED: t('Brouillon créé'),
-  UPDATED: t('Brouillon modifié'),
-  SUBMITTED: t('Soumise à l’administration'),
-  APPROVED: t('Approuvée et publiée'),
-  RETURNED: t('Retournée pour correction'),
-  REJECTED: t('Rejetée'),
-  CANCELLED: t('Annulée'),
-  READ: t('Lue par le parent'),
+  UPDATED: t('Message corrigé'),
+  SUBMITTED: t('Soumis à la validation'),
+  APPROVED: t('Validé et transmis'),
+  RETURNED: t('Renvoyé pour correction'),
+  REJECTED: t('Rejeté'),
+  CANCELLED: t('Annulé'),
+  READ: t('Lu'),
+  SENT: t('Envoyé'),
+};
+
+export const TYPE_LABELS: Record<ConversationType, string> = {
+  INTERNAL: t('Interne'),
+  PARENT: t('Famille'),
+  LEGACY_TEACHER_PARENT: t('Archive'),
 };
 
 export const DELIVERY_LABELS: Record<DeliveryStatus, string> = {
@@ -279,338 +225,250 @@ export const fullName = (p: { firstName: string; lastName: string }) =>
   `${p.firstName} ${p.lastName}`;
 
 export const commKeys = {
-  all: ['parent-communications'] as const,
-  students: ['parent-communications', 'students'] as const,
-  mine: ['parent-communications', 'mine'] as const,
-  one: (id: string) => ['parent-communications', 'one', id] as const,
-  discussions: ['parent-communications', 'discussions'] as const,
-  discussion: (id: string) => ['parent-communications', 'discussion', id] as const,
-  parent: ['parent-communications', 'parent'] as const,
-  parentOne: (id: string) => ['parent-communications', 'parent', id] as const,
-  parentChildren: ['parent-communications', 'parent-children'] as const,
-  parentConversations: ['parent-communications', 'parent-conversations'] as const,
-  parentConversation: (teacherId: string, studentId: string) =>
-    ['parent-communications', 'parent-conversations', teacherId, studentId] as const,
-  messageConversation: (id: string) =>
-    ['parent-communications', 'message-conversation', id] as const,
-  teacherConversations: ['parent-communications', 'teacher-conversations'] as const,
-  teacherConversation: (studentId: string, guardianId: string) =>
-    ['parent-communications', 'teacher-conversations', studentId, guardianId] as const,
-  guardians: ['parent-communications', 'guardians'] as const,
-  teacherClasses: ['parent-communications', 'teacher-classes'] as const,
+  all: ['communications'] as const,
+  teacherStudents: ['communications', 'teacher-students'] as const,
+  list: (scope: 'teacher' | 'parent' | 'inbox' | 'admin', filters: object = {}) =>
+    ['communications', 'list', scope, filters] as const,
+  conversation: (scope: string, id: string) =>
+    ['communications', 'conversation', scope, id] as const,
+  parentChildren: ['communications', 'parent-children'] as const,
+  recipients: (studentId: string) => ['communications', 'recipients', studentId] as const,
+  sendMode: ['communications', 'send-mode'] as const,
+  toValidate: ['communications', 'to-validate'] as const,
+  validation: (id: string) => ['communications', 'validation', id] as const,
+  guardians: ['communications', 'guardians'] as const,
+  teacherClasses: ['communications', 'teacher-classes'] as const,
 };
 
-// ------------------------------------------------------------------ Enseignant
+/** Espace de l'utilisateur : chaque espace a ses routes, le serveur vérifie chaque accès. */
+export type Space = 'teacher' | 'parent' | 'admin';
+const BASE: Record<Space, string> = {
+  teacher: '/api/communications/teacher',
+  parent: '/api/parent/messages',
+  admin: '/api/admin/communications',
+};
 
-export function useTeacherStudents() {
+/** Contenu d'un message : le vocal enregistré est d'abord téléversé. */
+export interface MessageInput {
+  text: string;
+  recording: VoiceRecording | null;
+}
+
+async function toBody(
+  input: MessageInput,
+): Promise<{ text: string | null; voiceFileId: string | null }> {
+  const extension = input.recording?.mimeType.includes('mp4') ? 'm4a' : 'webm';
+  const voice = input.recording
+    ? await uploadFile('VOICE', input.recording.blob, `vocal.${extension}`)
+    : null;
+  return { text: input.text.trim() || null, voiceFileId: voice?.id ?? null };
+}
+
+// ------------------------------------------------------------------ Lecture
+
+export function useConversations(space: Space, filters: Record<string, string | undefined> = {}) {
+  const entries = Object.entries(filters).filter((e): e is [string, string] => Boolean(e[1]));
+  const qs = new URLSearchParams(entries).toString();
   return useQuery({
-    queryKey: commKeys.students,
-    queryFn: () => apiFetch<TeacherStudent[]>('/api/parent-communications/students'),
-  });
-}
-
-export function useMyCommunications() {
-  return useQuery({
-    queryKey: commKeys.mine,
-    queryFn: () => apiFetch<CommunicationSummary[]>('/api/parent-communications'),
-  });
-}
-
-export function useMyCommunication(id: string | undefined) {
-  return useQuery({
-    queryKey: commKeys.one(id ?? ''),
-    queryFn: () => apiFetch<CommunicationDetail>(`/api/parent-communications/${id}`),
-    enabled: Boolean(id),
-  });
-}
-
-export function useCommunicationMutations() {
-  const queryClient = useQueryClient();
-  const settle = (detail: CommunicationDetail) => {
-    queryClient.setQueryData(commKeys.one(detail.id), detail);
-    void queryClient.invalidateQueries({ queryKey: commKeys.mine });
-  };
-  return {
-    create: useMutation({
-      mutationFn: (body: {
-        studentId: string;
-        guardianId: string;
-        text: string | null;
-        voiceFileId: string | null;
-      }) => apiFetch<CommunicationDetail>('/api/parent-communications', { method: 'POST', body }),
-      onSuccess: settle,
-    }),
-    update: useMutation({
-      mutationFn: ({
-        id,
-        ...body
-      }: {
-        id: string;
-        version: number;
-        text?: string | null;
-        voiceFileId?: string | null;
-        guardianId?: string;
-      }) =>
-        apiFetch<CommunicationDetail>(`/api/parent-communications/${id}`, {
-          method: 'PATCH',
-          body,
-        }),
-      onSuccess: settle,
-    }),
-    submit: useMutation({
-      mutationFn: ({ id, version }: { id: string; version: number }) =>
-        apiFetch<CommunicationDetail>(`/api/parent-communications/${id}/submit`, {
-          method: 'POST',
-          body: { version },
-        }),
-      onSuccess: settle,
-    }),
-    cancel: useMutation({
-      mutationFn: ({ id, version }: { id: string; version: number }) =>
-        apiFetch<CommunicationDetail>(`/api/parent-communications/${id}/cancel`, {
-          method: 'POST',
-          body: { version },
-        }),
-      onSuccess: settle,
-    }),
-  };
-}
-
-// ------------------------------------------------------------------ Validation
-
-/** Période de soumission, bornes incluses (« AAAA-MM-JJ »). */
-export interface Period {
-  from?: string;
-  to?: string;
-}
-
-/** Discussions, toutes ou celles qui ont un message soumis dans la période. */
-export function useDiscussions(period: Period = {}) {
-  const params = new URLSearchParams();
-  if (period.from) params.set('from', period.from);
-  if (period.to) params.set('to', period.to);
-  const qs = params.toString();
-  return useQuery({
-    queryKey: [...commKeys.discussions, qs],
-    queryFn: () =>
-      apiFetch<DiscussionSummary[]>(
-        `/api/admin/parent-communications/discussions${qs ? `?${qs}` : ''}`,
-      ),
-    // Pendant la saisie d'une date, la liste précédente reste affichée.
+    queryKey: commKeys.list(space, filters),
+    queryFn: async () => {
+      if (space !== 'admin') return apiFetch<ConversationSummary[]>(`${BASE[space]}/conversations`);
+      const page = await apiFetch<{ items: ConversationSummary[]; nextCursor: string | null }>(
+        `${BASE.admin}/conversations${qs ? `?${qs}` : ''}`,
+      );
+      return page.items;
+    },
     placeholderData: keepPreviousData,
   });
 }
 
-/** Discussion du message `id` (n'importe lequel de ses messages). */
-export function useDiscussion(id: string | undefined) {
+export function useInbox(enabled = true) {
   return useQuery({
-    queryKey: commKeys.discussion(id ?? ''),
-    queryFn: () => apiFetch<Discussion>(`/api/admin/parent-communications/${id}/discussion`),
+    queryKey: commKeys.list('inbox'),
+    enabled,
+    queryFn: () => apiFetch<ConversationSummary[]>(`${BASE.admin}/inbox`),
+  });
+}
+
+export function useConversation(space: Space, id: string | undefined) {
+  const queryClient = useQueryClient();
+  return useQuery({
+    queryKey: commKeys.conversation(space, id ?? ''),
     enabled: Boolean(id),
-  });
-}
-
-/**
- * Décision sur un seul message (la version examinée). La bulle est mise à jour aussitôt avec la
- * réponse, sans recharger la discussion ; seule la liste des discussions est actualisée.
- */
-export function useMessageDecision(discussionId: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({
-      id,
-      ...body
-    }: {
-      id: string;
-      action: Decision;
-      revision: number;
-      version: number;
-      reason?: string;
-    }) =>
-      apiFetch<CommunicationDetail>(`/api/admin/parent-communications/${id}/decision`, {
-        method: 'POST',
-        body,
-      }),
-    onSuccess: (detail) => {
-      queryClient.setQueryData<Discussion>(commKeys.discussion(discussionId), (current) =>
-        current
-          ? {
-              ...current,
-              messages: current.messages.map((m) => (m.id === detail.id ? detail : m)),
-            }
-          : current,
-      );
-      void queryClient.invalidateQueries({ queryKey: commKeys.discussions });
-    },
-    // Décision refusée (déjà décidée, nouvelle version) : la discussion est relue.
-    onError: () =>
-      void queryClient.invalidateQueries({ queryKey: commKeys.discussion(discussionId) }),
-  });
-}
-
-// ------------------------------------------------------------------ Parent
-
-export function useParentMessages() {
-  return useQuery({
-    queryKey: commKeys.parent,
-    queryFn: () => apiFetch<ParentMessage[]>('/api/parent/messages'),
-  });
-}
-
-export function useParentMessage(id: string) {
-  const queryClient = useQueryClient();
-  return useQuery({
-    queryKey: commKeys.parentOne(id),
     queryFn: async () => {
-      const message = await apiFetch<ParentMessageDetail>(`/api/parent/messages/${id}`);
-      // La lecture est notée par le serveur : la liste affichera « Lu ».
-      void queryClient.invalidateQueries({ queryKey: commKeys.parent, exact: true });
-      return message;
+      const detail = await apiFetch<ConversationDetail>(`${BASE[space]}/conversations/${id}`);
+      // L'ouverture marque les messages lus : les listes et la cloche se mettent à jour.
+      void queryClient.invalidateQueries({ queryKey: ['communications', 'list'] });
+      void queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      return detail;
     },
   });
 }
 
-// ------------------------------------------------------------------ Conversations (parent)
+export function useTeacherStudents() {
+  return useQuery({
+    queryKey: commKeys.teacherStudents,
+    queryFn: () => apiFetch<StudentRef[]>(`${BASE.teacher}/students`),
+  });
+}
 
 export function useParentChildren() {
   return useQuery({
     queryKey: commKeys.parentChildren,
-    queryFn: () => apiFetch<ParentChild[]>('/api/parent/messages/children'),
+    queryFn: () => apiFetch<StudentRef[]>(`${BASE.parent}/children`),
   });
 }
 
-export function useParentConversations() {
+export function useRecipients(studentId: string | undefined) {
   return useQuery({
-    queryKey: commKeys.parentConversations,
-    queryFn: () => apiFetch<ParentConversationSummary[]>('/api/parent/messages/conversations'),
+    queryKey: commKeys.recipients(studentId ?? ''),
+    enabled: Boolean(studentId),
+    queryFn: () => apiFetch<Recipients>(`${BASE.admin}/recipients?studentId=${studentId}`),
   });
 }
 
-export function useParentConversation(
-  teacherId: string | undefined,
-  studentId: string | undefined,
-) {
+/** Mode d'envoi aux parents et droit de valider (administration seulement). */
+export function useSendMode(enabled = true) {
+  return useQuery({
+    queryKey: commKeys.sendMode,
+    enabled,
+    queryFn: () =>
+      apiFetch<{ toParents: SendMode; canValidate: boolean }>(`${BASE.admin}/send-mode`),
+    staleTime: 60_000,
+  });
+}
+
+// ------------------------------------------------------------------ Envoi
+
+export interface StartInput extends MessageInput {
+  studentId: string;
+  type?: 'INTERNAL' | 'PARENT';
+  teacherId?: string;
+  guardianId?: string;
+  linkedInternalId?: string;
+}
+
+export function useStartConversation(space: Space) {
   const queryClient = useQueryClient();
-  return useQuery({
-    queryKey: commKeys.parentConversation(teacherId ?? '', studentId ?? ''),
-    queryFn: async () => {
-      const conversation = await apiFetch<ParentConversation>(
-        `/api/parent/messages/conversations/${teacherId}/${studentId}`,
-      );
-      // La lecture est notée par le serveur : les compteurs « non lus » sont relus.
-      void queryClient.invalidateQueries({ queryKey: commKeys.parentConversations, exact: true });
-      return conversation;
+  return useMutation({
+    mutationFn: async ({
+      recording,
+      text,
+      studentId,
+      type,
+      teacherId,
+      guardianId,
+      linkedInternalId,
+    }: StartInput) => {
+      const content = await toBody({ text, recording });
+      const body =
+        space === 'admin'
+          ? {
+              type,
+              studentId,
+              ...(type === 'INTERNAL' ? { teacherId } : { guardianId }),
+              ...(linkedInternalId ? { linkedInternalId } : {}),
+              ...content,
+            }
+          : { studentId, ...content };
+      return apiFetch<ConversationDetail>(`${BASE[space]}/conversations`, { method: 'POST', body });
     },
-    enabled: Boolean(teacherId && studentId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: commKeys.all }),
   });
 }
 
-/** Conversation d'un message (lien d'une notification). */
-export function useMessageConversation<T>(id: string | undefined, url: (id: string) => string) {
-  return useQuery({
-    queryKey: commKeys.messageConversation(id ?? ''),
-    queryFn: () => apiFetch<T>(url(id!)),
-    enabled: Boolean(id),
-  });
-}
-
-export function useParentMessageMutations(teacherId: string, studentId: string) {
+export function usePostMessage(space: Space, conversationId: string) {
   const queryClient = useQueryClient();
-  const refresh = () => {
-    void queryClient.invalidateQueries({
-      queryKey: commKeys.parentConversation(teacherId, studentId),
+  return useMutation({
+    mutationFn: async (input: MessageInput) =>
+      apiFetch<Message>(`${BASE[space]}/conversations/${conversationId}/messages`, {
+        method: 'POST',
+        body: await toBody(input),
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: commKeys.all }),
+  });
+}
+
+/** Clôture, réouverture, prise en charge (administration). */
+export function useConversationActions(conversationId: string) {
+  const queryClient = useQueryClient();
+  const done = () => queryClient.invalidateQueries({ queryKey: commKeys.all });
+  const post = (action: 'close' | 'reopen') =>
+    apiFetch<ConversationDetail>(`${BASE.admin}/conversations/${conversationId}/${action}`, {
+      method: 'POST',
+      body: {},
     });
-    void queryClient.invalidateQueries({ queryKey: commKeys.parentConversations, exact: true });
-  };
   return {
-    send: useMutation({
-      mutationFn: (body: { text: string; voiceFileId: string | null }) =>
-        apiFetch<ConversationMessage>(
-          `/api/parent/messages/conversations/${teacherId}/${studentId}`,
-          { method: 'POST', body },
-        ),
-      onSuccess: refresh,
-    }),
-    resubmit: useMutation({
-      mutationFn: ({
-        id,
-        ...body
-      }: {
-        id: string;
-        version: number;
-        text: string;
-        voiceFileId: string | null;
-      }) =>
-        apiFetch<ConversationMessage>(`/api/parent/messages/${id}/resubmit`, {
-          method: 'POST',
-          body,
+    close: useMutation({ mutationFn: () => post('close'), onSuccess: done }),
+    reopen: useMutation({ mutationFn: () => post('reopen'), onSuccess: done }),
+    responsible: useMutation({
+      mutationFn: (adminId: string | null) =>
+        apiFetch<ConversationDetail>(`${BASE.admin}/conversations/${conversationId}/responsible`, {
+          method: 'PUT',
+          body: { adminId },
         }),
-      onSuccess: refresh,
+      onSuccess: done,
     }),
-    cancel: useMutation({
-      mutationFn: ({ id, version }: { id: string; version: number }) =>
-        apiFetch<ConversationMessage>(`/api/parent/messages/${id}/cancel`, {
+  };
+}
+
+// ------------------------------------------------------------------ « À valider »
+
+export function useToValidate(enabled = true) {
+  return useQuery({
+    queryKey: commKeys.toValidate,
+    enabled,
+    queryFn: () => apiFetch<ValidationItem[]>(`${BASE.admin}/to-validate`),
+  });
+}
+
+export function useValidationDetail(id: string | undefined) {
+  return useQuery({
+    queryKey: commKeys.validation(id ?? ''),
+    enabled: Boolean(id),
+    queryFn: () => apiFetch<ValidationDetail>(`${BASE.admin}/messages/${id}`),
+  });
+}
+
+export function useDecision(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { action: Decision; revision: number; version: number; reason?: string }) =>
+      apiFetch<ValidationDetail>(`${BASE.admin}/messages/${id}/decision`, { method: 'POST', body }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: commKeys.all }),
+  });
+}
+
+/** Correction, nouvelle soumission ou annulation d'un message renvoyé, par son auteur. */
+export function useOwnMessageActions(id: string) {
+  const queryClient = useQueryClient();
+  const done = () => queryClient.invalidateQueries({ queryKey: commKeys.all });
+  return {
+    edit: useMutation({
+      mutationFn: async ({ version, ...input }: MessageInput & { version: number }) =>
+        apiFetch<ValidationDetail>(`${BASE.admin}/messages/${id}`, {
+          method: 'PATCH',
+          body: { version, ...(await toBody(input)) },
+        }),
+      onSuccess: done,
+    }),
+    submit: useMutation({
+      mutationFn: (version: number) =>
+        apiFetch<ValidationDetail>(`${BASE.admin}/messages/${id}/submit`, {
           method: 'POST',
           body: { version },
         }),
-      onSuccess: refresh,
+      onSuccess: done,
+    }),
+    cancel: useMutation({
+      mutationFn: (version: number) =>
+        apiFetch<ValidationDetail>(`${BASE.admin}/messages/${id}/cancel`, {
+          method: 'POST',
+          body: { version },
+        }),
+      onSuccess: done,
     }),
   };
-}
-
-// ------------------------------------------------------------------ Conversations (enseignant)
-
-export function useTeacherConversations() {
-  return useQuery({
-    queryKey: commKeys.teacherConversations,
-    queryFn: () =>
-      apiFetch<TeacherConversationSummary[]>('/api/parent-communications/conversations'),
-  });
-}
-
-export function useTeacherConversation(
-  studentId: string | undefined,
-  guardianId: string | undefined,
-) {
-  const queryClient = useQueryClient();
-  return useQuery({
-    queryKey: commKeys.teacherConversation(studentId ?? '', guardianId ?? ''),
-    queryFn: async () => {
-      const conversation = await apiFetch<TeacherConversation>(
-        `/api/parent-communications/conversations/${studentId}/${guardianId}`,
-      );
-      void queryClient.invalidateQueries({ queryKey: commKeys.teacherConversations, exact: true });
-      return conversation;
-    },
-    enabled: Boolean(studentId && guardianId),
-  });
-}
-
-/**
- * Message de l'enseignant dans une conversation : brouillon puis soumission. Le vocal est obligatoire
- * pour le premier message, facultatif pour une réponse (contrôlé aussi par le serveur).
- */
-export function useTeacherReply(studentId: string, guardianId: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (body: { text: string; voiceFileId: string | null }) => {
-      const draft = await apiFetch<CommunicationDetail>('/api/parent-communications', {
-        method: 'POST',
-        body: { studentId, guardianId, ...body },
-      });
-      return apiFetch<CommunicationDetail>(`/api/parent-communications/${draft.id}/submit`, {
-        method: 'POST',
-        body: { version: draft.version },
-      });
-    },
-    onSettled: () => {
-      void queryClient.invalidateQueries({
-        queryKey: commKeys.teacherConversation(studentId, guardianId),
-      });
-      void queryClient.invalidateQueries({ queryKey: commKeys.teacherConversations, exact: true });
-      void queryClient.invalidateQueries({ queryKey: commKeys.mine });
-    },
-  });
 }
 
 // ------------------------------------------------------------------ Administration

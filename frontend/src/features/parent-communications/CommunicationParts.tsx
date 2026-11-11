@@ -10,7 +10,7 @@ import {
   DELIVERY_LABELS,
   EVENT_LABELS,
   STATUS_LABELS,
-  type CommunicationDetail,
+  type ValidationDetail,
   type CommunicationStatus,
 } from './api';
 
@@ -21,6 +21,7 @@ const STATUS_TONES: Record<CommunicationStatus, Tone> = {
   APPROVED: 'success',
   REJECTED: 'error',
   CANCELLED: 'neutral',
+  SENT: 'success',
 };
 
 export function CommunicationStatusBadge({ status }: { status: CommunicationStatus }) {
@@ -41,7 +42,7 @@ export function RemarkAndVoice({
     <Box sx={{ display: 'grid', gap: 1.5 }}>
       <Box>
         <Typography variant="subtitle2" component="h3">
-          {t('Remarque écrite')}
+          {t('Message écrit')}
         </Typography>
         <Typography sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
           {text || '—'}
@@ -66,7 +67,7 @@ export function RemarkAndVoice({
 }
 
 /** Historique des actions et décisions, motifs compris (US4). */
-export function CommunicationHistory({ events }: { events: CommunicationDetail['events'] }) {
+export function CommunicationHistory({ events }: { events: ValidationDetail['events'] }) {
   return (
     <Box
       component="ol"
@@ -92,7 +93,7 @@ export function CommunicationHistory({ events }: { events: CommunicationDetail['
 }
 
 /** Notifications externes (n8n) : l'espace parent reste le canal principal. */
-export function DeliveryList({ deliveries }: { deliveries: CommunicationDetail['deliveries'] }) {
+export function DeliveryList({ deliveries }: { deliveries: ValidationDetail['deliveries'] }) {
   if (deliveries.length === 0) {
     return (
       <Typography color="text.secondary">

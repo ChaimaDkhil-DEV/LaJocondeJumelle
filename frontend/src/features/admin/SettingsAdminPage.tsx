@@ -334,7 +334,11 @@ function SettingsForm({ settings }: { settings: AdminSettings }) {
 const ROLES: ConfigurableRole[] = ['EMPLOYEE', 'ADMIN'];
 
 /** Réglables pour le rôle ADMIN seulement, comme côté serveur (015 : la surveillante générale valide). */
-const ADMIN_ONLY_PERMISSIONS = new Set(['PARENT_COMMUNICATION_VALIDATE']);
+const ADMIN_ONLY_PERMISSIONS = new Set([
+  'PARENT_COMMUNICATION_VALIDATE',
+  'PARENT_COMM_SEND_DIRECT',
+  'PARENT_COMM_SUBMIT_FOR_APPROVAL',
+]);
 const permissionsFor = (role: ConfigurableRole) =>
   Object.entries(PERMISSION_LABELS).filter(([permission]) => role === 'ADMIN' || !ADMIN_ONLY_PERMISSIONS.has(permission));
 

@@ -1,4 +1,4 @@
-/** Communication enseignant / parents (015). */
+/** Communications (015, 017). */
 export const parentCommunications: Record<string, string> = {
   '{count} / {max} caractères': '{count} / {max} characters',
   '{count} tentative(s)': '{count} attempt(s)',
@@ -306,4 +306,108 @@ export const parentCommunications: Record<string, string> = {
   'Le rejet est définitif : ce message ne sera jamais transmis.':
     'Rejection is final: this message will never be delivered.',
   'Indiquez ce que le parent doit corriger.': 'State what the parent must correct.',
+  // Communications centrées sur l'administration (017).
+  Administration: 'Administration',
+  'Annuler ce message': 'Cancel this message',
+  Archive: 'Archive',
+  'Archive en lecture seule : ces échanges datent d’avant la nouvelle messagerie. Commencez une nouvelle conversation pour écrire.':
+    'Read-only archive: these exchanges predate the new messaging. Start a new conversation to write.',
+  'Aucun enseignant n’est affecté à la classe de cet élève.':
+    'No teacher is assigned to this student’s class.',
+  'Aucun message à valider': 'No message to approve',
+  'Aucun message pour le moment': 'No message yet',
+  'Aucun nouveau message': 'No new message',
+  'Aucun représentant n’est lié à cet élève.': 'No guardian is linked to this student.',
+  'Boîte de réception': 'Inbox',
+  'Ce message est introuvable.': 'This message cannot be found.',
+  'Cette conversation est introuvable ou ne vous est pas accessible.':
+    'This conversation cannot be found or is not available to you.',
+  'Cette conversation est introuvable.': 'This conversation cannot be found.',
+  'Changer d’élève': 'Change student',
+  'Choisir un élève': 'Choose a student',
+  'Choisissez l’élève concerné.': 'Choose the student concerned.',
+  'Choisissez l’enfant concerné.': 'Choose the child concerned.',
+  'Choisissez le destinataire.': 'Choose the recipient.',
+  'Choisissez un message à examiner': 'Choose a message to review',
+  'Choisissez une conversation': 'Choose a conversation',
+  Clôturées: 'Closed',
+  'Confirmer le rejet': 'Confirm rejection',
+  'Confirmer le renvoi': 'Confirm return',
+  'Contacter le parent': 'Contact the parent',
+  'Conversation clôturée par l’administration. Elle reste consultable.':
+    'Conversation closed by the administration. It remains readable.',
+  'Corriger et soumettre': 'Correct and submit',
+  'Écrire à un enseignant ou à un parent': 'Write to a teacher or a parent',
+  'Écrivez un message ou enregistrez un message vocal avant d’envoyer.':
+    'Write a message or record a voice message before sending.',
+  'Enseignant de la classe': 'Teacher of the class',
+  'Envoyer directement aux parents': 'Send directly to parents',
+  'Envoyer pour validation': 'Send for approval',
+  Famille: 'Family',
+  'Indiquez le motif.': 'Enter the reason.',
+  Interne: 'Internal',
+  'L’école': 'The school',
+  'L’enseignant reçoit le message directement.': 'The teacher receives the message directly.',
+  'La décision n’a pas pu être enregistrée.': 'The decision could not be saved.',
+  'La nouvelle version sera validée par un autre membre de l’administration.':
+    'The new version will be approved by another member of the administration.',
+  'Le message part directement à l’administration. Un vocal suffit ; vous pouvez ajouter un texte.':
+    'The message goes straight to the administration. A voice message is enough; you can add a text.',
+  'Le motif est transmis à l’auteur du message.':
+    'The reason is sent to the author of the message.',
+  'Le parent reçoit le message signé « L’école ».':
+    'The parent receives the message signed “The school”.',
+  'Les conversations n’ont pas pu être chargées.': 'The conversations could not be loaded.',
+  'Les élèves n’ont pas pu être chargés.': 'The students could not be loaded.',
+  'Les messages à valider n’ont pas pu être chargés.':
+    'The messages to approve could not be loaded.',
+  'Les messages de l’école apparaîtront ici.': 'Messages from the school will appear here.',
+  'Les messages non lus des enseignants et des parents apparaîtront ici.':
+    'Unread messages from teachers and parents will appear here.',
+  lu: 'read',
+  'Mes conversations': 'My conversations',
+  'Message au parent à partir d’un signalement : rien de la conversation interne n’est transmis au parent.':
+    'Message to the parent from a report: nothing from the internal conversation is passed on to the parent.',
+  'Message corrigé': 'Message corrected',
+  'Message écrit': 'Written message',
+  'Messages à valider': 'Messages to approve',
+  'Messages aux parents en attente d’approbation': 'Messages to parents awaiting approval',
+  'Messages des enseignants et des parents à lire': 'Messages from teachers and parents to read',
+  Motif: 'Reason',
+  'Nom ou prénom, au moins deux lettres': 'Last or first name, at least two letters',
+  'Nouveau message de l’administration': 'New message from the administration',
+  'Nouveau signalement d’un enseignant': 'New report from a teacher',
+  Ouvertes: 'Open',
+  'Par {author}': 'By {author}',
+  'Prendre en charge': 'Take charge',
+  Rechercher: 'Search',
+  'Renvoyé pour correction': 'Returned for correction',
+  'Renvoyer pour correction': 'Return for correction',
+  'Retrouver tous les échanges': 'Find every exchange',
+  Rouvrir: 'Reopen',
+  'sans compte parent': 'no parent account',
+  'Signaler à l’administration au sujet d’un élève': 'Report to the administration about a student',
+  'Soumettre ses messages aux parents pour validation':
+    'Submit own messages to parents for approval',
+  'Soumis à la validation': 'Submitted for approval',
+  'Un autre validateur décide de votre message.': 'Another approver decides on your message.',
+  'Un enseignant': 'A teacher',
+  'Un parent': 'A parent',
+  'Un vocal, un texte, ou les deux.': 'A voice message, a text, or both.',
+  'Validé et transmis': 'Approved and delivered',
+  'Vos échanges avec l’administration et leur état':
+    'Your exchanges with the administration and their status',
+  'Vos enfants n’ont pas pu être chargés.': 'Your children could not be loaded.',
+  'Vos messages n’ont pas pu être chargés.': 'Your messages could not be loaded.',
+  'Votre enfant concerné': 'Your child concerned',
+  'Votre message part directement à l’administration. Un vocal suffit ; vous pouvez ajouter un texte.':
+    'Your message goes straight to the administration. A voice message is enough; you can add a text.',
+  'Votre message part directement à l’école. Un vocal suffit ; vous pouvez ajouter un texte.':
+    'Your message goes straight to the school. A voice message is enough; you can add a text.',
+  'Votre message sera validé par un autre membre de l’administration avant d’être transmis. Le parent voit « L’école ».':
+    'Your message will be approved by another member of the administration before delivery. The parent sees “The school”.',
+  'Vous n’avez pas le droit d’écrire aux parents. Demandez la permission au super administrateur.':
+    'You are not allowed to write to parents. Ask the super administrator for permission.',
+  'Vous ne pouvez plus écrire dans cette conversation : l’élève ne vous est plus rattaché.':
+    'You can no longer write in this conversation: the student is no longer linked to you.',
 };

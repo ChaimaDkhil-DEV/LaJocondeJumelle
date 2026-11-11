@@ -30,7 +30,7 @@ type Notif = {
   type: string;
   priority: string;
   request: { id: string; reference: string; title: string } | null;
-  communication?: { id: string; studentName: string } | null;
+  communication?: { id: string; conversationId: string; studentName: string } | null;
   createdAt: string;
   readAt: null;
 };
@@ -88,7 +88,7 @@ function setup(initial: Notif[]) {
       },
       { path: '/connexion', element: <p>Page de connexion</p> },
       { path: '/demandes/:id', element: <p>Détail de la demande</p> },
-      { path: '/communications-a-valider/:id', element: <p>Communication à examiner</p> },
+      { path: '/communications/a-valider/:id', element: <p>Communication à examiner</p> },
     ],
     { initialEntries: ['/'] },
   );
@@ -227,9 +227,13 @@ describe('NotificationCenter', () => {
     );
   });
 
-  it('communication aux parents (015) : nom de l’élève, ouverture de la page à valider, listes rafraîchies en direct', async () => {
+  it('communication (015, 017) : nom de l’élève, ouverture de la page à valider, listes rafraîchies en direct', async () => {
     const user = userEvent.setup();
-    const comm: Notif = { ...notif('7', 'PARENT_COMM_TO_VALIDATE'), request: null, communication: { id: 'pc1', studentName: 'Lina Ben Salah' } };
+    const comm: Notif = {
+      ...notif('7', 'PARENT_COMM_TO_VALIDATE'),
+      request: null,
+      communication: { id: 'pc1', conversationId: 'c1', studentName: 'Lina Ben Salah' },
+    };
     const env = setup([comm]);
     act(() =>
       env.socket.emit('notification:new', {
@@ -244,9 +248,15 @@ describe('NotificationCenter', () => {
         createdAt: '2026-11-09T10:00:00.000Z',
       }),
     );
-    await waitFor(() => expect(env.invalidate).toHaveBeenCalledWith({ queryKey: ['parent-communications'] }));
+    await waitFor(() =>
+      expect(env.invalidate).toHaveBeenCalledWith({ queryKey: ['parent-communications'] }),
+    );
     await user.click(await screen.findByRole('button', { name: /Notifications \(1 non lue\)/ }));
-    await user.click(await screen.findByRole('menuitem', { name: /Communication aux parents à valider — Lina Ben Salah/ }));
+    await user.click(
+      await screen.findByRole('menuitem', {
+        name: /Communication aux parents à valider — Lina Ben Salah/,
+      }),
+    );
     expect(await screen.findByText('Communication à examiner')).toBeVisible();
   });
 

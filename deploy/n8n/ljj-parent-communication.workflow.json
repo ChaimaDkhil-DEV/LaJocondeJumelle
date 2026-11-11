@@ -102,7 +102,7 @@
         300
       ],
       "parameters": {
-        "jsCode": "// Une entrée par canal activé pour lequel le représentant a une coordonnée (calculé par l'API).\n// Aucune remarque ni aucun vocal : seulement l'invitation à lire le message dans l'espace parent.\nconst event = $('Événement accepté').first().json;\nconst data = $input.first().json;\nreturn (data.channels || []).map((channel) => ({\n  json: {\n    eventId: event.eventId,\n    communicationId: data.communicationId,\n    channel,\n    recipientFirstName: data.recipient.firstName,\n    email: data.recipient.email || null,\n    phone: data.recipient.phone || null,\n    studentFirstName: data.student.firstName,\n    teacherName: data.teacher.displayName,\n    link: data.link,\n  },\n}));\n"
+        "jsCode": "// Une entrée par canal activé pour lequel le représentant a une coordonnée (calculé par l'API).\n// Aucune remarque ni aucun vocal : seulement l'invitation à lire le message dans l'espace parent.\nconst event = $('Événement accepté').first().json;\nconst data = $input.first().json;\nreturn (data.channels || []).map((channel) => ({\n  json: {\n    eventId: event.eventId,\n    communicationId: data.communicationId,\n    channel,\n    recipientFirstName: data.recipient.firstName,\n    email: data.recipient.email || null,\n    phone: data.recipient.phone || null,\n    studentFirstName: data.student.firstName,\n    senderName: data.senderName,\n    link: data.link,\n  },\n}));\n"
       }
     },
     {
@@ -146,7 +146,7 @@
         "toEmail": "={{ $json.email }}",
         "subject": "Nouveau message de l’école",
         "emailFormat": "text",
-        "text": "=Bonjour {{ $json.recipientFirstName }},\n\n{{ $json.teacherName }} vous a adressé un message concernant {{ $json.studentFirstName }}.\nPour le lire, connectez-vous à votre espace parent :\n{{ $json.link }}\n\nCet e-mail est envoyé automatiquement ; merci de ne pas y répondre.",
+        "text": "=Bonjour {{ $json.recipientFirstName }},\n\n{{ $json.senderName }} vous a adressé un message concernant {{ $json.studentFirstName }}.\nPour le lire, connectez-vous à votre espace parent :\n{{ $json.link }}\n\nCet e-mail est envoyé automatiquement ; merci de ne pas y répondre.",
         "options": {
           "appendAttribution": false
         }
