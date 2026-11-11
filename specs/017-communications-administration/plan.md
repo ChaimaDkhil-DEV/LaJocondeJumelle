@@ -148,6 +148,27 @@ label. New code is split by responsibility (policy / conversations / validation)
 | `HomePage.tsx` (016) | parent home renders the new `ParentMessagesPage` |
 | Requests, coverage, attendance, AI assistance (009/010), push (014) | **none** |
 
+## Implementation notes (deviations from this plan, 2026-11-11)
+
+- **Migration `0027_communications_voice_only`** added: the 015 version text was `NOT NULL`; 017 accepts a voice
+  message alone. `0026` was already applied to the development database, so it was not modified (CLAUDE.md).
+  The database now requires a non-empty text or a voice (`ParentCommunicationRevision_content_check`).
+- **Delivery**: PR 2 and PR 3 merged into one pull request (user decision): the 015 screens could not be
+  switched « minimally » without rewriting them twice.
+- **Admin guard**: the existing `AdministrationGuard` (active ADMIN / SUPER_ADMIN, audited 403) is reused instead
+  of a new `CommunicationAdminGuard`.
+- **Real time**: `RealtimeService.emitToUsers` to the participants (administration accounts, teacher, parent)
+  instead of a new `ADMINS_ROOM`.
+- **Services**: `conversations.service.ts` (conversations, reading, sending, access to voices) and
+  `parent-communications.service.ts` (validation, publication); one `communications.controller.ts` with the
+  three controllers; `discussions.ts` (015) removed.
+- **API shapes**: `voice.durationSeconds` (not milliseconds); `GET /admin/communications/conversations` returns
+  `{ items, nextCursor }`; `GET /admin/communications/to-validate` returns list items without versions and history
+  (`GET /admin/communications/messages/:id` gives them).
+- **Tests first**: domain and migration tests were seen failing before the code. The HTTP integration suites were
+  written before the services but run only after them; a mutation check (visibility always granted) makes three
+  of them fail. Recorded as a deviation in the pull request.
+
 ## Complexity Tracking
 
 | Addition | Why needed | Simpler alternative rejected because |

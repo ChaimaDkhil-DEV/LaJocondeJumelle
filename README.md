@@ -116,10 +116,11 @@ Push notifications (spec 014) are off by default: they are enabled only by setti
 `PUSH_VAPID_*` variables, after the school's decision and its entry in the processing register. See
 [docs/notifications-push.md](docs/notifications-push.md) (keys, time zone, iPhone, register entry).
 
-Teacher–parent communication (spec 015): teachers write a remark and record a voice message for a
-student's guardian; nothing reaches the parent before an authorised member of the administration
-approves it; parents (role `PARENT`, accounts created by the administration) read it in « Messages
-de l’école ». External notifications (email, WhatsApp Business Platform) are optional and go through
+Communications (specs 015 and 017): the administration is the only bridge between teachers and
+parents. Teachers report to the administration about a student of their classes, by voice and/or text
+(« Communications »); the administration answers them and exchanges with guardians, directly or after
+approval by another validator, depending on its permissions; parents (role `PARENT`, accounts created
+by the administration) write to and read « L’école » in « Messages de l’école ». External notifications (email, WhatsApp Business Platform) are optional and go through
 a self-hosted n8n (profile `n8n` of `deploy/docker-compose.yml`), off by default. See
 [docs/parent-communications.md](docs/parent-communications.md) (rights, n8n installation, rollback,
 register entry).
