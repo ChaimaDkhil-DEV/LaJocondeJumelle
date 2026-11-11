@@ -344,3 +344,32 @@ No fix or `git revert` needed.
 
 Wait for CI on the latest commit of the pull request, then tick the four checks, before merging — including when the
 remaining step is only the Docker image build.
+
+## 11/11/2026 — pull request #104
+
+| Pull request | Content | Merged at (UTC) | Check not satisfied at merge time |
+|---------|---------|-------------------|-----------------------------------------------|
+| #104 (`demo-en-ligne-origine`) | Online demo: login also possible from `http://127.0.0.1:4173` (new `APP_LOCAL_ORIGINS`, loopback addresses only, refused in production; `OriginGuard` and the realtime gateway accept `APP_ORIGIN` plus these origins); warning when a `cloudflared` process is already running | 16:02:34 | **1. CI**: both runs on `1436be5` were still in progress (43053730490 green at 16:11:39, 43053675259 green at 16:16:34); **all four checkboxes unticked** |
+
+The pull request was opened at 15:58:57 and merged from the owner's account 3 min 37 s later, while the working
+session was waiting for CI before reporting.
+
+### Findings after the fact
+
+- Both runs on `1436be5` finished green 9 min 05 s and 14 min 00 s after the merge, all steps executed, including the
+  Docker image build and the dependency audit.
+- The branch was up to date with `master` (`a6a1803`), and no review discussion was open.
+- Locally, before opening: lint, types, backend unit tests (1161), backend integration tests (1048, 2 skipped: real
+  Whisper and n8n, as on `master`), frontend tests (770; one earlier run had 1 failure, a clean rerun passed, no
+  frontend file changed) and `npm audit --audit-level=high` green. Tests written first: `config.spec.ts`,
+  `origin.spec.ts` and `demo-tunnel.spec.ts` failed (8 cases) before the implementation.
+- Manual check: through `vite preview`, login requests from `http://127.0.0.1` and `http://localhost` passed the origin
+  check, other origins got 403; the owner confirmed login on `http://127.0.0.1:4173` with the restarted demo.
+- Not verified at merge time: the end-to-end run (`npm run test:e2e`), not required for a change outside a release.
+- `master` green after the merge: run 43054337672 on `8d1a5df` at 16:13:18.
+
+No fix or `git revert` needed.
+
+### Reminder
+
+Wait for CI on the latest commit of the pull request, then tick the four checks, before merging.
