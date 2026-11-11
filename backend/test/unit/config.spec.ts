@@ -49,6 +49,36 @@ describe('loadConfig', () => {
   });
 });
 
+describe('loadConfig — APP_LOCAL_ORIGINS (démonstration en ligne)', () => {
+  it('n’autorise que APP_ORIGIN par défaut', () => {
+    expect(loadConfig(valid).allowedOrigins).toEqual(['https://demandes.ecole.fr']);
+    expect(loadConfig({ ...valid, APP_LOCAL_ORIGINS: '  ' }).allowedOrigins).toEqual(['https://demandes.ecole.fr']);
+  });
+
+  it('ajoute les adresses locales, APP_ORIGIN restant l’origine des liens', () => {
+    const config = loadConfig({ ...valid, APP_LOCAL_ORIGINS: 'http://127.0.0.1:4173/, http://localhost:4173' });
+    expect(config.appOrigin).toBe('https://demandes.ecole.fr');
+    expect(config.allowedOrigins).toEqual([
+      'https://demandes.ecole.fr',
+      'http://127.0.0.1:4173',
+      'http://localhost:4173',
+    ]);
+  });
+
+  it.each(['https://autre.fr', 'http://192.168.1.10:4173', 'pas une url', 'ftp://127.0.0.1:21'])(
+    'refuse « %s » : seules les adresses de ce poste sont admises',
+    (value) => {
+      expect(() => loadConfig({ ...valid, APP_LOCAL_ORIGINS: value })).toThrow(/^APP_LOCAL_ORIGINS invalide/);
+    },
+  );
+
+  it('est refusé en production', () => {
+    expect(() =>
+      loadConfig({ ...valid, NODE_ENV: 'production', APP_LOCAL_ORIGINS: 'http://127.0.0.1:4173' }),
+    ).toThrow(/APP_LOCAL_ORIGINS.*production/);
+  });
+});
+
 describe('loadConfig — SCHOOL_TIMEZONE (R4)', () => {
   it('vaut Europe/Paris par défaut', () => {
     expect(loadConfig(valid).schoolTimezone).toBe('Europe/Paris');
