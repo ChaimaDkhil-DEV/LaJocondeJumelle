@@ -14,7 +14,7 @@ import { createTestApp, TEST_ORIGIN } from '../utils/test-app';
 import { resetDatabase } from '../utils/test-db';
 
 /**
- * 015 — n8n : événement outbox écrit à l'approbation, envoi signé et fiable (panne, reprise, tentatives
+ * 015, 017 — n8n : événement outbox écrit à la publication (envoi direct ou approbation), envoi signé et fiable (panne, reprise, tentatives
  * limitées, doublons), données minimales pour n8n, comptes rendus de livraison idempotents. Une panne
  * de n8n ou d'un canal externe ne retire jamais l'accès du parent.
  */
@@ -35,7 +35,6 @@ describe('Communication aux parents : intégration n8n (015)', () => {
   let fakeStatus = 200;
   const received: Received[] = [];
   let superadmin: string;
-  let enseignante: string;
   let parent: string;
   let studentId: string;
   let guardianId: string;
@@ -59,30 +58,32 @@ describe('Communication aux parents : intégration n8n (015)', () => {
       data: { nextAttemptAt: new Date(Date.now() - 1_000) },
     });
 
+  /** Conversation de chaque message publié, pour la lecture par le parent. */
+  const conversationOf = new Map<string, string>();
+  const parentReads = (messageId: string) =>
+    api().get(`/api/parent/messages/conversations/${conversationOf.get(messageId)}`).set('Cookie', parent);
+
+  /**
+   * 017 : message de l'administration au parent, publié (le super administrateur envoie directement).
+   * Même publication qu'une approbation : notification, livraisons, un événement outbox.
+   */
   async function approved(text = 'Message approuvé'): Promise<string> {
     const voice = await api()
       .post('/api/files')
-      .set('Cookie', enseignante)
+      .set('Cookie', superadmin)
       .set('Origin', TEST_ORIGIN)
       .field('kind', 'VOICE')
       .attach('file', audio);
-    const draft = await api()
-      .post('/api/parent-communications')
-      .set('Cookie', enseignante)
-      .set('Origin', TEST_ORIGIN)
-      .send({ studentId, guardianId, text, voiceFileId: voice.body.id });
-    const sent = await api()
-      .post(`/api/parent-communications/${draft.body.id}/submit`)
-      .set('Cookie', enseignante)
-      .set('Origin', TEST_ORIGIN)
-      .send({ version: draft.body.version });
-    const decided = await api()
-      .post(`/api/admin/parent-communications/${sent.body.id}/decision`)
+    const res = await api()
+      .post('/api/admin/communications/conversations')
       .set('Cookie', superadmin)
       .set('Origin', TEST_ORIGIN)
-      .send({ action: 'APPROVE', revision: 1, version: sent.body.version });
-    expect(decided.status).toBe(200);
-    return decided.body.id as string;
+      .send({ type: 'PARENT', studentId, guardianId, text, voiceFileId: voice.body.id });
+    expect(res.status).toBe(201);
+    expect(res.body.messages[0].status).toBe('SENT');
+    const id = res.body.messages[0].id as string;
+    conversationOf.set(id, res.body.id as string);
+    return id;
   }
 
   beforeAll(async () => {
@@ -106,7 +107,6 @@ describe('Communication aux parents : intégration n8n (015)', () => {
     };
     app = await createTestApp([], [{ provide: APP_CONFIG, useValue: config }]);
     superadmin = await loginAs(app, 'superadmin');
-    enseignante = await loginAs(app, 'enseignante');
 
     const violet = (
       await prisma.schoolClass.findUniqueOrThrow({ where: { name: '1ère année Violet' } })
@@ -181,7 +181,7 @@ describe('Communication aux parents : intégration n8n (015)', () => {
     const event = await outbox(id);
     expect(event).toMatchObject({ status: 'PENDING', attempts: 1, lastError: expect.any(String) });
     expect(event.nextAttemptAt.getTime()).toBeGreaterThan(Date.now());
-    expect((await api().get(`/api/parent/messages/${id}`).set('Cookie', parent)).status).toBe(200);
+    expect((await parentReads(id)).status).toBe(200);
   });
 
   it('reprise : n8n revenu, l’événement en attente part une seule fois, signé, sans contenu', async () => {
@@ -235,7 +235,7 @@ describe('Communication aux parents : intégration n8n (015)', () => {
     await due(id);
     await dispatcher().runOnce();
     expect(received).toHaveLength(0);
-    expect((await api().get(`/api/parent/messages/${id}`).set('Cookie', parent)).status).toBe(200);
+    expect((await parentReads(id)).status).toBe(200);
   });
 
   it('sans n8n configuré : aucun envoi, les événements attendent', async () => {
@@ -263,9 +263,10 @@ describe('Communication aux parents : intégration n8n (015)', () => {
         phone: '+21620000001',
       },
       student: { firstName: 'Lina' },
-      teacher: { displayName: expect.any(String) },
+      // 017 (D7) : l'école, jamais le nom d'un membre de l'administration.
+      senderName: 'L’école',
       channels: ['EMAIL', 'WHATSAPP'],
-      link: `${config.appOrigin}/messages-ecole/${id}`,
+      link: `${config.appOrigin}/messages-ecole/conversations/${conversationOf.get(id)}`,
       approvedAt: expect.any(String),
     });
     expect(JSON.stringify(res.body)).not.toMatch(/Texte à ne pas transmettre|voice|storagePath/);
@@ -280,7 +281,7 @@ describe('Communication aux parents : intégration n8n (015)', () => {
     expect(emailOnly.body.recipient).not.toHaveProperty('phone');
 
     const pending = await prisma.parentCommunication.findFirst({
-      where: { status: { not: 'APPROVED' } },
+      where: { status: { notIn: ['APPROVED', 'SENT'] } },
     });
     if (pending)
       expect((await integration('get', `parent-communications/${pending.id}`)).status).toBe(404);
@@ -352,10 +353,10 @@ describe('Communication aux parents : intégration n8n (015)', () => {
         where: { action: 'PARENT_COMMUNICATION_DELIVERY', targetId: id },
       }),
     ).toBeGreaterThanOrEqual(3);
-    expect((await api().get(`/api/parent/messages/${id}`).set('Cookie', parent)).status).toBe(200);
+    expect((await parentReads(id)).status).toBe(200);
     // La validation voit l'état des livraisons.
     const detail = await api()
-      .get(`/api/admin/parent-communications/${id}`)
+      .get(`/api/admin/communications/messages/${id}`)
       .set('Cookie', superadmin);
     expect(detail.body.deliveries).toEqual([
       expect.objectContaining({ channel: 'EMAIL', status: 'FAILED' }),

@@ -1,8 +1,10 @@
-import type { ParentCommunicationAuthor, ParentCommunicationStatus } from '@prisma/client';
+import type { ConversationStatus, ConversationType, ParentCommunicationStatus } from '@prisma/client';
 
 /**
- * Cycle de vie d'une communication aux parents (015, FR-001). Règles pures : le service vérifie en plus
- * l'auteur, la permission de validation, la version examinée et le verrouillage optimiste.
+ * Cycle de vie d'un message (015, FR-001 ; 017). Les messages envoyés directement (SENT) n'ont aucune
+ * transition ; les messages de l'administration aux parents soumis pour validation suivent le cycle 015.
+ * Règles pures : le service vérifie en plus l'auteur, la permission de validation, la version examinée et
+ * le verrouillage optimiste ; la visibilité selon le lecteur est dans conversation-access.ts.
  */
 export type CommunicationAction = 'SUBMIT' | 'CANCEL' | 'APPROVE' | 'RETURN' | 'REJECT';
 
@@ -25,53 +27,26 @@ export function nextStatus(
   return TRANSITIONS[status]?.[action] ?? null;
 }
 
-/** Seuls un brouillon et une communication retournée se modifient ; en attente, rien ne change. */
+/** Seuls un brouillon et un message retourné se modifient ; en attente, rien ne change. */
 export function canEdit(status: ParentCommunicationStatus): boolean {
   return status === 'DRAFT' || status === 'RETURNED_FOR_CORRECTION';
 }
 
 export function isFinal(status: ParentCommunicationStatus): boolean {
-  return status === 'APPROVED' || status === 'REJECTED' || status === 'CANCELLED';
+  return status === 'APPROVED' || status === 'REJECTED' || status === 'CANCELLED' || status === 'SENT';
 }
 
-/**
- * Éléments manquants pour soumettre. Le texte est toujours obligatoire. Le vocal l'est pour le premier
- * message de l'enseignant (FR-002) ; il est facultatif pour une réponse de l'enseignant dans une
- * conversation commencée (`reply`) et pour un message du parent.
- */
-export function missingForSubmit(
-  draft: { text: string | null; voiceFileId: string | null },
-  author: ParentCommunicationAuthor = 'TEACHER',
-  reply = false,
-): Array<'text' | 'voice'> {
-  const missing: Array<'text' | 'voice'> = [];
-  if (!draft.text?.trim()) missing.push('text');
-  if (author === 'TEACHER' && !reply && !draft.voiceFileId) missing.push('voice');
-  return missing;
+/** Un message porte un texte non vide, un vocal, ou les deux (017, FR-007). */
+export function missingContent(content: { text: string | null | undefined; voiceFileId: string | null | undefined }): boolean {
+  return !content.text?.trim() && !content.voiceFileId;
 }
 
-/**
- * Message visible par son destinataire : approuvé seulement. L'auteur voit ses propres messages
- * dans tous les états soumis ; le destinataire ne voit jamais un message en attente, retourné,
- * rejeté ou annulé.
- */
-export function visibleInConversation(
-  message: { author: ParentCommunicationAuthor; status: ParentCommunicationStatus },
-  viewer: ParentCommunicationAuthor,
-): boolean {
-  if (message.author === viewer) return message.status !== 'DRAFT' || viewer === 'TEACHER';
-  return message.status === 'APPROVED';
-}
-
-/** Le parent ne voit jamais un brouillon, une attente, un retour, un rejet ni une annulation (FR-005). */
-export function parentCanSee(status: ParentCommunicationStatus): boolean {
-  return status === 'APPROVED';
-}
-
-/** La validation voit tout ce qui a été soumis au moins une fois ; un brouillon reste privé à l'enseignant. */
-export function validatorCanSee(
-  status: ParentCommunicationStatus,
-  currentRevision: number,
-): boolean {
-  return status !== 'DRAFT' && currentRevision > 0;
+/** Une décision est refusée dans une archive 015 (D4) et dans une conversation clôturée. */
+export function decisionBlocked(conversation: {
+  type: ConversationType;
+  status: ConversationStatus;
+}): 'ARCHIVED' | 'CLOSED' | null {
+  if (conversation.type === 'LEGACY_TEACHER_PARENT') return 'ARCHIVED';
+  if (conversation.status === 'CLOSED') return 'CLOSED';
+  return null;
 }

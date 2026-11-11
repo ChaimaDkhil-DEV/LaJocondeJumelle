@@ -14,7 +14,13 @@ describe('permissions par défaut', () => {
       'PRIORITY_CHANGE_MANAGED',
       'REQUEST_REASSIGN',
       'PARENT_COMMUNICATION_VALIDATE',
+      'PARENT_COMM_SUBMIT_FOR_APPROVAL',
     ]);
+  });
+
+  it('017 (D6) : le rôle ADMIN soumet ses messages aux parents pour validation, sans envoi direct par défaut', () => {
+    expect(DEFAULT_PERMISSIONS.ADMIN).toContain('PARENT_COMM_SUBMIT_FOR_APPROVAL');
+    expect(DEFAULT_PERMISSIONS.ADMIN).not.toContain('PARENT_COMM_SEND_DIRECT');
   });
 
   it('ni les employés ni les parents ne valident par défaut', () => {
@@ -27,6 +33,13 @@ describe('permissions attribuables dans les réglages', () => {
   it('la validation des communications aux parents ne se règle que pour le rôle ADMIN', () => {
     expect(CONFIGURABLE_PERMISSIONS.ADMIN).toContain('PARENT_COMMUNICATION_VALIDATE');
     expect(CONFIGURABLE_PERMISSIONS.EMPLOYEE).not.toContain('PARENT_COMMUNICATION_VALIDATE');
+  });
+
+  it('017 : l’envoi direct et la soumission aux parents ne se règlent que pour le rôle ADMIN', () => {
+    for (const permission of ['PARENT_COMM_SEND_DIRECT', 'PARENT_COMM_SUBMIT_FOR_APPROVAL'] as const) {
+      expect(CONFIGURABLE_PERMISSIONS.ADMIN).toContain(permission);
+      expect(CONFIGURABLE_PERMISSIONS.EMPLOYEE).not.toContain(permission);
+    }
   });
 
   it('l’administration et l’audit restent réservés au super administrateur', () => {

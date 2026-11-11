@@ -26,7 +26,6 @@ const audio = join(__dirname, '..', 'fixtures', 'audio', 'sample.webm');
   const prisma = new PrismaClient();
   let app: INestApplication;
   let superadmin: string;
-  let enseignante: string;
   let studentId: string;
   let guardianId: string;
   const api = () => request(app.getHttpServer());
@@ -42,7 +41,6 @@ const audio = join(__dirname, '..', 'fixtures', 'audio', 'sample.webm');
     app = await createTestApp([], [{ provide: APP_CONFIG, useValue: config }]);
     await app.listen(PORT, '0.0.0.0');
     superadmin = await loginAs(app, 'superadmin');
-    enseignante = await loginAs(app, 'enseignante');
     const violet = (
       await prisma.schoolClass.findUniqueOrThrow({ where: { name: '1ère année Violet' } })
     ).id;
@@ -89,35 +87,21 @@ const audio = join(__dirname, '..', 'fixtures', 'audio', 'sample.webm');
     await prisma.$disconnect();
   });
 
-  it('approbation → événement signé accepté par n8n → données minimales lues → livraisons rapportées', async () => {
+  it('publication → événement signé accepté par n8n → données minimales lues → livraisons rapportées', async () => {
+    // 017 : message de l'administration au parent, publié (envoi direct du super administrateur).
     const voice = await api()
       .post('/api/files')
-      .set('Cookie', enseignante)
+      .set('Cookie', superadmin)
       .set('Origin', TEST_ORIGIN)
       .field('kind', 'VOICE')
       .attach('file', audio);
-    const draft = await api()
-      .post('/api/parent-communications')
-      .set('Cookie', enseignante)
-      .set('Origin', TEST_ORIGIN)
-      .send({
-        studentId,
-        guardianId,
-        text: 'Remarque jamais transmise à n8n',
-        voiceFileId: voice.body.id,
-      });
-    const sent = await api()
-      .post(`/api/parent-communications/${draft.body.id}/submit`)
-      .set('Cookie', enseignante)
-      .set('Origin', TEST_ORIGIN)
-      .send({ version: draft.body.version });
-    const decided = await api()
-      .post(`/api/admin/parent-communications/${sent.body.id}/decision`)
+    const published = await api()
+      .post('/api/admin/communications/conversations')
       .set('Cookie', superadmin)
       .set('Origin', TEST_ORIGIN)
-      .send({ action: 'APPROVE', revision: 1, version: sent.body.version });
-    expect(decided.status).toBe(200);
-    const id = decided.body.id as string;
+      .send({ type: 'PARENT', studentId, guardianId, text: 'Remarque jamais transmise à n8n', voiceFileId: voice.body.id });
+    expect(published.status).toBe(201);
+    const id = published.body.messages[0].id as string;
 
     await app.get(OutboxDispatcher).runOnce();
     expect(await prisma.outboxEvent.findFirstOrThrow({ where: { aggregateId: id } })).toMatchObject(

@@ -71,13 +71,24 @@ const ADMIN_ALLOWED: readonly string[] = [
   `POST /api/admin/guardians/${UUID}/account`,
   'GET /api/admin/teacher-classes',
   `PUT /api/admin/teacher-classes/${UUID}`,
-  // Validation des communications aux parents : permission PARENT_COMMUNICATION_VALIDATE, accordée par
-  // défaut au rôle ADMIN (la surveillante générale) et retirable dans les réglages.
-  'GET /api/admin/parent-communications',
-  'GET /api/admin/parent-communications/discussions',
-  `GET /api/admin/parent-communications/${UUID}/discussion`,
-  `GET /api/admin/parent-communications/${UUID}`,
-  `POST /api/admin/parent-communications/${UUID}/decision`,
+  // Communications (017) : boîte commune de l'administration ; « À valider » exige en plus la permission
+  // PARENT_COMMUNICATION_VALIDATE, accordée par défaut au rôle ADMIN et retirable dans les réglages.
+  'GET /api/admin/communications/inbox',
+  'GET /api/admin/communications/conversations',
+  'POST /api/admin/communications/conversations',
+  `GET /api/admin/communications/conversations/${UUID}`,
+  `POST /api/admin/communications/conversations/${UUID}/messages`,
+  `POST /api/admin/communications/conversations/${UUID}/close`,
+  `POST /api/admin/communications/conversations/${UUID}/reopen`,
+  `PUT /api/admin/communications/conversations/${UUID}/responsible`,
+  'GET /api/admin/communications/recipients',
+  'GET /api/admin/communications/send-mode',
+  'GET /api/admin/communications/to-validate',
+  `GET /api/admin/communications/messages/${UUID}`,
+  `POST /api/admin/communications/messages/${UUID}/decision`,
+  `PATCH /api/admin/communications/messages/${UUID}`,
+  `POST /api/admin/communications/messages/${UUID}/submit`,
+  `POST /api/admin/communications/messages/${UUID}/cancel`,
 ];
 const key = ({ verb, path }: { verb: Verb; path: string }) => `${verb.toUpperCase()} ${path}`;
 

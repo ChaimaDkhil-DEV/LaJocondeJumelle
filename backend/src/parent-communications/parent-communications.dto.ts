@@ -13,6 +13,7 @@ import {
   IsString,
   IsUUID,
   Matches,
+  Max,
   MaxLength,
   Min,
   MinLength,
@@ -29,19 +30,13 @@ const normalizeUsername = ({ value }: { value: unknown }) =>
 export const REMARK_MAX = 2000;
 export const REASON_MAX = 1000;
 
-/** POST /parent-communications : brouillon (remarque et vocal facultatifs à ce stade). */
-export class CreateCommunicationDto {
-  @IsUUID()
-  studentId!: string;
-
-  @IsUUID()
-  guardianId!: string;
-
+/** Corps d'un message (017, FR-007) : un texte, un vocal, ou les deux (vérifié par le service). */
+export class MessageBodyDto {
   @IsOptional()
   @Transform(trimOrNull)
   @ValidateIf((_o, v) => v !== null)
   @IsString()
-  @MaxLength(REMARK_MAX, { message: `La remarque ne doit pas dépasser ${REMARK_MAX} caractères.` })
+  @MaxLength(REMARK_MAX, { message: `Le message ne doit pas dépasser ${REMARK_MAX} caractères.` })
   text?: string | null;
 
   @IsOptional()
@@ -50,49 +45,36 @@ export class CreateCommunicationDto {
   voiceFileId?: string | null;
 }
 
-/** PATCH /parent-communications/:id : modification d'un brouillon ou d'une communication retournée. */
-export class UpdateCommunicationDto {
-  @IsInt()
-  @Min(0)
-  version!: number;
+/** POST /communications/teacher/conversations et /parent/messages/conversations : au sujet d'un élève. */
+export class StartConversationDto extends MessageBodyDto {
+  @IsUUID()
+  studentId!: string;
+}
 
-  @IsOptional()
+export const CONVERSATION_TYPES = ['INTERNAL', 'PARENT'] as const;
+
+/** POST /admin/communications/conversations : avec un enseignant (INTERNAL) ou un représentant (PARENT). */
+export class AdminStartConversationDto extends StartConversationDto {
+  @IsIn(CONVERSATION_TYPES)
+  type!: (typeof CONVERSATION_TYPES)[number];
+
+  @ValidateIf((o: AdminStartConversationDto) => o.type === 'INTERNAL')
+  @IsUUID()
+  teacherId?: string;
+
+  @ValidateIf((o: AdminStartConversationDto) => o.type === 'PARENT')
   @IsUUID()
   guardianId?: string;
 
+  /** « Contacter le parent » : conversation interne d'origine (PARENT seulement). */
   @IsOptional()
-  @Transform(trimOrNull)
-  @ValidateIf((_o, v) => v !== null)
-  @IsString()
-  @MaxLength(REMARK_MAX, { message: `La remarque ne doit pas dépasser ${REMARK_MAX} caractères.` })
-  text?: string | null;
-
-  /** null : retire le vocal du brouillon. */
-  @IsOptional()
-  @ValidateIf((_o, v) => v !== null)
+  @ValidateIf((o: AdminStartConversationDto) => o.type === 'PARENT')
   @IsUUID()
-  voiceFileId?: string | null;
+  linkedInternalId?: string;
 }
 
-/**
- * Message d'un parent à l'enseignant de son enfant (POST /parent/messages/conversations/…) : texte
- * obligatoire, vocal facultatif. Envoyé directement à la validation de l'administration.
- */
-export class ParentMessageDto {
-  @Transform(trim)
-  @IsString()
-  @MinLength(1, { message: 'Écrivez votre message.' })
-  @MaxLength(REMARK_MAX, { message: `Le message ne doit pas dépasser ${REMARK_MAX} caractères.` })
-  text!: string;
-
-  @IsOptional()
-  @ValidateIf((_o, v) => v !== null)
-  @IsUUID()
-  voiceFileId?: string | null;
-}
-
-/** POST /parent/messages/:id/resubmit : correction d'un message retourné, nouvelle version à valider. */
-export class ParentResubmitDto extends ParentMessageDto {
+/** PATCH /admin/communications/messages/:id : correction d'un message retourné (auteur seulement). */
+export class EditMessageDto extends MessageBodyDto {
   @IsInt()
   @Min(0)
   version!: number;
@@ -107,7 +89,7 @@ export class VersionDto {
 export const DECISIONS = ['APPROVE', 'RETURN', 'REJECT'] as const;
 export type Decision = (typeof DECISIONS)[number];
 
-/** POST /admin/parent-communications/:id/decision : décision sur exactement la version examinée. */
+/** POST /admin/communications/messages/:id/decision : décision sur exactement la version examinée. */
 export class DecisionDto {
   @IsIn(DECISIONS)
   action!: Decision;
@@ -128,16 +110,14 @@ export class DecisionDto {
   reason?: string;
 }
 
-export const STATUS_FILTERS = [
-  'PENDING_ADMIN_VALIDATION',
-  'RETURNED_FOR_CORRECTION',
-  'APPROVED',
-  'REJECTED',
-  'CANCELLED',
-  'ALL',
-] as const;
+/** PUT /admin/communications/conversations/:id/responsible : null libère la conversation. */
+export class ResponsibleDto {
+  @ValidateIf((_o, v) => v !== null)
+  @IsUUID()
+  adminId!: string | null;
+}
 
-/** Période de soumission, bornes incluses (AAAA-MM-JJ ou date-heure ISO 8601). */
+/** Période, bornes incluses (AAAA-MM-JJ ou date-heure ISO 8601). */
 export class PeriodQuery {
   @IsOptional()
   @IsISO8601({ strict: true })
@@ -148,18 +128,22 @@ export class PeriodQuery {
   to?: string;
 }
 
-/** GET /admin/parent-communications/discussions : toutes les discussions, ou celles de la période. */
-export class DiscussionsQuery extends PeriodQuery {}
+const toBoolean = ({ value }: { value: unknown }) => (value === 'true' ? true : value === 'false' ? false : value);
+const toInt = ({ value }: { value: unknown }) => (typeof value === 'string' && /^\d+$/.test(value) ? Number(value) : value);
 
-/** GET /admin/parent-communications : en attente par défaut. */
-export class ListCommunicationsQuery extends PeriodQuery {
+export const CONVERSATION_FILTER_TYPES = ['INTERNAL', 'PARENT', 'LEGACY_TEACHER_PARENT'] as const;
+export const CONVERSATION_STATUSES = ['OPEN', 'CLOSED'] as const;
+export const CONVERSATIONS_PAGE_MAX = 50;
+
+/** GET /admin/communications/conversations : recherche, la plus récemment active d'abord. */
+export class ConversationsQuery extends PeriodQuery {
   @IsOptional()
-  @IsIn(STATUS_FILTERS)
-  status?: Exclude<ParentCommunicationStatus, 'DRAFT'> | 'ALL';
+  @IsIn(CONVERSATION_FILTER_TYPES)
+  type?: (typeof CONVERSATION_FILTER_TYPES)[number];
 
   @IsOptional()
-  @IsUUID()
-  teacherId?: string;
+  @IsIn(CONVERSATION_STATUSES)
+  status?: (typeof CONVERSATION_STATUSES)[number];
 
   @IsOptional()
   @IsUUID()
@@ -168,6 +152,70 @@ export class ListCommunicationsQuery extends PeriodQuery {
   @IsOptional()
   @IsUUID()
   classId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  teacherId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  guardianId?: string;
+
+  /** Conversations dont je suis l'administrateur responsable. */
+  @IsOptional()
+  @Transform(toBoolean)
+  @IsBoolean()
+  mine?: boolean;
+
+  /** Nom de l'élève, du représentant ou de l'enseignant. */
+  @IsOptional()
+  @Transform(trim)
+  @IsString()
+  @MaxLength(100)
+  q?: string;
+
+  @IsOptional()
+  @IsUUID()
+  cursor?: string;
+
+  @IsOptional()
+  @Transform(toInt)
+  @IsInt()
+  @Min(1)
+  @Max(CONVERSATIONS_PAGE_MAX)
+  limit?: number;
+}
+
+export const VALIDATION_STATUS_FILTERS = [
+  'PENDING_ADMIN_VALIDATION',
+  'RETURNED_FOR_CORRECTION',
+  'APPROVED',
+  'REJECTED',
+  'CANCELLED',
+] as const;
+
+/** GET /admin/communications/to-validate : messages de l'administration aux parents, en attente par défaut. */
+export class ToValidateQuery extends PeriodQuery {
+  @IsOptional()
+  @IsIn(VALIDATION_STATUS_FILTERS)
+  status?: Exclude<ParentCommunicationStatus, 'DRAFT' | 'SENT'>;
+
+  @IsOptional()
+  @IsUUID()
+  authorId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  studentId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  classId?: string;
+}
+
+export class RecipientsQuery {
+  @IsUUID()
+  studentId!: string;
 }
 
 /** Représentant légal (administration). */

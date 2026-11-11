@@ -55,7 +55,8 @@ export class NotificationsController {
         include: {
           request: { select: { id: true, reference: true, title: true, kind: true } },
           // Communication aux parents (015) : le nom de l'élève sert de titre, jamais la remarque.
-          communication: { select: { id: true, student: { select: { firstName: true, lastName: true } } } },
+          // 017 : l'élève est porté par la conversation du message.
+          communication: { select: { id: true, conversation: { select: { id: true, student: { select: { firstName: true, lastName: true } } } } } },
         },
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         take: limit + 1,
@@ -69,7 +70,13 @@ export class NotificationsController {
         type: n.type,
         priority: n.priority,
         request: n.request,
-        communication: n.communication ? { id: n.communication.id, studentName: `${n.communication.student.firstName} ${n.communication.student.lastName}` } : null,
+        communication: n.communication
+          ? {
+              id: n.communication.id,
+              conversationId: n.communication.conversation.id,
+              studentName: `${n.communication.conversation.student.firstName} ${n.communication.conversation.student.lastName}`,
+            }
+          : null,
         createdAt: n.createdAt,
         readAt: n.readAt,
       })),
