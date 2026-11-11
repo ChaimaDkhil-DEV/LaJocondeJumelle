@@ -351,3 +351,44 @@ describe('Migrations 0025_communications_enums et 0026_communications_conversati
     });
   });
 });
+
+describe('Migration 0027_communications_voice_only', () => {
+  const VOICE_ONLY = '0027_communications_voice_only';
+  let db: MigrationDb;
+  let conversation: string;
+  const message = '00000000-0000-4000-a000-0000000000a1';
+
+  beforeAll(async () => {
+    db = await openDatabase('mig_0027');
+    db.migrate(...UP_TO_0024);
+    await seed(db);
+    db.migrate(ENUMS, CONVERSATIONS);
+    conversation = '00000000-0000-4000-a000-0000000000c1';
+    await db.sql(`INSERT INTO "Conversation" ("id", "type", "studentId", "teacherId", "updatedAt")
+                  VALUES ('${conversation}', 'INTERNAL', '${ID.s1}', '${ID.teacher}', now())`);
+    await db.sql(`INSERT INTO "ParentCommunication" ("id", "conversationId", "author", "authorId", "status", "currentRevision", "version", "updatedAt")
+                  VALUES ('${message}', '${conversation}', 'TEACHER', '${ID.teacher}', 'SENT', 1, 0, now())`);
+    db.migrate(VOICE_ONLY);
+  });
+
+  const revision = (text: string | null, voice: string | null, number: number) =>
+    attempt(
+      db,
+      `INSERT INTO "ParentCommunicationRevision" ("id", "communicationId", "number", "text", "voiceFileId")
+       VALUES (gen_random_uuid(), '${message}', ${number}, ${text === null ? 'NULL' : `'${text}'`}, ${voice ? `'${voice}'` : 'NULL'})`,
+    );
+
+  it('une version peut être un vocal seul (FR-007)', async () => {
+    expect(await revision(null, ID.voice, 1)).toBeNull();
+  });
+
+  it('une version sans texte ni vocal est refusée par la base', async () => {
+    expect(await revision(null, null, 2)).toMatch(/ParentCommunicationRevision_content_check/);
+    expect(await revision('   ', null, 2)).toMatch(/ParentCommunicationRevision_content_check/);
+    expect(await revision('Bonjour', null, 2)).toBeNull();
+  });
+
+  it('down.sql est refusé tant qu’une version sans texte existe', async () => {
+    expect(db.down(VOICE_ONLY)).toMatch(/0027/);
+  });
+});

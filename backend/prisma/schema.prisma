@@ -1297,7 +1297,8 @@ model ParentCommunicationRevision {
   id              String   @id @default(uuid()) @db.Uuid
   communicationId String   @db.Uuid
   number          Int
-  text            String   @db.VarChar(2000)
+  /// Facultatif (017) : un vocal seul suffit ; la base exige un texte non vide ou un vocal (0027).
+  text            String?  @db.VarChar(2000)
   /// Obligatoire pour un message de l'enseignant ; facultatif pour un message du parent.
   voiceFileId     String?  @db.Uuid
   createdAt       DateTime @default(now()) @db.Timestamptz(3)
