@@ -398,3 +398,40 @@ No fix or `git revert` needed.
 ### Reminder
 
 Tick the four checks before merging, including for a documentation-only pull request whose CI is already green.
+
+## 11/11/2026 — pull request #107
+
+| Pull request | Content | Merged at (UTC) | Check not satisfied at merge time |
+|---------|---------|-------------------|-----------------------------------------------|
+| #107 (`017-backend`) | Feature 017: communications centred on the administration (conversations `INTERNAL` / `PARENT`, archives, migrations `0025` to `0027`, « Communications » screens, E2E, docs) | 20:32:19 | **1. CI**: the three runs on the branch were shown in progress (43094383486, 43094313077 on `1ef43c2`, 43094228218 on `43cee2b`); **4. Diff review**: deviation from constitution principle I recorded in the description; **all four checkboxes unticked** |
+
+The pull request was opened at 20:12:51 and merged from the owner's account 19 min 28 s later, while the working
+session was waiting for CI.
+
+### Findings after the fact
+
+- GitHub Actions had a major outage that evening (githubstatus.com, component « Actions »). Every step of the three
+  branch runs had finished successfully by 20:22:21, ten minutes before the merge, but GitHub only marked the runs
+  completed (success) at about 21:00: lint, types, backend unit and integration tests, frontend tests, Docker image
+  build, dependency audit.
+- The `master` run on `bea0d1b` (43096646287, merge of #107) stayed queued after the outage; GitHub refused both to
+  cancel it (« completed ») and to rerun it (« already running »). The CI of this pull request, opened from
+  `bea0d1b` with documentation only, checks the code of `master` after the merge.
+- The branch was up to date with `master` (`b321c69`); no review discussion was open.
+- #107 deviation, recorded in the description of the pull request (« Écarts à la procédure ») and in
+  `docs/validation/verification-017.md`: the HTTP integration suites `communications-*.spec.ts` were written before
+  the services but first run after them; mutation check (visibility always granted): 3 of 4 suites fail. Domain,
+  migration and frontend tests were seen failing before the code.
+- #107 locally, before opening: lint, types, backend unit (1201) and integration tests (1093, 2 skipped: real
+  Whisper and n8n), frontend tests (762), `npm audit --audit-level=high` green; `e2e/communications.spec.ts` on
+  `chromium` and `mobile-320` (2 passed); migrations `0025` to `0027` applied to the development database, their
+  `down.sql` tested by `communications-migration.spec.ts`.
+- Not verified at merge time: the end-to-end suite on the seven projects, n8n against a real n8n, the migrations on a
+  copy of production data.
+
+No fix or `git revert` needed so far; `master` CI after the merge: see the CI of this pull request.
+
+### Reminder
+
+Wait for CI on the latest commit of the pull request, then tick the four checks, before merging; with a recorded
+deviation, check 4 stays unticked and the merge is the owner's explicit decision.
