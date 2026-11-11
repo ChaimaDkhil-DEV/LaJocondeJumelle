@@ -6,16 +6,16 @@ Operation: [docs/parent-communications.md](../parent-communications.md).
 
 ## Automated checks (T073)
 
-| Step | Result |
-|---|---|
-| `npm run lint` | green (0 error, 0 warning) |
-| Type checks (backend, frontend) | green |
-| Backend unit tests | 1201 / 1201 |
-| Backend integration tests | 1093 passed, 2 suites skipped (`assist-whisper-live`, `parent-communications-n8n-live`: need a live service), 524 s |
-| Frontend tests (Vitest) | 762 / 762 (an earlier run of the whole suite under load had `tests/admin/dashboard.test.tsx` fail to load; it passed alone and in the next full run; no file of that test changed) |
-| `npm audit --audit-level=high` | 30 low/moderate, no high or critical (unchanged) |
-| End to end, `e2e/communications.spec.ts` (`chromium`, `mobile-320`) | 2 passed (full journey with four users on Chromium; 320 px screens without horizontal scroll nor axe violation) |
-| Migrations `0025`, `0026`, `0027` on the development database | applied with `prisma migrate dev`, no extra migration generated; `prisma migrate status`: up to date (27 migrations); the one 015 message of the development database is in one archive conversation |
+| Step                                                                | Result                                                                                                                                                                                               |
+| ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run lint`                                                      | green (0 error, 0 warning)                                                                                                                                                                           |
+| Type checks (backend, frontend)                                     | green                                                                                                                                                                                                |
+| Backend unit tests                                                  | 1201 / 1201                                                                                                                                                                                          |
+| Backend integration tests                                           | 1093 passed, 2 suites skipped (`assist-whisper-live`, `parent-communications-n8n-live`: need a live service), 524 s                                                                                  |
+| Frontend tests (Vitest)                                             | 762 / 762 (an earlier run of the whole suite under load had `tests/admin/dashboard.test.tsx` fail to load; it passed alone and in the next full run; no file of that test changed)                   |
+| `npm audit --audit-level=high`                                      | 30 low/moderate, no high or critical (unchanged)                                                                                                                                                     |
+| End to end, `e2e/communications.spec.ts` (`chromium`, `mobile-320`) | 2 passed (full journey with four users on Chromium; 320 px screens without horizontal scroll nor axe violation)                                                                                      |
+| Migrations `0025`, `0026`, `0027` on the development database       | applied with `prisma migrate dev`, no extra migration generated; `prisma migrate status`: up to date (27 migrations); the one 015 message of the development database is in one archive conversation |
 
 New suites: `conversation-access.spec.ts` (40 cases, the 12 access rules), `parent-communication-workflow.spec.ts`
 (rewritten), `communications-migration.spec.ts` (17: backfill, constraints, triggers, `down.sql`, re-application),
