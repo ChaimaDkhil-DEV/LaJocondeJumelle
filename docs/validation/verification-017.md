@@ -21,9 +21,35 @@ New suites: `conversation-access.spec.ts` (40 cases, the 12 access rules), `pare
 (rewritten), `communications-migration.spec.ts` (17: backfill, constraints, triggers, `down.sql`, re-application),
 `communications-teacher|admin|validation|parent|archive|files|general.spec.ts` (59).
 
-Not run: the full end-to-end suite on the 7 profiles (about 1 hour); the new journey on the other profiles (skipped
-there by design: four users, simulated microphone); n8n against a real n8n (`parent-communications-n8n-live.spec.ts`,
-opt-in); migrations on a copy of production data.
+Not run: n8n against a real n8n (`parent-communications-n8n-live.spec.ts`, opt-in); migrations on a copy of
+production data. The new journey runs on Chromium only (skipped on the other profiles by design: four users, simulated
+microphone).
+
+## Full end-to-end suite after the merge (11/11/2026)
+
+`npm run test:e2e` on `master` at `b74f3af`, 7 profiles, 1 h 01: **208 passed, 4 failed, 236 skipped** (skips by
+design: many scenarios run on Chromium or `mobile-320` only).
+
+| Profile             | Passed | Failed | Skipped |
+| ------------------- | ------ | ------ | ------- |
+| `chromium`          | 44     | 0      | 20      |
+| `firefox`           | 26     | 0      | 38      |
+| `webkit`            | 25     | 1      | 38      |
+| `iPhone 13`         | 27     | 1      | 36      |
+| `iPhone 17 Pro Max` | 26     | 1      | 37      |
+| `Pixel 7`           | 26     | 1      | 37      |
+| `mobile-320`        | 34     | 0      | 30      |
+
+None of the failures involves 017 (`e2e/communications.spec.ts` passed wherever it runs):
+
+- `e2e/teacher-home.spec.ts` on `webkit`, `iPhone 13`, `iPhone 17 Pro Max` (all WebKit): « Enregistrer un message
+  vocal » not found; the screen showed « Votre navigateur ne permet pas d’enregistrer un message vocal ». WebKit on
+  Windows has no `MediaRecorder` in Playwright. Test defect predating 017 (feature 016; #107 changed neither this test
+  nor the voice module). Fixed by installing the simulated recorder on WebKit, as `e2e/assist.spec.ts` already does;
+  after the fix the test passes on these three profiles and on `chromium` (4 passed).
+- `e2e/us2-process-request.spec.ts` « V8 — annulation possible avant acceptation seulement » on `Pixel 7`: the login
+  page did not load within the 60 s test timeout, late in the run. Run again alone: passed (15 s). Flaky under load, no
+  change.
 
 ## Tests first (constitution principle I)
 
