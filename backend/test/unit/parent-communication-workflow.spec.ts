@@ -1,15 +1,17 @@
 import type { ParentCommunicationStatus } from '@prisma/client';
 import {
   canEdit,
+  decisionBlocked,
   isFinal,
-  missingForSubmit,
+  missingContent,
   nextStatus,
-  parentCanSee,
-  validatorCanSee,
   type CommunicationAction,
 } from '../../src/parent-communications/domain/communication-workflow';
 
-/** 015 — statuts et transitions d'une communication aux parents (FR-001, FR-002, FR-005). */
+/**
+ * Statuts et transitions d'un message (015, FR-001 ; 017, FR-007 à FR-010). La visibilité selon le lecteur
+ * est dans domain/conversation-access.ts (test conversation-access.spec.ts).
+ */
 
 const ALL: ParentCommunicationStatus[] = [
   'DRAFT',
@@ -18,6 +20,7 @@ const ALL: ParentCommunicationStatus[] = [
   'APPROVED',
   'REJECTED',
   'CANCELLED',
+  'SENT',
 ];
 
 describe('Transitions', () => {
@@ -33,7 +36,7 @@ describe('Transitions', () => {
     expect(nextStatus(from, action)).toBe(to);
   });
 
-  it('refuse toute autre transition', () => {
+  it('refuse toute autre transition ; un message envoyé directement n’en a aucune (017)', () => {
     const allowed = new Set([
       'DRAFT:SUBMIT',
       'DRAFT:CANCEL',
@@ -44,43 +47,35 @@ describe('Transitions', () => {
       'RETURNED_FOR_CORRECTION:CANCEL',
     ]);
     for (const status of ALL) {
-      for (const action of [
-        'SUBMIT',
-        'CANCEL',
-        'APPROVE',
-        'RETURN',
-        'REJECT',
-      ] as CommunicationAction[]) {
+      for (const action of ['SUBMIT', 'CANCEL', 'APPROVE', 'RETURN', 'REJECT'] as CommunicationAction[]) {
         if (!allowed.has(`${status}:${action}`)) expect(nextStatus(status, action)).toBeNull();
       }
     }
   });
 
-  it('une communication en attente ne se modifie pas ; approuvée, rejetée ou annulée, elle est définitive', () => {
+  it('se modifient : brouillon et message retourné ; définitifs : approuvé, rejeté, annulé, envoyé', () => {
     expect(ALL.filter(canEdit)).toEqual(['DRAFT', 'RETURNED_FOR_CORRECTION']);
-    expect(ALL.filter(isFinal)).toEqual(['APPROVED', 'REJECTED', 'CANCELLED']);
+    expect(ALL.filter(isFinal)).toEqual(['APPROVED', 'REJECTED', 'CANCELLED', 'SENT']);
   });
 });
 
-describe('Soumission', () => {
-  it('exige la remarque écrite et le message vocal', () => {
-    expect(missingForSubmit({ text: 'Très bon trimestre.', voiceFileId: 'f1' })).toEqual([]);
-    expect(missingForSubmit({ text: '   ', voiceFileId: 'f1' })).toEqual(['text']);
-    expect(missingForSubmit({ text: 'Remarque', voiceFileId: null })).toEqual(['voice']);
-    expect(missingForSubmit({ text: null, voiceFileId: null })).toEqual(['text', 'voice']);
+describe('Contenu d’un message (017, FR-007)', () => {
+  it('un texte, un vocal, ou les deux', () => {
+    expect(missingContent({ text: 'Bonjour', voiceFileId: null })).toBe(false);
+    expect(missingContent({ text: null, voiceFileId: 'f1' })).toBe(false);
+    expect(missingContent({ text: 'Bonjour', voiceFileId: 'f1' })).toBe(false);
+  });
+
+  it('ni texte (ou seulement des espaces) ni vocal : incomplet', () => {
+    expect(missingContent({ text: null, voiceFileId: null })).toBe(true);
+    expect(missingContent({ text: '   ', voiceFileId: null })).toBe(true);
   });
 });
 
-describe('Visibilité', () => {
-  it('le parent ne voit que les communications approuvées', () => {
-    expect(ALL.filter(parentCanSee)).toEqual(['APPROVED']);
-  });
-
-  it('la validation ne voit jamais un brouillon jamais soumis', () => {
-    expect(validatorCanSee('DRAFT', 0)).toBe(false);
-    // Annulé avant toute soumission : reste privé à l'enseignant.
-    expect(validatorCanSee('CANCELLED', 0)).toBe(false);
-    for (const status of ALL.filter((s) => s !== 'DRAFT'))
-      expect(validatorCanSee(status, 1)).toBe(true);
+describe('Décision sur un message (017, D4)', () => {
+  it('refusée dans une archive et dans une conversation clôturée', () => {
+    expect(decisionBlocked({ type: 'LEGACY_TEACHER_PARENT', status: 'CLOSED' })).toBe('ARCHIVED');
+    expect(decisionBlocked({ type: 'PARENT', status: 'CLOSED' })).toBe('CLOSED');
+    expect(decisionBlocked({ type: 'PARENT', status: 'OPEN' })).toBeNull();
   });
 });

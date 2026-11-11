@@ -58,6 +58,8 @@ export const PERMISSION_LABELS: Record<string, string> = {
   PRIORITY_CHANGE_MANAGED: t('Changer la priorité des demandes gérées'),
   REQUEST_REASSIGN: t('Réaffecter une demande'),
   PARENT_COMMUNICATION_VALIDATE: t('Valider les communications aux parents'),
+  PARENT_COMM_SEND_DIRECT: t('Envoyer directement aux parents'),
+  PARENT_COMM_SUBMIT_FOR_APPROVAL: t('Soumettre ses messages aux parents pour validation'),
 };
 
 export const AUDIT_ACTION_LABELS: Record<string, string> = {

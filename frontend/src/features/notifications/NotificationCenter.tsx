@@ -102,6 +102,9 @@ const NOTIFICATION_ICONS: Record<NotificationType, LucideIcon> = {
   PARENT_COMM_REJECTED: MessageSquare,
   PARENT_MESSAGE_NEW: MessageSquare,
   TEACHER_MESSAGE_NEW: MessageSquare,
+  COMM_INTERNAL_NEW: MessageSquare,
+  COMM_ADMIN_REPLY: MessageSquare,
+  COMM_PARENT_NEW: MessageSquare,
 };
 
 function UrgentMark() {

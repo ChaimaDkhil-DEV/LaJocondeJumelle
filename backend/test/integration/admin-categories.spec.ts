@@ -157,8 +157,9 @@ describe('Administration des catégories et réglages', () => {
       const current = await api().get('/api/admin/role-permissions').set('Cookie', superadmin);
       expect(current.body).toEqual({
         EMPLOYEE: ['PRIORITY_CHANGE_OWN', 'REQUEST_CREATE'],
-        // La surveillante générale (ADMIN) valide les communications aux parents par défaut (015).
-        ADMIN: ['PARENT_COMMUNICATION_VALIDATE', 'PRIORITY_CHANGE_MANAGED', 'PRIORITY_CHANGE_OWN', 'REQUEST_CREATE', 'REQUEST_REASSIGN'],
+        // La surveillante générale (ADMIN) valide les communications aux parents par défaut (015) et soumet
+        // ses propres messages aux parents pour validation (017, D6, migration 0026).
+        ADMIN: ['PARENT_COMMUNICATION_VALIDATE', 'PARENT_COMM_SUBMIT_FOR_APPROVAL', 'PRIORITY_CHANGE_MANAGED', 'PRIORITY_CHANGE_OWN', 'REQUEST_CREATE', 'REQUEST_REASSIGN'],
       });
       const res = await send('put', '/api/admin/role-permissions', { EMPLOYEE: ['REQUEST_CREATE'], ADMIN: current.body.ADMIN });
       expect(res.status).toBe(200);

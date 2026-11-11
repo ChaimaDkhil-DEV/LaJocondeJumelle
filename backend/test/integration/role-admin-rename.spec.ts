@@ -72,6 +72,8 @@ describe('Rôle Admin (ex-Responsable)', () => {
     expect(me.body.permissions).toEqual([
       // 015 : la surveillante générale valide les communications aux parents.
       'PARENT_COMMUNICATION_VALIDATE',
+      // 017 (D6) : la surveillante générale soumet ses messages aux parents pour validation.
+      'PARENT_COMM_SUBMIT_FOR_APPROVAL',
       'PRIORITY_CHANGE_MANAGED',
       'PRIORITY_CHANGE_OWN',
       'REQUEST_CREATE',

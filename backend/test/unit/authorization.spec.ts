@@ -20,9 +20,12 @@ const superadmin = user('superadmin', 'SUPER_ADMIN');
 
 describe('permissionsFor', () => {
   it('donne toutes les permissions au super administrateur, sans les stocker', () => {
-    // 015 : PARENT_COMMUNICATION_VALIDATE s'ajoute aux six permissions existantes.
-    expect(superadmin.permissions.size).toBe(7);
+    // 015 : PARENT_COMMUNICATION_VALIDATE s'ajoute aux six permissions existantes ; 017 : envoi direct et
+    // soumission aux parents.
+    expect(superadmin.permissions.size).toBe(9);
     expect(superadmin.permissions.has('PARENT_COMMUNICATION_VALIDATE')).toBe(true);
+    expect(superadmin.permissions.has('PARENT_COMM_SEND_DIRECT')).toBe(true);
+    expect(superadmin.permissions.has('PARENT_COMM_SUBMIT_FOR_APPROVAL')).toBe(true);
   });
 
   it('reprend les permissions configurées pour les autres rôles', () => {

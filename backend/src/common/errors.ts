@@ -94,7 +94,7 @@ export const ERROR_CATALOG = {
   },
   // Communication enseignant / parents (015).
   PARENT_COMM_NOT_EDITABLE: { status: 409, message: 'Cette communication ne peut plus être modifiée dans son statut actuel.' },
-  PARENT_COMM_INCOMPLETE: { status: 422, message: 'Ajoutez la remarque écrite et le message vocal avant de soumettre.' },
+  PARENT_COMM_INCOMPLETE: { status: 422, message: 'Écrivez un message ou enregistrez un message vocal avant d’envoyer.' },
   PARENT_COMM_ALREADY_DECIDED: { status: 409, message: 'Cette communication a déjà été traitée ou a changé entre-temps. Elle a été rechargée.' },
   PARENT_COMM_SELF_DECISION:{ status: 403, message: 'Vous ne pouvez pas valider votre propre communication.' },
   PARENT_COMM_REVISION_CHANGED: {
@@ -103,7 +103,26 @@ export const ERROR_CATALOG = {
   },
   PARENT_COMM_RECIPIENT_INVALID: {
     status: 422,
-    message: 'Choisissez un élève de vos classes et un représentant lié à cet élève.',
+    message:
+      'Ce destinataire n’est plus possible : choisissez un élève de vos classes, ou un représentant lié à l’élève et ayant un compte parent actif.',
+  },
+  // Communications centrées sur l'administration (017).
+  PARENT_COMM_CLOSED: {
+    status: 409,
+    message: 'Cette conversation est clôturée. L’administration peut la rouvrir ; vous pouvez aussi en commencer une nouvelle.',
+  },
+  PARENT_COMM_ARCHIVED: {
+    status: 409,
+    message: 'Cette conversation est une archive en lecture seule : commencez une nouvelle conversation.',
+  },
+  PARENT_COMM_SEND_FORBIDDEN: {
+    status: 403,
+    message: 'Vous n’avez pas le droit d’écrire aux parents. Demandez au super administrateur la permission d’envoyer ou de soumettre.',
+  },
+  PARENT_COMM_RESPONSIBLE_INVALID: { status: 422, message: 'Choisissez un membre actif de l’administration.' },
+  PARENT_COMM_LINK_INVALID: {
+    status: 422,
+    message: 'La conversation liée doit être une conversation interne au sujet du même élève.',
   },
   PARENT_COMM_VOICE_INVALID: { status: 422, message: 'Ce message vocal est introuvable ou ne vous appartient pas.' },
   INTEGRATION_UNAUTHORIZED: { status: 401, message: 'Appel d’intégration non autorisé.' },

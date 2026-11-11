@@ -114,20 +114,32 @@ export class N8nController {
 
   @Get('parent-communications/:id')
   async communication(@Param('id') id: string, @Req() req: Request) {
+    // 017 : message de l'administration visible du parent (envoyé directement ou approuvé).
     const row = UUID.test(id)
       ? await this.prisma.parentCommunication.findFirst({
-          where: { id, status: 'APPROVED', guardian: { active: true } },
+          where: {
+            id,
+            author: 'ADMIN',
+            status: { in: ['APPROVED', 'SENT'] },
+            conversation: { type: 'PARENT', guardian: { active: true } },
+          },
           select: {
             id: true,
             decidedAt: true,
-            student: { select: { firstName: true } },
-            teacher: { select: { displayName: true } },
-            guardian: { select: { firstName: true, lastName: true, email: true, phone: true } },
+            submittedAt: true,
+            conversation: {
+              select: {
+                id: true,
+                student: { select: { firstName: true } },
+                guardian: { select: { firstName: true, lastName: true, email: true, phone: true } },
+              },
+            },
           },
         })
       : null;
-    if (!row) throw new AppException('NOT_FOUND');
-    const channels = this.communications.channelsFor(row.guardian);
+    const guardian = row?.conversation.guardian;
+    if (!row || !guardian) throw new AppException('NOT_FOUND');
+    const channels = this.communications.channelsFor(guardian);
     await this.audit.log('PARENT_COMMUNICATION_DELIVERY', {
       targetType: 'ParentCommunication',
       targetId: id,
@@ -137,16 +149,17 @@ export class N8nController {
     return {
       communicationId: row.id,
       recipient: {
-        firstName: row.guardian.firstName,
-        lastName: row.guardian.lastName,
-        ...(channels.includes('EMAIL') ? { email: row.guardian.email } : {}),
-        ...(channels.includes('WHATSAPP') ? { phone: row.guardian.phone } : {}),
+        firstName: guardian.firstName,
+        lastName: guardian.lastName,
+        ...(channels.includes('EMAIL') ? { email: guardian.email } : {}),
+        ...(channels.includes('WHATSAPP') ? { phone: guardian.phone } : {}),
       },
-      student: row.student,
-      teacher: row.teacher,
+      student: row.conversation.student,
+      // D7 : le parent voit « L'école », jamais le nom d'un membre de l'administration.
+      senderName: 'L’école',
       channels,
-      link: `${this.config.appOrigin}/messages-ecole/${row.id}`,
-      approvedAt: row.decidedAt,
+      link: `${this.config.appOrigin}/messages-ecole/conversations/${row.conversation.id}`,
+      approvedAt: row.decidedAt ?? row.submittedAt,
     };
   }
 

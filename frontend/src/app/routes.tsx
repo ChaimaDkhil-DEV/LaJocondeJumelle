@@ -18,14 +18,13 @@ import { RequestDetailPage } from '../features/requests/RequestDetailPage';
 import { DraftPage } from '../features/requests/DraftPage';
 import { RequestListPage } from '../features/requests/RequestListPage';
 import { MealServicesPage } from '../features/students/MealServicesPage';
-import { CommunicationEditorPage } from '../features/parent-communications/CommunicationEditorPage';
-import { ParentMessagePage } from '../features/parent-communications/ParentMessagePage';
-import { ParentMessagesPage } from '../features/parent-communications/ParentMessagesPage';
+import { CommunicationsPage } from '../features/parent-communications/CommunicationsPage';
 import {
-  TeacherCommunicationsPage,
-  TeacherMessageRedirect,
-} from '../features/parent-communications/TeacherCommunicationsPage';
-import { ValidationInboxPage } from '../features/parent-communications/ValidationInboxPage';
+  ParentMessageRedirect,
+  TeacherLegacyRedirect,
+  ValidationLegacyRedirect,
+} from '../features/parent-communications/LegacyRedirects';
+import { ParentMessagesPage } from '../features/parent-communications/ParentMessagesPage';
 import { AppLayout } from './AppLayout';
 
 export const routes: RouteObject[] = [
@@ -60,24 +59,28 @@ export const routes: RouteObject[] = [
       { path: 'gardes/:id', element: <CoverageDetailPage /> },
       // Service de restauration des élèves (rôles vérifiés par l'API).
       { path: 'restauration', element: <MealServicesPage /> },
-      // Communication enseignant / parents (015) : droits vérifiés par l'API.
-      { path: 'communications-parents', element: <TeacherCommunicationsPage /> },
-      { path: 'communications-parents/nouvelle', element: <CommunicationEditorPage /> },
-      { path: 'communications-parents/:id', element: <CommunicationEditorPage /> },
+      // Communications (017) : enseignants et administration ; droits vérifiés par l'API.
+      { path: 'communications', element: <CommunicationsPage /> },
+      { path: 'communications/nouveau', element: <CommunicationsPage view="new" /> },
       {
-        path: 'communications-parents/conversation/:studentId/:guardianId',
-        element: <TeacherCommunicationsPage />,
+        path: 'communications/conversations/:id?',
+        element: <CommunicationsPage view="conversations" />,
       },
-      { path: 'communications-parents/message/:id', element: <TeacherMessageRedirect /> },
-      // Messagerie : la liste des discussions et, avec un message désigné, sa discussion.
-      { path: 'communications-a-valider/:id?', element: <ValidationInboxPage /> },
+      { path: 'communications/boite/:id?', element: <CommunicationsPage view="inbox" /> },
+      { path: 'communications/a-valider/:id?', element: <CommunicationsPage view="validation" /> },
+      // « Messages de l'école » : espace du parent.
       { path: 'messages-ecole', element: <ParentMessagesPage /> },
       { path: 'messages-ecole/nouvelle', element: <ParentMessagesPage mode="new" /> },
+      { path: 'messages-ecole/conversations/:id', element: <ParentMessagesPage /> },
+      // Anciennes adresses 015 (favoris, notifications déjà reçues).
+      { path: 'communications-parents/*', element: <TeacherLegacyRedirect /> },
+      { path: 'communications-parents', element: <TeacherLegacyRedirect /> },
+      { path: 'communications-a-valider/:id?', element: <ValidationLegacyRedirect /> },
       {
         path: 'messages-ecole/conversation/:teacherId/:studentId',
         element: <ParentMessagesPage />,
       },
-      { path: 'messages-ecole/:id', element: <ParentMessagePage /> },
+      { path: 'messages-ecole/:id', element: <ParentMessageRedirect /> },
       ...adminRoutes,
     ],
   },

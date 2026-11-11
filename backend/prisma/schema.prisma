@@ -137,6 +137,10 @@ enum Permission {
   ADMIN_MANAGE
   /// Approuver, retourner ou rejeter les communications aux parents (015).
   PARENT_COMMUNICATION_VALIDATE
+  /// Envoyer directement un message aux parents, sans validation (017).
+  PARENT_COMM_SEND_DIRECT
+  /// Soumettre un message aux parents à la validation d'un autre validateur (017).
+  PARENT_COMM_SUBMIT_FOR_APPROVAL
 }
 
 enum RequestEventType {
@@ -216,6 +220,8 @@ enum AuditAction {
   PARENT_COMMUNICATION_DECIDED
   PARENT_COMMUNICATION_READ
   PARENT_COMMUNICATION_DELIVERY
+  /// Conversation (017) : clôture, réouverture, prise en charge, lien vers une conversation interne.
+  COMMUNICATION_CONVERSATION_CHANGED
 }
 
 enum NotificationType {
@@ -265,6 +271,12 @@ enum NotificationType {
   PARENT_MESSAGE_NEW
   /// Enseignant : message d'un parent validé par l'administration (015, conversations).
   TEACHER_MESSAGE_NEW
+  /// Administration : message d'un enseignant (017, conversation interne).
+  COMM_INTERNAL_NEW
+  /// Enseignant : réponse de l'administration (017).
+  COMM_ADMIN_REPLY
+  /// Administration : message d'un parent (017).
+  COMM_PARENT_NEW
 }
 
 /// Origine d'une affectation (004).
@@ -389,6 +401,11 @@ model User {
   guardianAccount             Guardian?                  @relation("GuardianAccount")
   teacherClasses              TeacherClass[]
   parentCommunications        ParentCommunication[]      @relation("ParentCommunicationTeacher")
+  parentCommunicationsWritten ParentCommunication[]      @relation("ParentCommunicationAuthorUser")
+  conversationsAsTeacher      Conversation[]             @relation("ConversationTeacher")
+  conversationsCreated        Conversation[]             @relation("ConversationCreator")
+  conversationsResponsible    Conversation[]             @relation("ConversationResponsible")
+  conversationsClosed         Conversation[]             @relation("ConversationCloser")
   parentCommunicationsDecided ParentCommunication[]      @relation("ParentCommunicationDecider")
   parentCommunicationEvents   ParentCommunicationEvent[]
 }
@@ -795,6 +812,7 @@ model Student {
   mealChanges          StudentMealChange[]
   guardians            GuardianStudent[]
   parentCommunications ParentCommunication[]
+  conversations        Conversation[]
 
   @@index([classId])
   @@index([lastName, firstName])
@@ -1072,6 +1090,8 @@ enum ParentCommunicationStatus {
   APPROVED
   REJECTED
   CANCELLED
+  /// Envoi direct, sans validation (017) : visible par le destinataire dès l'envoi.
+  SENT
 }
 
 /// Auteur d'un message de la conversation (015) : l'enseignant (vers le parent) ou le parent (vers
@@ -1079,6 +1099,21 @@ enum ParentCommunicationStatus {
 enum ParentCommunicationAuthor {
   TEACHER
   PARENT
+  /// Administration (017) : auteur dans les conversations internes et parentales.
+  ADMIN
+}
+
+/// Type de conversation (017). LEGACY_TEACHER_PARENT : échanges directs 015, archive en lecture seule,
+/// jamais créée après la migration 0026.
+enum ConversationType {
+  INTERNAL
+  PARENT
+  LEGACY_TEACHER_PARENT
+}
+
+enum ConversationStatus {
+  OPEN
+  CLOSED
 }
 
 enum ParentCommunicationEventType {
@@ -1090,6 +1125,8 @@ enum ParentCommunicationEventType {
   REJECTED
   CANCELLED
   READ
+  /// Envoi direct, sans validation (017).
+  SENT
 }
 
 /// Canaux externes, envoyés par n8n ; l'espace parent de l'application reste le canal principal.
@@ -1132,6 +1169,7 @@ model Guardian {
   user           User?                 @relation("GuardianAccount", fields: [userId], references: [id])
   students       GuardianStudent[]
   communications ParentCommunication[]
+  conversations  Conversation[]
 
   @@index([lastName, firstName])
 }
@@ -1161,14 +1199,60 @@ model TeacherClass {
   @@index([classId])
 }
 
+/// Conversation (017) : INTERNAL (un enseignant ↔ l'administration) ou PARENT (l'administration ↔ un
+/// représentant), au sujet d'un élève ; LEGACY_TEACHER_PARENT : archive 015. Les participants selon le
+/// type, l'immuabilité des archives et la cible du lien sont imposés par la base (migration 0026).
+model Conversation {
+  id                 String             @id @default(uuid()) @db.Uuid
+  type               ConversationType
+  studentId          String             @db.Uuid
+  /// INTERNAL et archive : obligatoire ; PARENT : null.
+  teacherId          String?            @db.Uuid
+  /// PARENT et archive : obligatoire ; INTERNAL : null.
+  guardianId         String?            @db.Uuid
+  /// Qui l'a commencée (enseignant, compte parent, administrateur) ; null pour une archive.
+  createdById        String?            @db.Uuid
+  /// Administrateur qui suit la conversation : information, jamais une restriction d'accès.
+  responsibleAdminId String?            @db.Uuid
+  /// PARENT seulement : conversation interne à l'origine (« Contacter le parent »), même élève.
+  linkedInternalId   String?            @db.Uuid
+  status             ConversationStatus @default(OPEN)
+  closedAt           DateTime?          @db.Timestamptz(3)
+  closedById         String?            @db.Uuid
+  /// Dernier message visible : tri des listes.
+  lastMessageAt      DateTime           @default(now()) @db.Timestamptz(3)
+  createdAt          DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime           @updatedAt @db.Timestamptz(3)
+
+  student          Student               @relation(fields: [studentId], references: [id])
+  teacher          User?                 @relation("ConversationTeacher", fields: [teacherId], references: [id], onDelete: Restrict)
+  guardian         Guardian?             @relation(fields: [guardianId], references: [id], onDelete: Restrict)
+  createdBy        User?                 @relation("ConversationCreator", fields: [createdById], references: [id])
+  responsibleAdmin User?                 @relation("ConversationResponsible", fields: [responsibleAdminId], references: [id])
+  closedBy         User?                 @relation("ConversationCloser", fields: [closedById], references: [id])
+  linkedInternal   Conversation?         @relation("ConversationLink", fields: [linkedInternalId], references: [id])
+  linkedParents    Conversation[]        @relation("ConversationLink")
+  messages         ParentCommunication[]
+
+  @@index([type, status, lastMessageAt])
+  @@index([teacherId, type])
+  @@index([guardianId, type])
+  @@index([studentId])
+}
+
 /// Communication d'un enseignant aux représentants d'un élève. Le brouillon (draftText,
 /// draftVoiceFileId) est la copie de travail ; chaque soumission fige une version numérotée
 /// (ParentCommunicationRevision). Le parent ne lit que la version approuvée (approvedRevision).
 model ParentCommunication {
   id               String                    @id @default(uuid()) @db.Uuid
-  teacherId        String                    @db.Uuid
-  studentId        String                    @db.Uuid
-  guardianId       String                    @db.Uuid
+  /// Conversation du message (017) ; source de vérité des participants.
+  conversationId   String                    @db.Uuid
+  /// Utilisateur auteur (enseignant, compte parent, administrateur) ; renseigné par 0026 pour 015.
+  authorId         String?                   @db.Uuid
+  /// 015 (archives) : renseignés ; messages 017 : null, la conversation porte les participants.
+  teacherId        String?                   @db.Uuid
+  studentId        String?                   @db.Uuid
+  guardianId       String?                   @db.Uuid
   /// TEACHER : message de l'enseignant au représentant ; PARENT : message du représentant (compte
   /// parent) à l'enseignant. La conversation est le trio enseignant + élève + représentant.
   author           ParentCommunicationAuthor @default(TEACHER)
@@ -1189,9 +1273,11 @@ model ParentCommunication {
   createdAt        DateTime                  @default(now()) @db.Timestamptz(3)
   updatedAt        DateTime                  @updatedAt @db.Timestamptz(3)
 
-  teacher       User                          @relation("ParentCommunicationTeacher", fields: [teacherId], references: [id])
-  student       Student                       @relation(fields: [studentId], references: [id])
-  guardian      Guardian                      @relation(fields: [guardianId], references: [id])
+  conversation  Conversation                  @relation(fields: [conversationId], references: [id])
+  authorUser    User?                         @relation("ParentCommunicationAuthorUser", fields: [authorId], references: [id], onDelete: Restrict)
+  teacher       User?                         @relation("ParentCommunicationTeacher", fields: [teacherId], references: [id], onDelete: Restrict)
+  student       Student?                      @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  guardian      Guardian?                     @relation(fields: [guardianId], references: [id], onDelete: Restrict)
   draftVoice    File?                         @relation("ParentCommunicationDraftVoice", fields: [draftVoiceFileId], references: [id])
   decidedBy     User?                         @relation("ParentCommunicationDecider", fields: [decidedById], references: [id])
   revisions     ParentCommunicationRevision[]
@@ -1203,6 +1289,7 @@ model ParentCommunication {
   @@index([status, submittedAt])
   @@index([guardianId, status])
   @@index([teacherId, studentId, guardianId])
+  @@index([conversationId, createdAt])
 }
 
 /// Version soumise d'une communication — ajout seul (trigger) : une version approuvée n'est jamais modifiée.
@@ -1210,7 +1297,8 @@ model ParentCommunicationRevision {
   id              String   @id @default(uuid()) @db.Uuid
   communicationId String   @db.Uuid
   number          Int
-  text            String   @db.VarChar(2000)
+  /// Facultatif (017) : un vocal seul suffit ; la base exige un texte non vide ou un vocal (0027).
+  text            String?  @db.VarChar(2000)
   /// Obligatoire pour un message de l'enseignant ; facultatif pour un message du parent.
   voiceFileId     String?  @db.Uuid
   createdAt       DateTime @default(now()) @db.Timestamptz(3)

@@ -1,24 +1,35 @@
-# Teacher–parent communication (spec 015)
+# Communications (specs 015 and 017)
 
-A teacher writes a remark and records a voice message about one of their students for a legal guardian. An
-authorised member of the administration examines exactly the submitted version, then approves, returns it for
-correction or rejects it. **Nothing reaches a parent, inside or outside the app, before an explicit approval.**
-The parent then reads and listens to the message in their own space, « Messages de l’école ». Specification:
-[specs/015-communication-parents/spec.md](../specs/015-communication-parents/spec.md).
+Since 017, **the administration is the only bridge between teachers and parents**: no teacher and no parent
+ever exchange messages directly. One module, one menu entry « Communications » (teachers and administration);
+the parent keeps « Messages de l’école ». Specifications:
+[specs/017-communications-administration/spec.md](../specs/017-communications-administration/spec.md) (current),
+[specs/015-communication-parents/spec.md](../specs/015-communication-parents/spec.md) (history).
 
-External notifications (email, WhatsApp Business Platform) are optional and go through n8n. They only invite
-the parent to sign in: neither the remark nor the voice message ever leaves the application.
+Two conversation types, about one student each:
+
+| Type | Between | Sending |
+|---|---|---|
+| **Interne** (`INTERNAL`) | one teacher ↔ the administration | direct, both ways |
+| **Famille** (`PARENT`) | the administration ↔ one guardian with an active parent account | parent → school: direct; school → parent: direct with « Envoyer directement aux parents », otherwise submitted to **another** validator |
+| **Archive** (`LEGACY_TEACHER_PARENT`) | pre-017 teacher ↔ guardian exchanges | read-only, nobody can post |
+
+A message is a voice recording, a text, or both. External notifications (email, WhatsApp Business Platform)
+are optional and go through n8n: they only invite the parent to sign in, signed « L’école »; neither the text
+nor the voice ever leaves the application.
 
 ## Roles and rights
 
 | Who | Can |
 |---|---|
-| Teacher (member of the « Enseignants » group) | Write to the guardians of the students of **their assigned classes** only: draft, record, listen, re-record, submit, cancel, correct after a return. Menu « Parents ». |
-| Validator: super administrator (always), or admin with the permission « Valider les communications aux parents » | List and filter (status, teacher, class, student, dates), examine the submitted version, approve, return (reason required), reject (reason required). Menu « À valider ». Never their own communication. |
-| Admin and super administrator | « Administration > Représentants » (guardians, linked students, parent account) and « Administration > Classes des enseignants ». |
-| Parent (role `PARENT`, account created by the administration) | « Messages de l’école » only: approved messages addressed to them. Every other page and API route is refused (403). |
+| Teacher (member of the « Enseignants » group) | « Communications »: « Nouveau message » (a student of **their assigned classes**, voice first, optional text) and « Mes conversations » (their internal conversations, their archives). Sees administration messages as « Administration (Prénom Nom) ». Never sees a family conversation. |
+| Admin and super administrator (active) | « Communications »: « Boîte de réception » (unread messages from teachers and parents), « Nouveau message » (to a teacher of the student's class, or to a guardian with an active account), « Conversations » (search, filters, archives), take responsibility, close and reopen, « Contacter le parent » from an internal conversation (new family conversation, nothing internal is copied). Also « Administration > Représentants » and « Classes des enseignants ». |
+| Permission « Envoyer directement aux parents » (`PARENT_COMM_SEND_DIRECT`) | Messages to parents are sent at once. Super administrator: always. |
+| Permission « Soumettre ses messages aux parents pour validation » (`PARENT_COMM_SUBMIT_FOR_APPROVAL`) | Messages to parents wait in « À valider ». Granted to the ADMIN role by default. Without either permission, an admin cannot write to parents. |
+| Validator: permission « Valider les communications aux parents » (super administrator always) | « À valider »: approve, return (reason required), reject (reason required). **Never their own message.** |
+| Parent (role `PARENT`) | « Messages de l’école » only: their family conversations and archives, « Nouvelle conversation » (child chosen first), answer by voice or text. Sees « L’école », never an administrator's name. Every other page and API route is refused (403); an internal conversation answers « not found ». |
 
-Granting the permission to admins: « Administration > Réglages > Permissions par rôle » (super administrator).
+Permissions per role: « Administration > Réglages > Permissions par rôle » (super administrator).
 
 ## Setting up (administration)
 
@@ -26,37 +37,46 @@ Granting the permission to admins: « Administration > Réglages > Permissions p
 2. « Représentants »: create each guardian (first and last name, relationship, email and/or phone for external
    notifications), link their children (several guardians per student are allowed).
 3. « Créer le compte parent »: choose a username; the temporary password is shown **once**. Hand it over to the
-   parent; they must change it at first sign-in. Deactivating a guardian deactivates the account and closes its
-   sessions.
+   parent; they must change it at first sign-in. A guardian without an active account cannot be written to.
 
 ## Lifecycle
 
-`DRAFT` → submit → `PENDING_ADMIN_VALIDATION` → approve → `APPROVED` (published, final)
-`PENDING_ADMIN_VALIDATION` → return → `RETURNED_FOR_CORRECTION` → edit and submit again (new numbered version)
-`PENDING_ADMIN_VALIDATION` → reject → `REJECTED` (final); `DRAFT` or `RETURNED_FOR_CORRECTION` → cancel → `CANCELLED`
+Direct messages (teacher, parent, admin with direct sending): `SENT` at once, final.
 
-- Submitting requires both the written remark and the voice message.
-- Each submission freezes a numbered version; the decision applies to the version displayed. If the teacher or
-  another validator changed something meanwhile, the decision is refused (« La communication a changé… »).
-- Bell notifications: to validators on submission; to the teacher on return, approval or rejection; to the
-  parent's account on approval. They are never pushed to phones (spec 014): they stay in the bell.
-- Every action is in the audit log (create, edit, submit, decide, parent read, n8n data read and reports).
+Admin → parent, submitted: `PENDING_ADMIN_VALIDATION` → approve (another validator) → `APPROVED` (published, final)
+`PENDING_ADMIN_VALIDATION` → return → `RETURNED_FOR_CORRECTION` → the author corrects and submits again (new numbered version)
+`PENDING_ADMIN_VALIDATION` → reject → `REJECTED` (final); `RETURNED_FOR_CORRECTION` → cancel → `CANCELLED`
+
+- Rights are checked again at every sending and decision: a teacher who lost the class, a guardian unlinked or
+  without an active account can still read, no longer write.
+- A closed conversation is read-only for everyone; only the administration reopens it. A decision is refused
+  while the conversation is closed. The database itself refuses messages in a closed conversation or an archive.
+- Each submission freezes a numbered version; the decision applies to the version displayed (« La communication
+  a changé… » otherwise).
+- Bell notifications: administration on a teacher or parent message; teacher on an administration message;
+  validators on a submission; the author on return, approval or rejection; the parent's account when a message
+  becomes visible. Never pushed to phones (spec 014).
+- Every action is in the audit log (messages, decisions, reads by parents, close, reopen, responsible, link, n8n).
+- Archives (015 data, migration `0026`): the administration sees every message; the teacher their own messages and
+  the guardian's approved ones; the guardian the teacher's approved messages and their own. Pending 015 messages
+  are frozen and never sent.
 
 Voice files use the existing pipeline (real type checked, limits from « Réglages »), are stored outside the web
-root and are served only through the API to the author, validators and the addressed parent after approval.
+root and are served only to readers of the message that holds them.
 
 ## External notifications with n8n
 
 ### How it works
 
-1. The approval transaction writes an **outbox event** (once, even on a double click or a replay).
+1. When a message to a parent becomes visible (sent directly or approved), the transaction writes an **outbox
+   event** (once, even on a double click or a replay).
 2. The API (job every 15 s) sends `{eventId, type, communicationId, occurredAt}` to the n8n webhook over the
    private Docker network, signed with HMAC-SHA256 (`X-LJJ-Timestamp`, `X-LJJ-Signature`). On failure it
    retries after 30 s, 1 min, 2 min… up to 1 h, 8 attempts at most; the event then stays `FAILED`.
 3. The n8n workflow checks the signature and the timestamp (5 min), ignores an event already processed, then
    asks `GET /api/integrations/n8n/parent-communications/:id` (bearer secret) for the minimal data: guardian's
-   name, email and/or phone for the enabled channels, student's first name, teacher's name, link to the
-   message.
+   name, email and/or phone for the enabled channels, student's first name, `senderName: "L’école"`, link to the
+   conversation (`/messages-ecole/conversations/:id`).
 4. It sends the email (SMTP) and/or the WhatsApp template message (official WhatsApp Business Platform API of
    Meta, never an unofficial solution), then reports each delivery to
    `POST /api/integrations/n8n/deliveries`. Validators see the status (« Notifications externes »).
@@ -123,8 +143,8 @@ has no contact for is skipped.
 
 ### Deployment and rollback
 
-Deployment: [docs/procedure-fusion.md](procedure-fusion.md) then `deploy/deploy.sh`. The API applies migrations
-`0020_parent_communications` and `0021_parent_communications_integrity` only after a recent backup.
+Deployment: [docs/procedure-fusion.md](procedure-fusion.md) then `deploy/deploy.sh`. The API applies the
+migrations (015: `0020` to `0023`; 017: `0025` to `0027`) only after a recent backup.
 
 Rollback, in this order:
 
@@ -132,18 +152,23 @@ Rollback, in this order:
    `PARENT_COMM_CHANNELS`, remove `n8n` from `COMPOSE_PROFILES`, `deploy/deploy.sh --no-pull`. Approved messages
    stay readable by parents.
 2. Previous code: `git checkout <previous commit>` then `deploy/deploy.sh --no-pull`. The new tables stay unused.
-3. Schema, only if required and after a backup: run `backend/prisma/migrations/0021_parent_communications_integrity/down.sql`,
-   then `0020_parent_communications/down.sql`. **This deletes every communication, guardian and parent
-   account.** Otherwise restore the backup taken before the migration.
+3. Schema, only if required and after a backup, in reverse order:
+   - 017: `0027_communications_voice_only/down.sql`, then `0026_communications_conversations/down.sql`, then
+     `0025_communications_enums/down.sql`. They bring back the exact 015 schema and data, but **refuse** as soon
+     as a 017 conversation (internal or family) or a voice-only message exists: then restore the backup taken
+     before migration `0026`.
+   - 015: `0021_parent_communications_integrity/down.sql`, then `0020_parent_communications/down.sql`. **This
+     deletes every communication, guardian and parent account.** Otherwise restore the backup taken before the
+     migration.
 
 ## Processing register record
 
 | Item | Content |
 |---|---|
-| Purpose | Inform legal guardians about their child's schooling, by a written remark and a voice message of the teacher, after validation by the administration. |
-| Data subjects | Students (subject of the message), legal guardians, teachers (authors), validators. |
-| Data | Guardian: first and last name, relationship, email, phone, linked students, parent account (username, password hash, sessions). Communication: written remark, voice recording, versions, statuses, reasons, dates, read date. Audit trail of every action. |
-| Recipients | The addressed guardian (after approval only); the author; the school's validators. External notification (optional): the school's mail server, and Meta (WhatsApp Business Platform) as processor, which receive the guardian's name, email or phone, the student's first name, the teacher's name and a link, never the remark nor the voice. n8n is self-hosted on the school's server. |
+| Purpose | Let teachers report to the administration about a student (internal conversations), and let the administration and legal guardians exchange about the child (family conversations), by text and voice messages; the administration is the only intermediary. |
+| Data subjects | Students (subject of the conversation), legal guardians, teachers, members of the administration (authors and validators). |
+| Data | Guardian: first and last name, relationship, email, phone, linked students, parent account (username, password hash, sessions). Conversations: type, student, teacher (internal) or guardian (family), responsible administrator, status, closure. Messages: text, voice recording, versions, statuses, reasons, dates, read date. Audit trail of every action. |
+| Recipients | Internal conversations: the teacher and the administration only. Family conversations: the guardian (messages sent directly or approved only) and the administration; teachers never. External notification (optional): the school's mail server, and Meta (WhatsApp Business Platform) as processor, which receive the guardian's name, email or phone, the student's first name, the sender « L’école » and a link, never the text nor the voice. n8n is self-hosted on the school's server. |
 | Retention | To be decided by the school (e.g. end of the school year + 1 year), then deletion. n8n: successful executions not kept, failures 14 days; backups 14 days. |
 | Rights | Access and rectification through the administration; the parent reads their messages in « Messages de l’école ». |
 | Activation | External channels only after this record is added to the register and, for WhatsApp, after the agreement with Meta. |

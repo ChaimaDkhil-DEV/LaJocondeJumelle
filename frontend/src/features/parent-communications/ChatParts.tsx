@@ -27,12 +27,12 @@ import { font, fontSize, icon, motion, radius, tokensOf, type Tone } from '../..
 import { isPlural, locale, t } from '../../i18n';
 import { VoicePlayer } from '../voice/VoicePlayer';
 import { VoiceRecorder, type VoiceRecording } from '../voice/VoiceRecorder';
-import type { CommunicationStatus, ConversationMessage } from './api';
+import type { CommunicationStatus, Message } from './api';
 
 /**
- * Messagerie parent ↔ enseignant (015) : éléments communs aux espaces parent, enseignant et validation.
- * Les informations communes (interlocuteur, élève, classe) sont dans l'en-tête, jamais répétées dans
- * les bulles.
+ * Messagerie des communications (015, 017) : éléments communs aux espaces enseignant, administration et
+ * parent. Les informations communes (interlocuteur, élève, classe) sont dans l'en-tête, jamais répétées
+ * dans les bulles.
  */
 
 // ------------------------------------------------------------------ Dates
@@ -411,61 +411,75 @@ export const OWN_STATUS: Record<
   RETURNED_FOR_CORRECTION: { label: t('À corriger'), tone: 'info', icon: PenLine },
   REJECTED: { label: t('Rejeté'), tone: 'error', icon: Ban },
   CANCELLED: { label: t('Annulé'), tone: 'neutral', icon: CircleSlash },
+  SENT: { label: t('Envoyé'), tone: 'success', icon: CheckCheck },
 };
 
 /**
- * Bulle d'un message de la conversation : à droite pour ses propres messages (avec leur état de
- * modération), à gauche pour les messages reçus (toujours validés).
+ * Bulle d'un message : à droite pour ses propres messages (avec leur état), à gauche pour les messages
+ * reçus, précédés du nom de l'expéditeur (D7 : « L'école » pour le parent).
  */
 export function ConversationBubble({
   message: m,
-  authorLabel,
   actions,
+  showStatus = m.mine,
 }: {
-  message: ConversationMessage;
-  /** Libellé de l'auteur pour les lecteurs d'écran (« Vous », « Mme Enseignante »…). */
-  authorLabel: string;
+  message: Message;
   actions?: ReactNode;
+  /** État visible : ses propres messages, et tous les messages pour l'administration. */
+  showStatus?: boolean;
 }) {
   const status = OWN_STATUS[m.status];
+  const own = m.mine;
+  const authorLabel = own ? t('Vous') : m.authorLabel;
+  const decisionReason = m.validation?.decisionReason ?? null;
   return (
     <Box
       component="article"
       data-message-id={m.id}
       aria-label={t('Message de {author}, {date}', {
         author: authorLabel,
-        date: dayLabel(m.sentAt),
+        date: dayLabel(m.createdAt),
       })}
       sx={(theme) => {
         const tk = tokensOf(theme);
         return {
-          justifySelf: m.own ? 'end' : 'start',
+          justifySelf: own ? 'end' : 'start',
           maxWidth: { xs: '92%', sm: '78%', lg: '68%' },
           px: { xs: 1.5, sm: 2 },
           py: 1.25,
           display: 'grid',
           gap: 1,
-          bgcolor: m.own ? tk.accent.soft : tk.surface,
-          border: `1px solid ${m.own ? tk.accent.border : tk.border}`,
+          bgcolor: own ? tk.accent.soft : tk.surface,
+          border: `1px solid ${own ? tk.accent.border : tk.border}`,
           boxShadow: '0 1px 2px rgba(16, 24, 40, 0.04)',
           // Coin resserré du côté de l'auteur, comme une messagerie.
-          borderRadius: m.own ? '16px 4px 16px 16px' : '4px 16px 16px 16px',
+          borderRadius: own ? '16px 4px 16px 16px' : '4px 16px 16px 16px',
           animation: `${fadeIn} ${motion.base}ms ${motion.easing}`,
           ...reducedMotion,
         };
       }}
     >
+      {!own && (
+        <Typography
+          variant="caption"
+          component="p"
+          sx={{ fontWeight: font.semibold }}
+          aria-hidden="true"
+        >
+          {m.authorLabel}
+        </Typography>
+      )}
       {m.text && (
         <Typography sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{m.text}</Typography>
       )}
-      {m.voiceFileId && (
+      {m.voice && (
         <VoicePlayer
-          key={m.voiceFileId}
-          src={`/api/files/${m.voiceFileId}`}
-          durationSeconds={m.durationSeconds ?? undefined}
+          key={m.voice.fileId}
+          src={`/api/files/${m.voice.fileId}`}
+          durationSeconds={m.voice.durationSeconds ?? undefined}
         />
       )}
-      {m.own && m.decisionReason && (
+      {decisionReason && (m.status === 'RETURNED_FOR_CORRECTION' || m.status === 'REJECTED') && (
         <Box
           sx={(theme) => ({
             px: 1.25,
@@ -479,7 +493,7 @@ export function ConversationBubble({
             {m.status === 'REJECTED' ? t('Motif du rejet') : t('Motif du retour')}
           </Typography>
           <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
-            {m.decisionReason}
+            {decisionReason}
           </Typography>
         </Box>
       )}
@@ -488,12 +502,12 @@ export function ConversationBubble({
           display: 'flex',
           flexWrap: 'wrap',
           alignItems: 'center',
-          justifyContent: m.own ? 'space-between' : 'flex-end',
+          justifyContent: showStatus ? 'space-between' : 'flex-end',
           columnGap: 1,
           rowGap: 0.5,
         }}
       >
-        {m.own && (
+        {showStatus && (
           <Badge tone={status.tone} icon={status.icon}>
             {status.label}
           </Badge>
@@ -502,8 +516,8 @@ export function ConversationBubble({
           <Box component="span" sx={visuallyHidden}>
             {authorLabel} —{' '}
           </Box>
-          {timeOf(m.sentAt)}
-          {m.editedAt ? ` · ${t('corrigé à {time}', { time: timeOf(m.editedAt) })}` : ''}
+          {timeOf(m.createdAt)}
+          {m.readAt && own ? ` · ${t('lu')}` : ''}
         </Typography>
       </Box>
       {actions}
@@ -516,12 +530,11 @@ export function ConversationBubble({
 const MESSAGE_MAX = 2000;
 
 /**
- * Saisie d'un message : texte et vocal. Avec `requireVoice` (enseignant), le vocal est obligatoire ;
- * sinon il est facultatif (parent). `onSend` renvoie une promesse : la saisie est vidée si elle réussit.
+ * Saisie d'un message : un vocal, un texte, ou les deux (017, FR-007). L'enregistreur vient en premier.
+ * `onSend` renvoie une promesse : la saisie est vidée si elle réussit.
  */
 export function MessageComposer({
   onSend,
-  requireVoice = false,
   hint,
   initialText = '',
   submitLabel = t('Envoyer'),
@@ -529,7 +542,6 @@ export function MessageComposer({
   disabled = false,
 }: {
   onSend: (input: { text: string; recording: VoiceRecording | null }) => Promise<void>;
-  requireVoice?: boolean;
   hint: string;
   initialText?: string;
   submitLabel?: string;
@@ -549,12 +561,8 @@ export function MessageComposer({
 
   async function submit(): Promise<void> {
     const trimmed = text.trim();
-    if (!trimmed || (requireVoice && !recording)) {
-      setError(
-        requireVoice
-          ? t('Ajoutez la remarque écrite et le message vocal avant d’envoyer.')
-          : t('Écrivez votre message avant de l’envoyer.'),
-      );
+    if (!trimmed && !recording) {
+      setError(t('Écrivez un message ou enregistrez un message vocal avant d’envoyer.'));
       field.current?.focus();
       return;
     }

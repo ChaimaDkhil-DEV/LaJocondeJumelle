@@ -1,7 +1,8 @@
 # Data model — 017
 
-Prisma schema `backend/prisma/schema.prisma`; migrations `0025_communications_enums` and
-`0026_communications_conversations` (each with `down.sql`). Unchanged models are only listed.
+Prisma schema `backend/prisma/schema.prisma`; migrations `0025_communications_enums`,
+`0026_communications_conversations` and `0027_communications_voice_only` (each with `down.sql`). Unchanged models
+are only listed.
 
 ## Enums
 
@@ -93,7 +94,8 @@ send mode from the permissions (R3).
 
 ## Unchanged, reused
 
-`ParentCommunicationRevision` (append-only), `ParentCommunicationEvent` (append-only), `ParentCommunicationDelivery`,
+`ParentCommunicationRevision` (append-only; `0027`: `text` optional, CHECK « non-empty text or voice »),
+`ParentCommunicationEvent` (append-only), `ParentCommunicationDelivery`,
 `Notification` (`communicationId` → the message), `OutboxEvent`, `File`, `Guardian`, `GuardianStudent`, `TeacherClass`,
 `RolePermission` (+ row `ADMIN / PARENT_COMM_SUBMIT_FOR_APPROVAL` inserted by `0026`).
 

@@ -30,45 +30,51 @@ describe('Navigation', () => {
     expect(labels(me({ role: 'PARENT' }))).toEqual(['Messages de l’école']);
   });
 
-  it('un enseignant voit la communication avec les parents ; un validateur, les communications à valider', () => {
-    expect(labels(me({ isTeacher: true }))).toContain('Parents');
-    expect(labels(me({ isTeacher: true }))).not.toContain('À valider');
+  it('017 : une seule entrée « Communications » pour les enseignants et l’administration', () => {
+    expect(labels(me({ isTeacher: true }))).toContain('Communications');
+    expect(labels(me({ role: 'ADMIN' }))).toContain('Communications');
     expect(
       labels(me({ role: 'SUPER_ADMIN', permissions: ['PARENT_COMMUNICATION_VALIDATE'] })),
-    ).toContain('À valider');
-    expect(labels(me({}))).not.toContain('Parents');
-  });
-
-  it('la surveillante générale (admin) voit « À valider » avec la permission, plus si elle lui est retirée', () => {
-    expect(labels(me({ role: 'ADMIN', permissions: ['PARENT_COMMUNICATION_VALIDATE'] }))).toContain(
-      'À valider',
-    );
-    expect(labels(me({ role: 'ADMIN', permissions: [] }))).not.toContain('À valider');
+    ).toContain('Communications');
+    for (const user of [
+      me({ isTeacher: true }),
+      me({ role: 'ADMIN', permissions: ['PARENT_COMMUNICATION_VALIDATE'] }),
+    ]) {
+      expect(labels(user)).not.toContain('Parents');
+      expect(labels(user)).not.toContain('À valider');
+    }
+    expect(labels(me({}))).not.toContain('Communications');
   });
 });
 
 describe('Notifications d’une communication', () => {
-  it('ouvrent la page de chacun', () => {
+  it('ouvrent la conversation du message ; « À valider » pour un message à valider (017)', () => {
     const item = (type: string) =>
       ({
         id: 'n',
         type,
         priority: 'NORMAL',
         request: null,
-        communication: { id: 'pc1', studentName: 'Lina Ben Salah' },
+        communication: { id: 'm1', conversationId: 'c1', studentName: 'Lina Ben Salah' },
         createdAt: '',
         readAt: null,
       }) as never;
-    expect(notificationPath(item('PARENT_MESSAGE_NEW'))).toBe('/messages-ecole/pc1');
-    expect(notificationPath(item('PARENT_COMM_TO_VALIDATE'))).toBe('/communications-a-valider/pc1');
-    expect(notificationPath(item('PARENT_COMM_RETURNED'))).toBe('/communications-parents/pc1');
-    // Conversations (015) : message d'un parent validé → conversation de l'enseignant ; un compte
-    // parent ouvre toujours la conversation du message (le sien retourné, rejeté ou transmis).
-    expect(notificationPath(item('TEACHER_MESSAGE_NEW'))).toBe(
-      '/communications-parents/message/pc1',
+    expect(notificationPath(item('PARENT_MESSAGE_NEW'), true)).toBe(
+      '/messages-ecole/conversations/c1',
     );
-    expect(notificationPath(item('PARENT_COMM_RETURNED'), true)).toBe('/messages-ecole/pc1');
-    expect(notificationPath(item('PARENT_COMM_APPROVED'), true)).toBe('/messages-ecole/pc1');
+    expect(notificationPath(item('PARENT_MESSAGE_NEW'))).toBe('/messages-ecole/conversations/c1');
+    expect(notificationPath(item('PARENT_COMM_TO_VALIDATE'))).toBe('/communications/a-valider/m1');
+    for (const type of [
+      'COMM_INTERNAL_NEW',
+      'COMM_PARENT_NEW',
+      'COMM_ADMIN_REPLY',
+      'PARENT_COMM_RETURNED',
+      'PARENT_COMM_APPROVED',
+      'PARENT_COMM_REJECTED',
+      'TEACHER_MESSAGE_NEW',
+    ]) {
+      expect(notificationPath(item(type))).toBe('/communications/conversations/c1');
+    }
     expect(
       notificationPath({
         id: 'n',

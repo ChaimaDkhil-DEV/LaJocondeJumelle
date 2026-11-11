@@ -373,3 +373,28 @@ No fix or `git revert` needed.
 ### Reminder
 
 Wait for CI on the latest commit of the pull request, then tick the four checks, before merging.
+
+## 11/11/2026 — pull requests #105 and #106
+
+| Pull request | Content | Merged at (UTC) | Check not satisfied at merge time |
+|---------|---------|-------------------|-----------------------------------------------|
+| #105 (`017-communications-administration`) | Feature 017 design documents: spec, plan, research, data model, API contract, quickstart, tasks (documentation only) | 17:36:55 | **all four checkboxes unticked** |
+| #106 (`docs-registre-fusion-104`) | Register entry for #104 (documentation only) | 17:37:31 | **all four checkboxes unticked** |
+
+Both pull requests were merged from the owner's account, 36 s apart, while the working session was writing the
+017 code on another branch.
+
+### Findings after the fact
+
+- CI had finished green before each merge: #105 runs 43061365956 (16:55:43) and 43061312212 (16:57:41) on
+  `b7ef693`; #106 runs 43061997467 (17:02:59) and 43061914698 (16:59:17) on `5706ea7`, all steps executed.
+- Both branches were up to date with `master` when merged (#106 one merge commit behind, no file in common); no
+  review discussion was open. Documentation only: no code, no test changed.
+- `master` green after the merges: run 43069876205 on `135dced` (merge of #105) at 17:48:00, run 43069971060 on
+  `b321c69` (merge of #106) at 17:48:11.
+
+No fix or `git revert` needed.
+
+### Reminder
+
+Tick the four checks before merging, including for a documentation-only pull request whose CI is already green.

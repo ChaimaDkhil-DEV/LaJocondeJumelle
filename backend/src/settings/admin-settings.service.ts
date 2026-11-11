@@ -21,11 +21,17 @@ const REQUEST_PERMISSIONS: readonly Permission[] = [
 
 /**
  * Permissions attribuables à chaque rôle ; l'administration et l'audit restent au super administrateur.
- * La validation des communications aux parents (015) ne se règle que pour le rôle ADMIN.
+ * La validation des communications aux parents (015), l'envoi direct et la soumission aux parents (017) ne
+ * se règlent que pour le rôle ADMIN.
  */
 export const CONFIGURABLE_PERMISSIONS: Record<ConfigurableRole, readonly Permission[]> = {
   EMPLOYEE: REQUEST_PERMISSIONS,
-  ADMIN: [...REQUEST_PERMISSIONS, 'PARENT_COMMUNICATION_VALIDATE'],
+  ADMIN: [
+    ...REQUEST_PERMISSIONS,
+    'PARENT_COMMUNICATION_VALIDATE',
+    'PARENT_COMM_SEND_DIRECT',
+    'PARENT_COMM_SUBMIT_FOR_APPROVAL',
+  ],
 };
 
 export type RolePermissions = Record<ConfigurableRole, Permission[]>;

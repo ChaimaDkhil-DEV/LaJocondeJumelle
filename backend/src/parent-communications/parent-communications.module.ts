@@ -2,30 +2,33 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { FilesModule } from '../files/files.module';
 import { CommunicationFileAccess } from './communication-file-access';
-import { GuardiansService } from './guardians.service';
 import {
-  GuardiansController,
+  AdminCommunicationsController,
   ParentMessagesController,
   TeacherCommunicationsController,
-  ValidationCommunicationsController,
-} from './parent-communications.controller';
-import {
-  CommunicationTeacherGuard,
-  CommunicationValidatorGuard,
-} from './parent-communications.guards';
+} from './communications.controller';
+import { ConversationsService } from './conversations.service';
+import { GuardiansService } from './guardians.service';
+import { GuardiansController } from './parent-communications.controller';
+import { CommunicationTeacherGuard, CommunicationValidatorGuard } from './parent-communications.guards';
 import { ParentCommunicationsService } from './parent-communications.service';
 
-/** Communication enseignant / parents (015) : brouillons, validation, espace parent, représentants. */
+/**
+ * Communications (015, refondu par 017) : conversations INTERNAL (enseignant ↔ administration) et PARENT
+ * (administration ↔ représentant), archives 015, validation des messages aux parents, représentants et
+ * classes des enseignants.
+ */
 @Module({
   imports: [AuthModule, FilesModule],
   controllers: [
     TeacherCommunicationsController,
-    ValidationCommunicationsController,
     ParentMessagesController,
+    AdminCommunicationsController,
     GuardiansController,
   ],
   providers: [
     ParentCommunicationsService,
+    ConversationsService,
     GuardiansService,
     CommunicationFileAccess,
     CommunicationTeacherGuard,

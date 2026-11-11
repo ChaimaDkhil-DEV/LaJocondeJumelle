@@ -84,6 +84,8 @@ export const PURGE_STATEMENTS: readonly string[] = [
   'DELETE FROM "ParentCommunicationEvent"',
   'DELETE FROM "ParentCommunicationRevision"',
   'DELETE FROM "ParentCommunication"',
+  // Conversations (017) : après leurs messages.
+  'DELETE FROM "Conversation"',
   'DELETE FROM "TeacherClass"',
   'DELETE FROM "GuardianStudent"',
   'DELETE FROM "Guardian"',

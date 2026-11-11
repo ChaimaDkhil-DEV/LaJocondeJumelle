@@ -47,7 +47,11 @@ export type NotificationType =
   | 'PARENT_COMM_APPROVED'
   | 'PARENT_COMM_REJECTED'
   | 'PARENT_MESSAGE_NEW'
-  | 'TEACHER_MESSAGE_NEW';
+  | 'TEACHER_MESSAGE_NEW'
+  // Communications centrées sur l'administration (017)
+  | 'COMM_INTERNAL_NEW'
+  | 'COMM_ADMIN_REPLY'
+  | 'COMM_PARENT_NEW';
 
 /** Demande de travail ou couverture de classe : détermine la page ouverte. */
 export type RequestKind = 'WORK' | 'COVERAGE';
@@ -59,7 +63,7 @@ export interface NotificationItem {
   /** Demande liée ; null pour une communication aux parents (015). */
   request: { id: string; reference: string; title: string; kind?: RequestKind } | null;
   /** Communication aux parents liée (015) : le nom de l'élève sert de titre. */
-  communication?: { id: string; studentName: string } | null;
+  communication?: { id: string; conversationId: string; studentName: string } | null;
   createdAt: string;
   readAt: string | null;
 }
@@ -72,6 +76,8 @@ export interface NotificationEvent {
   requestId: string | null;
   /** Communication aux parents (015) : `kind` vaut alors COMMUNICATION. */
   communicationId?: string | null;
+  /** Conversation du message (017). */
+  conversationId?: string | null;
   reference: string;
   title: string;
   kind?: RequestKind | 'COMMUNICATION';
@@ -119,34 +125,52 @@ export const NOTIFICATION_LABELS: Record<NotificationType, string> = {
   PARENT_COMM_REJECTED: t('Communication rejetée'),
   PARENT_MESSAGE_NEW: t('Nouveau message de l’école'),
   TEACHER_MESSAGE_NEW: t('Nouveau message d’un parent'),
+  COMM_INTERNAL_NEW: t('Nouveau signalement d’un enseignant'),
+  COMM_ADMIN_REPLY: t('Nouveau message de l’administration'),
+  COMM_PARENT_NEW: t('Nouveau message d’un parent'),
 };
 
 /**
- * Page d'une communication aux parents selon le destinataire de la notification (015). Un parent
- * ouvre toujours la conversation du message (le sien, retourné ou rejeté, ou celui de l'école).
+ * Page d'une communication selon la notification (017) : la conversation du message ; « À valider » pour un
+ * message à valider. Un parent ouvre toujours la conversation dans « Messages de l'école ».
  */
 export function communicationPath(
   type: NotificationType,
-  communicationId: string,
+  ids: { messageId: string; conversationId: string | null | undefined },
   forParent = false,
 ): string {
-  if (forParent || type === 'PARENT_MESSAGE_NEW') return `/messages-ecole/${communicationId}`;
-  if (type === 'PARENT_COMM_TO_VALIDATE') return `/communications-a-valider/${communicationId}`;
-  if (type === 'TEACHER_MESSAGE_NEW') return `/communications-parents/message/${communicationId}`;
-  return `/communications-parents/${communicationId}`;
+  if (forParent || type === 'PARENT_MESSAGE_NEW')
+    return ids.conversationId
+      ? `/messages-ecole/conversations/${ids.conversationId}`
+      : `/messages-ecole/${ids.messageId}`;
+  if (type === 'PARENT_COMM_TO_VALIDATE') return `/communications/a-valider/${ids.messageId}`;
+  return ids.conversationId
+    ? `/communications/conversations/${ids.conversationId}`
+    : '/communications';
 }
 
 /** Page ouverte par une notification de la cloche : la demande, ou la communication aux parents. */
 export function notificationPath(item: NotificationItem, forParent = false): string {
-  if (item.communication) return communicationPath(item.type, item.communication.id, forParent);
+  if (item.communication)
+    return communicationPath(
+      item.type,
+      { messageId: item.communication.id, conversationId: item.communication.conversationId },
+      forParent,
+    );
   return item.request ? requestPath(item.request.id, item.request.kind) : '/';
 }
 
 /** Page ouverte par le bandeau d'une notification reçue en direct. */
 export function eventPath(event: NotificationEvent, forParent = false): string {
   if (event.communicationId)
-    return communicationPath(event.type, event.communicationId, forParent);
-  return event.requestId ? requestPath(event.requestId, event.kind === 'COMMUNICATION' ? undefined : event.kind) : '/';
+    return communicationPath(
+      event.type,
+      { messageId: event.communicationId, conversationId: event.conversationId },
+      forParent,
+    );
+  return event.requestId
+    ? requestPath(event.requestId, event.kind === 'COMMUNICATION' ? undefined : event.kind)
+    : '/';
 }
 
 /** Page de la demande liée : les couvertures ont leurs propres écrans. */
@@ -205,7 +229,10 @@ export function useNotificationPreferences() {
   });
 }
 
-function applyPatch(current: NotificationPreferences, patch: NotificationPreferencesPatch): NotificationPreferences {
+function applyPatch(
+  current: NotificationPreferences,
+  patch: NotificationPreferencesPatch,
+): NotificationPreferences {
   return {
     categories: { ...current.categories, ...patch.categories },
     urgentSound: patch.urgentSound ?? current.urgentSound,
@@ -221,7 +248,10 @@ export function useUpdateNotificationPreferences() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (patch: NotificationPreferencesPatch) =>
-      apiFetch<NotificationPreferences>('/api/notifications/preferences', { method: 'PATCH', body: patch }),
+      apiFetch<NotificationPreferences>('/api/notifications/preferences', {
+        method: 'PATCH',
+        body: patch,
+      }),
     onMutate: async (patch) => {
       await queryClient.cancelQueries({ queryKey: PREFERENCES_KEY });
       const previous = queryClient.getQueryData<NotificationPreferences>(PREFERENCES_KEY);

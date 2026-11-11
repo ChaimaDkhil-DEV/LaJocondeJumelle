@@ -63,6 +63,10 @@ const RULES: Record<NotificationType, Rule> = {
   PARENT_COMM_REJECTED: NONE,
   PARENT_MESSAGE_NEW: NONE,
   TEACHER_MESSAGE_NEW: NONE,
+  // Communications 017 : cloche seulement, jamais en push (comme 015).
+  COMM_INTERNAL_NEW: NONE,
+  COMM_ADMIN_REPLY: NONE,
+  COMM_PARENT_NEW: NONE,
 };
 
 /** Catégorie push d'une notification, ou null si elle reste dans l'application. */

@@ -22,7 +22,7 @@ export class SocketNotificationPublisher implements NotificationPublisher {
     const communications = communicationIds.length
       ? await this.prisma.parentCommunication.findMany({
           where: { id: { in: communicationIds } },
-          select: { id: true, student: { select: { firstName: true, lastName: true } } },
+          select: { id: true, conversation: { select: { id: true, student: { select: { firstName: true, lastName: true } } } } },
         })
       : [];
     const requestById = new Map(requests.map((r) => [r.id, r]));
@@ -37,7 +37,8 @@ export class SocketNotificationPublisher implements NotificationPublisher {
           requestId: null,
           communicationId: n.communicationId,
           reference: '',
-          title: communication ? `${communication.student.firstName} ${communication.student.lastName}` : '',
+          conversationId: communication?.conversation.id ?? null,
+          title: communication ? `${communication.conversation.student.firstName} ${communication.conversation.student.lastName}` : '',
           kind: 'COMMUNICATION',
           createdAt: n.createdAt,
         });

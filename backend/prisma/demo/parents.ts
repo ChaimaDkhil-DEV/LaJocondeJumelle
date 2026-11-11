@@ -4,9 +4,10 @@ import { stableId } from './random';
 import { CLASSES, fictionalPhone, STAFF } from './school-data';
 
 /**
- * Démonstration de la communication avec les parents (015) : classes des enseignants (titulaire de sa
- * classe, enseignants spécialistes dans toutes les classes), trois familles avec un compte parent, dont
- * une avec deux enfants dans deux classes. Idempotent ; s'appuie sur les élèves et le personnel en base.
+ * Démonstration des communications (015, 017) : classes des enseignants (titulaire de sa classe,
+ * enseignants spécialistes dans toutes les classes), trois familles avec un compte parent, dont une avec
+ * deux enfants dans deux classes, et quelques conversations. Idempotent ; s'appuie sur les élèves et le
+ * personnel en base.
  */
 
 export interface DemoStudent {
@@ -158,5 +159,86 @@ export async function seedParentCommunicationDemo(
       skipDuplicates: true,
     });
   }
+  await seedConversationDemo(prisma, families);
   return { teacherClasses, families, createdParents };
+}
+
+/**
+ * Conversations de démonstration (017), une seule fois (identifiants stables) : un signalement d'un
+ * enseignant avec la réponse de l'administration ; la conversation famille ouverte depuis ce signalement
+ * (« Contacter le parent »), message de l'école et réponse du parent ; un message à valider pour une autre
+ * famille. Texte seulement : aucun vocal fictif. Rien n'est transmis à n8n.
+ */
+async function seedConversationDemo(prisma: PrismaClient, families: DemoFamily[]): Promise<void> {
+  const admin = await prisma.user.findFirst({ where: { role: 'ADMIN', active: true }, orderBy: { username: 'asc' } });
+  const [first, second] = families;
+  if (!admin || !first) return;
+  const internalId = stableId(`conversation:internal:${first.key}`);
+  if (await prisma.conversation.findUnique({ where: { id: internalId } })) return;
+  const studentId = first.studentIds[0]!;
+  const assignment = await prisma.teacherClass.findFirst({
+    where: { class: { students: { some: { id: studentId } } } },
+    orderBy: { teacher: { username: 'asc' } },
+  });
+  const parent = await prisma.guardian.findUnique({ where: { id: stableId(`guardian:${first.key}`) }, select: { userId: true } });
+  if (!assignment || !parent?.userId) return;
+
+  const message = async (
+    conversationId: string,
+    author: 'TEACHER' | 'PARENT' | 'ADMIN',
+    authorId: string,
+    text: string,
+    status: 'SENT' | 'PENDING_ADMIN_VALIDATION' = 'SENT',
+  ) => {
+    const row = await prisma.parentCommunication.create({
+      data: {
+        conversationId,
+        author,
+        authorId,
+        status,
+        currentRevision: 1,
+        submittedAt: new Date(),
+        ...(status === 'SENT' ? {} : { draftText: text }),
+        revisions: { create: { number: 1, text } },
+      },
+    });
+    await prisma.parentCommunicationEvent.create({
+      data: { communicationId: row.id, type: status === 'SENT' ? 'SENT' : 'SUBMITTED', actorId: authorId, revision: 1 },
+    });
+  };
+
+  await prisma.conversation.create({
+    data: { id: internalId, type: 'INTERNAL', studentId, teacherId: assignment.teacherId, createdById: assignment.teacherId },
+  });
+  await message(internalId, 'TEACHER', assignment.teacherId, 'Élève très fatigué ces derniers jours, il s’endort en classe.');
+  await message(internalId, 'ADMIN', admin.id, 'Merci, je contacte la famille et je vous tiens informé.');
+
+  const familyId = stableId(`conversation:parent:${first.key}`);
+  await prisma.conversation.create({
+    data: {
+      id: familyId,
+      type: 'PARENT',
+      studentId,
+      guardianId: stableId(`guardian:${first.key}`),
+      linkedInternalId: internalId,
+      createdById: admin.id,
+      responsibleAdminId: admin.id,
+    },
+  });
+  await message(familyId, 'ADMIN', admin.id, 'Bonjour, pourrions-nous échanger au sujet du sommeil de votre enfant ?');
+  await message(familyId, 'PARENT', parent.userId, 'Bonjour, oui bien sûr, je peux passer jeudi après la classe.');
+
+  if (second) {
+    const pendingId = stableId(`conversation:parent:${second.key}`);
+    await prisma.conversation.create({
+      data: {
+        id: pendingId,
+        type: 'PARENT',
+        studentId: second.studentIds[0]!,
+        guardianId: stableId(`guardian:${second.key}`),
+        createdById: admin.id,
+      },
+    });
+    await message(pendingId, 'ADMIN', admin.id, 'Rappel : la sortie au musée a lieu vendredi, prévoir un pique-nique.', 'PENDING_ADMIN_VALIDATION');
+  }
 }

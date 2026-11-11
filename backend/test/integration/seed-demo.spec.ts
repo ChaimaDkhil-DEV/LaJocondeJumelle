@@ -168,7 +168,7 @@ describe('Seed de démonstration', () => {
     expect(audit?.details).toEqual({ action: 'create', classId });
   });
 
-  it('communication avec les parents : classes des enseignants, trois familles avec un compte parent prêt à écrire', async () => {
+  it('communication avec les parents : classes des enseignants, trois familles avec un compte parent prêt à écrire à l’école', async () => {
     const classes = await prisma.schoolClass.findMany({ include: { teachers: true } });
     // Titulaire + trois enseignants spécialistes par classe.
     expect(classes.every((c) => c.teachers.length === 4)).toBe(true);
@@ -181,7 +181,8 @@ describe('Seed de démonstration', () => {
     expect(children.status).toBe(200);
     expect(children.body).toHaveLength(2);
     expect(new Set(children.body.map((c: { class: { id: string } }) => c.class.id)).size).toBe(2);
-    expect(children.body.every((c: { teachers: unknown[] }) => c.teachers.length === 4)).toBe(true);
+    // 017 : le parent écrit à l'école, jamais à un enseignant ; les enseignants ne lui sont pas listés.
+    expect(children.body.every((c: { teachers?: unknown }) => c.teachers === undefined)).toBe(true);
   });
 
   it('idempotent : une nouvelle exécution ne duplique rien', async () => {
