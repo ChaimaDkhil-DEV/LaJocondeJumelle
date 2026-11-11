@@ -25,4 +25,12 @@ describe('isAllowedOrigin', () => {
   it('refuse l’origine « null »', () => {
     expect(isAllowedOrigin({ origin: 'null' }, app)).toBe(false);
   });
+
+  it('accepte une liste d’origines autorisées, et rien d’autre', () => {
+    const allowed = ['https://a.fr', 'http://127.0.0.1:4173'];
+    expect(isAllowedOrigin({ origin: 'http://127.0.0.1:4173' }, allowed)).toBe(true);
+    expect(isAllowedOrigin({ origin: 'https://a.fr' }, allowed)).toBe(true);
+    expect(isAllowedOrigin({ origin: 'http://127.0.0.1:5173' }, allowed)).toBe(false);
+    expect(isAllowedOrigin({ referer: 'http://127.0.0.1:4173/connexion' }, allowed, { allowReferer: true })).toBe(true);
+  });
 });

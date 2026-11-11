@@ -59,7 +59,7 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection {
 
   private async authenticate(socket: Socket): Promise<SocketData> {
     const ip = socket.handshake.address || null;
-    if (!isAllowedOrigin(socket.handshake.headers, this.config.appOrigin)) {
+    if (!isAllowedOrigin(socket.handshake.headers, this.config.allowedOrigins)) {
       await this.denied(ip, 'ORIGIN_MISMATCH');
       throw unauthenticated();
     }

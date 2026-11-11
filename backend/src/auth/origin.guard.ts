@@ -30,7 +30,7 @@ export class OriginGuard implements CanActivate {
     if (SAFE_METHODS.has(req.method)) return true;
     if (this.reflector.getAllAndOverride<boolean>(INTEGRATION_ROUTE, [context.getHandler(), context.getClass()])) return true;
 
-    if (isAllowedOrigin(req.headers, this.config.appOrigin, { allowReferer: true })) return true;
+    if (isAllowedOrigin(req.headers, this.config.allowedOrigins, { allowReferer: true })) return true;
 
     await this.audit.log('ACCESS_DENIED', {
       ip: clientIp(req),

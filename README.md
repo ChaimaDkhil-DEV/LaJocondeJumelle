@@ -60,6 +60,11 @@ Tunnel and displays a `https://xxxx.trycloudflare.com` address with its QR code.
 address uses HTTPS, the microphone works on iPhone. Prerequisite:
 `winget install --id Cloudflare.cloudflared -e`.
 
+On this computer, `http://127.0.0.1:4173` works too: the API accepts the tunnel's origin and the
+local interface (`APP_LOCAL_ORIGINS`, refused in production). If a `cloudflared` process is already
+running (an old tunnel, for example), the demo warns and gives the command to stop it: an old tunnel
+address still leads to the demo, but logging in there fails with 403.
+
 If `ASSIST_TRANSCRIPTION_PROVIDER=whisper` is set in `backend/.env`, the demo also starts the
 Whisper container. If Docker Desktop is not running, the demo starts it with `docker desktop start`
 (Docker Desktop 4.37 or later; allow up to 3 minutes). If Docker or Whisper cannot start, the demo

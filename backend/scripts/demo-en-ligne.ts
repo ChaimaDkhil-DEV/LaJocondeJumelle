@@ -6,7 +6,8 @@
  *
  * Étapes : base locale (port 5433, démarrée si besoin), migrations, Whisper (Docker, si la
  * transcription est configurée ; Docker Desktop est démarré s'il ne tourne pas), construction de
- * l'API et de l'interface, tunnel, API avec APP_ORIGIN = adresse du tunnel, `vite preview`
+ * l'API et de l'interface, tunnel, API avec APP_ORIGIN = adresse du tunnel (et APP_LOCAL_ORIGINS =
+ * interface locale, pour se connecter aussi depuis http://127.0.0.1:4173), `vite preview`
  * (port 4173). Docker Desktop et Whisper restent démarrés après Ctrl+C.
  */
 import { spawn, spawnSync, type ChildProcess, type SpawnOptions } from 'node:child_process';
@@ -16,6 +17,7 @@ import { join } from 'node:path';
 import { parseEnv } from 'node:util';
 import QRCode from 'qrcode';
 import { ensureDockerEngine, nodeDockerDeps } from './docker-desktop';
+import { demoLocalOrigins, nodeCloudflaredDeps, onlineDemoNotice, warnIfCloudflaredRunning } from './demo-tunnel';
 
 const backendDir = join(__dirname, '..');
 const rootDir = join(backendDir, '..');
@@ -204,6 +206,8 @@ async function main(): Promise<void> {
   if (await portOpen(API_PORT))
     fail(`le port ${API_PORT} est déjà utilisé : arrêtez l'API (start.bat) avant la démonstration`);
   if (await portOpen(PREVIEW_PORT)) fail(`le port ${PREVIEW_PORT} est déjà utilisé`);
+  // Avant de lancer notre tunnel : un cloudflared déjà là serait un autre tunnel (voir demo-tunnel.ts).
+  warnIfCloudflaredRunning({ ...nodeCloudflaredDeps, warn });
 
   log('1/6 base de données locale');
   if (await portOpen(DB_PORT)) log(`PostgreSQL répond déjà sur le port ${DB_PORT}`);
@@ -227,10 +231,15 @@ async function main(): Promise<void> {
   const url = await startTunnel(cloudflared);
   log(`adresse publique : ${url}`);
 
-  log('5/6 API (origine autorisée = adresse du tunnel)');
+  log('5/6 API (origines autorisées : adresse du tunnel et interface locale)');
   start('api', process.execPath, ['dist/main.js'], {
     cwd: backendDir,
-    env: { APP_ORIGIN: url, PORT: String(API_PORT), COOKIE_SECURE: 'true' },
+    env: {
+      APP_ORIGIN: url,
+      APP_LOCAL_ORIGINS: demoLocalOrigins(PREVIEW_PORT),
+      PORT: String(API_PORT),
+      COOKIE_SECURE: 'true',
+    },
   });
   await waitFor(
     "l'API",
@@ -268,7 +277,7 @@ async function main(): Promise<void> {
   await waitFor("l'interface", () => portOpen(PREVIEW_PORT), 60_000);
 
   console.log(
-    `\n  Application en ligne : ${url}\n  À scanner avec le téléphone ou la tablette :\n`,
+    `\n${onlineDemoNotice(url, PREVIEW_PORT).join('\n')}\n  À scanner avec le téléphone ou la tablette :\n`,
   );
   console.log(await QRCode.toString(url, { type: 'terminal', small: true }));
   if (whisper === false) {

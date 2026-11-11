@@ -10,14 +10,16 @@ function originOf(value: string | undefined): string | null {
 
 /**
  * Règle d'origine unique (FR-006), pour les requêtes HTTP modifiantes et les connexions temps
- * réel : l'en-tête Origin doit valoir l'origine de l'application. Le Referer ne sert, à défaut
- * d'Origin valide, que si l'appelant l'autorise (requêtes HTTP).
+ * réel : l'en-tête Origin doit valoir une origine autorisée (celle de l'application, voir
+ * AppConfig.allowedOrigins). Le Referer ne sert, à défaut d'Origin valide, que si l'appelant
+ * l'autorise (requêtes HTTP).
  */
 export function isAllowedOrigin(
   headers: { origin?: string; referer?: string },
-  appOrigin: string,
+  allowed: string | readonly string[],
   options: { allowReferer?: boolean } = {},
 ): boolean {
   const origin = originOf(headers.origin) ?? (options.allowReferer ? originOf(headers.referer) : null);
-  return origin === appOrigin;
+  if (origin === null) return false;
+  return typeof allowed === 'string' ? origin === allowed : allowed.includes(origin);
 }

@@ -10,7 +10,13 @@ export interface AppConfig {
   databaseUrl: string;
   sessionSecret: string;
   filesDir: string;
+  /** Origine publique de l'application : liens envoyés (QR codes, n8n) et règle d'origine. */
   appOrigin: string;
+  /**
+   * Origines acceptées par la règle d'origine (FR-006) : APP_ORIGIN, plus APP_LOCAL_ORIGINS hors
+   * production (démonstration en ligne : l'interface locale http://127.0.0.1:4173).
+   */
+  allowedOrigins: string[];
   port: number;
   ffmpegPath: string;
   ffprobePath: string;
@@ -324,6 +330,31 @@ function parseTrustProxy(raw: string | undefined): boolean | number | string {
   );
 }
 
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
+
+/**
+ * APP_LOCAL_ORIGINS : origines supplémentaires de ce poste (localhost, 127.0.0.1, [::1]), séparées
+ * par des virgules. Interdit en production : seule APP_ORIGIN y est acceptée.
+ */
+function parseLocalOrigins(value: string | undefined, isProduction: boolean): string[] {
+  const entries = (value ?? '').split(',').map((entry) => entry.trim()).filter(Boolean);
+  if (entries.length === 0) return [];
+  if (isProduction) throw new ConfigError('APP_LOCAL_ORIGINS est interdit en production : seule APP_ORIGIN est acceptée');
+  return entries.map((entry) => {
+    let url: URL | null = null;
+    try {
+      url = new URL(entry);
+    } catch {
+      // message ci-dessous
+    }
+    if (!url || (url.protocol !== 'http:' && url.protocol !== 'https:') || !LOOPBACK_HOSTS.has(url.hostname))
+      throw new ConfigError(
+        `APP_LOCAL_ORIGINS invalide : « ${entry} ». Seules les adresses de ce poste (http://127.0.0.1:4173, http://localhost:4173) sont admises`,
+      );
+    return url.origin;
+  });
+}
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const missing = ['DATABASE_URL', 'SESSION_SECRET', 'FILES_DIR', 'APP_ORIGIN'].filter(
     (key) => !env[key]?.trim(),
@@ -354,6 +385,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     sessionSecret,
     filesDir: env.FILES_DIR!,
     appOrigin,
+    allowedOrigins: [appOrigin, ...parseLocalOrigins(env.APP_LOCAL_ORIGINS, env.NODE_ENV === 'production')],
     port,
     ffmpegPath: env.FFMPEG_PATH?.trim() || 'ffmpeg',
     ffprobePath: env.FFPROBE_PATH?.trim() || 'ffprobe',
