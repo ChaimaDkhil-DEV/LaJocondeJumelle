@@ -277,7 +277,12 @@ test('017 — « Communications » de l’administration à 320 px : sans défil
     '/communications?nouveau',
   ]) {
     await page.goto(path);
-    await expect(page.getByRole('heading', { level: 1, name: 'Communications' })).toBeVisible();
+    // Le panneau « Nouveau message » est une modale : le reste de la page est alors masqué (aria-hidden).
+    await expect(
+      path.endsWith('nouveau')
+        ? page.getByRole('dialog', { name: 'Nouveau message' })
+        : page.getByRole('heading', { level: 1, name: 'Communications' }),
+    ).toBeVisible();
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     ).toBe(true);
