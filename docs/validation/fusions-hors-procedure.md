@@ -458,3 +458,37 @@ No fix or `git revert` needed.
 ### Reminder
 
 Wait for CI on the latest commit of the pull request, then tick the four checks, before merging.
+
+## 12/11/2026 — pull requests #111 and #112
+
+| Pull request | Content | Merged at (UTC) | Check not satisfied at merge time |
+|---------|---------|-------------------|-----------------------------------------------|
+| #111 (`017-communications-admin-page-unique`) | Administration "Communications" as a single page (frontend, `e2e/communications.spec.ts`; no backend file) | 23:08:41 | **All four checkboxes unticked** in the description (CI itself was green, see below) |
+| #112 (`chore-gitignore-playwright-report`) | `.gitignore`: ignore `/playwright-report/` (configuration only) | 23:09:02 | **3. Branch up to date with `master`**: merged 21 s after #111, from a branch based on `ba393a4`, without `f34e52e`; **all four checkboxes unticked** |
+
+Both pull requests were opened at 22:35:25 and 22:36:59 and merged from the owner's account about 33 minutes later.
+
+### Findings after the fact
+
+- The branch runs finished with success before the merge: #111 on `a464edb` (`push` 43321272025 at 22:43:17,
+  `pull_request` 43321312193 at 22:47:00); #112 on `e9da3c5` (`push` 43321532140 at 22:44:37, `pull_request` 43321556472
+  at 22:45:26). Check 1 was therefore satisfied in substance; the boxes were simply not ticked.
+- #111 records its deviation for check 4 in its description: the expectations of the administration tests in
+  `communications.test.tsx` were changed on purpose (single page instead of four sub-pages). Tests were written first
+  (`communications-view.test.ts`, then the page), frontend suite green (82 files, 784 tests), `npm audit
+  --audit-level=high` green. `e2e/communications.spec.ts` on `chromium` and `mobile-320`: 3 passed after fixing a bug in the new
+  320 px test (the "Nouveau message" panel is a modal, so the page title is hidden from assistive technology while it is
+  open); the other five projects were not run.
+- `master` CI after the merge failed on both runs: 43326302988 on `f34e52e` (23:13:45) and 43326352374 on `71814d6`,
+  attempt 1 (about 23:16). The only failing test is `push-dispatch.spec.ts`, case (d) "enseignant arrivé"
+  (`COVERAGE_TEACHER_ARRIVED` notification count: expected 1, received 0); 1092 backend integration tests passed. Neither pull
+  request changes a file under `backend/` (the diff `ba393a4..71814d6` touches `.gitignore`, `e2e/` and `frontend/` only).
+  Both runs started at 23:08 and 23:09 UTC, i.e. 00:08 and 00:09 in Paris; the test creates its coverage request at
+  "now minus 20 minutes", which falls on the previous day then. This is a hypothesis, not yet confirmed. Attempt 2 of
+  run 43326352374 was started at 23:18 UTC to test it.
+
+No fix or `git revert` needed for the code of #111 and #112.
+
+### Reminder
+
+Wait for CI on the latest commit of the pull request, then tick the four checks, before merging.
