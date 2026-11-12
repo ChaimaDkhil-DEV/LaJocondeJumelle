@@ -157,7 +157,11 @@ test('017 — signalement, réponse, « Contacter le parent », validation, lect
     .getByRole('navigation', { name: 'Navigation principale' })
     .getByRole('link', { name: 'Communications' })
     .click();
-  await admin.getByRole('link', { name: /Boîte de réception/ }).click();
+  // Page unique : la boîte de réception est l'onglet par défaut, sans navigation intermédiaire.
+  await expect(admin.getByRole('tab', { name: /Boîte de réception/ })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
   const line = admin
     .getByRole('list', { name: 'Conversations' })
     .getByRole('link')
@@ -173,10 +177,13 @@ test('017 — signalement, réponse, « Contacter le parent », validation, lect
   await expectNoA11yViolations(admin);
 
   await admin.getByRole('button', { name: 'Contacter le parent' }).click();
-  await expect(admin).toHaveURL(/\/communications\/nouveau\?type=PARENT/);
-  await admin.getByRole('radio', { name: new RegExp(data.guardianName) }).check();
-  await admin.getByRole('textbox', { name: 'Votre message' }).fill(toParent);
-  await admin.getByRole('button', { name: 'Envoyer pour validation' }).click();
+  // Le panneau « Nouveau message » s'ouvre par-dessus la page, élève et signalement préremplis.
+  await expect(admin).toHaveURL(/\/communications\?.*nouveau.*type=PARENT/);
+  const drawer = admin.getByRole('dialog', { name: 'Nouveau message' });
+  await drawer.getByRole('radio', { name: new RegExp(data.guardianName) }).check();
+  await drawer.getByRole('textbox', { name: 'Votre message' }).fill(toParent);
+  await drawer.getByRole('button', { name: 'Envoyer pour validation' }).click();
+  await expect(drawer).toBeHidden();
   await expect(
     admin
       .getByRole('article')
@@ -252,6 +259,30 @@ test('017 — écrans « Communications » à 320 px : sans défilement horizont
   for (const path of ['/communications', '/communications?nouveau']) {
     await page.goto(path);
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true);
+    await expectNoA11yViolations(page);
+  }
+});
+
+test('017 — « Communications » de l’administration à 320 px : sans défilement horizontal ni violation axe', async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile-320', 'Vérification de largeur minimale');
+  await login(page, 'admin');
+  for (const path of [
+    '/communications',
+    '/communications?vue=conversations',
+    '/communications?nouveau',
+  ]) {
+    await page.goto(path);
+    // Le panneau « Nouveau message » est une modale : le reste de la page est alors masqué (aria-hidden).
+    await expect(
+      path.endsWith('nouveau')
+        ? page.getByRole('dialog', { name: 'Nouveau message' })
+        : page.getByRole('heading', { level: 1, name: 'Communications' }),
+    ).toBeVisible();
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     ).toBe(true);

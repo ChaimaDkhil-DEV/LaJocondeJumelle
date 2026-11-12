@@ -20,6 +20,7 @@ import { RequestListPage } from '../features/requests/RequestListPage';
 import { MealServicesPage } from '../features/students/MealServicesPage';
 import { CommunicationsPage } from '../features/parent-communications/CommunicationsPage';
 import {
+  CommunicationsLegacyRedirect,
   ParentMessageRedirect,
   TeacherLegacyRedirect,
   ValidationLegacyRedirect,
@@ -61,13 +62,17 @@ export const routes: RouteObject[] = [
       { path: 'restauration', element: <MealServicesPage /> },
       // Communications (017) : enseignants et administration ; droits vérifiés par l'API.
       { path: 'communications', element: <CommunicationsPage /> },
-      { path: 'communications/nouveau', element: <CommunicationsPage view="new" /> },
+      // Anciennes pages de l'administration → la page unique `/communications?vue=…`.
+      { path: 'communications/nouveau', element: <CommunicationsLegacyRedirect to="nouveau" /> },
       {
         path: 'communications/conversations/:id?',
-        element: <CommunicationsPage view="conversations" />,
+        element: <CommunicationsLegacyRedirect to="conversations" />,
       },
-      { path: 'communications/boite/:id?', element: <CommunicationsPage view="inbox" /> },
-      { path: 'communications/a-valider/:id?', element: <CommunicationsPage view="validation" /> },
+      { path: 'communications/boite/:id?', element: <CommunicationsLegacyRedirect to="boite" /> },
+      {
+        path: 'communications/a-valider/:id?',
+        element: <CommunicationsLegacyRedirect to="valider" />,
+      },
       // « Messages de l'école » : espace du parent.
       { path: 'messages-ecole', element: <ParentMessagesPage /> },
       { path: 'messages-ecole/nouvelle', element: <ParentMessagesPage mode="new" /> },
