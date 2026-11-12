@@ -373,19 +373,63 @@ export function useStartConversation(space: Space) {
           : { studentId, ...content };
       return apiFetch<ConversationDetail>(`${BASE[space]}/conversations`, { method: 'POST', body });
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: commKeys.all }),
+    onSuccess: (created) => {
+      // La conversation créée s'affiche aussitôt, en tête de la liste, avant le rechargement.
+      if (space !== 'admin') {
+        queryClient.setQueryData(commKeys.conversation(space, created.id), created);
+        queryClient.setQueryData<ConversationSummary[]>(commKeys.list(space), (list) =>
+          list ? [created, ...list.filter((c) => c.id !== created.id)] : list,
+        );
+      }
+      return queryClient.invalidateQueries({ queryKey: commKeys.all });
+    },
   });
 }
 
 export function usePostMessage(space: Space, conversationId: string) {
   const queryClient = useQueryClient();
+  const listKey = commKeys.list(space);
   return useMutation({
     mutationFn: async (input: MessageInput) =>
       apiFetch<Message>(`${BASE[space]}/conversations/${conversationId}/messages`, {
         method: 'POST',
         body: await toBody(input),
       }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: commKeys.all }),
+    // Mise à jour optimiste (hors administration, dont les listes sont filtrées) : la conversation
+    // remonte en tête avec l'aperçu du message ; en cas d'échec, la liste précédente est rétablie.
+    onMutate: async (input) => {
+      if (space === 'admin') return undefined;
+      await queryClient.cancelQueries({ queryKey: listKey });
+      const previous = queryClient.getQueryData<ConversationSummary[]>(listKey);
+      if (previous) {
+        const current = previous.find((c) => c.id === conversationId);
+        if (current) {
+          const at = new Date().toISOString();
+          const moved: ConversationSummary = {
+            ...current,
+            lastMessageAt: at,
+            lastMessage: {
+              ...(current.lastMessage ?? {
+                authorKind: space === 'parent' ? 'PARENT' : 'TEACHER',
+                authorLabel: '',
+              }),
+              at,
+              hasVoice: Boolean(input.recording),
+              excerpt: input.text.trim() || null,
+            },
+          };
+          queryClient.setQueryData(listKey, [
+            moved,
+            ...previous.filter((c) => c.id !== conversationId),
+          ]);
+        }
+      }
+      return { previous };
+    },
+    onError: (_error, _input, context) => {
+      if (context?.previous) queryClient.setQueryData(listKey, context.previous);
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: commKeys.all }),
   });
 }
 

@@ -18,7 +18,7 @@ import {
   Send,
   type LucideIcon,
 } from 'lucide-react';
-import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { Link as RouterLink } from 'react-router';
 import { useClientSettings } from '../../api/settings';
 import { visuallyHidden } from '../../components/a11y';
@@ -89,20 +89,33 @@ export function ChatShell({
   detail,
   detailOpen,
   detailLabel = t('Conversation'),
+  listWidth,
+  height,
 }: {
   list: ReactNode;
   detail: ReactNode;
   /** Sur mobile, la conversation remplace la liste. */
   detailOpen: boolean;
   detailLabel?: string;
+  /** Largeur fixe de la liste (px) ; sinon 260 à 320 px. */
+  listWidth?: number;
+  /** Hauteur maximale du cadre (px) ; sinon la hauteur de l'écran. */
+  height?: number;
 }) {
   return (
     <Paper
       variant="elevated"
       sx={{
         display: 'grid',
-        gridTemplateColumns: { xs: '1fr', md: 'minmax(260px, 320px) minmax(0, 1fr)' },
-        height: { md: 'max(520px, calc(100dvh - 230px))' },
+        gridTemplateColumns: {
+          xs: '1fr',
+          md: listWidth ? `${listWidth}px minmax(0, 1fr)` : 'minmax(260px, 320px) minmax(0, 1fr)',
+        },
+        height: {
+          md: height
+            ? `min(${height}px, max(520px, calc(100dvh - 180px)))`
+            : 'max(520px, calc(100dvh - 230px))',
+        },
         overflow: 'hidden',
       }}
     >
@@ -540,6 +553,10 @@ export function MessageComposer({
   submitLabel = t('Envoyer'),
   onCancel,
   disabled = false,
+  placeholder,
+  fieldRef,
+  requireContent = false,
+  ready = true,
 }: {
   onSend: (input: { text: string; recording: VoiceRecording | null }) => Promise<void>;
   hint: string;
@@ -547,6 +564,13 @@ export function MessageComposer({
   submitLabel?: string;
   onCancel?: () => void;
   disabled?: boolean;
+  placeholder?: string;
+  /** Champ de texte, pour y placer le focus depuis l'extérieur. */
+  fieldRef?: RefObject<HTMLTextAreaElement | null>;
+  /** « Envoyer » reste désactivé tant qu'il n'y a ni texte ni vocal. */
+  requireContent?: boolean;
+  /** Condition extérieure à l'envoi (ex. élève choisi) ; « Envoyer » est désactivé sinon. */
+  ready?: boolean;
 }) {
   const { voiceMaxSeconds } = useClientSettings();
   const [text, setText] = useState(initialText);
@@ -559,7 +583,11 @@ export function MessageComposer({
     if (initialText) field.current?.focus();
   }, [initialText]);
 
+  const empty = !text.trim() && !recording;
+  const blocked = disabled || !ready || (requireContent && empty);
+
   async function submit(): Promise<void> {
+    if (busy || disabled || !ready) return;
     const trimmed = text.trim();
     if (!trimmed && !recording) {
       setError(t('Écrivez un message ou enregistrez un message vocal avant d’envoyer.'));
@@ -592,7 +620,18 @@ export function MessageComposer({
       sx={{ display: 'grid', gap: 1, p: { xs: 1.25, sm: 2 }, borderTop: 1, borderColor: 'divider' }}
     >
       <TextField
-        inputRef={field}
+        inputRef={(el: HTMLTextAreaElement | null) => {
+          field.current = el;
+          if (fieldRef) fieldRef.current = el;
+        }}
+        placeholder={placeholder}
+        onKeyDown={(e) => {
+          // Ctrl+Entrée (Cmd+Entrée sur Mac) envoie le message.
+          if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+            e.preventDefault();
+            void submit();
+          }
+        }}
         multiline
         minRows={2}
         maxRows={6}
@@ -631,7 +670,7 @@ export function MessageComposer({
             type="submit"
             variant="contained"
             loading={busy}
-            disabled={disabled}
+            disabled={blocked}
             startIcon={<Send size={icon.sm} aria-hidden="true" />}
           >
             {submitLabel}

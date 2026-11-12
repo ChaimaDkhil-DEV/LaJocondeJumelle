@@ -1,5 +1,10 @@
 /** Communications (015, 017). */
 export const parentCommunications: Record<string, string> = {
+  'Écrire votre message…': 'Write your message…',
+  'Le message part directement à l’administration. Un vocal suffit ; durée maximale : {duration}.':
+    'The message goes straight to the administration. A voice message is enough; maximum length: {duration}.',
+  'Récents :': 'Recent:',
+  'Répondre à l’administration…': 'Reply to the administration…',
   '{count} / {max} caractères': '{count} / {max} characters',
   '{count} tentative(s)': '{count} attempt(s)',
   'Ajoutez des membres au groupe Enseignants.': 'Add members to the Teachers group.',
@@ -324,7 +329,6 @@ export const parentCommunications: Record<string, string> = {
     'This conversation cannot be found or is not available to you.',
   'Cette conversation est introuvable.': 'This conversation cannot be found.',
   'Changer d’élève': 'Change student',
-  'Choisir un élève': 'Choose a student',
   'Choisissez l’élève concerné.': 'Choose the student concerned.',
   'Choisissez l’enfant concerné.': 'Choose the child concerned.',
   'Choisissez le destinataire.': 'Choose the recipient.',
@@ -365,7 +369,6 @@ export const parentCommunications: Record<string, string> = {
   'Les messages non lus des enseignants et des parents apparaîtront ici.':
     'Unread messages from teachers and parents will appear here.',
   lu: 'read',
-  'Mes conversations': 'My conversations',
   'Message au parent à partir d’un signalement : rien de la conversation interne n’est transmis au parent.':
     'Message to the parent from a report: nothing from the internal conversation is passed on to the parent.',
   'Message corrigé': 'Message corrected',
@@ -386,7 +389,6 @@ export const parentCommunications: Record<string, string> = {
   'Retrouver tous les échanges': 'Find every exchange',
   Rouvrir: 'Reopen',
   'sans compte parent': 'no parent account',
-  'Signaler à l’administration au sujet d’un élève': 'Report to the administration about a student',
   'Soumettre ses messages aux parents pour validation':
     'Submit own messages to parents for approval',
   'Soumis à la validation': 'Submitted for approval',
@@ -395,8 +397,6 @@ export const parentCommunications: Record<string, string> = {
   'Un parent': 'A parent',
   'Un vocal, un texte, ou les deux.': 'A voice message, a text, or both.',
   'Validé et transmis': 'Approved and delivered',
-  'Vos échanges avec l’administration et leur état':
-    'Your exchanges with the administration and their status',
   'Vos enfants n’ont pas pu être chargés.': 'Your children could not be loaded.',
   'Vos messages n’ont pas pu être chargés.': 'Your messages could not be loaded.',
   'Votre enfant concerné': 'Your child concerned',

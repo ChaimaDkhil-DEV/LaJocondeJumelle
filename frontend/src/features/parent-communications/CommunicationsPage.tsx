@@ -22,13 +22,18 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
-import { Link as RouterLink, useNavigate, useParams, useSearchParams } from 'react-router';
+import {
+  Navigate,
+  Link as RouterLink,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from 'react-router';
 import { Badge } from '../../components/Badge';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
 import { PageHeader } from '../../components/PageHeader';
-import { UserAvatar } from '../../components/UserAvatar';
 import { font, icon, radius, tokensOf } from '../../design/tokens';
 import { t } from '../../i18n';
 import { canUseAdministrationSpace } from '../admin/access';
@@ -44,13 +49,14 @@ import {
   useRecipients,
   useSendMode,
   useStartConversation,
-  useTeacherStudents,
   useToValidate,
   type ConversationSummary,
   type Space,
 } from './api';
-import { ChatShell, ConversationLink, MessageComposer } from './ChatParts';
-import { ConversationView, counterpart } from './ConversationView';
+import { ChatShell, MessageComposer } from './ChatParts';
+import { ConversationLine } from './ConversationList';
+import { ConversationView } from './ConversationView';
+import { TeacherCommunications } from './TeacherCommunications';
 import { ValidationView } from './ValidationView';
 
 export type CommunicationsView = 'home' | 'new' | 'conversations' | 'inbox' | 'validation';
@@ -121,49 +127,39 @@ function ActionTile({
   );
 }
 
-function Home({ space }: { space: Space }) {
-  const admin = space === 'admin';
-  const sendMode = useSendMode(admin);
-  const inbox = useInbox(admin);
-  const canValidate = admin && sendMode.data?.canValidate === true;
+/** Accueil de l'administration (l'enseignant a sa page unique, `TeacherCommunications`). */
+function AdminHome() {
+  const sendMode = useSendMode();
+  const inbox = useInbox();
+  const canValidate = sendMode.data?.canValidate === true;
   const toValidate = useToValidate(canValidate);
   return (
     <Box
       sx={{
         display: 'grid',
         gap: 1.5,
-        gridTemplateColumns: { xs: '1fr', md: admin ? '1fr 1fr' : '1fr' },
-        maxWidth: admin ? 900 : 560,
+        gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+        maxWidth: 900,
       }}
     >
-      {admin && (
-        <ActionTile
-          to={`${ROOT}/boite`}
-          icon={Inbox}
-          title={t('Boîte de réception')}
-          description={t('Messages des enseignants et des parents à lire')}
-          count={inbox.data?.length}
-        />
-      )}
+      <ActionTile
+        to={`${ROOT}/boite`}
+        icon={Inbox}
+        title={t('Boîte de réception')}
+        description={t('Messages des enseignants et des parents à lire')}
+        count={inbox.data?.length}
+      />
       <ActionTile
         to={`${ROOT}/nouveau`}
         icon={MessageSquarePlus}
         title={t('Nouveau message')}
-        description={
-          admin
-            ? t('Écrire à un enseignant ou à un parent')
-            : t('Signaler à l’administration au sujet d’un élève')
-        }
+        description={t('Écrire à un enseignant ou à un parent')}
       />
       <ActionTile
         to={`${ROOT}/conversations`}
         icon={MessagesSquare}
-        title={admin ? t('Conversations') : t('Mes conversations')}
-        description={
-          admin
-            ? t('Retrouver tous les échanges')
-            : t('Vos échanges avec l’administration et leur état')
-        }
+        title={t('Conversations')}
+        description={t('Retrouver tous les échanges')}
       />
       {canValidate && (
         <ActionTile
@@ -179,67 +175,6 @@ function Home({ space }: { space: Space }) {
 }
 
 // ------------------------------------------------------------------ Nouveau message
-
-/** Choix de l'élève : liste déroulante native, simple au clavier et sur mobile. */
-function StudentSelect({
-  students,
-  value,
-  onChange,
-}: {
-  students: Array<{ id: string; firstName: string; lastName: string; class: { name: string } }>;
-  value: string;
-  onChange: (id: string) => void;
-}) {
-  return (
-    <TextField
-      select
-      label={t('Élève')}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
-      sx={{ maxWidth: 480 }}
-    >
-      <option value="">{t('Choisir un élève')}</option>
-      {students.map((s) => (
-        <option key={s.id} value={s.id}>
-          {fullName(s)} — {s.class.name}
-        </option>
-      ))}
-    </TextField>
-  );
-}
-
-function TeacherNewMessage() {
-  const navigate = useNavigate();
-  const students = useTeacherStudents();
-  const start = useStartConversation('teacher');
-  const [studentId, setStudentId] = useState('');
-  if (students.isPending) return <LoadingState />;
-  if (students.isError)
-    return (
-      <ErrorState
-        message={t('Les élèves n’ont pas pu être chargés.')}
-        onAction={() => void students.refetch()}
-      />
-    );
-  return (
-    <Paper variant="outlined" sx={{ display: 'grid', gap: 2, p: { xs: 1.5, sm: 2.5 } }}>
-      <StudentSelect students={students.data} value={studentId} onChange={setStudentId} />
-      <MessageComposer
-        hint={t(
-          'Le message part directement à l’administration. Un vocal suffit ; vous pouvez ajouter un texte.',
-        )}
-        onSend={async (input) => {
-          if (!studentId) {
-            throw new Error(t('Choisissez l’élève concerné.'));
-          }
-          const created = await start.mutateAsync({ ...input, studentId });
-          navigate(`${ROOT}/conversations/${created.id}`);
-        }}
-      />
-    </Paper>
-  );
-}
 
 function AdminNewMessage() {
   const navigate = useNavigate();
@@ -447,32 +382,6 @@ function useStudentSearch(query: string) {
 
 // ------------------------------------------------------------------ Listes et conversations
 
-function ConversationLine({
-  space,
-  c,
-  selected,
-  base,
-}: {
-  space: Space;
-  c: ConversationSummary;
-  selected: boolean;
-  base: string;
-}) {
-  const kind = space === 'admin' ? `${TYPE_LABELS[c.type]} · ` : '';
-  return (
-    <ConversationLink
-      to={`${base}/${c.id}`}
-      avatar={<UserAvatar name={fullName(c.student)} id={c.student.id} size="lg" />}
-      title={fullName(c.student)}
-      subtitle={`${kind}${counterpart(space, c)} · ${c.student.class.name}${c.status === 'CLOSED' && c.type !== 'LEGACY_TEACHER_PARENT' ? ` · ${t('Clôturée')}` : ''}`}
-      preview={c.lastMessage?.excerpt ?? (c.lastMessage?.hasVoice ? t('Message vocal') : '')}
-      when={c.lastMessage?.at ?? c.lastMessageAt}
-      unread={c.unread}
-      selected={selected}
-    />
-  );
-}
-
 function AdminConversationActions({ c }: { c: ConversationSummary }) {
   const navigate = useNavigate();
   const me = useCurrentUser().data;
@@ -643,7 +552,13 @@ function ConversationsScreen({ space, view }: { space: Space; view: 'conversatio
           }}
         >
           {list.data.map((c) => (
-            <ConversationLine key={c.id} space={space} c={c} selected={c.id === id} base={base} />
+            <ConversationLine
+              key={c.id}
+              space={space}
+              c={c}
+              selected={c.id === id}
+              to={`${base}/${c.id}`}
+            />
           ))}
         </Box>
       )}
@@ -681,22 +596,33 @@ const TITLES: Record<CommunicationsView, string> = {
  */
 export function CommunicationsPage({ view = 'home' }: { view?: CommunicationsView }) {
   const me = useCurrentUser();
+  const { id } = useParams();
   if (me.isPending) return <LoadingState />;
-  const space: Space = canUseAdministrationSpace(me.data) ? 'admin' : 'teacher';
-  const title =
-    view === 'conversations' && space === 'teacher' ? t('Mes conversations') : TITLES[view];
+  if (!canUseAdministrationSpace(me.data)) {
+    // Enseignant : une seule page ; les anciennes adresses y ramènent.
+    if (view !== 'home') {
+      const target = view === 'conversations' && id ? `${ROOT}?conversation=${id}` : ROOT;
+      return <Navigate to={target} replace />;
+    }
+    return (
+      <>
+        <PageHeader title={t('Communications')} />
+        <TeacherCommunications />
+      </>
+    );
+  }
   return (
     <>
       <PageHeader
-        title={title}
+        title={TITLES[view]}
         back={view === 'home' ? undefined : { to: ROOT, label: t('Communications') }}
       />
-      {view === 'home' && <Home space={space} />}
-      {view === 'new' && (space === 'admin' ? <AdminNewMessage /> : <TeacherNewMessage />)}
+      {view === 'home' && <AdminHome />}
+      {view === 'new' && <AdminNewMessage />}
       {(view === 'conversations' || view === 'inbox') && (
-        <ConversationsScreen space={space} view={view} />
+        <ConversationsScreen space="admin" view={view} />
       )}
-      {view === 'validation' && space === 'admin' && <ValidationView />}
+      {view === 'validation' && <ValidationView />}
     </>
   );
 }
