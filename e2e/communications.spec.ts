@@ -135,7 +135,7 @@ test('017 — signalement, réponse, « Contacter le parent », validation, lect
   await login(page, 'superadmin');
   const data = await prepare(page, Date.now());
 
-  // Enseignante : « Communications » → « Nouveau message » → élève → vocal seul → envoyé directement.
+  // Enseignante : « Communications » (formulaire prêt) → élève cherché → vocal seul → envoyé directement.
   const teacher = await pageAs(browser, testInfo, 'enseignante');
   await teacher
     .getByRole('navigation', { name: 'Navigation principale' })
@@ -143,13 +143,12 @@ test('017 — signalement, réponse, « Contacter le parent », validation, lect
     .click();
   await expect(teacher.getByRole('heading', { level: 1, name: 'Communications' })).toBeVisible();
   await expectNoA11yViolations(teacher);
-  await teacher.getByRole('link', { name: /Nouveau message/ }).click();
-  const option = teacher.getByLabel('Élève').locator('option', { hasText: data.studentName });
-  await teacher.getByLabel('Élève').selectOption(await option.getAttribute('value'));
+  await teacher.getByRole('combobox', { name: 'Élève' }).fill(data.studentName);
+  await teacher.getByRole('option', { name: new RegExp(data.studentName) }).click();
   await recordVoice(teacher);
   await teacher.getByRole('button', { name: 'Envoyer' }).click();
-  await expect(teacher).toHaveURL(/\/communications\/conversations\/[0-9a-f-]{36}$/);
-  const internalId = teacher.url().split('/').pop()!;
+  await expect(teacher).toHaveURL(/\/communications\?conversation=[0-9a-f-]{36}$/);
+  const internalId = new URL(teacher.url()).searchParams.get('conversation')!;
   await expect(teacher.getByRole('article').getByText('Envoyé', { exact: true })).toBeVisible();
 
   // Surveillante générale : boîte de réception, écoute du vocal, réponse, puis « Contacter le parent ».
@@ -250,11 +249,7 @@ test('017 — écrans « Communications » à 320 px : sans défilement horizont
 }, testInfo) => {
   test.skip(testInfo.project.name !== 'mobile-320', 'Vérification de largeur minimale');
   await login(page, 'enseignante');
-  for (const path of [
-    '/communications',
-    '/communications/nouveau',
-    '/communications/conversations',
-  ]) {
+  for (const path of ['/communications', '/communications?nouveau']) {
     await page.goto(path);
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
     expect(

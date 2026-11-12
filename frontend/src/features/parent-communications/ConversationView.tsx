@@ -65,6 +65,7 @@ export function ConversationView({
   backTo,
   actions,
   submitLabel,
+  placeholder,
 }: {
   space: Space;
   conversation: ConversationDetail;
@@ -73,6 +74,7 @@ export function ConversationView({
   actions?: ReactNode;
   /** Libellé du bouton d'envoi (« Envoyer pour validation » vers un parent sans envoi direct). */
   submitLabel?: string;
+  placeholder?: string;
 }) {
   const post = usePostMessage(space, c.id);
   const other = counterpart(space, c);
@@ -118,6 +120,8 @@ export function ConversationView({
         <MessageComposer
           hint={HINTS[space]}
           submitLabel={submitLabel}
+          placeholder={placeholder}
+          requireContent={space === 'teacher'}
           onSend={async (input) => {
             await post.mutateAsync(input);
           }}

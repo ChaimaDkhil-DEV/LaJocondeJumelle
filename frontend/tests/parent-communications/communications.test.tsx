@@ -113,63 +113,120 @@ function api(me: object, extra: (call: Call) => Response | undefined = () => und
 }
 
 describe('Enseignant', () => {
-  it('accueil : deux boutons, « Nouveau message » et « Mes conversations », rien de l’administration', async () => {
+  const postConversation = (call: Call) =>
+    call.url === '/api/communications/teacher/conversations' && call.method === 'POST';
+
+  it('une seule page : liste, « Nouveau message » ouvert d’emblée, focus sur l’élève, rien de l’administration', async () => {
+    // Écran large : le formulaire est affiché à côté de la liste et reçoit le focus.
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn((query: string) => ({
+        matches: query.includes('min-width'),
+        media: query,
+        onchange: null,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+        addListener: () => undefined,
+        removeListener: () => undefined,
+        dispatchEvent: () => false,
+      })),
+    );
     api(teacherMe);
     renderRoutes(routes, '/communications');
-    expect(await screen.findByRole('link', { name: /Nouveau message/ })).toHaveAttribute(
+    expect(await screen.findByRole('heading', { name: 'Communications', level: 1 })).toBeVisible();
+    expect(screen.getByRole('button', { name: /Nouveau message/ })).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: /Lina Ben Salah/ })).toHaveAttribute(
       'href',
-      '/communications/nouveau',
+      '/communications?conversation=c1',
     );
-    expect(screen.getByRole('link', { name: /Mes conversations/ })).toHaveAttribute(
-      'href',
-      '/communications/conversations',
-    );
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Élève' })).toHaveFocus());
     expect(screen.queryByRole('link', { name: /Boîte de réception/ })).toBeNull();
     expect(screen.queryByRole('link', { name: /À valider/ })).toBeNull();
   });
 
-  it('nouveau message : élève, vocal seul, envoi direct à l’administration puis ouverture de la conversation', async () => {
+  it('recherche : filtre la liste par nom d’élève', async () => {
+    api(teacherMe);
+    renderRoutes(routes, '/communications');
+    await screen.findByRole('link', { name: /Lina Ben Salah/ });
+    await userEvent
+      .setup()
+      .type(screen.getByRole('searchbox', { name: /Rechercher un élève/ }), 'zz');
+    expect(screen.queryByRole('link', { name: /Lina Ben Salah/ })).toBeNull();
+  });
+
+  it('nouveau message : élève récent, vocal seul, Ctrl+Entrée, puis la conversation s’ouvre sur la même page', async () => {
     const calls = api(teacherMe, (call) => {
       if (call.url === '/api/files' && call.method === 'POST')
         return json(201, { id: 'v9', kind: 'VOICE' });
-      if (call.url === '/api/communications/teacher/conversations' && call.method === 'POST')
-        return json(201, conversation({ id: 'c9' }));
+      if (postConversation(call)) return json(201, conversation({ id: 'c9' }));
       if (call.url === '/api/communications/teacher/conversations/c9')
         return json(200, conversation({ id: 'c9' }));
       return undefined;
     });
-    const router = renderRoutes(routes, '/communications/nouveau');
+    const router = renderRoutes(routes, '/communications');
     const user = userEvent.setup();
-    await user.selectOptions(await screen.findByLabelText('Élève'), 's1');
-    await user.click(screen.getByRole('button', { name: 'Enregistrer le vocal (simulé)' }));
-    await user.click(screen.getByRole('button', { name: /Envoyer/ }));
+    const send = await screen.findByRole('button', { name: /^Envoyer/ });
+    expect(send).toBeDisabled();
+    await user.click(await screen.findByRole('button', { name: 'Lina Ben Salah' }));
     await waitFor(() =>
-      expect(router.state.location.pathname).toBe('/communications/conversations/c9'),
+      expect(screen.getByRole('textbox', { name: /Votre message/ })).toHaveFocus(),
     );
-    expect(
-      calls.find(
-        (c) => c.url === '/api/communications/teacher/conversations' && c.method === 'POST',
-      )?.body,
-    ).toEqual({
+    expect(send).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Enregistrer le vocal (simulé)' }));
+    expect(send).toBeEnabled();
+    await user.click(screen.getByRole('textbox', { name: /Votre message/ }));
+    await user.keyboard('{Control>}{Enter}{/Control}');
+    await waitFor(() => expect(router.state.location.search).toBe('?conversation=c9'));
+    expect(router.state.location.pathname).toBe('/communications');
+    expect(calls.find(postConversation)?.body).toEqual({
       studentId: 's1',
       text: null,
       voiceFileId: 'v9',
     });
   });
 
-  it('nouveau message vide : refusé avec une consigne, sans appel', async () => {
-    const calls = api(teacherMe);
-    renderRoutes(routes, '/communications/nouveau');
-    const user = userEvent.setup();
-    await user.selectOptions(await screen.findByLabelText('Élève'), 's1');
-    await user.click(screen.getByRole('button', { name: /Envoyer/ }));
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Écrivez un message ou enregistrez un message vocal',
+  it('nouveau message : élève cherché à la frappe, texte seul', async () => {
+    const calls = api(teacherMe, (call) =>
+      postConversation(call) ? json(201, conversation({ id: 'c9' })) : undefined,
     );
-    expect(calls.some((c) => c.method === 'POST')).toBe(false);
+    renderRoutes(routes, '/communications');
+    const user = userEvent.setup();
+    await user.type(await screen.findByRole('combobox', { name: 'Élève' }), 'Ada');
+    await user.click(await screen.findByRole('option', { name: /Adam Kefi/ }));
+    await user.type(screen.getByRole('textbox', { name: /Votre message/ }), 'Absent ce matin.');
+    await user.click(screen.getByRole('button', { name: /^Envoyer/ }));
+    await waitFor(() =>
+      expect(calls.find(postConversation)?.body).toEqual({
+        studentId: 's2',
+        text: 'Absent ce matin.',
+        voiceFileId: null,
+      }),
+    );
   });
 
-  it('conversation : réponse de l’administration signée, saisie disponible ; clôturée, la saisie disparaît', async () => {
+  it('envoi en échec : le texte est conservé et l’erreur affichée', async () => {
+    api(teacherMe, (call) => (postConversation(call) ? json(500, {}) : undefined));
+    renderRoutes(routes, '/communications');
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Lina Ben Salah' }));
+    const field = screen.getByRole('textbox', { name: /Votre message/ });
+    await user.type(field, 'Bonjour');
+    await user.click(screen.getByRole('button', { name: /^Envoyer/ }));
+    expect((await screen.findAllByRole('alert')).length).toBeGreaterThan(0);
+    expect(field).toHaveValue('Bonjour');
+  });
+
+  it('anciennes adresses : « nouveau » et « conversations/:id » ramènent à la page unique', async () => {
+    api(teacherMe);
+    const router = renderRoutes(routes, '/communications/conversations/c1');
+    await waitFor(() => expect(router.state.location.search).toBe('?conversation=c1'));
+    expect(router.state.location.pathname).toBe('/communications');
+    await router.navigate('/communications/nouveau');
+    await waitFor(() => expect(router.state.location.pathname).toBe('/communications'));
+    expect(router.state.location.search).toBe('');
+  });
+
+  it('conversation : réponse de l’administration signée, saisie disponible', async () => {
     api(teacherMe, (call) =>
       call.url === '/api/communications/teacher/conversations/c1'
         ? json(
@@ -189,10 +246,10 @@ describe('Enseignant', () => {
           )
         : undefined,
     );
-    renderRoutes(routes, '/communications/conversations/c1');
+    renderRoutes(routes, '/communications?conversation=c1');
     expect(await screen.findByText('Je m’en occupe.')).toBeInTheDocument();
     expect(screen.getAllByText(/Administration \(Mme Martin\)/).length).toBeGreaterThan(0);
-    expect(screen.getByRole('form', { name: /Envoyer/ })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Répondre à l’administration…')).toBeInTheDocument();
   });
 
   it('conversation clôturée : message expliquant la clôture, pas de saisie', async () => {
@@ -201,9 +258,9 @@ describe('Enseignant', () => {
         ? json(200, conversation({ status: 'CLOSED', canPost: false }))
         : undefined,
     );
-    renderRoutes(routes, '/communications/conversations/c1');
+    renderRoutes(routes, '/communications?conversation=c1');
     expect(await screen.findByText(/Conversation clôturée/)).toBeInTheDocument();
-    expect(screen.queryByRole('form', { name: /Envoyer/ })).toBeNull();
+    expect(screen.queryByPlaceholderText('Répondre à l’administration…')).toBeNull();
   });
 });
 

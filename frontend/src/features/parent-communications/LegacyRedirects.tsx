@@ -7,9 +7,9 @@ import { LoadingState } from '../../components/LoadingState';
  * Anciennes adresses 015 (favoris, notifications déjà reçues) : redirigées vers les écrans 017 (R11).
  */
 
-/** « Communication avec les parents » de l'enseignant → ses conversations avec l'administration. */
+/** « Communication avec les parents » de l'enseignant → sa page « Communications ». */
 export function TeacherLegacyRedirect() {
-  return <Navigate to="/communications/conversations" replace />;
+  return <Navigate to="/communications" replace />;
 }
 
 /** « Communications à valider » → « À valider ». */
