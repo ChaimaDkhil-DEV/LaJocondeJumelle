@@ -484,8 +484,13 @@ Both pull requests were opened at 22:35:25 and 22:36:59 and merged from the owne
   (`COVERAGE_TEACHER_ARRIVED` notification count: expected 1, received 0); 1092 backend integration tests passed. Neither pull
   request changes a file under `backend/` (the diff `ba393a4..71814d6` touches `.gitignore`, `e2e/` and `frontend/` only).
   Both runs started at 23:08 and 23:09 UTC, i.e. 00:08 and 00:09 in Paris; the test creates its coverage request at
-  "now minus 20 minutes", which falls on the previous day then. This is a hypothesis, not yet confirmed. Attempt 2 of
-  run 43326352374 was started at 23:18 UTC to test it.
+  "now minus 20 minutes", which falls on the previous day then. This is a hypothesis.
+- Attempt 2 of run 43326352374 (on `71814d6`, started at 23:18 UTC, no code change) finished with **success** at
+  23:30:20: backend integration 1093 passed, 2 skipped (real Whisper and n8n), `push-dispatch.spec.ts` passed at
+  23:22:14 UTC (00:22 in Paris, two minutes after the window described above), unit tests 1201 passed. `master` is
+  therefore green on `71814d6`; the run on `f34e52e` (43326302988) stays failed, it was not rerun. One passing
+  run after 00:20 is consistent with the hypothesis but does not prove it: the test itself was not changed or
+  investigated, and it can fail again for the first 20 minutes after midnight in Paris.
 
 No fix or `git revert` needed for the code of #111 and #112.
 
