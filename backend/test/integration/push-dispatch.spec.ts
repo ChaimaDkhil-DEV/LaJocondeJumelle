@@ -9,6 +9,7 @@ import { PUSH_SCHEDULER, PushDispatcher, type PushScheduler } from '../../src/pu
 import { PUSH_SENDER, type PushSendResult, type PushTarget } from '../../src/push/web-push.sender';
 import { CATEGORIES, categoryId, loginAs, seedDemo, userId } from '../utils/auth-helpers';
 import { clearCoverages, createCoverage, minutesFrom } from '../utils/coverage-fixtures';
+import { useMiddayTimezone } from '../utils/school-timezone';
 import { createTestApp, TEST_ORIGIN } from '../utils/test-app';
 import { resetDatabase } from '../utils/test-db';
 
@@ -25,6 +26,7 @@ interface Sent {
 }
 
 describe('Envoi des notifications en push (US1)', () => {
+  let restoreTz = () => undefined as void;
   const prisma = new PrismaClient();
   let app: INestApplication;
   let dispatcher: PushDispatcher;
@@ -100,6 +102,9 @@ describe('Envoi des notifications en push (US1)', () => {
     });
 
   beforeAll(async () => {
+    // Les demandes « du jour » (retard annoncé à maintenant - 20 min) ne doivent jamais passer minuit,
+    // quelle que soit l'heure du lancement : fuseau où il est environ 12 h, avant loadConfig().
+    ({ restore: restoreTz } = useMiddayTimezone());
     await resetDatabase(prisma);
     await seedDemo(prisma);
     await prisma.category.updateMany({ where: { kind: 'COVERAGE' }, data: { proofMode: 'QR' } });
@@ -151,6 +156,7 @@ describe('Envoi des notifications en push (US1)', () => {
     await dispatcher.settled();
     await app.close();
     await prisma.$disconnect();
+    restoreTz();
   });
 
   it('(a) garde affectée : un push par appareil du surveillant, contenu minimal (FR-015, contrat)', async () => {
