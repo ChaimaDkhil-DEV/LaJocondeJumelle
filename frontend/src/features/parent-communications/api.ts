@@ -266,11 +266,16 @@ async function toBody(
 
 // ------------------------------------------------------------------ Lecture
 
-export function useConversations(space: Space, filters: Record<string, string | undefined> = {}) {
+export function useConversations(
+  space: Space,
+  filters: Record<string, string | undefined> = {},
+  enabled = true,
+) {
   const entries = Object.entries(filters).filter((e): e is [string, string] => Boolean(e[1]));
   const qs = new URLSearchParams(entries).toString();
   return useQuery({
     queryKey: commKeys.list(space, filters),
+    enabled,
     queryFn: async () => {
       if (space !== 'admin') return apiFetch<ConversationSummary[]>(`${BASE[space]}/conversations`);
       const page = await apiFetch<{ items: ConversationSummary[]; nextCursor: string | null }>(

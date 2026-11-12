@@ -410,4 +410,13 @@ export const parentCommunications: Record<string, string> = {
     'You are not allowed to write to parents. Ask the super administrator for permission.',
   'Vous ne pouvez plus écrire dans cette conversation : l’élève ne vous est plus rattaché.':
     'You can no longer write in this conversation: the student is no longer linked to you.',
+  // Page unique de l'administration : onglets, boutons-filtres, panneau d'écriture.
+  'Vues des communications': 'Communications views',
+  '{count} message à valider': '{count} message to validate',
+  '{count} messages à valider': '{count} messages to validate',
+  'Filtrer les conversations': 'Filter conversations',
+  'Non lus': 'Unread',
+  Archivés: 'Archived',
+  'Élèves trouvés': 'Students found',
+  'Message à examiner': 'Message to review',
 };

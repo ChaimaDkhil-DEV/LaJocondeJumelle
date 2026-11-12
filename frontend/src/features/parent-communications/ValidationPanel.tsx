@@ -6,7 +6,6 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { Check, CornerUpLeft, X } from 'lucide-react';
 import { useState } from 'react';
-import { useParams } from 'react-router';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { formatDateTime } from '../../components/format';
@@ -22,7 +21,7 @@ import {
   useValidationDetail,
   type ValidationDetail,
 } from './api';
-import { ChatHeader, ChatShell, ConversationLink, MessageComposer } from './ChatParts';
+import { ChatHeader, ConversationLink, MessageComposer } from './ChatParts';
 import {
   CommunicationHistory,
   CommunicationStatusBadge,
@@ -30,9 +29,10 @@ import {
   RemarkAndVoice,
 } from './CommunicationParts';
 
-const BASE = '/communications/a-valider';
+/** Gros boutons de décision : au moins 44 px de haut. */
+const big = { minHeight: 44, px: 2.5 };
 
-/** Décision sur la version examinée : approuver, renvoyer (motif obligatoire), rejeter (motif obligatoire). */
+/** Décision sur la version examinée : approuver, renvoyer (motif obligatoire), refuser (motif obligatoire). */
 function DecisionPanel({ m }: { m: ValidationDetail }) {
   const decide = useDecision(m.id);
   const [pending, setPending] = useState<'RETURN' | 'REJECT' | null>(null);
@@ -63,25 +63,30 @@ function DecisionPanel({ m }: { m: ValidationDetail }) {
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
           <Button
             variant="contained"
-            startIcon={<Check size={icon.sm} aria-hidden="true" />}
+            color="success"
+            startIcon={<Check size={icon.md} aria-hidden="true" />}
             onClick={() => void send('APPROVE')}
             loading={decide.isPending}
+            sx={big}
           >
             {t('Approuver')}
           </Button>
           <Button
             variant="outlined"
-            startIcon={<CornerUpLeft size={icon.sm} aria-hidden="true" />}
+            startIcon={<CornerUpLeft size={icon.md} aria-hidden="true" />}
             onClick={() => setPending('RETURN')}
+            sx={big}
           >
             {t('Renvoyer pour correction')}
           </Button>
           <Button
+            variant="contained"
             color="error"
-            startIcon={<X size={icon.sm} aria-hidden="true" />}
+            startIcon={<X size={icon.md} aria-hidden="true" />}
             onClick={() => setPending('REJECT')}
+            sx={big}
           >
-            {t('Rejeter')}
+            {t('Refuser')}
           </Button>
         </Box>
       ) : (
@@ -104,10 +109,11 @@ function DecisionPanel({ m }: { m: ValidationDetail }) {
               color={pending === 'REJECT' ? 'error' : 'primary'}
               onClick={() => void send(pending)}
               loading={decide.isPending}
+              sx={big}
             >
-              {pending === 'RETURN' ? t('Confirmer le renvoi') : t('Confirmer le rejet')}
+              {pending === 'RETURN' ? t('Confirmer le renvoi') : t('Confirmer le refus')}
             </Button>
-            <Button color="inherit" onClick={() => setPending(null)}>
+            <Button color="inherit" onClick={() => setPending(null)} sx={big}>
               {t('Annuler')}
             </Button>
           </Box>
@@ -138,7 +144,7 @@ function OwnReturned({ m }: { m: ValidationDetail }) {
       />
       <Button
         color="inherit"
-        sx={{ justifySelf: 'start' }}
+        sx={{ justifySelf: 'start', ...big }}
         onClick={() => own.cancel.mutate(m.validation.version)}
         loading={own.cancel.isPending}
       >
@@ -148,7 +154,8 @@ function OwnReturned({ m }: { m: ValidationDetail }) {
   );
 }
 
-function Detail({ id }: { id: string }) {
+/** Volet droit de « À valider » : le message à examiner, la décision, l'historique. */
+export function ValidationPanel({ id, backTo }: { id: string; backTo: string }) {
   const detail = useValidationDetail(id);
   if (detail.isPending) return <LoadingState variant="detail" />;
   if (detail.isError) return <ErrorState message={t('Ce message est introuvable.')} />;
@@ -156,7 +163,7 @@ function Detail({ id }: { id: string }) {
   return (
     <>
       <ChatHeader
-        backTo={BASE}
+        backTo={backTo}
         avatar={
           <UserAvatar
             name={fullName(m.conversation.student)}
@@ -209,20 +216,25 @@ function Detail({ id }: { id: string }) {
   );
 }
 
-/** « À valider » (017) : messages de l'administration aux parents soumis à un autre validateur. */
-export function ValidationView() {
-  const { id } = useParams();
+/** Volet gauche de « À valider » : les messages en attente d'approbation. */
+export function ValidationList({
+  selectedId,
+  hrefOf,
+}: {
+  selectedId: string | null;
+  hrefOf: (id: string) => string;
+}) {
   const list = useToValidate();
-  const listNode = list.isPending ? (
-    <LoadingState />
-  ) : list.isError ? (
-    <ErrorState
-      message={t('Les messages à valider n’ont pas pu être chargés.')}
-      onAction={() => void list.refetch()}
-    />
-  ) : list.data.length === 0 ? (
-    <EmptyState compact title={t('Aucun message à valider')} />
-  ) : (
+  if (list.isPending) return <LoadingState />;
+  if (list.isError)
+    return (
+      <ErrorState
+        message={t('Les messages à valider n’ont pas pu être chargés.')}
+        onAction={() => void list.refetch()}
+      />
+    );
+  if (list.data.length === 0) return <EmptyState compact title={t('Aucun message à valider')} />;
+  return (
     <Box
       component="ul"
       aria-label={t('Messages à valider')}
@@ -239,7 +251,7 @@ export function ValidationView() {
       {list.data.map((m) => (
         <ConversationLink
           key={m.id}
-          to={`${BASE}/${m.id}`}
+          to={hrefOf(m.id)}
           avatar={
             <UserAvatar
               name={fullName(m.conversation.student)}
@@ -252,18 +264,9 @@ export function ValidationView() {
           preview={m.excerpt ?? (m.hasVoice ? t('Message vocal') : '')}
           when={m.submittedAt}
           unread={0}
-          selected={m.id === id}
+          selected={m.id === selectedId}
         />
       ))}
     </Box>
-  );
-  return (
-    <ChatShell
-      list={listNode}
-      detailOpen={Boolean(id)}
-      detail={
-        id ? <Detail id={id} /> : <EmptyState title={t('Choisissez un message à examiner')} />
-      }
-    />
   );
 }
