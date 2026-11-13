@@ -14,6 +14,25 @@ echo       LaJocondeJumelle
 echo ==========================================
 echo.
 
+REM Mise a jour : recupere la derniere version (git pull) puis relance ce script
+REM a neuf, car git peut avoir modifie start.bat lui-meme pendant son execution.
+if /i "%~1"=="--updated" goto UPDATED
+
+echo Mise a jour du code (git pull)...
+git pull --ff-only
+if errorlevel 1 (
+    echo ATTENTION : mise a jour impossible ^(modifications locales, autre branche ou hors ligne^).
+    echo Lancement avec la version actuelle du dossier.
+) else (
+    echo Installation des dependances...
+    call npm install --no-audit --no-fund
+    if errorlevel 1 echo ATTENTION : npm install a echoue, poursuite du demarrage.
+)
+call "%~f0" --updated
+exit /b %errorlevel%
+
+:UPDATED
+
 REM Configuration des ports
 REM Ne pas heriter du PORT du terminal parent
 set "PORT="
