@@ -497,3 +497,36 @@ No fix or `git revert` needed for the code of #111 and #112.
 ### Reminder
 
 Wait for CI on the latest commit of the pull request, then tick the four checks, before merging.
+
+## 12/11/2026 — pull request #114
+
+| Pull request | Content | Merged at (UTC) | Check not satisfied at merge time |
+|---------|---------|-------------------|-----------------------------------------------|
+| #114 (`fix-push-dispatch-minuit`) | `backend/test/integration/push-dispatch.spec.ts`: the suite uses `useMiddayTimezone()` (4 lines, no application code) | 23:48:45 | **1. CI**: both runs on `a375ba8` were in progress (43331842751, 43331877697); **all four checkboxes unticked** |
+
+The pull request was opened at 23:48:04 and merged from the owner's account 41 s later.
+
+### Findings after the fact
+
+- Both branch runs finished with success: 43331877697 (`pull_request`) at 23:58:32 and 43331842751 (`push`) at 23:59:48.
+- `master` CI after the merge: run 43331968610 on `a9e5181`, success (00:00:22 on 13/11): unit tests 1201 passed, backend
+  integration 1093 passed and 2 skipped (real Whisper and n8n).
+- That run does **not** exercise the fix: `push-dispatch.spec.ts` passed at 23:52:32 UTC, i.e. 00:52 in Paris, outside the
+  00:00 to 00:20 window in which it failed (see the entry for #111 and #112). The evidence for the fix is the one in the description
+  of the pull request: with the clock simulated at 00:05 in Paris (temporary, not committed), the unchanged case (d)
+  failed (expected 1, received 0) and the 17 tests of the suite passed after the change. No permanent guard test was added.
+- Four other integration suites build "now minus N minutes" slots without `useMiddayTimezone()`:
+  `supervision-permissions`, `supervision-reminders-job`, `supervision-stats`, `supervision-update`. They did not fail on the
+  night of 12/11. They were then checked with the clock simulated (only `Date`, temporary Jest setup file, not committed):
+  at 12:05 (control), 00:05 and 23:55 in Paris, all 211 tests passed each time (`supervision-permissions` 163,
+  `supervision-update` 16, `supervision-reminders-job` 13, `supervision-stats-export` 12, `supervision-stats` 7; the pattern
+  `supervision-stats` also selects `supervision-stats-export`). The set-up was validated beforehand: the pre-fix
+  `push-dispatch.spec.ts` (from `33e181c`) run under the same configuration at 00:05 failed only on case (d), 16 of 17. These
+  suites are therefore not exposed to the midnight defect at those two times. Not checked: why they are robust, a change of
+  month, a change of daylight saving time.
+
+No fix or `git revert` needed.
+
+### Reminder
+
+Wait for CI on the latest commit of the pull request, then tick the four checks, before merging.
