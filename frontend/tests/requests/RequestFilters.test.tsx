@@ -60,7 +60,7 @@ describe('RequestFilters', () => {
     await openFilters();
     await choose('Statut', 'En cours');
     await choose('Priorité', 'Urgente');
-    await waitFor(() => expect(lastList()).toBe('/api/requests?scope=mine&status=IN_PROGRESS&priority=URGENT'));
+    await waitFor(() => expect(lastList()).toBe('/api/requests?scope=mine&status=IN_PROGRESS&priority=URGENT&limit=100'));
     expect(router.state.location.search).toContain('statut=IN_PROGRESS');
     expect(router.state.location.search).toContain('priorite=URGENT');
   });
@@ -69,7 +69,7 @@ describe('RequestFilters', () => {
     const { lastList } = setup();
     await openFilters();
     await userEvent.type(screen.getByLabelText('Rechercher dans les titres'), 'brevet{Enter}');
-    await waitFor(() => expect(lastList()).toBe('/api/requests?scope=mine&q=brevet'));
+    await waitFor(() => expect(lastList()).toBe('/api/requests?scope=mine&q=brevet&limit=100'));
   });
 
   it('filtre par catégorie puis par destinataire de la catégorie', async () => {
@@ -78,7 +78,7 @@ describe('RequestFilters', () => {
     expect(screen.queryByRole('combobox', { name: 'Destinataire' })).not.toBeInTheDocument();
     await choose('Catégorie', 'Photocopies');
     await choose('Destinataire', 'Reprographie');
-    await waitFor(() => expect(lastList()).toBe('/api/requests?scope=mine&categoryId=cat-a&assigneeId=repro'));
+    await waitFor(() => expect(lastList()).toBe('/api/requests?scope=mine&categoryId=cat-a&assigneeId=repro&limit=100'));
   });
 
   it('filtre par période et par retard', async () => {
@@ -87,19 +87,19 @@ describe('RequestFilters', () => {
     await userEvent.type(screen.getByLabelText('Du'), '2026-04-01');
     await userEvent.type(screen.getByLabelText('Au'), '2026-04-30');
     await userEvent.click(screen.getByRole('checkbox', { name: 'En retard uniquement' }));
-    await waitFor(() => expect(lastList()).toBe('/api/requests?scope=mine&from=2026-04-01&to=2026-04-30&overdue=true'));
+    await waitFor(() => expect(lastList()).toBe('/api/requests?scope=mine&from=2026-04-01&to=2026-04-30&overdue=true&limit=100'));
   });
 
   it('reprend les filtres présents dans l’URL et indique leur nombre', async () => {
     const { lastList } = setup('/?onglet=envoyees&statut=DONE&priorite=URGENT&retard=1');
     expect(await screen.findByRole('button', { name: 'Filtres (3 actifs)' })).toBeVisible();
-    await waitFor(() => expect(lastList()).toBe('/api/requests?scope=mine&status=DONE&priority=URGENT&overdue=true'));
+    await waitFor(() => expect(lastList()).toBe('/api/requests?scope=mine&status=DONE&priority=URGENT&overdue=true&limit=100'));
   });
 
   it('ignore une priorité retirée restée dans un lien enregistré (016 : priorite=HIGH)', async () => {
     const { lastList } = setup('/?onglet=envoyees&priorite=HIGH&priorite=URGENT');
     expect(await screen.findByRole('button', { name: 'Filtres (1 actif)' })).toBeVisible();
-    await waitFor(() => expect(lastList()).toBe('/api/requests?scope=mine&priority=URGENT'));
+    await waitFor(() => expect(lastList()).toBe('/api/requests?scope=mine&priority=URGENT&limit=100'));
   });
 
   it('réinitialise les filtres et annonce une liste vide filtrée', async () => {
@@ -107,7 +107,7 @@ describe('RequestFilters', () => {
     expect(await screen.findByText('Aucune demande ne correspond à ces filtres.')).toBeVisible();
     await openFilters();
     await userEvent.click(screen.getByRole('button', { name: 'Réinitialiser les filtres' }));
-    await waitFor(() => expect(lastList()).toBe('/api/requests?scope=mine'));
+    await waitFor(() => expect(lastList()).toBe('/api/requests?scope=mine&limit=100'));
     expect(router.state.location.search).toBe('?onglet=envoyees');
   });
 });

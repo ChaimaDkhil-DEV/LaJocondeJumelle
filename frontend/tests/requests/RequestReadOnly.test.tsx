@@ -159,12 +159,13 @@ describe('Détail d’une demande', () => {
 });
 
 describe('Liste « Mes demandes »', () => {
-  it('masque la référence et n’affiche le délai que pour une demande active', async () => {
+  it('masque la référence ; la ligne ne montre plus le compte à rebours, seulement la priorité', async () => {
     renderAt('/?onglet=envoyees', detail());
     const active = await screen.findByRole('link', { name: /Photocopies du contrôle/ });
     const row = active.closest('li') as HTMLElement;
     expect(within(row).queryByText(/D-2026-000006/)).toBeNull();
-    expect(within(row).getByText(/Reste .* pour la prise en charge/)).toBeVisible();
+    expect(within(row).queryByText(/Reste .* pour la prise en charge/)).toBeNull();
+    expect(within(row).getByText('Normale')).toBeVisible();
   });
 
   it('aucun délai ni retard sur une demande terminée', async () => {

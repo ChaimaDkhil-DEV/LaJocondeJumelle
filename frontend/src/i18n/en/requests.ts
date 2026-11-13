@@ -183,5 +183,9 @@ export const requests: Record<string, string> = {
   'Aucune demande ne correspond à ces filtres.': 'No requests match these filters.',
   'Créer une demande': 'Create a request',
   'Afficher plus de demandes': 'Show more requests',
+  'Valider': 'Validate',
+  'Ouvrir': 'Open',
+  'Prioritaires': 'Priority',
+  'Autres': 'Others',
   'Chargement du tableau de bord': 'Loading dashboard',
 };
