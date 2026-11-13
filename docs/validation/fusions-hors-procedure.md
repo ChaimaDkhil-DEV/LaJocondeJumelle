@@ -497,3 +497,30 @@ No fix or `git revert` needed for the code of #111 and #112.
 ### Reminder
 
 Wait for CI on the latest commit of the pull request, then tick the four checks, before merging.
+
+## 12/11/2026 — pull request #114
+
+| Pull request | Content | Merged at (UTC) | Check not satisfied at merge time |
+|---------|---------|-------------------|-----------------------------------------------|
+| #114 (`fix-push-dispatch-minuit`) | `backend/test/integration/push-dispatch.spec.ts`: the suite uses `useMiddayTimezone()` (4 lines, no application code) | 23:48:45 | **1. CI**: both runs on `a375ba8` were in progress (43331842751, 43331877697); **all four checkboxes unticked** |
+
+The pull request was opened at 23:48:04 and merged from the owner's account 41 s later.
+
+### Findings after the fact
+
+- Both branch runs finished with success: 43331877697 (`pull_request`) at 23:58:32 and 43331842751 (`push`) at 23:59:48.
+- `master` CI after the merge: run 43331968610 on `a9e5181`, success (00:00:22 on 13/11): unit tests 1201 passed, backend
+  integration 1093 passed and 2 skipped (real Whisper and n8n).
+- That run does **not** exercise the fix: `push-dispatch.spec.ts` passed at 23:52:32 UTC, i.e. 00:52 in Paris, outside the
+  00:00 to 00:20 window in which it failed (see the entry for #111 and #112). The evidence for the fix is the one in the description
+  of the pull request: with the clock simulated at 00:05 in Paris (temporary, not committed), the unchanged case (d)
+  failed (expected 1, received 0) and the 17 tests of the suite passed after the change. No permanent guard test was added.
+- Four other integration suites build "now minus N minutes" slots without `useMiddayTimezone()`:
+  `supervision-permissions`, `supervision-reminders-job`, `supervision-stats`, `supervision-update`. They did not fail on the
+  night of 12/11; whether they are exposed to the same defect was not checked.
+
+No fix or `git revert` needed.
+
+### Reminder
+
+Wait for CI on the latest commit of the pull request, then tick the four checks, before merging.
