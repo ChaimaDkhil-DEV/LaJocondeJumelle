@@ -194,7 +194,6 @@ export const api: Record<string, string> = {
   'Choisissez la classe de l’élève.': 'Choose the student’s class.',
   'Numéro invalide : chiffres et espaces, « + » possible au début (8 à 20 caractères).':
     'Invalid number: digits and spaces, with an optional “+” at the start (8 to 20 characters).',
-  'Choisissez le service de restauration : cantine ou panier.': 'Choose the meal service: canteen or packed lunch.',
   'L’identifiant doit comporter au moins 3 caractères.': 'The username must be at least 3 characters long.',
   'L’identifiant ne doit pas dépasser 64 caractères.': 'The username must not exceed 64 characters.',
   'L’identifiant ne peut contenir que des lettres sans accent, chiffres, points, tirets et soulignés.':

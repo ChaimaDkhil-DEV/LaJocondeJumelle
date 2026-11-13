@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import type { MealService } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { AuditService } from '../audit/audit.service';
 import { normalizeText } from '../common/csv-parse';
@@ -20,7 +19,7 @@ import { StudentDto } from './students.dto';
 import type { StudentsContext } from './students.service';
 
 /** Colonnes du fichier d'élèves ; le premier titre de chaque liste est celui du modèle téléchargeable. */
-const COLUMNS: ColumnsSpec<'prenom' | 'nom' | 'classe' | 'telephone_parent' | 'restauration'> = {
+const COLUMNS: ColumnsSpec<'prenom' | 'nom' | 'classe' | 'telephone_parent'> = {
   prenom: { aliases: ['prenom', 'prenom_eleve', 'firstname'], required: true },
   nom: { aliases: ['nom', 'nom_eleve', 'nom_de_famille', 'nom_famille', 'lastname'], required: true },
   classe: { aliases: ['classe', 'class'], required: true },
@@ -28,29 +27,9 @@ const COLUMNS: ColumnsSpec<'prenom' | 'nom' | 'classe' | 'telephone_parent' | 'r
     aliases: ['telephone_parent', 'telephone', 'tel', 'telephone_du_parent', 'telephone_d_un_parent', 'mobile_parent'],
     required: true,
   },
-  restauration: { aliases: ['restauration', 'service', 'service_de_restauration', 'cantine_panier'], required: true },
 };
 
 export const MAX_STUDENTS_PER_IMPORT = 2000;
-
-const MEAL_LABELS: Record<MealService, string> = { CANTINE: 'cantine', PANIER: 'panier' };
-
-/** Le service de restauration est un choix explicite (jamais de valeur par défaut) : cantine ou panier. */
-function parseMeal(value: string, errors: string[]): MealService | null {
-  switch (normalizeText(value)) {
-    case 'cantine':
-      return 'CANTINE';
-    case 'panier':
-    case 'panier repas':
-      return 'PANIER';
-    case '':
-      errors.push('Le service de restauration est obligatoire : cantine ou panier.');
-      return null;
-    default:
-      errors.push(`Service de restauration inconnu : « ${value} ». Valeurs possibles : cantine, panier.`);
-      return null;
-  }
-}
 
 /** Clé d'un élève dans une classe : deux fichiers (ou deux lignes) ne créent jamais le même élève deux fois. */
 const studentKey = (classId: string, firstName: string, lastName: string) => `${classId}|${normalizeText(firstName)}|${normalizeText(lastName)}`;
@@ -61,7 +40,6 @@ interface PreparedStudent {
   lastName: string;
   classId: string;
   parentPhone: string;
-  mealService: MealService;
 }
 
 /**
@@ -106,7 +84,6 @@ export class StudentsImportService {
       else if (schoolClass && !schoolClass.levelId) {
         errors.push(`La classe « ${schoolClass.name} » n’a pas de niveau scolaire : rattachez-la à un niveau (menu Classes) avant d’y inscrire des élèves.`);
       }
-      const mealService = parseMeal(values.restauration, errors);
 
       // Mêmes règles que le formulaire : on passe par la classe de validation de l'élève.
       const checked = validateWithDto(StudentDto, {
@@ -114,7 +91,6 @@ export class StudentsImportService {
         lastName: values.nom,
         classId: schoolClass?.id ?? '00000000-0000-4000-8000-000000000000',
         parentPhone: values.telephone_parent,
-        mealService: mealService ?? 'CANTINE',
       });
       errors.push(...checked.errors);
 
@@ -127,16 +103,15 @@ export class StudentsImportService {
       }
 
       const label = `${values.prenom} ${values.nom}`.trim() || `Ligne ${row.line}`;
-      const detail = [schoolClass?.name, mealService && MEAL_LABELS[mealService]].filter(Boolean).join(' · ');
+      const detail = schoolClass?.name ?? '';
       processed.push({ line: row.line, label, detail, errors });
-      if (errors.length === 0 && checked.value && schoolClass && mealService) {
+      if (errors.length === 0 && checked.value && schoolClass) {
         prepared.push({
           id: randomUUID(),
           firstName: checked.value.firstName,
           lastName: checked.value.lastName,
           classId: schoolClass.id,
           parentPhone: checked.value.parentPhone,
-          mealService,
         });
       }
     }

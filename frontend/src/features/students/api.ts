@@ -3,11 +3,6 @@ import { apiFetch } from '../../api/client';
 import { t } from '../../i18n';
 import type { ImportReport } from '../admin/csvImport';
 
-/** Service de restauration : exactement un par élève. */
-export type MealService = 'CANTINE' | 'PANIER';
-
-export const MEAL_SERVICE_LABELS: Record<MealService, string> = { CANTINE: t('Cantine'), PANIER: t('Panier') };
-
 export type Cycle = 'PREPARATORY' | 'PRIMARY';
 
 export const CYCLE_LABELS: Record<Cycle, string> = { PREPARATORY: t('Préparatoire'), PRIMARY: t('Primaire') };
@@ -40,7 +35,6 @@ export interface Student {
   firstName: string;
   lastName: string;
   parentPhone: string;
-  mealService: MealService;
   active: boolean;
   class: { id: string; name: string; level: { id: string; name: string; position: number } | null };
 }
@@ -51,26 +45,12 @@ export interface StudentInput {
   lastName: string;
   classId: string;
   parentPhone: string;
-  mealService: MealService;
   active?: boolean;
-}
-
-/** Élève vu par l'administration : sans le téléphone du parent. */
-export type MealStudent = Omit<Student, 'parentPhone' | 'active'>;
-
-export interface MealChange {
-  id: string;
-  fromService: MealService;
-  toService: MealService;
-  reason: string | null;
-  createdAt: string;
-  actor: { id: string; displayName: string };
 }
 
 export const studentKeys = {
   levels: ['admin', 'levels'] as const,
   students: ['admin', 'students'] as const,
-  meals: ['meal-services', 'students'] as const,
 };
 
 export function useLevels() {
@@ -117,31 +97,6 @@ export function useSaveStudent() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: studentKeys.students });
       void queryClient.invalidateQueries({ queryKey: studentKeys.levels });
-      void queryClient.invalidateQueries({ queryKey: studentKeys.meals });
-    },
-  });
-}
-
-export function useMealStudents() {
-  return useQuery({ queryKey: studentKeys.meals, queryFn: () => apiFetch<MealStudent[]>('/api/meal-services/students') });
-}
-
-export function useMealHistory(studentId: string) {
-  return useQuery({
-    queryKey: [...studentKeys.meals, studentId, 'history'],
-    queryFn: () => apiFetch<MealChange[]>(`/api/meal-services/students/${studentId}/history`),
-  });
-}
-
-/** Passe un élève à l'autre service ; les listes sont rafraîchies même en cas de refus (donnée périmée). */
-export function useChangeMealService() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, ...body }: { id: string; mealService: MealService; reason?: string }) =>
-      apiFetch<MealStudent>(`/api/meal-services/students/${id}`, { method: 'PATCH', body }),
-    onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: studentKeys.meals });
-      void queryClient.invalidateQueries({ queryKey: studentKeys.students });
     },
   });
 }

@@ -6,8 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { adminRoutes } from '../../src/features/admin/adminRoutes';
 
 /**
- * Élèves (super administrateur) : liste filtrable, et service de restauration unique — boutons
- * radio Cantine / Panier, obligatoire, jamais deux cases à cocher.
+ * Élèves (super administrateur) : liste filtrable, création et modification.
  */
 
 type Call = { url: string; method: string; body: unknown };
@@ -42,20 +41,19 @@ const level = (classId: string) => {
   const l = LEVELS.find((x) => x.classes.some((c) => c.id === classId))!;
   return { id: l.id, name: l.name, position: l.position };
 };
-const student = (id: string, firstName: string, lastName: string, classId: string, mealService: 'CANTINE' | 'PANIER') => ({
+const student = (id: string, firstName: string, lastName: string, classId: string) => ({
   id,
   firstName,
   lastName,
   parentPhone: '06 39 98 00 0' + id.slice(1),
-  mealService,
   active: true,
   class: { id: classId, name: LEVELS.flatMap((l) => l.classes).find((c) => c.id === classId)!.name, level: level(classId) },
 });
 
 const STUDENTS = [
-  student('s1', 'Aya', 'Ben Ali', 'c1', 'CANTINE'),
-  student('s2', 'Adam', 'Zribi', 'c1', 'PANIER'),
-  student('s3', 'Lina', 'Hammami', 'c2', 'CANTINE'),
+  student('s1', 'Aya', 'Ben Ali', 'c1'),
+  student('s2', 'Adam', 'Zribi', 'c1'),
+  student('s3', 'Lina', 'Hammami', 'c2'),
 ];
 
 function setup(handler: (url: string, method: string, body: unknown) => Response | undefined = () => undefined) {
@@ -86,28 +84,21 @@ function setup(handler: (url: string, method: string, body: unknown) => Response
 afterEach(() => vi.unstubAllGlobals());
 
 describe('Élèves (super administrateur)', () => {
-  it('liste les élèves avec leur classe et leur service ; filtre par service et par classe', async () => {
+  it('liste les élèves avec leur classe ; filtre par classe', async () => {
     const user = userEvent.setup();
     setup();
     const list = await screen.findByRole('list', { name: 'Élèves' });
     expect(within(list).getAllByRole('listitem')).toHaveLength(3);
-    expect(screen.getByText('3 élèves · 2 à la cantine · 1 au panier')).toBeInTheDocument();
+    expect(screen.getByText('3 élèves')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Élèves' })).toHaveAttribute('aria-current', 'page');
 
-    await user.click(screen.getByRole('combobox', { name: 'Restauration' }));
-    await user.click(screen.getByRole('option', { name: 'Panier' }));
-    expect(within(screen.getByRole('list', { name: 'Élèves' })).getAllByRole('listitem')).toHaveLength(1);
-    expect(screen.getByText('ZRIBI Adam')).toBeInTheDocument();
-
-    await user.click(screen.getByRole('combobox', { name: 'Restauration' }));
-    await user.click(screen.getByRole('option', { name: 'Tous' }));
     await user.click(screen.getByRole('combobox', { name: 'Classe' }));
     await user.click(screen.getByRole('option', { name: 'Préparatoire 1 - Tulipe' }));
     expect(within(screen.getByRole('list', { name: 'Élèves' })).getAllByRole('listitem')).toHaveLength(1);
     expect(screen.getByText('HAMMAMI Lina')).toBeInTheDocument();
   });
 
-  it('nouvel élève : service obligatoire, un seul choix possible (radio), puis envoi', async () => {
+  it('nouvel élève : champs obligatoires, puis envoi', async () => {
     const user = userEvent.setup();
     const { calls } = setup((url, method, body) =>
       url === '/api/admin/students' && method === 'POST' ? json(201, { id: 's9', ...(body as object), active: true, class: { id: 'c9', name: '1re primaire - Marguerite', level: level('c9') } }) : undefined,
@@ -115,15 +106,9 @@ describe('Élèves (super administrateur)', () => {
     await user.click(await screen.findByRole('button', { name: 'Nouvel élève' }));
     const dialog = await screen.findByRole('dialog', { name: 'Nouvel élève' });
 
-    // Deux boutons radio d'un même groupe, aucun présélectionné ; aucune case à cocher.
-    const group = within(dialog).getByRole('radiogroup', { name: /Service de restauration/ });
-    const [cantine, panier] = within(group).getAllByRole('radio');
-    expect(cantine).not.toBeChecked();
-    expect(panier).not.toBeChecked();
-    expect(within(dialog).queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole('radiogroup')).not.toBeInTheDocument();
 
     await user.click(within(dialog).getByRole('button', { name: 'Enregistrer l’élève' }));
-    expect(within(dialog).getByText('Choisissez le service de restauration : cantine ou panier.')).toBeInTheDocument();
     expect(within(dialog).getByText('Le prénom est obligatoire.')).toBeInTheDocument();
     expect(calls.filter((c) => c.method === 'POST')).toHaveLength(0);
 
@@ -132,29 +117,25 @@ describe('Élèves (super administrateur)', () => {
     await user.click(within(dialog).getByRole('combobox', { name: /Classe/ }));
     await user.click(screen.getByRole('option', { name: '1re primaire - Marguerite' }));
     await user.type(within(dialog).getByLabelText(/Téléphone d’un parent/), '06 39 98 12 34');
-    await user.click(within(group).getByRole('radio', { name: 'Cantine' }));
-    await user.click(within(group).getByRole('radio', { name: 'Panier' }));
-    // Choisir « Panier » désélectionne « Cantine » : jamais les deux.
-    expect(within(group).getByRole('radio', { name: 'Cantine' })).not.toBeChecked();
-    expect(within(group).getByRole('radio', { name: 'Panier' })).toBeChecked();
 
     await user.click(within(dialog).getByRole('button', { name: 'Enregistrer l’élève' }));
     await waitFor(() =>
       expect(calls.find((c) => c.method === 'POST')).toMatchObject({
         url: '/api/admin/students',
-        body: { firstName: 'Malak', lastName: 'Feki', classId: 'c9', parentPhone: '06 39 98 12 34', mealService: 'PANIER' },
+        body: { firstName: 'Malak', lastName: 'Feki', classId: 'c9', parentPhone: '06 39 98 12 34' },
       }),
     );
   });
 
-  it('modification : le service actuel est présélectionné et modifiable', async () => {
+  it('modification : le prénom est modifiable', async () => {
     const user = userEvent.setup();
     const { calls } = setup((url, method, body) => (url === '/api/admin/students/s2' && method === 'PATCH' ? json(200, { ...STUDENTS[1], ...(body as object) }) : undefined));
     await user.click(await screen.findByRole('button', { name: 'Modifier l’élève Adam Zribi' }));
     const dialog = await screen.findByRole('dialog', { name: 'Modifier : Adam Zribi' });
-    expect(within(dialog).getByRole('radio', { name: 'Panier' })).toBeChecked();
-    await user.click(within(dialog).getByRole('radio', { name: 'Cantine' }));
+    const first = within(dialog).getByLabelText(/Prénom/);
+    await user.clear(first);
+    await user.type(first, 'Adem');
     await user.click(within(dialog).getByRole('button', { name: 'Enregistrer l’élève' }));
-    await waitFor(() => expect(calls.find((c) => c.method === 'PATCH')).toMatchObject({ url: '/api/admin/students/s2', body: { mealService: 'CANTINE', classId: 'c1' } }));
+    await waitFor(() => expect(calls.find((c) => c.method === 'PATCH')).toMatchObject({ url: '/api/admin/students/s2', body: { firstName: 'Adem', classId: 'c1' } }));
   });
 });

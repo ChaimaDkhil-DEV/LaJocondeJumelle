@@ -56,7 +56,6 @@ async function prepare(page: Page, marker: number) {
     ...student,
     classId,
     parentPhone: '06 12 34 56 78',
-    mealService: 'CANTINE',
   })) as { id: string } | Array<{ id: string; lastName: string }>;
   const studentId = Array.isArray(created)
     ? created.find((s) => s.lastName === student.lastName)!.id

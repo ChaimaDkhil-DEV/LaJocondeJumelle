@@ -84,7 +84,7 @@ describe('Page d’accueil', () => {
     const links = within(mainNav()).getAllByRole('link');
     // 012 : la section « Gardes » s'appelle « Surveillance », à la même adresse. 017 : « Communications »
     // pour toute l'administration.
-    expect(links.map((l) => l.textContent)).toEqual(['Tableau de bord', 'Mes demandes', 'Nouvelle demande', 'Surveillance', 'Communications', 'Restauration', 'Administrateur']);
+    expect(links.map((l) => l.textContent)).toEqual(['Tableau de bord', 'Mes demandes', 'Nouvelle demande', 'Surveillance', 'Communications', 'Administrateur']);
     expect(within(mainNav()).getByRole('link', { name: 'Surveillance' })).toHaveAttribute('href', '/gardes');
     expect(links[0]).toHaveAttribute('href', '/');
     expect(links[0]).toHaveAttribute('aria-current', 'page');
@@ -113,13 +113,13 @@ describe('Page d’accueil', () => {
   it.each([
     ['admin', ADMIN, true],
     ['employé', EMPLOYEE, false],
-  ])('%s : entrée « Administrateur » de la navigation (011) ; « Restauration » inchangée', async (_label, me, shown) => {
+  ])('%s : entrée « Administrateur » de la navigation (011) ; plus d’entrée « Restauration »', async (_label, me, shown) => {
     renderAt('/', me);
     await screen.findByRole('heading', { level: 1, name: 'Mes demandes' });
     const admin = within(mainNav()).queryByRole('link', { name: 'Administrateur' });
     if (shown) expect(admin).toHaveAttribute('href', '/admin');
     else expect(admin).not.toBeInTheDocument();
-    expect(Boolean(within(mainNav()).queryByRole('link', { name: 'Restauration' }))).toBe(me.role === 'ADMIN');
+    expect(within(mainNav()).queryByRole('link', { name: 'Restauration' })).not.toBeInTheDocument();
   });
 
   it('l’ancienne adresse /admin/tableau-de-bord mène à l’accueil, vue conservée', async () => {

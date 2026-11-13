@@ -10,15 +10,14 @@ const COLUMNS: readonly ImportColumn[] = [
   { name: 'nom', required: true, help: t('nom de famille de l’élève') },
   { name: 'classe', required: true, help: t('nom exact d’une classe rattachée à un niveau scolaire') },
   { name: 'telephone_parent', required: true, help: t('téléphone d’un parent, par exemple 06 12 34 56 78 ou +216 20 123 456') },
-  { name: 'restauration', required: true, help: t('cantine ou panier') },
 ];
 
 const TEMPLATE = {
   filename: 'modele-eleves.csv',
-  headers: ['prenom', 'nom', 'classe', 'telephone_parent', 'restauration'],
+  headers: ['prenom', 'nom', 'classe', 'telephone_parent'],
   rows: [
-    ['Amine', 'Ben Salah', '1re année primaire - Rose', '+216 20 123 456', 'cantine'],
-    ['Lina', 'Hammami', '1re année primaire - Rose', '+216 98 765 432', 'panier'],
+    ['Amine', 'Ben Salah', '1re année primaire - Rose', '+216 20 123 456'],
+    ['Lina', 'Hammami', '1re année primaire - Rose', '+216 98 765 432'],
   ],
 };
 

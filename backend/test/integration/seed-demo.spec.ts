@@ -71,19 +71,11 @@ describe('Seed de démonstration', () => {
     }
   });
 
-  it('élèves : toutes les classes, un seul service de restauration chacun (cantine ou panier)', async () => {
+  it('élèves : toutes les classes, un téléphone de parent chacun', async () => {
     const students = await prisma.student.findMany({ include: { class: true } });
     expect(students.length).toBeGreaterThan(32 * 20);
     expect(new Set(students.map((s) => s.classId)).size).toBe(32);
-    expect(students.every((s) => s.mealService === 'CANTINE' || s.mealService === 'PANIER')).toBe(true);
-    const cantine = students.filter((s) => s.mealService === 'CANTINE').length;
-    expect(cantine).toBeGreaterThan(0);
-    expect(students.length - cantine).toBeGreaterThan(0);
     expect(students.every((s) => /^06 39 98 \d{2} \d{2}$/.test(s.parentPhone))).toBe(true);
-    // La colonne est obligatoire : la base refuse un élève sans service.
-    await expect(
-      prisma.$executeRawUnsafe(`INSERT INTO "Student" ("id","firstName","lastName","classId","parentPhone","updatedAt") VALUES (gen_random_uuid(),'A','B','${students[0].classId}','06 39 98 99 99', now())`),
-    ).rejects.toThrow();
   });
 
   it('demandes du 12 au 30 octobre, catégories et priorités existantes, numérotation chronologique', async () => {
@@ -152,18 +144,12 @@ describe('Seed de démonstration', () => {
     const levels = await request(app.getHttpServer()).get('/api/admin/levels').set('Cookie', direction);
     expect(levels.body).toHaveLength(8);
     const classId = levels.body[0].classes[0].id as string;
-    const post = (mealService: unknown) =>
-      request(app.getHttpServer())
-        .post('/api/admin/students')
-        .set('Cookie', direction)
-        .set('Origin', TEST_ORIGIN)
-        .send({ firstName: 'Lina', lastName: 'Essai', classId, parentPhone: '06 39 98 99 01', mealService });
-    expect((await post(['CANTINE', 'PANIER'])).status).toBe(400);
-    expect((await post(undefined)).status).toBe(400);
-    expect((await post('LES_DEUX')).status).toBe(400);
-    const created = await post('PANIER');
+    const created = await request(app.getHttpServer())
+      .post('/api/admin/students')
+      .set('Cookie', direction)
+      .set('Origin', TEST_ORIGIN)
+      .send({ firstName: 'Lina', lastName: 'Essai', classId, parentPhone: '06 39 98 99 01' });
     expect(created.status).toBe(201);
-    expect(created.body.mealService).toBe('PANIER');
     const audit = await prisma.auditLog.findFirst({ where: { action: 'STUDENT_CHANGED', targetId: created.body.id } });
     expect(audit?.details).toEqual({ action: 'create', classId });
   });

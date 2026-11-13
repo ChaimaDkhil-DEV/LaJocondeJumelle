@@ -103,7 +103,7 @@ test.describe('Import CSV', () => {
     await page.getByRole('button', { name: 'Importer un fichier' }).click();
     const students = page.getByRole('dialog', { name: 'Importer des élèves' });
     const lastName = `Eleve${marker}`;
-    const csv = `prenom;nom;classe;telephone_parent;restauration\r\nAmine;${lastName};${className};+216 20 123 456;cantine\r\nLina;${lastName};${className.toUpperCase()};06 12 34 56 78;panier\r\n`;
+    const csv = `prenom;nom;classe;telephone_parent\r\nAmine;${lastName};${className};+216 20 123 456\r\nLina;${lastName};${className.toUpperCase()};06 12 34 56 78\r\n`;
     await students.getByLabel('Fichier CSV à importer').setInputFiles(file('eleves.csv', csv));
     await expect(students.getByText('Le fichier est valide : 2 élèves à créer.')).toBeVisible();
     await expectNoA11yViolations(page);

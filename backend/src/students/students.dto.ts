@@ -1,4 +1,4 @@
-import { MealService, SchoolCycle } from '@prisma/client';
+import { SchoolCycle } from '@prisma/client';
 import { Transform } from 'class-transformer';
 import { IsBoolean, IsEnum, IsInt, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min, MinLength } from 'class-validator';
 
@@ -6,7 +6,7 @@ const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? val
 /** Espaces multiples réduits : « 06  12 34 » → « 06 12 34 ». */
 const phone = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : value);
 
-/** Élève : une classe, un téléphone de parent et exactement un service de restauration. */
+/** Élève : une classe et un téléphone de parent. */
 export class StudentDto {
   @Transform(trim)
   @IsString()
@@ -28,25 +28,9 @@ export class StudentDto {
   @Matches(/^\+?\d[\d ]{6,18}\d$/, { message: 'Numéro invalide : chiffres et espaces, « + » possible au début (8 à 20 caractères).' })
   parentPhone!: string;
 
-  /** Un seul service : CANTINE ou PANIER (jamais les deux, jamais aucun). */
-  @IsEnum(MealService, { message: 'Choisissez le service de restauration : cantine ou panier.' })
-  mealService!: MealService;
-
   @IsOptional()
   @IsBoolean()
   active?: boolean;
-}
-
-/** Passage d'un élève à l'autre service de restauration, avec un motif facultatif. */
-export class ChangeMealServiceDto {
-  @IsEnum(MealService, { message: 'Choisissez le service de restauration : cantine ou panier.' })
-  mealService!: MealService;
-
-  @IsOptional()
-  @Transform(trim)
-  @IsString()
-  @MaxLength(300, { message: 'Le motif ne doit pas dépasser 300 caractères.' })
-  reason?: string;
 }
 
 /** Niveau scolaire (ex. « 1re année primaire ») : nom, cycle et ordre d'affichage, tous uniques ou obligatoires. */

@@ -65,8 +65,7 @@ describe('Communication enseignant / parents (015)', () => {
           firstName: 'Lina',
           lastName: 'Ben Salah',
           classId: violet,
-          parentPhone: '+21620000001',
-          mealService: 'CANTINE',
+          parentPhone: '+21620000001',
         },
       })
     ).id;
@@ -76,8 +75,7 @@ describe('Communication enseignant / parents (015)', () => {
           firstName: 'Yassine',
           lastName: 'Trabelsi',
           classId: bleu,
-          parentPhone: '+21620000002',
-          mealService: 'CANTINE',
+          parentPhone: '+21620000002',
         },
       })
     ).id;

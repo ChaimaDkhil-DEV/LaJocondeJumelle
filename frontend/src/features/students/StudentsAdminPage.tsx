@@ -6,16 +6,11 @@ import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
-import FormControl from '@mui/material/FormControl';
 import FormControlLabel from '@mui/material/FormControlLabel';
-import FormHelperText from '@mui/material/FormHelperText';
-import FormLabel from '@mui/material/FormLabel';
 import InputAdornment from '@mui/material/InputAdornment';
 import ListSubheader from '@mui/material/ListSubheader';
 import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
-import Radio from '@mui/material/Radio';
-import RadioGroup from '@mui/material/RadioGroup';
 import TablePagination from '@mui/material/TablePagination';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
@@ -33,7 +28,7 @@ import { useToast } from '../../components/Toast';
 import { font, icon } from '../../design/tokens';
 import { isPlural, locale, t } from '../../i18n';
 import { StudentsImportDialog } from './StudentsImportDialog';
-import { MEAL_SERVICE_LABELS, useLevels, useSaveStudent, useStudents, type GradeLevel, type MealService, type Student } from './api';
+import { useLevels, useSaveStudent, useStudents, type GradeLevel, type Student } from './api';
 
 const ROWS_PER_PAGE = [25, 50, 100];
 const PHONE_RE = /^\+?\d[\d ]{6,18}\d$/;
@@ -50,7 +45,7 @@ function classOptions(levels: GradeLevel[]) {
   ]);
 }
 
-type Errors = Partial<Record<'firstName' | 'lastName' | 'classId' | 'parentPhone' | 'mealService', string>>;
+type Errors = Partial<Record<'firstName' | 'lastName' | 'classId' | 'parentPhone', string>>;
 
 function StudentFormDialog({
   student,
@@ -64,14 +59,11 @@ function StudentFormDialog({
   onSaved: (message: string) => void;
 }) {
   const titleId = useId();
-  const mealLabelId = useId();
   const save = useSaveStudent();
   const [firstName, setFirstName] = useState(student?.firstName ?? '');
   const [lastName, setLastName] = useState(student?.lastName ?? '');
   const [classId, setClassId] = useState(student?.class.id ?? '');
   const [parentPhone, setParentPhone] = useState(student?.parentPhone ?? '');
-  // Aucun service présélectionné pour un nouvel élève : le choix est explicite.
-  const [mealService, setMealService] = useState<MealService | ''>(student?.mealService ?? '');
   const [active, setActive] = useState(student?.active ?? true);
   const [errors, setErrors] = useState<Errors>({});
 
@@ -82,10 +74,9 @@ function StudentFormDialog({
       ...(lastName.trim() ? {} : { lastName: t('Le nom est obligatoire.') }),
       ...(classId ? {} : { classId: t('Choisissez la classe de l’élève.') }),
       ...(PHONE_RE.test(parentPhone.trim().replace(/\s+/g, ' ')) ? {} : { parentPhone: t('Numéro invalide : chiffres et espaces, « + » possible au début.') }),
-      ...(mealService ? {} : { mealService: t('Choisissez le service de restauration : cantine ou panier.') }),
     };
     setErrors(next);
-    if (Object.keys(next).length > 0 || !mealService) return;
+    if (Object.keys(next).length > 0) return;
     save.mutate(
       {
         id: student?.id,
@@ -93,7 +84,6 @@ function StudentFormDialog({
         lastName: lastName.trim(),
         classId,
         parentPhone: parentPhone.trim(),
-        mealService,
         ...(student ? { active } : {}),
       },
       { onSuccess: () => onSaved(student ? t('Élève enregistré.') : t('Élève ajouté.')) },
@@ -150,15 +140,6 @@ function StudentFormDialog({
             helperText={errors.parentPhone ?? t('Par exemple : 06 12 34 56 78.')}
             slotProps={{ htmlInput: { maxLength: 20, inputMode: 'tel', autoComplete: 'off' } }}
           />
-          {/* Un seul service : boutons radio, jamais deux cases à cocher indépendantes. */}
-          <FormControl required error={Boolean(errors.mealService)}>
-            <FormLabel id={mealLabelId}>{t('Service de restauration')}</FormLabel>
-            <RadioGroup row aria-labelledby={mealLabelId} name="eleve-restauration" value={mealService} onChange={(e) => setMealService(e.target.value as MealService)}>
-              <FormControlLabel value="CANTINE" control={<Radio />} label={t('Cantine')} />
-              <FormControlLabel value="PANIER" control={<Radio />} label={t('Panier')} />
-            </RadioGroup>
-            {errors.mealService && <FormHelperText>{errors.mealService}</FormHelperText>}
-          </FormControl>
           {student && <FormControlLabel control={<Checkbox checked={active} onChange={(e) => setActive(e.target.checked)} />} label={t('Élève inscrit (actif)')} />}
           {save.error && <Alert severity="error">{save.error instanceof ApiError ? save.error.message : t('Enregistrement impossible.')}</Alert>}
         </DialogContent>
@@ -175,7 +156,7 @@ function StudentFormDialog({
 
 const normalize = (text: string) => text.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLocaleLowerCase(locale());
 
-/** Élèves par niveau et classe, avec leur service de restauration (super administrateur). */
+/** Élèves par niveau et classe (super administrateur). */
 export function StudentsAdminPage() {
   const students = useStudents();
   const levels = useLevels();
@@ -185,7 +166,6 @@ export function StudentsAdminPage() {
   const [query, setQuery] = useState('');
   const [levelId, setLevelId] = useState('');
   const [classId, setClassId] = useState('');
-  const [meal, setMeal] = useState<MealService | ''>('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(ROWS_PER_PAGE[0]);
 
@@ -195,11 +175,9 @@ export function StudentsAdminPage() {
       (s) =>
         (!levelId || s.class.level?.id === levelId) &&
         (!classId || s.class.id === classId) &&
-        (!meal || s.mealService === meal) &&
         (!q || normalize(`${s.firstName} ${s.lastName} ${s.lastName} ${s.firstName}`).includes(q)),
     );
-  }, [students.data, query, levelId, classId, meal]);
-  const cantine = filtered.filter((s) => s.mealService === 'CANTINE').length;
+  }, [students.data, query, levelId, classId]);
   const levelClasses = (levels.data ?? []).find((l) => l.id === levelId)?.classes ?? (levels.data ?? []).flatMap((l) => l.classes);
   const pageCount = Math.max(1, Math.ceil(filtered.length / rowsPerPage));
   const currentPage = Math.min(page, pageCount - 1);
@@ -213,7 +191,7 @@ export function StudentsAdminPage() {
       <SectionHeader
         id="titre-eleves"
         title={t('Élèves')}
-        description={t('Élèves par niveau et par classe, avec le téléphone d’un parent et le service de restauration (cantine ou panier).')}
+        description={t('Élèves par niveau et par classe, avec le téléphone d’un parent.')}
         action={
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
             <Button variant="outlined" startIcon={<FileUp size={icon.sm} aria-hidden="true" />} disabled={!levels.data || noClassWithLevel} onClick={() => setImporting(true)}>
@@ -302,27 +280,9 @@ export function StudentsAdminPage() {
                 </MenuItem>
               ))}
             </TextField>
-            <TextField
-              id="eleves-service"
-              select
-              size="small"
-              label={t('Restauration')}
-              value={meal}
-              onChange={(e) => (setMeal(e.target.value as MealService | ''), resetPage())}
-              sx={{ flex: '1 1 150px' }}
-              slotProps={{ select: { displayEmpty: true }, inputLabel: { shrink: true } }}
-            >
-              <MenuItem value="">{t('Tous')}</MenuItem>
-              <MenuItem value="CANTINE">{t('Cantine')}</MenuItem>
-              <MenuItem value="PANIER">{t('Panier')}</MenuItem>
-            </TextField>
           </Box>
           <Typography variant="body2" color="text.secondary" aria-live="polite" sx={{ px: 2, pb: 1.5 }}>
-            {t(isPlural(filtered.length) ? '{count} élèves · {cantine} à la cantine · {basket} au panier' : '{count} élève · {cantine} à la cantine · {basket} au panier', {
-              count: filtered.length,
-              cantine,
-              basket: filtered.length - cantine,
-            })}
+            {t(isPlural(filtered.length) ? '{count} élèves' : '{count} élève', { count: filtered.length })}
           </Typography>
           {filtered.length === 0 ? (
             <EmptyState
@@ -340,7 +300,6 @@ export function StudentsAdminPage() {
                         <Typography sx={{ fontWeight: font.medium, overflowWrap: 'anywhere' }}>
                           {s.lastName.toLocaleUpperCase(locale())} {s.firstName}
                         </Typography>
-                        <Badge tone={s.mealService === 'CANTINE' ? 'info' : 'warning'}>{MEAL_SERVICE_LABELS[s.mealService]}</Badge>
                         {!s.active && (
                           <Badge tone="neutral" icon={CircleOff}>
                             {t('Inactif')}
