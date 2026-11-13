@@ -221,7 +221,7 @@ describe('Onglet « À valider »', () => {
     const calls = renderList('ADMIN');
     await userEvent.click(await screen.findByRole('tab', { name: 'À valider' }));
     await waitFor(() =>
-      expect(calls.some((c) => c.url === '/api/requests?scope=managed&status=PENDING_ADMIN_VALIDATION&status=PENDING_FINAL_VALIDATION')).toBe(true),
+      expect(calls.some((c) => c.url === '/api/requests?scope=managed&status=PENDING_ADMIN_VALIDATION&status=PENDING_FINAL_VALIDATION&limit=100')).toBe(true),
     );
     expect(await screen.findByText('Aucune demande ne vous attend.')).toBeVisible();
   });

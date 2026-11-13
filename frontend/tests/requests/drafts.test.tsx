@@ -234,8 +234,8 @@ describe('onglet « Brouillons » (US2)', () => {
   it('liste les brouillons (scope=drafts) et mène à la page brouillon', async () => {
     const calls = listSetup([summary()], '/?onglet=brouillons');
     const link = await screen.findByRole('link', { name: /Photocopies du contrôle/ });
-    expect(within(link).getByText('Brouillon')).toBeVisible();
-    expect(calls.some((c) => c.url === '/api/requests?scope=drafts')).toBe(true);
+    expect(link).toHaveTextContent('Ouvrir');
+    expect(calls.some((c) => c.url === '/api/requests?scope=drafts&limit=100')).toBe(true);
     expect(link).toHaveAttribute('href', '/demandes/d1/brouillon');
   });
 });

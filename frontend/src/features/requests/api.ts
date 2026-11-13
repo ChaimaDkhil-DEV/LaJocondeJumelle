@@ -7,8 +7,8 @@ import type { CategoryOption, Page, RecipientOption, RequestDetail, RequestScope
 
 export const requestKeys = {
   all: ['requests'] as const,
-  list: (scope: RequestScope, statuses: readonly string[] = [], filters = '') =>
-    ['requests', 'list', scope, ...statuses, filters] as const,
+  list: (scope: RequestScope, statuses: readonly string[] = [], filters = '', limit = 0) =>
+    ['requests', 'list', scope, ...statuses, filters, ...(limit ? [limit] : [])] as const,
   detail: (id: string) => ['requests', 'detail', id] as const,
   /**
    * Compteurs de « Suivi de mes demandes » (016). Rangés sous ['requests', 'list'] : chaque invalidation
@@ -48,11 +48,15 @@ export function useRecipients(categoryId: string | null) {
   });
 }
 
-/** `filters` : paramètres supplémentaires déjà encodés (« &priority=URGENT&q=… »). */
-export function useRequestList(scope: RequestScope, statuses: readonly string[] = [], filters = '') {
-  const statusQuery = statuses.map((s) => `&status=${s}`).join('') + filters;
+/**
+ * `filters` : paramètres supplémentaires déjà encodés (« &priority=URGENT&q=… »). `limit` : taille de page
+ * (par défaut celle du serveur) ; `enabled` : faux pour ne pas lancer la requête ; « Mes demandes » trie côté client, elle charge de grandes pages.
+ */
+export function useRequestList(scope: RequestScope, statuses: readonly string[] = [], filters = '', limit = 0, enabled = true) {
+  const statusQuery = statuses.map((s) => `&status=${s}`).join('') + filters + (limit ? `&limit=${limit}` : '');
   return useInfiniteQuery({
-    queryKey: requestKeys.list(scope, statuses, filters),
+    queryKey: requestKeys.list(scope, statuses, filters, limit),
+    enabled,
     queryFn: ({ pageParam }) =>
       apiFetch<Page<RequestSummary>>(
         `/api/requests?scope=${scope}${statusQuery}${pageParam ? `&cursor=${encodeURIComponent(pageParam)}` : ''}`,
