@@ -279,7 +279,7 @@ describe('Import de comptes', () => {
 });
 
 describe('Import d’élèves', () => {
-  const STUDENTS_CSV = 'prenom;nom;classe;telephone_parent;restauration\r\nLina;Hammami;CP Violet;06 12 34 56 78;panier\r\n';
+  const STUDENTS_CSV = 'prenom;nom;classe;telephone_parent\r\nLina;Hammami;CP Violet;06 12 34 56 78\r\n';
   const open = async (user: ReturnType<typeof userEvent.setup>) => {
     await user.click(await screen.findByRole('button', { name: 'Importer un fichier' }));
     return screen.findByRole('dialog', { name: 'Importer des élèves' });
@@ -288,10 +288,10 @@ describe('Import d’élèves', () => {
   it('vérifie, confirme, puis rafraîchit la liste — sans mot de passe à télécharger', async () => {
     const user = userEvent.setup();
     const calls = setup('/admin/eleves', '/api/admin/students/import', (call) =>
-      json(200, call.body?.dryRun ? { ...base, total: 1, valid: 1, preview: [{ line: 2, label: 'Lina Hammami', detail: 'CP Violet · panier' }] } : { ...base, dryRun: false, created: true, count: 1, total: 1, valid: 1 }),
+      json(200, call.body?.dryRun ? { ...base, total: 1, valid: 1, preview: [{ line: 2, label: 'Lina Hammami', detail: 'CP Violet' }] } : { ...base, dryRun: false, created: true, count: 1, total: 1, valid: 1 }),
     );
     const dialog = await open(user);
-    expect(within(dialog).getAllByText(/\(obligatoire\)/)).toHaveLength(5);
+    expect(within(dialog).getAllByText(/\(obligatoire\)/)).toHaveLength(4);
     await upload(user, dialog, file(STUDENTS_CSV, 'eleves.csv'));
     expect(await within(dialog).findByText('Le fichier est valide : 1 élève à créer.')).toBeInTheDocument();
     expect(within(dialog).getByText('Lina Hammami')).toBeInTheDocument();

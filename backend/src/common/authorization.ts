@@ -33,11 +33,6 @@ export function canManageAdministration(user: Pick<PolicyUser, 'role' | 'active'
   return user.active && user.role === 'SUPER_ADMIN';
 }
 
-/** Service de restauration des élèves : la surveillante générale (rôle ADMIN) et le super administrateur. */
-export function canManageMealServices(user: Pick<PolicyUser, 'role' | 'active'>): boolean {
-  return user.active && (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN');
-}
-
 
 /**
  * Données de référence (étages, niveaux, classes, élèves) et liste des employés en lecture (011) :

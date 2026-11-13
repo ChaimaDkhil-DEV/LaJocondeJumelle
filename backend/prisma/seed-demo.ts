@@ -229,7 +229,7 @@ export async function runDemoSeed(prisma: PrismaClient, options: DemoSeedOptions
     guidelines.set(g.key, { id: row.id, title: row.title });
   }
 
-  // --- Élèves : 22 à 28 par classe, un seul service de restauration chacun.
+  // --- Élèves : 22 à 28 par classe.
   const random = new Random(DEMO_SEED);
   const students: Prisma.StudentCreateManyInput[] = [];
   CLASSES.forEach((c) => {
@@ -247,8 +247,7 @@ export async function runDemoSeed(prisma: PrismaClient, options: DemoSeedOptions
         firstName,
         lastName,
         classId: classIds.get(c.key)!,
-        parentPhone: fictionalPhone(students.length + 1),
-        mealService: random.chance(0.62) ? 'CANTINE' : 'PANIER',
+        parentPhone: fictionalPhone(students.length + 1),
         createdAt: rentree,
       });
     });

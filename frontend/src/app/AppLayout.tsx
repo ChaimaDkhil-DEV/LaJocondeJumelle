@@ -16,7 +16,6 @@ import {
   School,
   Settings,
   SquarePen,
-  UtensilsCrossed,
   type LucideIcon,
 } from 'lucide-react';
 import { useState } from 'react';
@@ -110,14 +109,6 @@ const COVERAGE_ITEM: NavItem = {
   matches: (p) => p.startsWith('/gardes'),
 };
 
-/** Service de restauration des élèves : administration (le serveur refuse aussi les autres rôles). */
-const MEAL_ITEM: NavItem = {
-  to: '/restauration',
-  label: t('Restauration'),
-  icon: UtensilsCrossed,
-  matches: (p) => p === '/restauration',
-};
-
 /** Espace Administrateur : admin et super administrateur (011) ; le serveur vérifie chaque route /api/admin. */
 const ADMIN_ITEM: NavItem = {
   to: '/admin',
@@ -154,7 +145,6 @@ export function navItemsFor(me: Me | undefined): NavItem[] {
     ...NAV_ITEMS,
     ...(canSeeCoverage(me) ? [COVERAGE_ITEM] : []),
     ...(me?.isTeacher || canUseAdministrationSpace(me) ? [COMMUNICATIONS_ITEM] : []),
-    ...(superAdmin || me?.role === 'ADMIN' ? [MEAL_ITEM] : []),
     ...(canUseAdministrationSpace(me) ? [ADMIN_ITEM] : []),
   ];
 }

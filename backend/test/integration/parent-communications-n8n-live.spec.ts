@@ -53,8 +53,7 @@ const audio = join(__dirname, '..', 'fixtures', 'audio', 'sample.webm');
           firstName: 'Lina',
           lastName: 'Ben Salah',
           classId: violet,
-          parentPhone: '+21620000001',
-          mealService: 'CANTINE',
+          parentPhone: '+21620000001',
         },
       })
     ).id;

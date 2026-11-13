@@ -39,8 +39,7 @@ describe('Niveaux scolaires', () => {
       firstName: 'Amine',
       lastName: 'Ben Salah',
       classId,
-      parentPhone: '+216 20 123 456',
-      mealService: 'CANTINE',
+      parentPhone: '+216 20 123 456',
     });
 
   beforeAll(async () => {
@@ -241,8 +240,7 @@ describe('Niveaux scolaires', () => {
         firstName: 'Amine',
         lastName: 'Ben Salah',
         classId: id,
-        parentPhone: '+216 20 123 456',
-        mealService: 'CANTINE',
+        parentPhone: '+216 20 123 456',
         active: false,
       });
       expect((await patchClass(id, 'Classe libérée', { levelId: null })).status).toBe(200);
@@ -252,13 +250,13 @@ describe('Niveaux scolaires', () => {
       const lvl = idOfLevel((await createLevel({ name: 'Niveau élèves admin', cycle: 'PRIMARY', position: 160 })).body as Level[], 'Niveau élèves admin');
       const classId = await createClass('Classe élèves admin', { levelId: lvl });
       expect((await get('admin', '/api/admin/students')).status).toBe(200);
-      const body = { firstName: 'Rim', lastName: 'Admin', classId, parentPhone: '+216 20 123 457', mealService: 'CANTINE' };
+      const body = { firstName: 'Rim', lastName: 'Admin', classId, parentPhone: '+216 20 123 457' };
       const invalid = await send('admin', 'post', '/api/admin/students', { ...body, firstName: '' });
       expect(invalid.status).toBe(400);
       const created = await send('admin', 'post', '/api/admin/students', body);
       expect(created.status).toBe(201);
       const id = (created.body as { id: string }).id;
-      expect((await send('admin', 'patch', `/api/admin/students/${id}`, { ...body, mealService: 'PANIER' })).status).toBe(200);
+      expect((await send('admin', 'patch', `/api/admin/students/${id}`, { ...body, lastName: 'Admin-Modifié' })).status).toBe(200);
       const adminId = (await prisma.user.findUniqueOrThrow({ where: { username: 'admin' } })).id;
       expect(await prisma.auditLog.count({ where: { action: 'STUDENT_CHANGED', actorId: adminId, targetId: id } })).toBe(2);
     });

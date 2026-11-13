@@ -101,7 +101,7 @@ export async function setupCommunications(): Promise<Fixture> {
   const student = async (firstName: string, classId: string) =>
     (
       await prisma.student.create({
-        data: { firstName, lastName: 'Famille', classId, parentPhone: '+21620000001', mealService: 'CANTINE' },
+        data: { firstName, lastName: 'Famille', classId, parentPhone: '+21620000001' },
       })
     ).id;
   const lina = await student('Lina', violet);

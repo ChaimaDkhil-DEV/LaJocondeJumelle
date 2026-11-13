@@ -120,8 +120,7 @@ describe('Communication aux parents : intégration n8n (015)', () => {
           firstName: 'Lina',
           lastName: 'Ben Salah',
           classId: violet,
-          parentPhone: '+21620000001',
-          mealService: 'CANTINE',
+          parentPhone: '+21620000001',
         },
       })
     ).id;

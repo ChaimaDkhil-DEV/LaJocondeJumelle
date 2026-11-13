@@ -285,7 +285,7 @@ describe('Imports CSV', () => {
   });
 
   describe('élèves', () => {
-    const HEADER = 'prenom;nom;classe;telephone_parent;restauration';
+    const HEADER = 'prenom;nom;classe;telephone_parent';
     let violet: string;
 
     beforeAll(async () => {
@@ -300,9 +300,9 @@ describe('Imports CSV', () => {
 
     it('l’aperçu ne crée rien', async () => {
       const before = await prisma.student.count();
-      const report = await importStudents(excel([HEADER, 'Amine;Ben Salah;CP Violet;+216 20 123 456;cantine']), true);
+      const report = await importStudents(excel([HEADER, 'Amine;Ben Salah;CP Violet;+216 20 123 456']), true);
       expect(report).toMatchObject({ created: false, total: 1, valid: 1, invalid: 0 });
-      expect(report.preview[0]).toMatchObject({ label: 'Amine Ben Salah', detail: 'CP Violet · cantine' });
+      expect(report.preview[0]).toMatchObject({ label: 'Amine Ben Salah', detail: 'CP Violet' });
       expect(await prisma.student.count()).toBe(before);
     });
 
@@ -310,14 +310,14 @@ describe('Imports CSV', () => {
       const report = await importStudents(
         excel([
           HEADER,
-          '  Lina ; Hammami ;cp violet;06   12  34 56 78;Panier', // espaces, casse de la classe, téléphone espacé
-          'Yassine;Zribi;CP BLEU;+216 98 765 432;Cantine',
+          '  Lina ; Hammami ;cp violet;06   12  34 56 78', // espaces, casse de la classe, téléphone espacé
+          'Yassine;Zribi;CP BLEU;+216 98 765 432',
         ]),
         false,
       );
       expect(report).toMatchObject({ created: true, count: 2 });
       const lina = await prisma.student.findFirstOrThrow({ where: { firstName: 'Lina' }, include: { class: true } });
-      expect(lina).toMatchObject({ lastName: 'Hammami', parentPhone: '06 12 34 56 78', mealService: 'PANIER', active: true, classId: violet });
+      expect(lina).toMatchObject({ lastName: 'Hammami', parentPhone: '06 12 34 56 78', active: true, classId: violet });
       expect(lina.class.name).toBe('CP Violet');
 
       const entry = await prisma.auditLog.findFirstOrThrow({ where: { action: 'STUDENT_CHANGED', targetId: lina.id } });
@@ -333,17 +333,15 @@ describe('Imports CSV', () => {
       const report = await importStudents(
         excel([
           HEADER,
-          'Valide;Eleve;CP Violet;+216 20 000 001;cantine', // 2
-          ';Sans;CP Violet;+216 20 000 002;cantine', // 3 : prénom vide
-          'Classe;Inconnue;CM9;+216 20 000 003;cantine', // 4
-          'Classe;SansNiveau;Salle sans niveau;+216 20 000 004;cantine', // 5
-          'Classe;Fermee;CP Fermée;+216 20 000 005;cantine', // 6
-          'Tel;Faux;CP Violet;abc;cantine', // 7
-          'Repas;Absent;CP Violet;+216 20 000 006;', // 8
-          'Repas;Inconnu;CP Violet;+216 20 000 007;buffet', // 9
-          'Double;Eleve;CP Bleu;+216 20 000 008;cantine', // 10
-          'DOUBLE;eleve;cp bleu;+216 20 000 009;panier', // 11 : même élève, même classe
-          'Autre;Classe;CP Violet;+216 20 000 010;cantine;en trop', // 12
+          'Valide;Eleve;CP Violet;+216 20 000 001', // 2
+          ';Sans;CP Violet;+216 20 000 002', // 3 : prénom vide
+          'Classe;Inconnue;CM9;+216 20 000 003', // 4
+          'Classe;SansNiveau;Salle sans niveau;+216 20 000 004', // 5
+          'Classe;Fermee;CP Fermée;+216 20 000 005', // 6
+          'Tel;Faux;CP Violet;abc', // 7
+          'Double;Eleve;CP Bleu;+216 20 000 008', // 8
+          'DOUBLE;eleve;cp bleu;+216 20 000 009', // 9 : même élève, même classe
+          'Autre;Classe;CP Violet;+216 20 000 010;en trop', // 10
         ]),
         true,
       );
@@ -354,22 +352,20 @@ describe('Imports CSV', () => {
       expect(errorsOf(report, 5).join(' ')).toMatch(/n’a pas de niveau scolaire/);
       expect(errorsOf(report, 6)).toEqual(['La classe « CP Fermée » est désactivée.']);
       expect(errorsOf(report, 7).join(' ')).toMatch(/Numéro invalide/);
-      expect(errorsOf(report, 8)).toEqual(['Le service de restauration est obligatoire : cantine ou panier.']);
-      expect(errorsOf(report, 9)).toEqual(['Service de restauration inconnu : « buffet ». Valeurs possibles : cantine, panier.']);
-      expect(errorsOf(report, 10)).toEqual([]);
-      expect(errorsOf(report, 11)).toEqual(['Élève en double dans le fichier (déjà ligne 10).']);
-      expect(errorsOf(report, 12).join(' ')).toMatch(/Trop de colonnes/);
+      expect(errorsOf(report, 8)).toEqual([]);
+      expect(errorsOf(report, 9)).toEqual(['Élève en double dans le fichier (déjà ligne 8).']);
+      expect(errorsOf(report, 10).join(' ')).toMatch(/Trop de colonnes/);
     });
 
     it('tout ou rien : une ligne en erreur et aucun élève n’est créé', async () => {
       const before = await prisma.student.count();
-      const report = await importStudents(excel([HEADER, 'Bon;Un;CP Violet;+216 20 111 111;cantine', 'Mauvais;Deux;Nulle part;+216 20 111 112;cantine']), false);
+      const report = await importStudents(excel([HEADER, 'Bon;Un;CP Violet;+216 20 111 111', 'Mauvais;Deux;Nulle part;+216 20 111 112']), false);
       expect(report).toMatchObject({ created: false, valid: 1, invalid: 1 });
       expect(await prisma.student.count()).toBe(before);
     });
 
     it('relancer le même fichier est refusé : les élèves déjà inscrits ne sont pas dupliqués', async () => {
-      const file = excel([HEADER, 'Relance;Premier;CP Violet;+216 20 222 221;cantine', 'Relance;Second;CP Violet;+216 20 222 222;panier']);
+      const file = excel([HEADER, 'Relance;Premier;CP Violet;+216 20 222 221', 'Relance;Second;CP Violet;+216 20 222 222']);
       expect((await importStudents(file, false)).created).toBe(true);
       const again = await importStudents(file, false);
       expect(again).toMatchObject({ created: false, invalid: 2 });
@@ -378,23 +374,23 @@ describe('Imports CSV', () => {
     });
 
     it('un même nom dans deux classes différentes est permis', async () => {
-      const report = await importStudents(excel([HEADER, 'Homonyme;Eleve;CP Violet;+216 20 333 331;cantine', 'Homonyme;Eleve;CP Bleu;+216 20 333 332;cantine']), false);
+      const report = await importStudents(excel([HEADER, 'Homonyme;Eleve;CP Violet;+216 20 333 331', 'Homonyme;Eleve;CP Bleu;+216 20 333 332']), false);
       expect(report).toMatchObject({ created: true, count: 2 });
     });
 
     it('reconnaît les variantes de titres de colonnes', async () => {
-      const report = await importStudents('Prénom;Nom;Classe;Téléphone du parent;Service de restauration\nTitres;Souples;CP Violet;+216 20 444 441;Panier\n', false);
+      const report = await importStudents('Prénom;Nom;Classe;Téléphone du parent\nTitres;Souples;CP Violet;+216 20 444 441\n', false);
       expect(report).toMatchObject({ created: true, count: 1 });
     });
 
     it('colonne inconnue : le fichier est refusé en entier', async () => {
-      const report = await importStudents(`${HEADER};allergies\nA;B;CP Violet;+216 20 555 551;cantine;noix`, false);
+      const report = await importStudents(`${HEADER};allergies\nA;B;CP Violet;+216 20 555 551;noix`, false);
       expect(report.fileErrors.join(' ')).toMatch(/Colonne inconnue : « allergies »/);
       expect(report.created).toBe(false);
     });
 
     it('accepte un fichier de 2000 élèves (plus de 100 ko) grâce à la limite relevée sur cette route seule', async () => {
-      const lines = [HEADER, ...Array.from({ length: 2000 }, (_, i) => `Prenom${i};NomDeFamille${i};CP Bleu;+216 20 ${String(100000 + i).slice(0, 3)} ${String(100000 + i).slice(3)};cantine`)];
+      const lines = [HEADER, ...Array.from({ length: 2000 }, (_, i) => `Prenom${i};NomDeFamille${i};CP Bleu;+216 20 ${String(100000 + i).slice(0, 3)} ${String(100000 + i).slice(3)}`)];
       const csv = excel(lines);
       expect(csv.length).toBeGreaterThan(100 * 1024);
       const report = await importStudents(csv, true);
@@ -402,7 +398,7 @@ describe('Imports CSV', () => {
     });
 
     it('plus de 2000 élèves : fichier refusé', async () => {
-      const lines = [HEADER, ...Array.from({ length: 2001 }, (_, i) => `P${i};N${i};CP Bleu;+216 20 ${String(100000 + i).slice(0, 3)} ${String(100000 + i).slice(3)};cantine`)];
+      const lines = [HEADER, ...Array.from({ length: 2001 }, (_, i) => `P${i};N${i};CP Bleu;+216 20 ${String(100000 + i).slice(0, 3)} ${String(100000 + i).slice(3)}`)];
       const report = await importStudents(excel(lines), true);
       expect(report.fileErrors.join(' ')).toMatch(/limité à 2000 lignes/);
     });
@@ -424,9 +420,9 @@ describe('Imports CSV', () => {
     });
 
     it('l’admin vérifie puis importe des élèves (011, FR-003), journalisé à son nom', async () => {
-      const csv = excel([HEADER, 'Nour;ImportAdmin;CP Violet;+216 20 777 771;cantine', 'Sami;ImportAdmin;CP Bleu;+216 20 777 772;panier']);
+      const csv = excel([HEADER, 'Nour;ImportAdmin;CP Violet;+216 20 777 771', 'Sami;ImportAdmin;CP Bleu;+216 20 777 772']);
       const before = await prisma.student.count();
-      const check = await post('admin', '/api/admin/students/import', { csv: excel([HEADER, 'Faux;Eleve;Classe inconnue;+216 20 777 773;cantine']), dryRun: true });
+      const check = await post('admin', '/api/admin/students/import', { csv: excel([HEADER, 'Faux;Eleve;Classe inconnue;+216 20 777 773']), dryRun: true });
       expect(check.status).toBe(200);
       expect(check.body).toMatchObject({ created: false, invalid: 1 });
       expect(await prisma.student.count()).toBe(before);
@@ -444,7 +440,7 @@ describe('Imports CSV', () => {
 
     it.each(['surveillant', 'enseignante'])('%s ne peut pas importer', async (who) => {
       const before = await prisma.student.count();
-      const res = await post(who, '/api/admin/students/import', { csv: excel([HEADER, 'Interdit;Eleve;CP Violet;+216 20 666 661;cantine']), dryRun: false });
+      const res = await post(who, '/api/admin/students/import', { csv: excel([HEADER, 'Interdit;Eleve;CP Violet;+216 20 666 661']), dryRun: false });
       expect(res.status).toBe(403);
       expect(await prisma.student.count()).toBe(before);
     });

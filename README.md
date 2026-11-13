@@ -156,9 +156,9 @@ download.
 
 | Accounts | | Students | |
 |---|---|---|---|
-| `identifiant`, `nom_affiche` | required | `prenom`, `nom`, `classe`, `telephone_parent`, `restauration` | all required |
+| `identifiant`, `nom_affiche` | required | `prenom`, `nom`, `classe`, `telephone_parent` | all required |
 | `fonction`, `role` (`employé` by default, or `admin`) | optional | `classe` | name of a class **attached to a school level** |
-| `groupes`, `categories` (names separated by `\|`), `etage` | optional | `restauration` | `cantine` or `panier` |
+| `groupes`, `categories` (names separated by `\|`), `etage` | optional | | |
 
 A super administrator account is never created by import. After creating accounts, the dialog gives the **temporary
 passwords once** as a downloadable CSV (they are stored hashed, never in clear): hand each person their own, delete the

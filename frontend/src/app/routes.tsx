@@ -17,7 +17,6 @@ import { CreateRequestPage } from '../features/requests/CreateRequestPage';
 import { RequestDetailPage } from '../features/requests/RequestDetailPage';
 import { DraftPage } from '../features/requests/DraftPage';
 import { RequestListPage } from '../features/requests/RequestListPage';
-import { MealServicesPage } from '../features/students/MealServicesPage';
 import { CommunicationsPage } from '../features/parent-communications/CommunicationsPage';
 import {
   CommunicationsLegacyRedirect,
@@ -58,8 +57,6 @@ export const routes: RouteObject[] = [
       // Lien encodé dans le QR code de la classe : n'enregistre rien sans confirmation explicite.
       { path: 'gardes/presence', element: <QrEntryPage /> },
       { path: 'gardes/:id', element: <CoverageDetailPage /> },
-      // Service de restauration des élèves (rôles vérifiés par l'API).
-      { path: 'restauration', element: <MealServicesPage /> },
       // Communications (017) : enseignants et administration ; droits vérifiés par l'API.
       { path: 'communications', element: <CommunicationsPage /> },
       // Anciennes pages de l'administration → la page unique `/communications?vue=…`.

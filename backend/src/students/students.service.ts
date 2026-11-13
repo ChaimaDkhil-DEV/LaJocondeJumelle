@@ -4,7 +4,6 @@ import { AuditService } from '../audit/audit.service';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import { AppException } from '../common/errors';
 import { PrismaService } from '../common/prisma.service';
-import { recordMealChange } from './meal-change';
 import type { LevelDto, StudentDto, UpdateLevelDto } from './students.dto';
 
 export interface StudentsContext {
@@ -19,7 +18,6 @@ const STUDENT_SELECT = {
   firstName: true,
   lastName: true,
   parentPhone: true,
-  mealService: true,
   active: true,
   class: { select: { id: true, name: true, level: { select: { id: true, name: true, position: true } } } },
 } as const;
@@ -60,14 +58,11 @@ export function byLevelClassAndName(a: SortableStudent, b: SortableStudent): num
 
 /** Champs modifiés, sans leurs valeurs : le journal ne garde aucune donnée personnelle d'élève. */
 function changedFields(before: Student, after: StudentDto): string[] {
-  const keys = ['firstName', 'lastName', 'classId', 'parentPhone', 'mealService', 'active'] as const;
+  const keys = ['firstName', 'lastName', 'classId', 'parentPhone', 'active'] as const;
   return keys.filter((key) => after[key] !== undefined && after[key] !== before[key]);
 }
 
-/**
- * Niveaux, classes et élèves (super administrateur). Le service de restauration est une valeur
- * unique (CANTINE ou PANIER) : la base, le DTO et le formulaire n'en admettent qu'une.
- */
+/** Niveaux, classes et élèves (super administrateur). */
 @Injectable()
 export class StudentsService {
   constructor(
@@ -156,7 +151,6 @@ export class StudentsService {
           lastName: dto.lastName,
           classId: dto.classId,
           parentPhone: dto.parentPhone,
-          mealService: dto.mealService,
           active: dto.active ?? true,
         },
         select: STUDENT_SELECT,
@@ -175,22 +169,17 @@ export class StudentsService {
     if (!current) throw new AppException('NOT_FOUND');
     if (dto.classId !== current.classId) await this.checkClass(dto.classId);
     return this.prisma.$transaction(async (tx) => {
-      // La condition sur l'ancien service garantit un historique exact si la surveillante agit en même temps.
       const { count } = await tx.student.updateMany({
-        where: { id, mealService: current.mealService },
+        where: { id },
         data: {
           firstName: dto.firstName,
           lastName: dto.lastName,
           classId: dto.classId,
           parentPhone: dto.parentPhone,
-          mealService: dto.mealService,
           active: dto.active ?? current.active,
         },
       });
       if (count === 0) throw new AppException('STATE_CHANGED');
-      if (dto.mealService !== current.mealService) {
-        await recordMealChange(tx, { studentId: id, from: current.mealService, to: dto.mealService, actorId: ctx.actor.id });
-      }
       const student = await tx.student.findUniqueOrThrow({ where: { id }, select: STUDENT_SELECT });
       await this.audit.log(
         'STUDENT_CHANGED',
