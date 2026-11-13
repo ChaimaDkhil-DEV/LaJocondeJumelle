@@ -45,3 +45,18 @@ export class UploadRateLimitGuard implements CanActivate {
     return true;
   }
 }
+
+/** Tentatives de changement de mot de passe par utilisateur : freine le devinage du mot de passe actuel depuis une session détournée. */
+export const PASSWORD_CHANGE_RATE_LIMIT = 5;
+export const PASSWORD_CHANGE_RATE_WINDOW_MS = 15 * 60_000;
+const passwordLimiter = new UserRateLimiter(PASSWORD_CHANGE_RATE_LIMIT, PASSWORD_CHANGE_RATE_WINDOW_MS);
+
+@Injectable()
+export class PasswordChangeRateLimitGuard implements CanActivate {
+  canActivate(context: ExecutionContext): boolean {
+    const userId = context.switchToHttp().getRequest<Request>().auth?.user.id;
+    if (!userId) return true;
+    if (!passwordLimiter.tryConsume(userId)) throw new AppException('RATE_LIMITED', undefined, 'Trop de tentatives. Patientez quelques minutes avant de réessayer.');
+    return true;
+  }
+}

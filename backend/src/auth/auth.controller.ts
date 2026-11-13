@@ -15,6 +15,7 @@ import { clientIp } from '../common/request-info';
 import { SESSION_COOKIE } from './session.guard';
 import { SessionService } from './session.service';
 import { ParentAllowed } from './parent-allowed.decorator';
+import { PasswordChangeRateLimitGuard } from '../common/upload-rate-limit.guard';
 
 @ParentAllowed()
 @Controller('auth')
@@ -67,6 +68,7 @@ export class AuthController {
   }
 
   @Post('password')
+  @UseGuards(PasswordChangeRateLimitGuard)
   @HttpCode(204)
   async changePassword(
     @CurrentAuth() auth: AuthContext,

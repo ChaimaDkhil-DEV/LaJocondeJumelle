@@ -79,6 +79,7 @@ export class FilesController {
 
     res.setHeader('Content-Type', file.mimeType);
     res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Content-Security-Policy', "sandbox; default-src 'none'");
     res.setHeader('Cache-Control', 'private, no-store');
     res.setHeader('Content-Disposition', contentDisposition(file.mimeType, file.originalName));
 
