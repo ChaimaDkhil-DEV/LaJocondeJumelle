@@ -21,11 +21,15 @@ export const PARAM = {
 /** Préremplissage du panneau (« Contacter le parent », anciennes adresses). */
 export const PREFILL_KEYS = ['type', 'studentId', 'linkedInternalId'] as const;
 
-/** L'onglet demandé ; « À valider » sans le droit de valider, ou une valeur inconnue : la boîte de réception. */
+/**
+ * L'onglet demandé. Par défaut « Messages » (toutes les conversations, le filtre « Non lus » remplace
+ * la boîte de réception) ; « À valider » sans le droit de valider, ou une valeur inconnue : idem.
+ * `?vue=boite` des anciens liens reste valide.
+ */
 export function parseVue(raw: string | null, canValidate: boolean): Vue {
-  if (raw === 'conversations') return 'conversations';
+  if (raw === 'boite') return 'boite';
   if (raw === 'valider' && canValidate) return 'valider';
-  return 'boite';
+  return 'conversations';
 }
 
 export type ConversationFilter = 'all' | 'unread' | 'teachers' | 'parents' | 'archived';

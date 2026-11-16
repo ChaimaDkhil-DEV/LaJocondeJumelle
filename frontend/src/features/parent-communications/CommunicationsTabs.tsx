@@ -70,7 +70,7 @@ export function CommunicationsTabs({
       role="tablist"
       aria-label={t('Vues des communications')}
       onKeyDown={onKeyDown}
-      sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}
+      sx={(theme) => ({ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2, [theme.breakpoints.down('md')]: { display: 'none' } })}
     >
       {tabs.map(({ vue: key, label, icon: Icon, count, countLabel }) => {
         const selected = key === vue;

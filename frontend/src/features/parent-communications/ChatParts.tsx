@@ -18,7 +18,15 @@ import {
   Send,
   type LucideIcon,
 } from 'lucide-react';
-import { Fragment, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import {
+  Fragment,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+  type RefObject,
+} from 'react';
 import { Link as RouterLink } from 'react-router';
 import { useClientSettings } from '../../api/settings';
 import { visuallyHidden } from '../../components/a11y';
@@ -26,6 +34,7 @@ import { Badge } from '../../components/Badge';
 import { font, fontSize, icon, motion, radius, tokensOf, type Tone } from '../../design/tokens';
 import { isPlural, locale, t } from '../../i18n';
 import { VoicePlayer } from '../voice/VoicePlayer';
+import { useVisualViewport } from './useVisualViewport';
 import { VoiceRecorder, type VoiceRecording } from '../voice/VoiceRecorder';
 import type { CommunicationStatus, Message } from './api';
 
@@ -91,6 +100,7 @@ export function ChatShell({
   detailLabel = t('Conversation'),
   listWidth,
   height,
+  fab,
 }: {
   list: ReactNode;
   detail: ReactNode;
@@ -101,7 +111,10 @@ export function ChatShell({
   listWidth?: number;
   /** Hauteur maximale du cadre (px) ; sinon la hauteur de l'écran. */
   height?: number;
+  /** Bouton flottant de la liste (« Nouveau message »). */
+  fab?: ReactNode;
 }) {
+  const viewport = useVisualViewport();
   return (
     <Paper
       variant="elevated"
@@ -124,21 +137,39 @@ export function ChatShell({
           display: { xs: detailOpen ? 'none' : 'flex', md: 'flex' },
           flexDirection: 'column',
           minHeight: 0,
+          position: 'relative',
           borderRight: { md: 1 },
           borderColor: { md: 'divider' },
         }}
       >
         {list}
+        {fab}
       </Box>
       <Box
         component="section"
         aria-label={detailLabel}
-        sx={{
+        style={
+          {
+            '--chat-h': `${viewport.height}px`,
+            '--chat-top': `${viewport.offsetTop}px`,
+          } as CSSProperties
+        }
+        sx={(theme) => ({
           display: { xs: detailOpen ? 'flex' : 'none', md: 'flex' },
           flexDirection: 'column',
           minHeight: { xs: '70dvh', md: 0 },
           minWidth: 0,
-        }}
+          // Mobile : la conversation prend tout l'écran, calée sur la zone visible (le clavier la raccourcit).
+          [theme.breakpoints.down('md')]: {
+            position: 'fixed',
+            insetInline: 0,
+            top: 'var(--chat-top, 0px)',
+            height: 'var(--chat-h, 100dvh)',
+            minHeight: 0,
+            zIndex: theme.zIndex.appBar + 2,
+            bgcolor: tokensOf(theme).surface,
+          },
+        })}
       >
         {detail}
       </Box>
@@ -257,7 +288,22 @@ export function ConversationLink({
         >
           {preview}
         </Typography>
-        {unread > 0 ? <CountBadge count={unread} label={unreadLabel(unread)} /> : <span />}
+        {unread > 0 ? (
+          <Box
+            component="span"
+            role="img"
+            aria-label={unreadLabel(unread)}
+            sx={(theme) => ({
+              width: 10,
+              height: 10,
+              borderRadius: '50%',
+              justifySelf: 'end',
+              bgcolor: tokensOf(theme).info.main,
+            })}
+          />
+        ) : (
+          <span />
+        )}
       </Box>
     </li>
   );
@@ -274,7 +320,7 @@ export function ChatHeader({
   backTo: string;
   avatar?: ReactNode;
   title: string;
-  subtitle: ReactNode;
+  subtitle?: ReactNode;
   aside?: ReactNode;
 }) {
   return (
@@ -283,9 +329,10 @@ export function ChatHeader({
       sx={{
         display: 'flex',
         alignItems: 'center',
-        gap: 1.25,
-        px: { xs: 1, sm: 2 },
-        py: 1.25,
+        gap: 0.75,
+        px: { xs: 0.5, sm: 2 },
+        py: 0.75,
+        minHeight: 56,
         borderBottom: 1,
         borderColor: 'divider',
       }}
@@ -295,7 +342,7 @@ export function ChatHeader({
           component={RouterLink}
           to={backTo}
           aria-label={t('Retour aux conversations')}
-          sx={{ display: { md: 'none' } }}
+          sx={{ display: { md: 'none' }, width: 44, height: 44 }}
         >
           <ArrowLeft size={icon.md} strokeWidth={icon.stroke} aria-hidden="true" />
         </IconButton>
@@ -305,14 +352,16 @@ export function ChatHeader({
         <Typography variant="subtitle1" component="h2" noWrap sx={{ fontWeight: font.semibold }}>
           {title}
         </Typography>
-        <Typography
-          variant="caption"
-          color="text.secondary"
-          component="p"
-          sx={{ overflowWrap: 'anywhere' }}
-        >
-          {subtitle}
-        </Typography>
+        {subtitle && (
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            component="p"
+            sx={{ overflowWrap: 'anywhere' }}
+          >
+            {subtitle}
+          </Typography>
+        )}
       </Box>
       {aside}
     </Box>
@@ -435,9 +484,15 @@ export function ConversationBubble({
   message: m,
   actions,
   showStatus = m.mine,
+  senderName,
+  avatar,
 }: {
   message: Message;
   actions?: ReactNode;
+  /** Nom de l'expéditeur, au-dessus du premier message reçu d'un groupe (seul). */
+  senderName?: string;
+  /** Avatar de l'auteur, sur le dernier message d'un groupe ; la place reste réservée sinon. */
+  avatar?: ReactNode;
   /** État visible : ses propres messages, et tous les messages pour l'administration. */
   showStatus?: boolean;
 }) {
@@ -453,87 +508,115 @@ export function ConversationBubble({
         author: authorLabel,
         date: dayLabel(m.createdAt),
       })}
-      sx={(theme) => {
-        const tk = tokensOf(theme);
-        return {
-          justifySelf: own ? 'end' : 'start',
-          maxWidth: { xs: '92%', sm: '78%', lg: '68%' },
-          px: { xs: 1.5, sm: 2 },
-          py: 1.25,
-          display: 'grid',
-          gap: 1,
-          bgcolor: own ? tk.accent.soft : tk.surface,
-          border: `1px solid ${own ? tk.accent.border : tk.border}`,
-          boxShadow: '0 1px 2px rgba(16, 24, 40, 0.04)',
-          // Coin resserré du côté de l'auteur, comme une messagerie.
-          borderRadius: own ? '16px 4px 16px 16px' : '4px 16px 16px 16px',
-          animation: `${fadeIn} ${motion.base}ms ${motion.easing}`,
-          ...reducedMotion,
-        };
+      sx={{
+        justifySelf: own ? 'end' : 'start',
+        maxWidth: { xs: '92%', sm: '82%', lg: '72%' },
+        display: 'flex',
+        flexDirection: own ? 'row-reverse' : 'row',
+        alignItems: 'flex-end',
+        gap: 1,
+        animation: `${fadeIn} ${motion.base}ms ${motion.easing}`,
+        ...reducedMotion,
       }}
     >
-      {!own && (
-        <Typography
-          variant="caption"
-          component="p"
-          sx={{ fontWeight: font.semibold }}
-          aria-hidden="true"
-        >
-          {m.authorLabel}
-        </Typography>
-      )}
-      {m.text && (
-        <Typography sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{m.text}</Typography>
-      )}
-      {m.voice && (
-        <VoicePlayer
-          key={m.voice.fileId}
-          src={`/api/files/${m.voice.fileId}`}
-          durationSeconds={m.voice.durationSeconds ?? undefined}
-        />
-      )}
-      {decisionReason && (m.status === 'RETURNED_FOR_CORRECTION' || m.status === 'REJECTED') && (
-        <Box
-          sx={(theme) => ({
-            px: 1.25,
-            py: 0.75,
-            borderRadius: `${radius.control}px`,
-            borderLeft: `3px solid ${tokensOf(theme).border}`,
-            bgcolor: tokensOf(theme).surface,
-          })}
-        >
-          <Typography variant="caption" component="p" sx={{ fontWeight: font.semibold }}>
-            {m.status === 'REJECTED' ? t('Motif du rejet') : t('Motif du retour')}
+      <Box aria-hidden="true" sx={{ width: 28, height: 28, flex: 'none' }}>
+        {avatar}
+      </Box>
+      <Box sx={{ display: 'grid', gap: 0.5, justifyItems: own ? 'end' : 'start', minWidth: 0 }}>
+        {!own && senderName && (
+          <Typography
+            variant="caption"
+            component="p"
+            sx={{ fontWeight: font.semibold, px: 0.5 }}
+            aria-hidden="true"
+          >
+            {senderName}
           </Typography>
-          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
-            {decisionReason}
+        )}
+        <Box
+          sx={(theme) => {
+            const tk = tokensOf(theme);
+            return {
+              px: 1.75,
+              py: 1.1,
+              display: 'grid',
+              gap: 1,
+              minWidth: 0,
+              maxWidth: '100%',
+              bgcolor: own ? tk.accent.main : tk.surface,
+              color: own ? tk.accent.contrastText : tk.text,
+              // Coin resserré du côté de l'auteur, comme une messagerie.
+              borderRadius: own ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+            };
+          }}
+        >
+          {m.text && (
+            <Typography sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+              {m.text}
+            </Typography>
+          )}
+          {m.voice && (
+            <VoicePlayer
+              key={m.voice.fileId}
+              src={`/api/files/${m.voice.fileId}`}
+              durationSeconds={m.voice.durationSeconds ?? undefined}
+            />
+          )}
+          {decisionReason &&
+            (m.status === 'RETURNED_FOR_CORRECTION' || m.status === 'REJECTED') && (
+              <Box
+                sx={(theme) => ({
+                  px: 1.25,
+                  py: 0.75,
+                  borderRadius: `${radius.control}px`,
+                  borderLeft: `3px solid ${tokensOf(theme).border}`,
+                  bgcolor: tokensOf(theme).surface,
+                  color: tokensOf(theme).text,
+                })}
+              >
+                <Typography variant="caption" component="p" sx={{ fontWeight: font.semibold }}>
+                  {m.status === 'REJECTED' ? t('Motif du rejet') : t('Motif du retour')}
+                </Typography>
+                <Typography
+                  variant="body2"
+                  sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}
+                >
+                  {decisionReason}
+                </Typography>
+              </Box>
+            )}
+        </Box>
+        {actions}
+        <Box
+          sx={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            justifyContent: own ? 'flex-end' : 'flex-start',
+            columnGap: 0.75,
+            rowGap: 0.5,
+          }}
+        >
+          {showStatus && m.status !== 'SENT' && (
+            <Badge tone={status.tone} icon={status.icon}>
+              {status.label}
+            </Badge>
+          )}
+          <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+            <Box component="span" sx={visuallyHidden}>
+              {authorLabel} —{' '}
+            </Box>
+            {timeOf(m.createdAt)}
+            {m.readAt && own ? ` · ${t('lu')}` : ''}
+            {showStatus && m.status === 'SENT' && (
+              <>
+                {' · '}
+                <span>{status.label}</span>
+              </>
+            )}
           </Typography>
         </Box>
-      )}
-      <Box
-        sx={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          justifyContent: showStatus ? 'space-between' : 'flex-end',
-          columnGap: 1,
-          rowGap: 0.5,
-        }}
-      >
-        {showStatus && (
-          <Badge tone={status.tone} icon={status.icon}>
-            {status.label}
-          </Badge>
-        )}
-        <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
-          <Box component="span" sx={visuallyHidden}>
-            {authorLabel} —{' '}
-          </Box>
-          {timeOf(m.createdAt)}
-          {m.readAt && own ? ` · ${t('lu')}` : ''}
-        </Typography>
       </Box>
-      {actions}
     </Box>
   );
 }

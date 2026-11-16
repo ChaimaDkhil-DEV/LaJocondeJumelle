@@ -132,7 +132,7 @@ describe('Enseignant', () => {
     );
     api(teacherMe);
     renderRoutes(routes, '/communications');
-    expect(await screen.findByRole('heading', { name: 'Communications', level: 1 })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: 'Messages', level: 1 })).toBeVisible();
     expect(screen.getByRole('button', { name: /Nouveau message/ })).toBeInTheDocument();
     expect(await screen.findByRole('link', { name: /Lina Ben Salah/ })).toHaveAttribute(
       'href',
@@ -147,9 +147,9 @@ describe('Enseignant', () => {
     api(teacherMe);
     renderRoutes(routes, '/communications');
     await screen.findByRole('link', { name: /Lina Ben Salah/ });
-    await userEvent
-      .setup()
-      .type(screen.getByRole('searchbox', { name: /Rechercher un élève/ }), 'zz');
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Rechercher un élève' }));
+    await user.type(screen.getByRole('searchbox', { name: /Rechercher un élève/ }), 'zz');
     expect(screen.queryByRole('link', { name: /Lina Ben Salah/ })).toBeNull();
   });
 
@@ -167,8 +167,10 @@ describe('Enseignant', () => {
     const send = await screen.findByRole('button', { name: /^Envoyer/ });
     expect(send).toBeDisabled();
     await user.click(await screen.findByRole('button', { name: 'Lina Ben Salah' }));
-    await waitFor(() =>
-      expect(screen.getByRole('textbox', { name: /Votre message/ })).toHaveFocus(),
+    // Voix d'abord : choisir l'élève ne déplace pas le focus vers le texte facultatif.
+    expect(screen.getByRole('button', { name: 'Lina Ben Salah' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
     );
     expect(send).toBeDisabled();
     await user.click(screen.getByRole('button', { name: 'Enregistrer le vocal (simulé)' }));
@@ -253,6 +255,45 @@ describe('Enseignant', () => {
     expect(screen.getByPlaceholderText('Répondre à l’administration…')).toBeInTheDocument();
   });
 
+  it('en-tête : le seul nom de l’interlocuteur ; nom seul au-dessus du premier message reçu d’un groupe', async () => {
+    api(teacherMe, (call) =>
+      call.url === '/api/communications/teacher/conversations/c1'
+        ? json(
+            200,
+            conversation({
+              messages: [
+                message({
+                  id: 'a1',
+                  authorKind: 'ADMIN',
+                  authorLabel: 'Administration (Mme Martin)',
+                  mine: false,
+                  text: 'Bonjour.',
+                }),
+                message({
+                  id: 'a2',
+                  authorKind: 'ADMIN',
+                  authorLabel: 'Administration (Mme Martin)',
+                  mine: false,
+                  text: 'Je m’en occupe.',
+                  createdAt: '2026-11-11T08:05:00.000Z',
+                }),
+                message({ id: 'm3', text: 'Merci.', createdAt: '2026-11-11T08:10:00.000Z' }),
+              ],
+            }),
+          )
+        : undefined,
+    );
+    renderRoutes(routes, '/communications?conversation=c1');
+    expect(await screen.findByText('Je m’en occupe.')).toBeInTheDocument();
+    const detail = within(screen.getByRole('region', { name: 'Conversation' }));
+    expect(detail.getByRole('heading', { level: 2, name: 'Administration' })).toBeVisible();
+    // Ni classe, ni badge « Interne », ni prénom : le nom (« Administration ») une seule fois, sur le 1er message du groupe.
+    expect(detail.queryByText(/1ère année Violet/)).toBeNull();
+    expect(detail.queryByText('Interne')).toBeNull();
+    expect(detail.getAllByText('Administration')).toHaveLength(2);
+    expect(detail.queryByText('Mme Enseignante')).toBeNull();
+  });
+
   it('conversation clôturée : message expliquant la clôture, pas de saisie', async () => {
     api(teacherMe, (call) =>
       call.url === '/api/communications/teacher/conversations/c1'
@@ -309,7 +350,11 @@ function adminApi(
       // Recherche faite par le serveur (paramètre q) sur la vue « Conversations ».
       const q = new URL(call.url, 'http://test').searchParams.get('q')?.toLowerCase();
       const items = q
-        ? inbox.filter((c) => JSON.stringify((c as ConversationSummary).student).toLowerCase().includes(q))
+        ? inbox.filter((c) =>
+            JSON.stringify((c as ConversationSummary).student)
+              .toLowerCase()
+              .includes(q),
+          )
         : inbox;
       return json(200, { items, nextCursor: null });
     }
@@ -338,14 +383,14 @@ describe('Administration — page unique', () => {
         : undefined,
     );
     renderRoutes(routes, '/communications');
-    expect(await screen.findByRole('heading', { name: 'Communications', level: 1 })).toBeVisible();
-    expect(screen.getByRole('button', { name: /Nouveau message/ })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: 'Messages', level: 1 })).toBeVisible();
+    expect(await screen.findByRole('button', { name: /Nouveau message/ })).toBeVisible();
     const tabs = within(await screen.findByRole('tablist', { name: 'Vues des communications' }));
-    expect(tabs.getByRole('tab', { name: /Boîte de réception/ })).toHaveAttribute(
+    expect(tabs.getByRole('tab', { name: /Conversations/ })).toHaveAttribute(
       'aria-selected',
       'true',
     );
-    expect(tabs.getByRole('tab', { name: /Conversations/ })).toHaveAttribute(
+    expect(tabs.getByRole('tab', { name: /Boîte de réception/ })).toHaveAttribute(
       'aria-selected',
       'false',
     );
@@ -370,7 +415,7 @@ describe('Administration — page unique', () => {
     renderRoutes(routes, '/communications?vue=valider');
     const tabs = within(await screen.findByRole('tablist', { name: 'Vues des communications' }));
     await waitFor(() => expect(tabs.queryByRole('tab', { name: /À valider/ })).toBeNull());
-    expect(tabs.getByRole('tab', { name: /Boîte de réception/ })).toHaveAttribute(
+    expect(tabs.getByRole('tab', { name: /Conversations/ })).toHaveAttribute(
       'aria-selected',
       'true',
     );
@@ -395,11 +440,11 @@ describe('Administration — page unique', () => {
     adminApi(adminMe, [internal()]);
     renderRoutes(routes, '/communications');
     const line = await screen.findByRole('link', { name: /Lina Ben Salah/ });
-    expect(line).toHaveTextContent('Interne');
+    expect(line).not.toHaveTextContent('Interne');
     expect(line).toHaveTextContent('Mme Enseignante');
     expect(line).toHaveTextContent('1ère année Violet');
     expect(line).toHaveTextContent('Lina pleure en classe.');
-    expect(line).toHaveAttribute('href', '/communications?vue=boite&conversation=c1');
+    expect(line).toHaveAttribute('href', '/communications?vue=conversations&conversation=c1');
   });
 
   it('boutons-filtres : Parents, Enseignants, Non lus, Archivés, Tous (un seul actif)', async () => {
@@ -430,7 +475,7 @@ describe('Administration — page unique', () => {
     expect(screen.queryByRole('link', { name: /Lina Ben Salah/ })).toBeNull();
 
     await user.click(filters.getByRole('button', { name: 'Enseignants' }));
-    expect(screen.getByRole('link', { name: /Lina Ben Salah/ })).toHaveTextContent('Interne');
+    expect(screen.getByRole('link', { name: /Lina Ben Salah/ })).toBeVisible();
     expect(screen.queryByRole('link', { name: /Adam Kefi/ })).toBeNull();
 
     await user.click(filters.getByRole('button', { name: 'Non lus' }));
@@ -446,9 +491,9 @@ describe('Administration — page unique', () => {
     adminApi(adminMe, [internal(), parentConversation()]);
     renderRoutes(routes, '/communications?vue=conversations');
     await screen.findByRole('link', { name: /Adam Kefi/ });
-    await userEvent
-      .setup()
-      .type(screen.getByRole('searchbox', { name: /Rechercher un élève/ }), 'Kefi');
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Rechercher un élève' }));
+    await user.type(screen.getByRole('searchbox', { name: /Rechercher un élève/ }), 'Kefi');
     await waitFor(() => expect(screen.queryByRole('link', { name: /Lina Ben Salah/ })).toBeNull());
     expect(screen.getByRole('link', { name: /Adam Kefi/ })).toBeVisible();
   });
@@ -463,13 +508,18 @@ describe('Administration — page unique', () => {
     });
     renderRoutes(routes, '/communications?vue=boite&conversation=c1');
     expect(await screen.findByText('Lina pleure en classe.', { selector: 'p' })).toBeVisible();
-    const close = await screen.findByRole('button', { name: /Clôturer/ });
-    expect(close).toHaveStyle({ minHeight: '44px' });
-    expect(screen.getByRole('button', { name: /Prendre en charge/ })).toHaveStyle({
+    // Conversation non assignée : « Prendre en charge » reste visible ; le reste est dans le menu ⋮.
+    expect(await screen.findByRole('button', { name: /Prendre en charge/ })).toHaveStyle({
       minHeight: '44px',
     });
+    expect(screen.queryByRole('button', { name: /Clôturer/ })).toBeNull();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Plus d’actions' }));
+    const close = await screen.findByRole('menuitem', { name: /Clôturer/ });
+    expect(close).toHaveStyle({ minHeight: '44px' });
+    expect(screen.queryByRole('menuitem', { name: /Prendre en charge/ })).toBeNull();
     expect(screen.queryByRole('button', { name: /Transférer/ })).toBeNull();
-    await userEvent.setup().click(close);
+    await user.click(close);
     await waitFor(() =>
       expect(
         calls.some(
@@ -495,9 +545,9 @@ describe('Administration — page unique', () => {
         : undefined,
     );
     const router = renderRoutes(routes, '/communications?vue=boite&conversation=c1');
-    await userEvent
-      .setup()
-      .click(await screen.findByRole('button', { name: /Contacter le parent/ }));
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Plus d’actions' }));
+    await user.click(await screen.findByRole('menuitem', { name: /Contacter le parent/ }));
     await waitFor(() => expect(router.state.location.search).toContain('nouveau'));
     const params = new URLSearchParams(router.state.location.search);
     expect(router.state.location.pathname).toBe('/communications');
@@ -549,15 +599,18 @@ describe('Administration — page unique', () => {
     const user = userEvent.setup();
     await user.click(await screen.findByRole('button', { name: /Nouveau message/ }));
     const drawer = within(await screen.findByRole('dialog', { name: 'Nouveau message' }));
-    const toTeacher = drawer.getByRole('button', { name: 'Un enseignant' });
-    const toParent = drawer.getByRole('button', { name: 'Un parent' });
+    const toTeacher = drawer.getByRole('button', { name: 'Enseignant' });
+    const toParent = drawer.getByRole('button', { name: 'Parent' });
     expect(toTeacher).toHaveAttribute('aria-pressed', 'true');
-    expect(toTeacher).toHaveStyle({ minHeight: '48px' });
+    expect(toTeacher).toHaveStyle({ minHeight: '44px' });
     expect(drawer.getByText('L’enseignant reçoit le message directement.')).toBeVisible();
 
     await user.click(toParent);
     expect(toParent).toHaveAttribute('aria-pressed', 'true');
-    expect(drawer.getByText(/validé par un autre membre de l’administration/)).toBeVisible();
+    expect(drawer.getByText('Validé par l’administration avant l’envoi')).toBeVisible();
+    expect(
+      drawer.getByText('Rien de la conversation interne n’est transmis au parent.'),
+    ).toBeVisible();
 
     // Élève : deux lettres au moins, puis suggestions.
     const search = drawer.getByRole('textbox', { name: 'Rechercher un élève' });
@@ -569,7 +622,7 @@ describe('Administration — page unique', () => {
     expect(await drawer.findByRole('radio', { name: /Nora Ben Salah/ })).toBeDisabled();
     await user.click(drawer.getByRole('radio', { name: /Sonia Ben Salah/ }));
     await user.type(drawer.getByLabelText('Votre message'), 'Pouvons-nous parler de Lina ?');
-    await user.click(drawer.getByRole('button', { name: 'Envoyer pour validation' }));
+    await user.click(drawer.getByRole('button', { name: 'Envoyer' }));
 
     await waitFor(() =>
       expect(router.state.location.search).toBe('?vue=conversations&conversation=c7'),
@@ -587,6 +640,21 @@ describe('Administration — page unique', () => {
     });
   });
 
+  it('panneau « Nouveau message » : aucun représentant lié → alerte rouge et « Envoyer » désactivé', async () => {
+    adminApi(adminMe, [internal()], (call) =>
+      call.url === '/api/admin/communications/recipients?studentId=s1'
+        ? json(200, { ...recipients, guardians: [] })
+        : withStudents(call),
+    );
+    renderRoutes(routes, '/communications?nouveau&type=PARENT&studentId=s1');
+    const drawer = within(await screen.findByRole('dialog', { name: 'Nouveau message' }));
+    expect(await drawer.findByRole('alert')).toHaveTextContent(
+      'Aucun représentant n’est lié à cet élève. Contactez l’administration pour en ajouter un.',
+    );
+    await userEvent.setup().type(drawer.getByLabelText('Votre message'), 'Bonjour');
+    expect(drawer.getByRole('button', { name: 'Envoyer' })).toBeDisabled();
+  });
+
   it('panneau prérempli (ancienne adresse « nouveau ») : lien interne transmis', async () => {
     const calls = adminApi(adminMe, [internal()], (call) => {
       const common = withStudents(call);
@@ -600,7 +668,7 @@ describe('Administration — page unique', () => {
     const drawer = within(await screen.findByRole('dialog', { name: 'Nouveau message' }));
     await user.click(await drawer.findByRole('radio', { name: /Sonia Ben Salah/ }));
     await user.type(drawer.getByLabelText('Votre message'), 'Bonjour');
-    await user.click(drawer.getByRole('button', { name: 'Envoyer pour validation' }));
+    await user.click(drawer.getByRole('button', { name: 'Envoyer' }));
     await waitFor(() =>
       expect(
         calls.find(

@@ -112,7 +112,8 @@ async function parentFirstLogin(
 }
 
 async function recordVoice(page: Page): Promise<void> {
-  await page.getByRole('button', { name: 'Enregistrer un message vocal' }).click();
+  // Grand bouton « Appuyez pour parler » (enseignant) ou micro de la saisie (conversation, administration).
+  await page.getByRole('button', { name: /Enregistrer un message vocal|Appuyez pour parler/ }).click();
   await expect(page.getByRole('button', { name: 'Arrêter l’enregistrement' })).toBeVisible();
   await page.waitForTimeout(1500);
   await page.getByRole('button', { name: 'Arrêter l’enregistrement' }).click();
@@ -140,7 +141,7 @@ test('017 — signalement, réponse, « Contacter le parent », validation, lect
     .getByRole('navigation', { name: 'Navigation principale' })
     .getByRole('link', { name: 'Communications' })
     .click();
-  await expect(teacher.getByRole('heading', { level: 1, name: 'Communications' })).toBeVisible();
+  await expect(teacher.getByRole('heading', { level: 1, name: 'Messages' })).toBeVisible();
   await expectNoA11yViolations(teacher);
   await teacher.getByRole('combobox', { name: 'Élève' }).fill(data.studentName);
   await teacher.getByRole('option', { name: new RegExp(data.studentName) }).click();
@@ -156,8 +157,8 @@ test('017 — signalement, réponse, « Contacter le parent », validation, lect
     .getByRole('navigation', { name: 'Navigation principale' })
     .getByRole('link', { name: 'Communications' })
     .click();
-  // Page unique : la boîte de réception est l'onglet par défaut, sans navigation intermédiaire.
-  await expect(admin.getByRole('tab', { name: /Boîte de réception/ })).toHaveAttribute(
+  // Page unique : « Conversations » (toutes, filtre « Non lus ») est l'onglet par défaut.
+  await expect(admin.getByRole('tab', { name: /Conversations/ })).toHaveAttribute(
     'aria-selected',
     'true',
   );
@@ -165,7 +166,7 @@ test('017 — signalement, réponse, « Contacter le parent », validation, lect
     .getByRole('list', { name: 'Conversations' })
     .getByRole('link')
     .filter({ hasText: data.studentName });
-  await expect(line).toContainText('Interne');
+  await expect(line).not.toContainText('Interne');
   await line.click();
   const audio = admin.getByRole('article').locator('audio');
   await expect(audio).toHaveAttribute('src', /^\/api\/files\//);
@@ -175,13 +176,14 @@ test('017 — signalement, réponse, « Contacter le parent », validation, lect
   await expect(admin.getByRole('article').filter({ hasText: answer })).toBeVisible();
   await expectNoA11yViolations(admin);
 
-  await admin.getByRole('button', { name: 'Contacter le parent' }).click();
+  await admin.getByRole('button', { name: 'Plus d’actions' }).click();
+  await admin.getByRole('menuitem', { name: 'Contacter le parent' }).click();
   // Le panneau « Nouveau message » s'ouvre par-dessus la page, élève et signalement préremplis.
   await expect(admin).toHaveURL(/\/communications\?.*nouveau.*type=PARENT/);
   const drawer = admin.getByRole('dialog', { name: 'Nouveau message' });
   await drawer.getByRole('radio', { name: new RegExp(data.guardianName) }).check();
   await drawer.getByRole('textbox', { name: 'Votre message' }).fill(toParent);
-  await drawer.getByRole('button', { name: 'Envoyer pour validation' }).click();
+  await drawer.getByRole('button', { name: 'Envoyer' }).click();
   await expect(drawer).toBeHidden();
   await expect(
     admin

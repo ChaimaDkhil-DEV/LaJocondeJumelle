@@ -1,3 +1,4 @@
+import Box from '@mui/material/Box';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useSearchParams } from 'react-router';
@@ -6,6 +7,8 @@ import { LoadingState } from '../../components/LoadingState';
 import { t } from '../../i18n';
 import { useConversation } from './api';
 import { ChatShell } from './ChatParts';
+import { BOTTOM_BAR_HEIGHT, CommunicationsBottomBar } from './CommunicationsBottomBar';
+import { NewMessageFab } from './NewMessageFab';
 import { TeacherConversationList } from './ConversationList';
 import { ConversationView } from './ConversationView';
 import { NewMessagePanel } from './NewMessagePanel';
@@ -45,31 +48,39 @@ export function TeacherCommunications() {
   const desktop = useMediaQuery(useTheme().breakpoints.up('md'));
 
   return (
-    <ChatShell
-      listWidth={340}
-      height={780}
-      detailOpen={Boolean(conversationId) || composing}
-      detailLabel={conversationId ? t('Conversation') : t('Nouveau message')}
-      list={
-        <TeacherConversationList
-          selectedId={conversationId}
-          hrefOf={href}
-          onNew={() => setParams({ [NEW]: '' })}
-        />
-      }
-      detail={
-        conversationId ? (
-          <OpenConversation key={conversationId} id={conversationId} />
-        ) : (
-          <NewMessagePanel
-            // Un nouveau formulaire, vide, à chaque « Nouveau message ».
-            key={composing ? 'new' : 'default'}
-            backTo={ROOT}
-            focusOnOpen={desktop || composing}
-            onCreated={(id) => setParams({ conversation: id })}
+    <>
+      <ChatShell
+        listWidth={340}
+        fab={<NewMessageFab onClick={() => setParams({ [NEW]: '' })} />}
+        height={780}
+        detailOpen={Boolean(conversationId) || composing}
+        detailLabel={conversationId ? t('Conversation') : t('Nouveau message')}
+        list={<TeacherConversationList selectedId={conversationId} hrefOf={href} />}
+        detail={
+          conversationId ? (
+            <OpenConversation key={conversationId} id={conversationId} />
+          ) : (
+            <NewMessagePanel
+              // Un nouveau formulaire, vide, à chaque « Nouveau message ».
+              key={composing ? 'new' : 'default'}
+              backTo={ROOT}
+              focusOnOpen={desktop || composing}
+              onCreated={(id) => setParams({ conversation: id })}
+            />
+          )
+        }
+      />
+      {!conversationId && !composing && (
+        <>
+          <Box
+            sx={(theme) => ({
+              height: BOTTOM_BAR_HEIGHT,
+              [theme.breakpoints.up('md')]: { display: 'none' },
+            })}
           />
-        )
-      }
-    />
+          <CommunicationsBottomBar active="messages" messagesTo={ROOT} unread={0} toValidate={0} />
+        </>
+      )}
+    </>
   );
 }
