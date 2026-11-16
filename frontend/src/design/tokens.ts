@@ -137,6 +137,17 @@ export const colors: Record<ColorMode, ColorTokens> = {
 };
 
 /**
+ * Trois grands boutons de l'accueil enseignant : mêmes couleurs en clair et en sombre (fonds pleins).
+ * Seul l'anneau de focus change : sombre sur fond clair, blanc en mode sombre.
+ */
+export const homeActions = {
+  scan: { main: '#0B5ED7', hover: '#0A4FB5', text: '#FFFFFF', hint: '#DBEAFE', shadow: '0 8px 20px rgba(11, 94, 215, .35)' },
+  urgent: { main: '#DC2626', hover: '#B91C1C', text: '#FFFFFF', hint: '#FEE2E2', relief: '#991B1B' },
+  normal: { main: '#F59E0B', hover: '#D97706', text: '#1F2937', hint: '#78350F', relief: '#B45309' },
+  focusRing: { light: '#1F2937', dark: '#FFFFFF' },
+} as const;
+
+/**
  * Tokens de couleur du thème courant. Repli sur le mode clair quand un composant est rendu hors du
  * ThemeProvider de l'application (tests de composants isolés) : aucune couleur n'est alors perdue.
  */
