@@ -8,7 +8,7 @@ import { Link as RouterLink, useNavigate } from 'react-router';
 import { visuallyHidden } from '../../components/a11y';
 import { ErrorState } from '../../components/ErrorState';
 import { PageHeader } from '../../components/PageHeader';
-import { cardShadow, font, fontSize, layout, motion, tokensOf } from '../../design/tokens';
+import { cardShadow, font, fontSize, homeActions, layout, motion, tokensOf } from '../../design/tokens';
 import { isPlural, t } from '../../i18n';
 import { QrScannerDialog } from '../attendance/QrScannerDialog';
 import { OutboxPanel } from '../outbox/OutboxPanel';
@@ -26,6 +26,12 @@ function interactive(theme: Theme, hoverBorder: string): CSSObject {
   };
 }
 
+/** Anneau de focus clavier des trois grands boutons : sombre, ou blanc en mode sombre. */
+function focusRing(theme: Theme): CSSObject {
+  const color = theme.palette.mode === 'dark' ? homeActions.focusRing.dark : homeActions.focusRing.light;
+  return { '&.Mui-focusVisible, &:focus-visible': { outline: `3px solid ${color}`, outlineOffset: '3px' } };
+}
+
 /** Action principale : lecteur de QR code existant (caméra ouverte dès le clic), puis page de la classe. */
 function ScanButton() {
   const navigate = useNavigate();
@@ -40,31 +46,29 @@ function ScanButton() {
         aria-describedby={hintId}
         aria-haspopup="dialog"
         onClick={() => setScanning(true)}
-        sx={(theme) => {
-          const c = tokensOf(theme);
-          return {
-            width: '100%',
-            minHeight: { xs: 128, sm: 152 },
-            px: 3,
-            py: 2.5,
-            borderRadius: '20px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 1,
-            bgcolor: c.accent.main,
-            color: c.accent.contrastText,
-            border: `2px solid ${c.accent.main}`,
-            boxShadow: '0 8px 24px rgba(79, 70, 229, 0.25)',
-            ...interactive(theme, c.accent.hover),
-            '&:hover': { bgcolor: c.accent.hover, borderColor: c.accent.hover, boxShadow: '0 10px 28px rgba(79, 70, 229, 0.32)' },
-          };
-        }}
+        sx={(theme) => ({
+          width: '100%',
+          minHeight: { xs: 128, sm: 152 },
+          px: 3,
+          py: 2.5,
+          borderRadius: '20px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 1,
+          bgcolor: homeActions.scan.main,
+          color: homeActions.scan.text,
+          boxShadow: homeActions.scan.shadow,
+          transition: 'transform .1s, box-shadow .1s, background .15s',
+          '&:hover': { bgcolor: homeActions.scan.hover },
+          '&:active': { transform: 'translateY(1px)' },
+          ...focusRing(theme),
+        })}
       >
         <QrCode size={44} strokeWidth={1.75} aria-hidden="true" />
         <Typography id={labelId} component="span" sx={{ fontSize: { xs: fontSize.lg, sm: fontSize.xl }, fontWeight: font.semibold, lineHeight: 1.2 }}>
           {t('Scanner un QR code')}
         </Typography>
-        <Typography id={hintId} component="span" sx={{ fontSize: fontSize.sm, opacity: 0.92, textAlign: 'center' }}>
+        <Typography id={hintId} component="span" sx={{ fontSize: fontSize.sm, color: homeActions.scan.hint, textAlign: 'center' }}>
           {t('La caméra s’ouvre : visez le QR code affiché dans la classe.')}
         </Typography>
       </ButtonBase>
@@ -93,8 +97,7 @@ function NewRequestButton({ priority, label, icon: Icon }: { priority: 'URGENT' 
       aria-describedby={hintId}
       focusRipple
       sx={(theme) => {
-        const c = tokensOf(theme);
-        const tone = priority === 'URGENT' ? c.error : c.warning;
+        const tone = priority === 'URGENT' ? homeActions.urgent : homeActions.normal;
         return {
           minHeight: 104,
           p: 2,
@@ -103,10 +106,15 @@ function NewRequestButton({ priority, label, icon: Icon }: { priority: 'URGENT' 
           flexDirection: 'column',
           gap: 0.75,
           textAlign: 'center',
-          bgcolor: tone.soft,
+          bgcolor: tone.main,
           color: tone.text,
-          border: `2px solid ${tone.border}`,
-          ...interactive(theme, tone.main),
+          boxShadow: `0 4px 0 ${tone.relief}`,
+          transition: 'transform .1s, box-shadow .1s, background .15s',
+          '& .request-hint': { color: tone.hint },
+          '&:hover': { bgcolor: tone.hover },
+          '&:active': { transform: 'translateY(3px)', boxShadow: '0 1px 0 rgba(0,0,0,.25)' },
+          '@media (prefers-reduced-motion: reduce)': { transition: 'none', '&:active': { transform: 'none' } },
+          ...focusRing(theme),
         };
       }}
     >
@@ -114,7 +122,7 @@ function NewRequestButton({ priority, label, icon: Icon }: { priority: 'URGENT' 
       <Typography id={labelId} component="span" sx={{ fontSize: { xs: fontSize.md, sm: fontSize.lg }, fontWeight: font.semibold, lineHeight: 1.25 }}>
         {label}
       </Typography>
-      <Typography id={hintId} component="span" sx={{ fontSize: fontSize.xs, display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+      <Typography id={hintId} component="span" className="request-hint" sx={{ fontSize: fontSize.xs, display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
         <Mic size={14} aria-hidden="true" />
         {t('Message vocal')}
       </Typography>
@@ -231,7 +239,7 @@ export function TeacherHomePage() {
 
       <Box sx={{ display: 'grid', gap: 2 }}>
         <ScanButton />
-        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: { xs: 1.5, sm: 2 } }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: { xs: '10px', sm: 2 } }}>
           <NewRequestButton priority="URGENT" label={t('Demande urgente')} icon={Siren} />
           <NewRequestButton priority="NORMAL" label={t('Demande normale')} icon={Mic} />
         </Box>
