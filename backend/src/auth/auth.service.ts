@@ -23,9 +23,9 @@ export class AuthService {
     private readonly push: PushSubscriptionsService,
   ) {}
 
-  /** Argon2id avec les paramètres par défaut de la bibliothèque argon2. */
+  /** Argon2id, paramètres épinglés (64 Mio, 3 passes) : une mise à jour de la bibliothèque ne les change pas en silence. */
   hashPassword(password: string): Promise<string> {
-    return hash(password, { type: argon2id });
+    return hash(password, { type: argon2id, memoryCost: 65536, timeCost: 3, parallelism: 4 });
   }
 
   async login(

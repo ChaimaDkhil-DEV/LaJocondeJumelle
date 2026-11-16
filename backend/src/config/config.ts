@@ -367,6 +367,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   if (sessionSecret.length < MIN_SECRET_LENGTH) {
     throw new ConfigError(`SESSION_SECRET doit contenir au moins ${MIN_SECRET_LENGTH} caractères`);
   }
+  if (sessionSecret.startsWith('remplacer-par-')) {
+    throw new ConfigError('SESSION_SECRET est la valeur d’exemple de .env.example : générez une valeur aléatoire');
+  }
 
   let appOrigin: string;
   try {

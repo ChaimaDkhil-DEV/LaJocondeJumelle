@@ -23,6 +23,11 @@ describe('loadConfig', () => {
     },
   );
 
+  it('refuse la valeur d’exemple de SESSION_SECRET', () => {
+    const placeholder = 'remplacer-par-une-valeur-aleatoire-de-32-caracteres-minimum';
+    expect(() => loadConfig({ ...valid, SESSION_SECRET: placeholder })).toThrow(ConfigError);
+  });
+
   it('rend le cookie Secure par défaut, et toujours en production', () => {
     expect(loadConfig(valid).cookieSecure).toBe(true);
     expect(loadConfig({ ...valid, COOKIE_SECURE: 'false' }).cookieSecure).toBe(false);
