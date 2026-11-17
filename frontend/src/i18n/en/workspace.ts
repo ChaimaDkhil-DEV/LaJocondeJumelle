@@ -170,4 +170,7 @@ export const workspace: Record<string, string> = {
   'Afficher plus de propositions': 'Show more proposals',
   'Aucun administrateur actif ne s’occupe de la catégorie de cette demande.': 'No active administrator handles the category of this request.',
   'Impossible de charger les administrateurs de cette catégorie.': 'Unable to load the administrators of this category.',
+  'Cette demande est terminée : elle ne peut plus être réattribuée.': 'This request is finished: it can no longer be reassigned.',
+  'Impossible de charger la suite des demandes.': 'Unable to load the next requests.',
+  'Impossible de charger la suite des propositions.': 'Unable to load the next proposals.',
 };

@@ -29,6 +29,15 @@ export interface SupervisionFilters {
   to: string;
 }
 
+/** Ce que le dialogue de réattribution propose pour une demande, lu sur le serveur à l'ouverture. */
+export interface ReassignOptions {
+  /** Faux pour une demande terminée. */
+  reassignable: boolean;
+  /** Qui a la demande à sa charge maintenant ; null : demande libre. */
+  adminOwner: AdminRef | null;
+  candidates: AdminRef[];
+}
+
 export const NO_FILTERS: SupervisionFilters = { ownership: '', state: '', adminId: '', priority: '', status: '', from: '', to: '' };
 
 /** Taille d'une page de la supervision ; la suite se charge à la demande (« Afficher plus »). */
@@ -39,8 +48,13 @@ export const supervisionKeys = {
   requests: (filters: SupervisionFilters) => ['requests', 'list', 'supervision', 'requests', filters] as const,
   administrators: ['requests', 'list', 'supervision', 'administrators'] as const,
   transfers: (status: TransferStatus | 'all') => ['requests', 'list', 'supervision', 'transfers', status] as const,
-  candidates: (requestId: string) => ['requests', 'list', 'supervision', 'candidates', requestId] as const,
 };
+
+/**
+ * Hors de ['requests', 'list'] : la réponse sert le temps d'un dialogue ouvert, elle n'a pas à être relue à
+ * chaque événement temps réel de l'établissement (la relecture viderait le choix en cours de saisie).
+ */
+const reassignOptionsKey = (requestId: string) => ['supervision', 'reassign-options', requestId] as const;
 
 function query(filters: SupervisionFilters, cursor: string): string {
   const dateOk = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value);
@@ -90,15 +104,18 @@ export function useAllTransfers(status: TransferStatus | 'all') {
 }
 
 /**
- * Administrateurs à qui la demande peut être réattribuée : la liste est celle du serveur (comptes actifs,
- * admins de la catégorie de la demande, sans celui qui l'a déjà), rechargée à chaque ouverture du dialogue.
+ * Qui a la demande à sa charge et à qui elle peut être réattribuée : réponse du serveur (comptes actifs,
+ * admins de la catégorie de la demande, sans celui qui l'a déjà). Jamais reprise d'une ouverture précédente
+ * (`gcTime: 0`) : le dialogue n'affiche que ce que le serveur vient de répondre.
  */
-export function useReassignCandidates(requestId: string) {
+export function useReassignOptions(requestId: string) {
   return useQuery({
-    queryKey: supervisionKeys.candidates(requestId),
-    queryFn: () => apiFetch<AdminRef[]>(`/api/super-admin/requests/${requestId}/reassign-candidates`),
+    queryKey: reassignOptionsKey(requestId),
+    queryFn: () => apiFetch<ReassignOptions>(`/api/super-admin/requests/${requestId}/reassign-candidates`),
     staleTime: 0,
+    gcTime: 0,
     refetchOnMount: 'always',
+    refetchOnWindowFocus: false,
   });
 }
 

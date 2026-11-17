@@ -45,11 +45,11 @@ Assignment      { id, operation, request: { id, reference, title },
 
 | Method and path | Purpose | Notes |
 |---|---|---|
-| `GET /super-admin/requests` | All ownable work requests | Query: `ownership=free\|owned`, `state=active\|finished`, `adminId`, `status`, `priority`, `from`, `to`. Each item carries `adminOwner` and `adminOwnerUnavailable` (inactive or no longer eligible). |
+| `GET /super-admin/requests` | All ownable work requests | Query: `ownership=free\|owned`, `state=active\|finished`, `adminId`, `status`, `priority`, `from`, `to`, plus `limit` (default 25, at most 100) and `cursor`. Answers `{ items, nextCursor }`, most recent first; `nextCursor` is null on the last page and is sent back unchanged, with the same filters, to get the next page. Each item carries `adminOwner` and `adminOwnerUnavailable` (inactive or no longer eligible). |
 | `GET /super-admin/administrators` | Administrators with their load | `{ id, displayName, jobTitle, active, ownedActive, ownedFinished, transfersPending, lastOperationAt }[]` |
 | `POST /super-admin/requests/:id/reassign` | Reassign or release | Body `{ adminId: uuid \| null, reason }`. `null` releases. 200 `RequestDetail`. |
-| `GET /super-admin/requests/:id/reassign-candidates` | Administrators the request can be reassigned to | `AdminRef[]`: active, administrators of the request's category, without the one already in charge. Same rule as `reassign`. |
-| `GET /super-admin/transfers?status=` | All proposals by status | `Transfer[]`, paginated. |
+| `GET /super-admin/requests/:id/reassign-candidates` | What the reattribution dialog may offer, read at call time | `{ reassignable, adminOwner: AdminRef \| null, candidates: AdminRef[] }`. `adminOwner` is who is in charge now. `candidates`: active administrators of the request's category, without the one already in charge; empty and `reassignable: false` for a finished request. Same rules as `reassign`: every candidate is accepted by it. 404 for an unknown or non-ownable request. |
+| `GET /super-admin/transfers` | All proposals by status | Query: `status` (one of the five statuses; absent: all), `limit` (default 25, at most 100), `cursor`. Answers `{ items: Transfer[], nextCursor }`, most recent first. |
 
 Existing routes reused, unchanged: `GET/POST/PATCH /admin/users` (administrator accounts), `GET /admin/audit`
 (audit log), `GET/PUT /admin/settings` (new key `transferResponseMinutes`).

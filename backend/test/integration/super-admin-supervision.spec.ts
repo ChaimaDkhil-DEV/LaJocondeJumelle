@@ -225,63 +225,103 @@ describe('Supervision et réattribution par le super administrateur', () => {
   });
 
   describe('administrateurs proposés pour une réattribution', () => {
-    const candidates = (id: string, cookie = superadmin) => get(cookie, `/api/super-admin/requests/${id}/reassign-candidates`);
+    const options = (id: string, cookie = superadmin) => get(cookie, `/api/super-admin/requests/${id}/reassign-candidates`);
+    const candidateIds = async (id: string) => ((await options(id)).body.candidates as Array<{ id: string }>).map((a) => a.id);
 
     it('seuls les admins actifs de la catégorie de la demande, sans celui qui l’a déjà ; nom et fonction seulement', async () => {
       const { id } = await owned();
-      const res = await candidates(id);
+      const res = await options(id);
       expect(res.status).toBe(200);
-      expect(res.body).toEqual([
-        { id: admin2Id, displayName: 'Seconde administratrice', jobTitle: 'Administration' },
-        { id: admin3Id, displayName: 'Troisième administrateur', jobTitle: 'Administration' },
-      ]);
+      expect(res.body).toEqual({
+        reassignable: true,
+        adminOwner: { id: adminId, displayName: expect.any(String), jobTitle: expect.anything() },
+        candidates: [
+          { id: admin2Id, displayName: 'Seconde administratrice', jobTitle: 'Administration' },
+          { id: admin3Id, displayName: 'Troisième administrateur', jobTitle: 'Administration' },
+        ],
+      });
 
-      // Un compte désactivé et un admin sorti de la catégorie ne sont pas proposés.
+      // Un compte désactivé et un admin sorti de la catégorie ne sont pas proposés. Les données partagées
+      // sont rétablies même si une attente échoue, pour ne pas faire échouer les tests suivants en cascade.
       await prisma.user.update({ where: { id: admin3Id }, data: { active: false } });
-      expect((await candidates(id)).body.map((a: { id: string }) => a.id)).toEqual([admin2Id]);
-      await prisma.user.update({ where: { id: admin3Id }, data: { active: true } });
+      try {
+        expect(await candidateIds(id)).toEqual([admin2Id]);
+      } finally {
+        await prisma.user.update({ where: { id: admin3Id }, data: { active: true } });
+      }
       await prisma.categoryManager.delete({ where: { categoryId_userId: { categoryId: circuitB, userId: admin2Id } } });
-      expect((await candidates(id)).body.map((a: { id: string }) => a.id)).toEqual([admin3Id]);
-      await prisma.categoryManager.create({ data: { categoryId: circuitB, userId: admin2Id } });
+      try {
+        expect(await candidateIds(id)).toEqual([admin3Id]);
+      } finally {
+        await prisma.categoryManager.create({ data: { categoryId: circuitB, userId: admin2Id } });
+      }
 
       // Chaque administrateur proposé est accepté par la réattribution : la liste et la règle du serveur sont les mêmes.
-      for (const candidate of (await candidates(id)).body as Array<{ id: string }>) {
+      for (const candidate of await candidateIds(id)) {
         const fresh = await owned();
-        expect((await reassign(fresh.id, { adminId: candidate.id, reason: 'Répartition.' })).status).toBe(200);
+        expect((await reassign(fresh.id, { adminId: candidate, reason: 'Répartition.' })).status).toBe(200);
       }
     });
 
-    it('demande libre : tous les admins actifs de la catégorie sont proposés', async () => {
+    it('demande libre : tous les admins actifs de la catégorie sont proposés, et personne n’est indiqué en charge', async () => {
       const { id } = await submit();
-      expect((await candidates(id)).body.map((a: { id: string }) => a.id).sort()).toEqual([adminId, admin2Id, admin3Id].sort());
+      const res = await options(id);
+      expect(res.body).toMatchObject({ reassignable: true, adminOwner: null });
+      expect((await candidateIds(id)).sort()).toEqual([adminId, admin2Id, admin3Id].sort());
+    });
+
+    it('la personne en charge est celle du moment de l’appel, pas celle d’un écran plus ancien', async () => {
+      const { id } = await owned();
+      expect((await options(id)).body.adminOwner).toMatchObject({ id: adminId });
+      expect((await reassign(id, { adminId: admin2Id, reason: 'Répartition.' })).status).toBe(200);
+      const after = await options(id);
+      expect(after.body.adminOwner).toMatchObject({ id: admin2Id });
+      expect(await candidateIds(id)).not.toContain(admin2Id);
+      expect(await candidateIds(id)).toContain(adminId);
+    });
+
+    it('demande terminée : aucun administrateur proposé, comme la réattribution la refuse', async () => {
+      const { id, version } = await owned();
+      await post(admin, `/api/requests/${id}/actions`, { action: 'REJECT', version, reason: 'Hors périmètre.' });
+      const res = await options(id);
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ reassignable: false, candidates: [] });
+      expect((await reassign(id, { adminId: admin2Id, reason: 'Répartition.' })).status).toBe(409);
     });
 
     it('demande inconnue ou hors périmètre : 404 ; admin et enseignante : 403', async () => {
       const { id } = await owned();
-      expect((await candidates(randomUUID())).status).toBe(404);
-      expect((await candidates('pas-un-uuid')).status).toBe(404);
+      expect((await options(randomUUID())).status).toBe(404);
+      expect((await options('pas-un-uuid')).status).toBe(404);
       const direct = await post(enseignante, '/api/requests', { clientId: randomUUID(), title: 'Photocopies', description: 'x', categoryId: photocopies, priority: 'NORMAL', recipientId: reprographieId });
-      expect((await candidates(direct.body.id)).status).toBe(404);
-      expect((await candidates(id, admin)).status).toBe(403);
-      expect((await candidates(id, enseignante)).status).toBe(403);
+      expect((await options(direct.body.id)).status).toBe(404);
+      expect((await options(id, admin)).status).toBe(403);
+      expect((await options(id, enseignante)).status).toBe(403);
     });
   });
 
   describe('pagination de la supervision', () => {
     it('demandes : pages successives par curseur, sans doublon ni trou', async () => {
       for (let i = 0; i < 5; i += 1) await submit(`Pagination ${i}`);
-      const all = ids(await get(superadmin, '/api/super-admin/requests?limit=100'));
+      // Référence lue en base, pas par l'API : une page est plafonnée à 100 lignes et la base du fichier grossit.
+      const all = (
+        await prisma.request.findMany({
+          where: { kind: 'WORK', status: { not: 'DRAFT' }, category: { routingMode: 'VIA_ADMIN' } },
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+          select: { id: true },
+        })
+      ).map((r) => r.id);
       const seen: string[] = [];
       let cursor: string | null = null;
       let pages = 0;
       do {
-        const res = await get(superadmin, `/api/super-admin/requests?limit=3${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`);
+        const res = await get(superadmin, `/api/super-admin/requests?limit=7${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`);
         expect(res.status).toBe(200);
-        expect(res.body.items.length).toBeLessThanOrEqual(3);
+        expect(res.body.items.length).toBeLessThanOrEqual(7);
         seen.push(...ids(res));
         cursor = res.body.nextCursor;
         pages += 1;
-      } while (cursor && pages < 100);
+      } while (cursor && pages < 200);
       expect(pages).toBeGreaterThan(1);
       expect(seen).toEqual(all);
       expect(new Set(seen).size).toBe(seen.length);
@@ -289,6 +329,7 @@ describe('Supervision et réattribution par le super administrateur', () => {
       const first = await get(superadmin, '/api/super-admin/requests?limit=2&ownership=free');
       expect(first.body.nextCursor).toBeTruthy();
       const next = await get(superadmin, `/api/super-admin/requests?limit=2&ownership=free&cursor=${encodeURIComponent(first.body.nextCursor)}`);
+      expect(next.body.items.length).toBeGreaterThan(0);
       for (const item of next.body.items) expect(item.adminOwner).toBeNull();
     });
 

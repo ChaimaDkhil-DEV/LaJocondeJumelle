@@ -201,7 +201,7 @@ function RequestsView({ filters, setFilters }: { filters: SupervisionFilters; se
       </Box>
 
       {requests.isPending && <LoadingState label={t('Chargement des demandes')} />}
-      {requests.error && (
+      {requests.error && !requests.isFetchNextPageError && (
         <ErrorState message={t('Impossible de charger les demandes.')} actionLabel={t('Réessayer')} onAction={() => void requests.refetch()} />
       )}
       {requests.data && items.length === 0 && (
@@ -214,7 +214,15 @@ function RequestsView({ filters, setFilters }: { filters: SupervisionFilters; se
           ))}
         </Box>
       )}
-      {requests.hasNextPage && (
+      {requests.isFetchNextPageError && (
+        // Seule la page suivante a échoué : ce qui est affiché reste, et « Réessayer » ne redemande que cette page.
+        <ErrorState
+          message={t('Impossible de charger la suite des demandes.')}
+          actionLabel={t('Réessayer')}
+          onAction={() => void requests.fetchNextPage()}
+        />
+      )}
+      {requests.hasNextPage && !requests.isFetchNextPageError && (
         <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
           <Button variant="outlined" loading={requests.isFetchingNextPage} onClick={() => void requests.fetchNextPage()} sx={{ minHeight: 44 }}>
             {t('Afficher plus de demandes')}
@@ -289,7 +297,7 @@ function TransfersView() {
         </Select>
       </Box>
       {transfers.isPending && <LoadingState label={t('Chargement des propositions')} />}
-      {transfers.error && (
+      {transfers.error && !transfers.isFetchNextPageError && (
         <ErrorState message={t('Impossible de charger les propositions de transfert.')} actionLabel={t('Réessayer')} onAction={() => void transfers.refetch()} />
       )}
       {transfers.data && items.length === 0 && <EmptyState icon={ArrowLeftRight} title={t('Aucune proposition de transfert avec ce statut')} />}
@@ -300,7 +308,14 @@ function TransfersView() {
           ))}
         </Box>
       )}
-      {transfers.hasNextPage && (
+      {transfers.isFetchNextPageError && (
+        <ErrorState
+          message={t('Impossible de charger la suite des propositions.')}
+          actionLabel={t('Réessayer')}
+          onAction={() => void transfers.fetchNextPage()}
+        />
+      )}
+      {transfers.hasNextPage && !transfers.isFetchNextPageError && (
         <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
           <Button variant="outlined" loading={transfers.isFetchingNextPage} onClick={() => void transfers.fetchNextPage()} sx={{ minHeight: 44 }}>
             {t('Afficher plus de propositions')}

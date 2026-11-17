@@ -308,6 +308,25 @@ Two defects found by walking through the supervision in the running application,
   (the server refused them). It now uses a new route, `GET /super-admin/requests/:id/reassign-candidates`, which applies the
   rule of the reattribution itself.
 
+Then, after a code review of that fix (same day):
+
+- **Finished request**: the route offered administrators for a request the reattribution refuses. It now answers
+  `reassignable: false` and no candidate; the dialog says so.
+- **Stale dialog**: the dialog mixed the server's fresh candidates with the person in charge shown on the row when it was
+  opened. The route now also returns who is in charge at call time, and the dialog uses only that answer. Nothing is selectable
+  while the answer is loading, reloading or failed (with a retry), nothing is kept from a previous opening, and a choice that
+  is no longer in the answer is never sent.
+- **Failed next page**: the full-list error was shown above rows that were displayed, and its retry reloaded every page but
+  the missing one. The error is now shown in place of the « Afficher plus » button and retries that page only.
+- **Tests**: shared data changed by a test is restored in `finally`; the pagination test reads its reference from the database
+  instead of a page capped at 100 rows.
+- **One rule, one place**: `eligibleAdminsWhere` (delegation candidates and reattribution candidates), `loadOwnable`
+  (reattribution and its candidates).
+- **Known and accepted**: the supervision lists stay under the cache key that real-time events refresh, so every loaded page is
+  reloaded on each event. That is what keeps the rows current without a reload; with many pages loaded on a busy day it means
+  several requests per event. Not changed here.
+- **Not done**: a shared « show more » button for the six screens that have one (existing pattern, outside this fix).
+
 ## Dependencies
 
 ```text

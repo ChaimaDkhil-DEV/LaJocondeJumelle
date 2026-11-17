@@ -73,6 +73,12 @@ let candidates: unknown[] = [];
 let nextRequests: unknown[] = [];
 /** Vrai : la liste des transferts a une seconde page. */
 let moreTransfers = false;
+/** Ce que le serveur sait de la demande au moment où le dialogue s'ouvre ; `undefined` : la personne de la ligne affichée. */
+let freshOwner: unknown = undefined;
+let reassignable = true;
+/** Nombre de réponses 500 à rendre avant de répondre normalement (administrateurs éligibles, page suivante). */
+let candidatesFailures = 0;
+let nextPageFailures = 0;
 
 function renderPage(requests: unknown[], onPost: () => Response = () => json(supervised('1'))) {
   calls = [];
@@ -81,9 +87,23 @@ function renderPage(requests: unknown[], onPost: () => Response = () => json(sup
     vi.fn(async (url: string, init?: RequestInit) => {
       calls.push({ url, method: init?.method ?? 'GET', body: init?.body ? JSON.parse(String(init.body)) : undefined });
       if (init?.method === 'POST') return onPost();
-      if (url.includes('/reassign-candidates')) return json(candidates);
+      if (url.includes('/reassign-candidates')) {
+        if (candidatesFailures > 0) {
+          candidatesFailures -= 1;
+          return json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur' } }, 500);
+        }
+        const id = /requests\/([^/]+)\//.exec(url)![1];
+        const row = (requests as Array<{ id: string; adminOwner: unknown }>).find((r) => r.id === id);
+        return json({ reassignable, adminOwner: freshOwner === undefined ? (row?.adminOwner ?? null) : freshOwner, candidates });
+      }
       if (url.startsWith('/api/super-admin/requests')) {
-        if (url.includes('cursor=suite')) return json({ items: nextRequests, nextCursor: null });
+        if (url.includes('cursor=suite')) {
+          if (nextPageFailures > 0) {
+            nextPageFailures -= 1;
+            return json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur' } }, 500);
+          }
+          return json({ items: nextRequests, nextCursor: null });
+        }
         return json({ items: requests, nextCursor: nextRequests.length ? 'suite' : null });
       }
       if (url === '/api/super-admin/administrators') return json(ADMINS);
@@ -112,6 +132,10 @@ afterEach(() => {
   candidates = [];
   nextRequests = [];
   moreTransfers = false;
+  freshOwner = undefined;
+  reassignable = true;
+  candidatesFailures = 0;
+  nextPageFailures = 0;
 });
 
 describe('Supervision — demandes', () => {
@@ -178,6 +202,24 @@ describe('Supervision — demandes', () => {
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Afficher plus de demandes' })).toBeNull());
   });
 
+  it('échec du chargement de la suite : les demandes déjà affichées restent, « Réessayer » recharge la page manquante seulement', async () => {
+    nextRequests = [supervised('8')];
+    nextPageFailures = 1;
+    renderPage([supervised('1'), supervised('2')]);
+    await screen.findByRole('article', { name: 'Demande 1' });
+    await userEvent.click(screen.getByRole('button', { name: 'Afficher plus de demandes' }));
+    expect(await screen.findByText('Impossible de charger la suite des demandes.')).toBeVisible();
+    expect(screen.getByRole('article', { name: 'Demande 1' })).toBeVisible();
+    expect(screen.queryByText('Impossible de charger les demandes.')).toBeNull();
+
+    const before = calls.filter((c) => c.url.startsWith('/api/super-admin/requests') && !c.url.includes('cursor=')).length;
+    await userEvent.click(screen.getByRole('button', { name: 'Réessayer' }));
+    expect(await screen.findByRole('article', { name: 'Demande 8' })).toBeVisible();
+    expect(screen.queryByText('Impossible de charger la suite des demandes.')).toBeNull();
+    // La première page n'a pas été redemandée pour autant.
+    expect(calls.filter((c) => c.url.startsWith('/api/super-admin/requests') && !c.url.includes('cursor=')).length).toBe(before);
+  });
+
   it('une seule page : pas de bouton « Afficher plus »', async () => {
     renderPage([supervised('1')]);
     await screen.findByRole('article', { name: 'Demande 1' });
@@ -228,6 +270,56 @@ describe('Supervision — réattribution', () => {
         { url: '/api/super-admin/requests/1/reassign', method: 'POST', body: { adminId: 'a9', reason: 'Absence imprévue.' } },
       ]),
     );
+  });
+
+  it('liste des administrateurs indisponible : rien n’est sélectionnable, « Réessayer » la recharge', async () => {
+    candidates = [ref('a9', 'Mme Éligible')];
+    candidatesFailures = 1;
+    renderPage([supervised('1')]);
+    await userEvent.click(await screen.findByRole('button', { name: 'Réattribuer : Demande 1' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Réattribuer la demande' });
+    expect(await within(dialog).findByText('Impossible de charger les administrateurs de cette catégorie.')).toBeVisible();
+    // Ni choix ni envoi tant que la liste n'est pas connue : pas de menu vide, pas de « personne » proposé par défaut.
+    expect(within(dialog).getByRole('combobox', { name: 'Nouvelle attribution' })).toHaveAttribute('aria-disabled', 'true');
+    expect(within(dialog).getByRole('button', { name: 'Réattribuer' })).toBeDisabled();
+
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Réessayer' }));
+    await waitFor(() => expect(within(dialog).queryByText('Impossible de charger les administrateurs de cette catégorie.')).toBeNull());
+    await userEvent.click(within(dialog).getByRole('combobox', { name: 'Nouvelle attribution' }));
+    expect((await screen.findAllByRole('option')).map((o) => o.textContent)).toEqual(['Mme Éligible — Administration', 'Remettre dans la file commune (personne)']);
+  });
+
+  it('la personne en charge est celle que le serveur indique à l’ouverture, pas celle de la ligne affichée', async () => {
+    // La ligne dit « libre », mais un administrateur a pris la demande entre-temps et il est le seul de la catégorie.
+    freshOwner = ref('a1', 'Mme Admin');
+    renderPage([supervised('2', { adminOwner: null, adminOwnedAt: null })]);
+    await userEvent.click(await screen.findByRole('button', { name: 'Réattribuer : Demande 2' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Réattribuer la demande' });
+    expect(await within(dialog).findByText(/Actuellement prise en charge par Mme Admin\./)).toBeVisible();
+    expect(within(dialog).queryByText('Aucun administrateur actif ne s’occupe de la catégorie de cette demande.')).toBeNull();
+    await userEvent.click(within(dialog).getByRole('combobox', { name: 'Nouvelle attribution' }));
+    expect((await screen.findAllByRole('option')).map((o) => o.textContent)).toEqual(['Remettre dans la file commune (personne)']);
+  });
+
+  it('la ligne dit « prise en charge », mais la demande a été libérée entre-temps : la remise dans la file n’est pas proposée', async () => {
+    freshOwner = null;
+    candidates = [ref('a9', 'Mme Éligible')];
+    renderPage([supervised('1')]);
+    await userEvent.click(await screen.findByRole('button', { name: 'Réattribuer : Demande 1' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Réattribuer la demande' });
+    expect(await within(dialog).findByText(/Actuellement dans la file commune/)).toBeVisible();
+    await userEvent.click(within(dialog).getByRole('combobox', { name: 'Nouvelle attribution' }));
+    expect((await screen.findAllByRole('option')).map((o) => o.textContent)).toEqual(['Mme Éligible — Administration']);
+  });
+
+  it('demande terminée entre-temps : le dialogue le dit et n’envoie rien', async () => {
+    reassignable = false;
+    renderPage([supervised('1')]);
+    await userEvent.click(await screen.findByRole('button', { name: 'Réattribuer : Demande 1' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Réattribuer la demande' });
+    expect(await within(dialog).findByText('Cette demande est terminée : elle ne peut plus être réattribuée.')).toBeVisible();
+    expect(within(dialog).getByRole('button', { name: 'Réattribuer' })).toBeDisabled();
+    expect(calls.some((c) => c.method === 'POST')).toBe(false);
   });
 
   it('demande libre sans administrateur éligible : le dialogue le dit et n’envoie rien', async () => {
