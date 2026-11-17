@@ -51,7 +51,15 @@ export type NotificationType =
   // Communications centrées sur l'administration (017)
   | 'COMM_INTERNAL_NEW'
   | 'COMM_ADMIN_REPLY'
-  | 'COMM_PARENT_NEW';
+  | 'COMM_PARENT_NEW'
+  // Transferts entre administrateurs (018)
+  | 'TRANSFER_TAKEOVER_REQUESTED'
+  | 'TRANSFER_DELEGATION_REQUESTED'
+  | 'TRANSFER_ACCEPTED'
+  | 'TRANSFER_REJECTED'
+  | 'TRANSFER_CANCELLED'
+  | 'TRANSFER_EXPIRED'
+  | 'ADMIN_OWNER_REASSIGNED';
 
 /** Demande de travail ou couverture de classe : détermine la page ouverte. */
 export type RequestKind = 'WORK' | 'COVERAGE';
@@ -128,6 +136,13 @@ export const NOTIFICATION_LABELS: Record<NotificationType, string> = {
   COMM_INTERNAL_NEW: t('Nouveau signalement d’un enseignant'),
   COMM_ADMIN_REPLY: t('Nouveau message de l’administration'),
   COMM_PARENT_NEW: t('Nouveau message d’un parent'),
+  TRANSFER_TAKEOVER_REQUESTED: t('Demande de reprise reçue'),
+  TRANSFER_DELEGATION_REQUESTED: t('Délégation proposée'),
+  TRANSFER_ACCEPTED: t('Transfert accepté'),
+  TRANSFER_REJECTED: t('Transfert refusé'),
+  TRANSFER_CANCELLED: t('Transfert annulé'),
+  TRANSFER_EXPIRED: t('Transfert expiré'),
+  ADMIN_OWNER_REASSIGNED: t('Demande réattribuée'),
 };
 
 /**

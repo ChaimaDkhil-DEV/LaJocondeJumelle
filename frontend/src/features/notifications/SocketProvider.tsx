@@ -72,6 +72,11 @@ export function SocketProvider({
       // chaque minute pour les messages et le passage du temps.
       invalidate(['dashboard']);
     });
+    // Transferts entre administrateurs (018) : listes « Collaboration », compteurs, bandeau du détail.
+    socket.on('transfer:updated', (event?: { requestId: string }) => {
+      if (event) invalidate(requestKeys.detail(event.requestId));
+      invalidate(['requests', 'list']);
+    });
     // Couvertures de classe : listes « À prendre », « Ma garde », suivi en direct (relues par REST).
     socket.on('coverage:updated', () => invalidate(['coverage']));
     socket.on('coverage:taken', () => invalidate(['coverage']));
