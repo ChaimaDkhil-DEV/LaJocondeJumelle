@@ -95,7 +95,7 @@ export interface AssistConfig {
    * Connecteur Whisper auto-hébergé (`whisper` seulement) : adresse, modèle, clé facultative et
    * certificat d'autorité supplémentaire (autorité interne de Caddy, spec 010 R11), lu à chaque appel.
    */
-  whisper: { url: string; model: string; apiKey: string | null; caFile: string | null } | null;
+  whisper: { url: string; model: string; apiKey: string | null; caFile: string | null; language: string | null } | null;
 }
 
 export class ConfigError extends Error {}
@@ -136,6 +136,8 @@ const DEFAULT_TRANSCRIPTION_TIMEOUT_MS = 120_000;
 const DEFAULT_ASSIST_RATE_LIMIT = 10;
 const DEFAULT_CLAUDE_MODEL = 'claude-opus-5-5';
 const DEFAULT_WHISPER_MODEL = 'Systran/faster-whisper-small';
+/** Langue des vocaux par défaut (comportement historique) ; `auto` laisse Whisper la détecter. */
+const DEFAULT_WHISPER_LANGUAGE = 'fr';
 
 function parseAssistProvider<T extends string>(key: string, raw: string | undefined, allowed: readonly T[], isProduction: boolean): T {
   const value = raw === undefined || raw.trim() === '' ? 'disabled' : raw;
@@ -160,6 +162,16 @@ function parseClaude(env: NodeJS.ProcessEnv): AssistConfig['claude'] {
   return { apiKey, model: trimmed(env.ASSIST_CLAUDE_MODEL) ?? DEFAULT_CLAUDE_MODEL };
 }
 
+/** Langue de transcription : code ISO 639-1 (`fr`, `ar`, `en`…) ou `auto` (détection, renvoyé `null`). */
+function parseWhisperLanguage(raw: string | undefined): string | null {
+  const value = (trimmed(raw) ?? DEFAULT_WHISPER_LANGUAGE).toLowerCase();
+  if (value === 'auto') return null;
+  if (!/^[a-z]{2}$/.test(value)) {
+    throw new ConfigError('ASSIST_WHISPER_LANGUAGE invalide : code de langue à deux lettres (fr, ar, en…) ou auto attendu');
+  }
+  return value;
+}
+
 function parseWhisper(env: NodeJS.ProcessEnv, isProduction: boolean): AssistConfig['whisper'] {
   const raw = trimmed(env.ASSIST_WHISPER_URL);
   let url: URL;
@@ -180,6 +192,7 @@ function parseWhisper(env: NodeJS.ProcessEnv, isProduction: boolean): AssistConf
     model: trimmed(env.ASSIST_WHISPER_MODEL) ?? DEFAULT_WHISPER_MODEL,
     apiKey: trimmed(env.ASSIST_WHISPER_API_KEY),
     caFile: trimmed(env.ASSIST_WHISPER_CA_FILE),
+    language: parseWhisperLanguage(env.ASSIST_WHISPER_LANGUAGE),
   };
 }
 
