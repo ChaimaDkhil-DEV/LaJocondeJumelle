@@ -48,6 +48,7 @@ Assignment      { id, operation, request: { id, reference, title },
 | `GET /super-admin/requests` | All ownable work requests | Query: `ownership=free\|owned`, `state=active\|finished`, `adminId`, `status`, `priority`, `from`, `to`. Each item carries `adminOwner` and `adminOwnerUnavailable` (inactive or no longer eligible). |
 | `GET /super-admin/administrators` | Administrators with their load | `{ id, displayName, jobTitle, active, ownedActive, ownedFinished, transfersPending, lastOperationAt }[]` |
 | `POST /super-admin/requests/:id/reassign` | Reassign or release | Body `{ adminId: uuid \| null, reason }`. `null` releases. 200 `RequestDetail`. |
+| `GET /super-admin/requests/:id/reassign-candidates` | Administrators the request can be reassigned to | `AdminRef[]`: active, administrators of the request's category, without the one already in charge. Same rule as `reassign`. |
 | `GET /super-admin/transfers?status=` | All proposals by status | `Transfer[]`, paginated. |
 
 Existing routes reused, unchanged: `GET/POST/PATCH /admin/users` (administrator accounts), `GET /admin/audit`

@@ -224,6 +224,89 @@ describe('Supervision et réattribution par le super administrateur', () => {
     });
   });
 
+  describe('administrateurs proposés pour une réattribution', () => {
+    const candidates = (id: string, cookie = superadmin) => get(cookie, `/api/super-admin/requests/${id}/reassign-candidates`);
+
+    it('seuls les admins actifs de la catégorie de la demande, sans celui qui l’a déjà ; nom et fonction seulement', async () => {
+      const { id } = await owned();
+      const res = await candidates(id);
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual([
+        { id: admin2Id, displayName: 'Seconde administratrice', jobTitle: 'Administration' },
+        { id: admin3Id, displayName: 'Troisième administrateur', jobTitle: 'Administration' },
+      ]);
+
+      // Un compte désactivé et un admin sorti de la catégorie ne sont pas proposés.
+      await prisma.user.update({ where: { id: admin3Id }, data: { active: false } });
+      expect((await candidates(id)).body.map((a: { id: string }) => a.id)).toEqual([admin2Id]);
+      await prisma.user.update({ where: { id: admin3Id }, data: { active: true } });
+      await prisma.categoryManager.delete({ where: { categoryId_userId: { categoryId: circuitB, userId: admin2Id } } });
+      expect((await candidates(id)).body.map((a: { id: string }) => a.id)).toEqual([admin3Id]);
+      await prisma.categoryManager.create({ data: { categoryId: circuitB, userId: admin2Id } });
+
+      // Chaque administrateur proposé est accepté par la réattribution : la liste et la règle du serveur sont les mêmes.
+      for (const candidate of (await candidates(id)).body as Array<{ id: string }>) {
+        const fresh = await owned();
+        expect((await reassign(fresh.id, { adminId: candidate.id, reason: 'Répartition.' })).status).toBe(200);
+      }
+    });
+
+    it('demande libre : tous les admins actifs de la catégorie sont proposés', async () => {
+      const { id } = await submit();
+      expect((await candidates(id)).body.map((a: { id: string }) => a.id).sort()).toEqual([adminId, admin2Id, admin3Id].sort());
+    });
+
+    it('demande inconnue ou hors périmètre : 404 ; admin et enseignante : 403', async () => {
+      const { id } = await owned();
+      expect((await candidates(randomUUID())).status).toBe(404);
+      expect((await candidates('pas-un-uuid')).status).toBe(404);
+      const direct = await post(enseignante, '/api/requests', { clientId: randomUUID(), title: 'Photocopies', description: 'x', categoryId: photocopies, priority: 'NORMAL', recipientId: reprographieId });
+      expect((await candidates(direct.body.id)).status).toBe(404);
+      expect((await candidates(id, admin)).status).toBe(403);
+      expect((await candidates(id, enseignante)).status).toBe(403);
+    });
+  });
+
+  describe('pagination de la supervision', () => {
+    it('demandes : pages successives par curseur, sans doublon ni trou', async () => {
+      for (let i = 0; i < 5; i += 1) await submit(`Pagination ${i}`);
+      const all = ids(await get(superadmin, '/api/super-admin/requests?limit=100'));
+      const seen: string[] = [];
+      let cursor: string | null = null;
+      let pages = 0;
+      do {
+        const res = await get(superadmin, `/api/super-admin/requests?limit=3${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`);
+        expect(res.status).toBe(200);
+        expect(res.body.items.length).toBeLessThanOrEqual(3);
+        seen.push(...ids(res));
+        cursor = res.body.nextCursor;
+        pages += 1;
+      } while (cursor && pages < 100);
+      expect(pages).toBeGreaterThan(1);
+      expect(seen).toEqual(all);
+      expect(new Set(seen).size).toBe(seen.length);
+      // Les filtres s'appliquent aussi aux pages suivantes.
+      const first = await get(superadmin, '/api/super-admin/requests?limit=2&ownership=free');
+      expect(first.body.nextCursor).toBeTruthy();
+      const next = await get(superadmin, `/api/super-admin/requests?limit=2&ownership=free&cursor=${encodeURIComponent(first.body.nextCursor)}`);
+      for (const item of next.body.items) expect(item.adminOwner).toBeNull();
+    });
+
+    it('transferts : pages successives par curseur', async () => {
+      for (let i = 0; i < 3; i += 1) {
+        const { id } = await owned();
+        const proposed = await post(admin, `/api/admin/requests/${id}/transfers`, { type: 'DELEGATION_REQUEST', recipientId: admin2Id, reason: 'Surcharge.' });
+        await post(admin, `/api/admin/transfers/${proposed.body.id}/cancel`);
+      }
+      const all = ids(await get(superadmin, '/api/super-admin/transfers?limit=100&status=CANCELLED'));
+      const first = await get(superadmin, '/api/super-admin/transfers?limit=2&status=CANCELLED');
+      expect(first.body.items).toHaveLength(2);
+      expect(first.body.nextCursor).toBeTruthy();
+      const next = await get(superadmin, `/api/super-admin/transfers?limit=2&status=CANCELLED&cursor=${encodeURIComponent(first.body.nextCursor)}`);
+      expect([...ids(first), ...ids(next)]).toEqual(all.slice(0, 4));
+    });
+  });
+
   describe('supervision des demandes (FR-026)', () => {
     let free: string;
     let mineOpen: string;
@@ -364,6 +447,7 @@ describe('Supervision et réattribution par le super administrateur', () => {
         ['get', '/api/super-admin/requests'],
         ['get', '/api/super-admin/administrators'],
         ['get', '/api/super-admin/transfers'],
+        ['get', `/api/super-admin/requests/${id}/reassign-candidates`],
         ['post', `/api/super-admin/requests/${id}/reassign`],
       ];
       for (const cookie of [admin, enseignante]) {

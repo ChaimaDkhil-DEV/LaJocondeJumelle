@@ -136,6 +136,8 @@ function RequestsView({ filters, setFilters }: { filters: SupervisionFilters; se
   const requests = useSupervisedRequests(filters);
   const administrators = useAdministrators();
   const [reassigning, setReassigning] = useState<SupervisedRequest | null>(null);
+  // Pages chargées jusqu'ici, dans l'ordre du serveur (les plus récentes d'abord).
+  const items = requests.data?.pages.flatMap((page) => page.items) ?? [];
   const set = <K extends keyof SupervisionFilters>(key: K, value: SupervisionFilters[K]) => setFilters({ ...filters, [key]: value });
 
   return (
@@ -202,14 +204,21 @@ function RequestsView({ filters, setFilters }: { filters: SupervisionFilters; se
       {requests.error && (
         <ErrorState message={t('Impossible de charger les demandes.')} actionLabel={t('Réessayer')} onAction={() => void requests.refetch()} />
       )}
-      {requests.data && requests.data.items.length === 0 && (
+      {requests.data && items.length === 0 && (
         <EmptyState title={t('Aucune demande ne correspond à ces critères')} description={t('Élargissez ou réinitialisez les filtres.')} />
       )}
-      {requests.data && requests.data.items.length > 0 && (
+      {items.length > 0 && (
         <Box sx={{ display: 'grid', gap: 2 }}>
-          {requests.data.items.map((request) => (
+          {items.map((request) => (
             <RequestRow key={request.id} request={request} onReassign={() => setReassigning(request)} />
           ))}
+        </Box>
+      )}
+      {requests.hasNextPage && (
+        <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
+          <Button variant="outlined" loading={requests.isFetchingNextPage} onClick={() => void requests.fetchNextPage()} sx={{ minHeight: 44 }}>
+            {t('Afficher plus de demandes')}
+          </Button>
         </Box>
       )}
       {reassigning && <ReassignOwnerDialog request={reassigning} onClose={() => setReassigning(null)} />}
@@ -266,6 +275,7 @@ function AdministratorsView({ onShowRequests }: { onShowRequests: (adminId: stri
 function TransfersView() {
   const [status, setStatus] = useState<TransferStatus | 'all'>('PENDING');
   const transfers = useAllTransfers(status);
+  const items = transfers.data?.pages.flatMap((page) => page.items) ?? [];
   return (
     <Box>
       <Box sx={{ mb: 2, maxWidth: 280, display: 'grid' }}>
@@ -282,12 +292,19 @@ function TransfersView() {
       {transfers.error && (
         <ErrorState message={t('Impossible de charger les propositions de transfert.')} actionLabel={t('Réessayer')} onAction={() => void transfers.refetch()} />
       )}
-      {transfers.data && transfers.data.items.length === 0 && <EmptyState icon={ArrowLeftRight} title={t('Aucune proposition de transfert avec ce statut')} />}
-      {transfers.data && transfers.data.items.length > 0 && (
+      {transfers.data && items.length === 0 && <EmptyState icon={ArrowLeftRight} title={t('Aucune proposition de transfert avec ce statut')} />}
+      {items.length > 0 && (
         <Box sx={{ display: 'grid', gap: 2 }}>
-          {transfers.data.items.map((transfer) => (
+          {items.map((transfer) => (
             <TransferCard key={transfer.id} transfer={transfer} headingLevel="h3" />
           ))}
+        </Box>
+      )}
+      {transfers.hasNextPage && (
+        <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
+          <Button variant="outlined" loading={transfers.isFetchingNextPage} onClick={() => void transfers.fetchNextPage()} sx={{ minHeight: 44 }}>
+            {t('Afficher plus de propositions')}
+          </Button>
         </Box>
       )}
     </Box>

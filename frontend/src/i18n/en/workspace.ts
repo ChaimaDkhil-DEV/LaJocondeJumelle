@@ -167,4 +167,7 @@ export const workspace: Record<string, string> = {
   'Demande réattribuée.': 'Request reassigned.',
   'La réattribution a échoué. Réessayez.': 'Reassignment failed. Try again.',
   'Délai de réponse aux transferts entre administrateurs (minutes)': 'Response time for transfers between administrators (minutes)',
+  'Afficher plus de propositions': 'Show more proposals',
+  'Aucun administrateur actif ne s’occupe de la catégorie de cette demande.': 'No active administrator handles the category of this request.',
+  'Impossible de charger les administrateurs de cette catégorie.': 'Unable to load the administrators of this category.',
 };

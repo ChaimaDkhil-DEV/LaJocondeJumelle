@@ -67,6 +67,13 @@ const TRANSFER = {
 
 let calls: Array<{ url: string; method: string; body: unknown }> = [];
 
+/** Administrateurs que le serveur déclare éligibles pour la demande (actifs, admins de sa catégorie, sans celui qui l'a déjà). */
+let candidates: unknown[] = [];
+/** Seconde page de demandes, servie quand l'interface renvoie le curseur de la première. */
+let nextRequests: unknown[] = [];
+/** Vrai : la liste des transferts a une seconde page. */
+let moreTransfers = false;
+
 function renderPage(requests: unknown[], onPost: () => Response = () => json(supervised('1'))) {
   calls = [];
   vi.stubGlobal(
@@ -74,9 +81,18 @@ function renderPage(requests: unknown[], onPost: () => Response = () => json(sup
     vi.fn(async (url: string, init?: RequestInit) => {
       calls.push({ url, method: init?.method ?? 'GET', body: init?.body ? JSON.parse(String(init.body)) : undefined });
       if (init?.method === 'POST') return onPost();
-      if (url.startsWith('/api/super-admin/requests')) return json({ items: requests, nextCursor: null });
+      if (url.includes('/reassign-candidates')) return json(candidates);
+      if (url.startsWith('/api/super-admin/requests')) {
+        if (url.includes('cursor=suite')) return json({ items: nextRequests, nextCursor: null });
+        return json({ items: requests, nextCursor: nextRequests.length ? 'suite' : null });
+      }
       if (url === '/api/super-admin/administrators') return json(ADMINS);
-      if (url.startsWith('/api/super-admin/transfers')) return json({ items: [TRANSFER], nextCursor: null });
+      if (url.startsWith('/api/super-admin/transfers')) {
+        if (url.includes('cursor=suite')) {
+          return json({ items: [{ ...TRANSFER, id: 't2', request: { ...TRANSFER.request, id: '2', title: 'Demande 2' } }], nextCursor: null });
+        }
+        return json({ items: [TRANSFER], nextCursor: moreTransfers ? 'suite' : null });
+      }
       return json({ error: { code: 'NOT_FOUND', message: 'Introuvable' } }, 404);
     }),
   );
@@ -88,9 +104,15 @@ function renderPage(requests: unknown[], onPost: () => Response = () => json(sup
   );
 }
 
-const lastRequestsCall = () => calls.filter((c) => c.url.startsWith('/api/super-admin/requests')).at(-1)!.url;
+const lastRequestsCall = () =>
+  calls.filter((c) => c.url.startsWith('/api/super-admin/requests') && !c.url.includes('reassign-candidates')).at(-1)!.url;
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  candidates = [];
+  nextRequests = [];
+  moreTransfers = false;
+});
 
 describe('Supervision — demandes', () => {
   it('liste les demandes avec la personne qui les a prises en charge ; « Libre » sinon ; responsable indisponible signalé', async () => {
@@ -138,6 +160,30 @@ describe('Supervision — demandes', () => {
     await waitFor(() => expect(lastRequestsCall()).not.toMatch(/ownership|state=|adminId|priority|status=|from=|to=/));
   });
 
+  it('liste paginée : « Afficher plus de demandes » charge la page suivante avec le curseur et les filtres en cours', async () => {
+    nextRequests = [supervised('8'), supervised('9')];
+    renderPage([supervised('1'), supervised('2')]);
+    await screen.findByRole('article', { name: 'Demande 1' });
+    expect(lastRequestsCall()).toContain('limit=25');
+    expect(screen.queryByRole('article', { name: 'Demande 8' })).toBeNull();
+
+    await userEvent.click(screen.getByRole('combobox', { name: 'Priorité' }));
+    await userEvent.click(await screen.findByRole('option', { name: 'Urgente' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Afficher plus de demandes' }));
+    expect(await screen.findByRole('article', { name: 'Demande 9' })).toBeVisible();
+    expect(screen.getByRole('article', { name: 'Demande 1' })).toBeVisible();
+    expect(lastRequestsCall()).toMatch(/priority=URGENT/);
+    expect(lastRequestsCall()).toContain('cursor=suite');
+    // Dernière page atteinte : plus de bouton.
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Afficher plus de demandes' })).toBeNull());
+  });
+
+  it('une seule page : pas de bouton « Afficher plus »', async () => {
+    renderPage([supervised('1')]);
+    await screen.findByRole('article', { name: 'Demande 1' });
+    expect(screen.queryByRole('button', { name: 'Afficher plus de demandes' })).toBeNull();
+  });
+
   it('état vide et erreur avec « Réessayer »', async () => {
     renderPage([]);
     expect(await screen.findByText('Aucune demande ne correspond à ces critères')).toBeVisible();
@@ -151,7 +197,7 @@ describe('Supervision — réattribution', () => {
     return screen.findByRole('dialog', { name: 'Réattribuer la demande' });
   }
 
-  it('motif et destinataire obligatoires ; l’administrateur actuel et les comptes désactivés ne sont pas proposés', async () => {
+  it('motif et destinataire obligatoires ; sans administrateur éligible, seule la remise dans la file commune est proposée', async () => {
     const dialog = await openDialog();
     expect(within(dialog).getByText(/Demande 1/)).toBeVisible();
     expect(within(dialog).getByText(/sans l’accord des administrateurs/)).toBeVisible();
@@ -163,6 +209,33 @@ describe('Supervision — réattribution', () => {
     await userEvent.click(within(dialog).getByRole('combobox', { name: 'Nouvelle attribution' }));
     const options = (await screen.findAllByRole('option')).map((o) => o.textContent);
     expect(options).toEqual(['Remettre dans la file commune (personne)']);
+  });
+
+  it('ne propose que les administrateurs que le serveur déclare éligibles pour cette demande', async () => {
+    // Le serveur ne renvoie que l'admin de la catégorie ; la liste générale des administrateurs en compte d'autres.
+    candidates = [ref('a9', 'Mme Éligible')];
+    const dialog = await openDialog();
+    await userEvent.click(within(dialog).getByRole('combobox', { name: 'Nouvelle attribution' }));
+    const options = (await screen.findAllByRole('option')).map((o) => o.textContent);
+    expect(options).toEqual(['Mme Éligible — Administration', 'Remettre dans la file commune (personne)']);
+    expect(calls.some((c) => c.url === '/api/super-admin/requests/1/reassign-candidates')).toBe(true);
+
+    await userEvent.click(screen.getByRole('option', { name: 'Mme Éligible — Administration' }));
+    await userEvent.type(within(dialog).getByLabelText(/^Motif/), 'Absence imprévue.');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Réattribuer' }));
+    await waitFor(() =>
+      expect(calls.filter((c) => c.method === 'POST')).toEqual([
+        { url: '/api/super-admin/requests/1/reassign', method: 'POST', body: { adminId: 'a9', reason: 'Absence imprévue.' } },
+      ]),
+    );
+  });
+
+  it('demande libre sans administrateur éligible : le dialogue le dit et n’envoie rien', async () => {
+    renderPage([supervised('2', { adminOwner: null, adminOwnedAt: null })]);
+    await userEvent.click(await screen.findByRole('button', { name: 'Réattribuer : Demande 2' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Réattribuer la demande' });
+    expect(await within(dialog).findByText('Aucun administrateur actif ne s’occupe de la catégorie de cette demande.')).toBeVisible();
+    expect(within(dialog).getByRole('button', { name: 'Réattribuer' })).toBeDisabled();
   });
 
   it('libération : envoie « personne » et le motif, puis ferme', async () => {
@@ -222,5 +295,17 @@ describe('Supervision — administrateurs et transferts', () => {
     await userEvent.click(screen.getByRole('combobox', { name: 'Statut des propositions' }));
     await userEvent.click(await screen.findByRole('option', { name: 'Refusée' }));
     await waitFor(() => expect(calls.filter((c) => c.url.startsWith('/api/super-admin/transfers')).at(-1)!.url).toContain('status=REJECTED'));
+  });
+
+  it('transferts : « Afficher plus de propositions » charge la page suivante', async () => {
+    moreTransfers = true;
+    renderPage([supervised('1')]);
+    await userEvent.click(await screen.findByRole('tab', { name: 'Transferts' }));
+    await screen.findByRole('article', { name: 'Demande 1' });
+    await userEvent.click(screen.getByRole('button', { name: 'Afficher plus de propositions' }));
+    expect(await screen.findByRole('article', { name: 'Demande 2' })).toBeVisible();
+    const last = calls.filter((c) => c.url.startsWith('/api/super-admin/transfers')).at(-1)!.url;
+    expect(last).toContain('status=PENDING');
+    expect(last).toContain('cursor=suite');
   });
 });

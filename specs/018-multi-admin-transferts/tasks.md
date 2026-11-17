@@ -298,6 +298,16 @@ Deviations from the task text, decided while implementing:
   shown; no new navigation rule.
 - **Missing reason** — answered `422 REASON_REQUIRED` by the service (contract), not `400` by the DTO.
 
+## Fixes after the manual trial (2026-11-17)
+
+Two defects found by walking through the supervision in the running application, fixed test first:
+
+- **Supervision lists were not paginated**: the screen asked for 100 rows and offered no way to load more. The requests and
+  the transfers views now load 25 rows per page with the server cursor and a button to show more; filters apply to every page.
+- **The reattribution dialog offered every active administrator**, including those who do not handle the request's category
+  (the server refused them). It now uses a new route, `GET /super-admin/requests/:id/reassign-candidates`, which applies the
+  rule of the reattribution itself.
+
 ## Dependencies
 
 ```text

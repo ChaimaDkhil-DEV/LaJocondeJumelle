@@ -13,7 +13,7 @@ import { RequestPolicyLoader, toPolicyCategory } from '../requests/request-polic
 import { REQUEST_INCLUDE, toRequestSummary, type RequestDetail, type RequestSummary } from '../requests/requests.mapper';
 import { RequestsService, type RequestContext } from '../requests/requests.service';
 import type { AllTransfersQuery, ReassignOwnerDto, SupervisedRequestsQuery } from './transfers.dto';
-import { TRANSFER_INCLUDE, toTransferView, type TransferView } from './transfers.mapper';
+import { ADMIN_REF, TRANSFER_INCLUDE, toTransferView, type AdminRefView, type TransferView } from './transfers.mapper';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const FINISHED = ['CLOSED', 'REJECTED', 'CANCELLED'] as const;
@@ -145,6 +145,27 @@ export class SupervisionService {
     const page = buildPage(rows, limit);
     const now = new Date();
     return { items: page.items.map((t) => toTransferView(t, user, now)), nextCursor: page.nextCursor };
+  }
+
+  /**
+   * Administrateurs à qui la demande peut être réattribuée : comptes Admin actifs, admins de sa catégorie,
+   * sans celui qui l'a déjà. Équivalent SQL de isEligibleAdmin, la règle que `reassign` applique : tout
+   * administrateur proposé ici est accepté par la réattribution. Nom et fonction seulement.
+   */
+  async reassignCandidates(requestId: string): Promise<AdminRefView[]> {
+    const request = UUID.test(requestId) ? await this.prisma.request.findUnique({ where: { id: requestId } }) : null;
+    const loaded = request && (await this.policies.category(request.categoryId));
+    if (!request || !loaded || !isOwnable(request, toPolicyCategory(loaded))) throw new AppException('NOT_FOUND');
+    return this.prisma.user.findMany({
+      where: {
+        active: true,
+        role: 'ADMIN',
+        managerOf: { some: { categoryId: request.categoryId } },
+        ...(request.adminOwnerId ? { id: { not: request.adminOwnerId } } : {}),
+      },
+      select: ADMIN_REF.select,
+      orderBy: { displayName: 'asc' },
+    });
   }
 
   /**
