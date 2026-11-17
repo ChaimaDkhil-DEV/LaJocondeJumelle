@@ -52,7 +52,14 @@ const NUMBER_FIELDS: Array<{ key: NumberKey; label: string; megabytes?: boolean 
   { key: 'coverageSupportReminderMinutes', label: t('Affectations : intervalle des rappels de renfort (minutes)') },
   { key: 'coverageSupportReminderMax', label: t('Affectations : nombre maximal de rappels de renfort') },
   { key: 'coverageRetentionMonths', label: t('Affectations : durée de conservation avant anonymisation (mois)') },
+  // Transferts entre administrateurs (018).
+  { key: 'transferResponseMinutes', label: t('Délai de réponse aux transferts entre administrateurs (minutes)') },
 ];
+
+/** Réglages numériques que le serveur a renvoyés : un réglage absent de sa réponse n'est ni affiché ni envoyé. */
+function numberFields(settings: AdminSettings) {
+  return NUMBER_FIELDS.filter((field) => settings[field.key] !== undefined);
+}
 
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -90,7 +97,7 @@ type Draft = Record<NumberKey, string> &
 
 function toDraft(s: AdminSettings): Draft {
   const numbers = Object.fromEntries(
-    NUMBER_FIELDS.map((f) => [f.key, f.megabytes ? String(Math.round((s[f.key] / MB) * 100) / 100) : String(s[f.key])]),
+    numberFields(s).map((f) => [f.key, f.megabytes ? String(Math.round(((s[f.key] ?? 0) / MB) * 100) / 100) : String(s[f.key])]),
   ) as Record<NumberKey, string>;
   return {
     ...numbers,
@@ -108,7 +115,7 @@ function toDraft(s: AdminSettings): Draft {
 function changes(draft: Draft, current: AdminSettings): { body: Partial<AdminSettings>; errors: Record<string, string> } {
   const body: Partial<AdminSettings> = {};
   const errors: Record<string, string> = {};
-  for (const field of NUMBER_FIELDS) {
+  for (const field of numberFields(current)) {
     const raw = draft[field.key].trim().replace(',', '.');
     const valid = field.megabytes ? /^\d+(\.\d+)?$/.test(raw) : /^\d+$/.test(raw);
     if (!valid) {
@@ -266,7 +273,7 @@ function SettingsForm({ settings }: { settings: AdminSettings }) {
       contentGap={3}
     >
       <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' } }}>
-        {NUMBER_FIELDS.map((field) => (
+        {numberFields(settings).map((field) => (
           <TextField
             key={field.key}
             id={`reglage-${field.key}`}

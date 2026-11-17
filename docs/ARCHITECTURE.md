@@ -884,3 +884,81 @@ Specification: `specs/010-assistance-fournisseurs-similaires/`.
   defaults); documented in `deploy/.env.example` and `backend/.env.example`.
 - **Optional live test**: `backend/test/integration/assist-whisper-live.spec.ts`, skipped without
   `ASSIST_WHISPER_TEST_URL`.
+
+---
+
+## 15. Multi-administrator handling of work requests (feature 018)
+
+Specification: `specs/018-multi-admin-transferts/` (spec, plan, research, data model, API contract, tasks).
+
+### Principle
+
+A work request of a « via l'administration » category has at most one **responsible administrator**
+(`Request.adminOwnerId`, `adminOwnedAt`) — the administrator who handles it, distinct from the assigned
+employee (`assigneeId`) who does the work. `adminOwnerId` null means the request is free. No role, permission
+or status was added: the rules rest on the `ADMIN` role, on `CategoryManager` and on who is responsible.
+
+| Notion | Rule | Where |
+|---|---|---|
+| Eligible administrator | active, role `ADMIN`, administrator of the request's category | `requests/domain/ownership.ts` |
+| File commune | free requests waiting for validation, in the administrator's categories | `transfers/workspace.service.ts` |
+| Who acts for the administration | the responsible administrator once the request is taken; any eligible administrator while it is free; the super administrator as before | `requests/domain/access-policy.ts` (`actorsFor`) |
+| Who reads | unchanged, plus explicitly the administrators of the category (`isCategoryReader`) | same file |
+| Acting is taking | an administration action on a free request makes its author responsible, in the same write | `requests/request-transitions.service.ts` |
+
+### Module `transfers/` (after `requests/` in the layer order)
+
+- `workspace.service.ts` — file commune, « mes demandes », counts, « prendre en charge », ownership history.
+- `transfers.service.ts` — proposals (delegation, takeover request), answers, cancellation, expiry.
+- `supervision.service.ts` — super administrator: all requests with their responsible administrator,
+  administrators' load, all proposals, reattribution and release.
+- Controllers: `admin-requests.controller.ts` and `admin-transfers.controller.ts` (`AdministrationGuard`),
+  `super-admin.controller.ts` (`SuperAdminGuard`, prefix `/super-admin`).
+- `requests/request-ownership.service.ts` holds the transaction helpers the existing transitions need
+  (claim, history row, cancellation of a pending proposal): `requests/` cannot import `transfers/`.
+
+### Concurrency
+
+Every change is a conditional `updateMany` inside one Prisma transaction, the project's existing pattern:
+
+- **Prendre en charge**: `where { status: PENDING_ADMIN_VALIDATION, adminOwnerId: null, version }`. Of two
+  simultaneous calls one updates a row, the other gets `409 REQUEST_ALREADY_CLAIMED`. The version is
+  incremented, so a colleague acting on a request they believed free gets the existing `409 STATE_CHANGED`.
+- **Answer to a proposal**: first `RequestTransfer where { status: PENDING, recipientId }`, then
+  `Request where { adminOwnerId: currentOwnerId, status not finished }`; if the second finds nothing the
+  transaction is rolled back and the proposal is cancelled with its cause.
+- **One pending proposal per request**: partial unique index `RequestTransfer_one_pending`, in addition to
+  the service check.
+
+### Data (migration `0029_request_admin_owner_transfers`, additive, with `down.sql`)
+
+- `Request.adminOwnerId`, `adminOwnedAt` (CHECK: both null or both set).
+- `RequestAssignment` — ownership history, append-only by trigger (`CLAIMED`, `TRANSFERRED`, `REASSIGNED`,
+  `RELEASED`).
+- `RequestTransfer` — proposals (`PENDING`, `ACCEPTED`, `REJECTED`, `CANCELLED` with a cause, `EXPIRED`); CHECKs
+  « never to oneself » and « type consistent with the responsible administrator ».
+- Seven `NotificationType` values (bell only, never push). Setting `transferResponseMinutes` (default 120).
+
+### Notifications, real time, audit
+
+- Notifications are written in the transaction and published after commit, as elsewhere. Once a request is
+  taken, the notifications that went to all the category's administrators go to the responsible one only.
+- Events (identifiers only): `request:updated` (existing) on claim, transfer accepted and reattribution;
+  `transfer:updated` (new) to the author, the recipient, the responsible administrator and the super
+  administrators' room.
+- Audit: existing action `REQUEST_MANAGED` with `details.action` ∈ `CLAIM`, `TRANSFER_PROPOSED`,
+  `TRANSFER_ACCEPTED`, `TRANSFER_REJECTED`, `TRANSFER_CANCELLED`, `TRANSFER_EXPIRED`, `OWNER_REASSIGNED`,
+  `OWNER_RELEASED`. The text of a reason stays in the history and the proposal, never in the audit log.
+- Job `scheduler/transfer-expiry.job.ts`: expires overdue proposals and cancels those that can no longer
+  succeed (request finished, responsible administrator changed, participant no longer eligible).
+
+### Interface
+
+- `features/admin-workspace/` — « Espace de travail » of an administrator (`/espace`): dashboard, file
+  commune, mes demandes, en cours, terminées, collaboration, mon historique.
+- `features/admin/SupervisionPage.tsx` — « Supervision » section of the « Administrateur » space (super
+  administrator).
+- `features/requests/RequestDetailPage.tsx` — who has taken the request, « Prendre en charge », « Proposer
+  une délégation », « Demander la reprise », pending proposal with its actions.
+- The interface says « prise en charge par » and « à votre charge », not « responsable »: that word was the
+  former name of the `ADMIN` role and `role-admin-rename.spec.ts` forbids it in API error messages.

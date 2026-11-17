@@ -274,6 +274,26 @@ Read-only, filters by author, action and period (`admin-audit.controller.ts:57`)
 | Work requests: approval, refusal, reassignment, cancellation, final validation, sent back for correction, priority change (reason flagged, without its text) | ✅ `REQUEST_MANAGED` | `request-transitions.service.ts:53`, `requests.service.ts` |
 | Work requests: accept, start, finish, decline (routine employee actions) | ❌ by choice (request history) | `RequestEvent` |
 | Role change as a distinct event | ❌ (included in "Compte modifié" (Account modified)) | — |
+| Work requests: taking in charge, transfer proposals (proposed, accepted, refused, cancelled with its cause, expired), reattribution and release by the super administrator (feature 018; `details.action`, identifiers before and after, reason flagged without its text) | ✅ `REQUEST_MANAGED` | `transfers/workspace.service.ts`, `transfers.service.ts`, `supervision.service.ts` |
+
+### 2.8 Supervision (`/admin/supervision`, feature 018)
+
+Super administrator only (`SuperAdminGuard`, routes `/api/super-admin/*`). Three views:
+
+| View | Content | Source |
+| --- | --- | --- |
+| Demandes | Every work request of a « via l'administration » category with the administrator who has taken it in charge, or « Libre ». Filters: free / taken, in progress / finished, administrator, priority, status, creation period. A request whose administrator is deactivated or no longer administrator of the category is flagged « Administrateur indisponible ». | `GET /api/super-admin/requests` |
+| Administrateurs | Each account of role Admin, active or not: requests in progress, finished, proposals pending, last operation; « Voir ses demandes » filters the first view. Accounts are still created, modified, deactivated and reactivated in « Comptes » (§2.3). | `GET /api/super-admin/administrators` |
+| Transferts | Every delegation and takeover request between administrators, by status (pending, accepted, refused, cancelled with its cause, expired). Read-only. | `GET /api/super-admin/transfers` |
+
+**Réattribuer** (on a request that is not finished): gives the request to another active administrator of
+its category, or puts it back in the file commune, without the administrators' agreement but with a
+mandatory reason. The previous administrator stays in the history, the pending proposal on the request is
+cancelled with its cause, the administrators concerned are notified, and the operation is in the audit log.
+The status, the assigned employee and the deadlines are not touched (`POST /api/super-admin/requests/:id/reassign`).
+
+The super administrator keeps the ability to act on requests as before, and is never recorded as the
+administrator in charge of one. « Réglages » gains « Délai de réponse aux transferts (minutes) » (default 120).
 
 ## 3. Supervisor assignment
 
