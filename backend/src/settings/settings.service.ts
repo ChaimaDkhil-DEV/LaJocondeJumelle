@@ -31,6 +31,8 @@ export const SETTING_DEFAULTS = {
   pushWindowDays: ['MON', 'TUE', 'WED', 'THU', 'FRI'],
   pushWindowStart: '07:30',
   pushWindowEnd: '18:30',
+  // Transferts entre administrateurs (018) : délai de réponse à une proposition, compté en temps réel.
+  transferResponseMinutes: 120,
 };
 
 export type Settings = typeof SETTING_DEFAULTS;
@@ -70,6 +72,7 @@ export const SETTING_RULES: Record<SettingKey, Rule> = {
   pushWindowDays: { kind: 'subset', allowed: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'], label: 'Au moins un jour parmi' },
   pushWindowStart: { kind: 'time' },
   pushWindowEnd: { kind: 'time' },
+  transferResponseMinutes: { kind: 'int', min: 5, max: 2880, label: 'entre 5 et 2880 minutes' },
 };
 
 /** Message d'erreur si la valeur est invalide pour ce réglage, sinon null. */

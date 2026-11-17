@@ -4,6 +4,7 @@ import {
   BookOpen,
   Building2,
   Contact,
+  Eye,
   BookUser,
   GraduationCap,
   HeartHandshake,
@@ -33,6 +34,8 @@ const BOTH: Role[] = ['SUPER_ADMIN', 'ADMIN'];
 const SECTIONS: Array<{ to: string; label: string; icon: LucideIcon; roles: Role[] }> = [
   { to: '/admin/suivi', label: t('Suivi des gardes'), icon: Activity, roles: SUPER },
   { to: '/admin/comptes', label: t('Comptes'), icon: Users, roles: SUPER },
+  // Supervision des demandes et des administrateurs qui les ont prises en charge (018).
+  { to: '/admin/supervision', label: t('Supervision'), icon: Eye, roles: SUPER },
   { to: '/admin/categories', label: t('Catégories'), icon: Tags, roles: SUPER },
   { to: '/admin/consignes', label: t('Consignes'), icon: BookOpen, roles: SUPER },
   { to: '/admin/groupes', label: t('Groupes'), icon: UsersRound, roles: SUPER },

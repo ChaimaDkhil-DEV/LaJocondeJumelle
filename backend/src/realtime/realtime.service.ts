@@ -20,6 +20,13 @@ export interface RequestUpdatedEvent {
   overdueStage: DeadlineStage | null;
 }
 
+/** Proposition de transfert entre administrateurs (018) : identifiants seulement, relue par REST. */
+export interface TransferUpdatedEvent {
+  transferId: string;
+  requestId: string;
+  status: string;
+}
+
 export const userRoom = (userId: string): string => `user:${userId}`;
 export const sessionRoom = (sessionId: string): string => `session:${sessionId}`;
 /** Super administrateurs actifs : supervision de toutes les demandes (tableau de bord). */
@@ -57,6 +64,15 @@ export class RealtimeService {
     const rooms = userRooms(userIds);
     if (payload.status !== 'DRAFT') rooms.push(SUPER_ADMIN_ROOM);
     if (rooms.length > 0) this.server.to(rooms).emit('request:updated', payload);
+  }
+
+  /**
+   * `transfer:updated` vers les administrateurs concernés par une proposition (auteur, destinataire,
+   * responsable) et les super administrateurs : listes « Collaboration », compteurs, détail de la demande.
+   */
+  emitTransferUpdated(userIds: Iterable<string | null | undefined>, payload: TransferUpdatedEvent): void {
+    if (!this.server) return;
+    this.server.to([...userRooms(userIds), SUPER_ADMIN_ROOM]).emit('transfer:updated', payload);
   }
 
   /** Aligne les connexions ouvertes d'un compte sur son rôle après une modification. */

@@ -6,6 +6,7 @@ import Typography from '@mui/material/Typography';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import {
+  BriefcaseBusiness,
   House,
   Inbox,
   LayoutDashboard,
@@ -28,6 +29,7 @@ import { visuallyHidden } from '../components/a11y';
 import { Person } from '../components/UserAvatar';
 import { font, fontSize, icon, layout, motion, radius, tokensOf } from '../design/tokens';
 import { canUseAdministrationSpace } from '../features/admin/access';
+import { hasWorkspace } from '../features/admin-workspace/access';
 import { hasTeacherHome } from '../features/home/access';
 import { ROLE_LABELS } from '../features/admin/labels';
 import { useCurrentUser, useLogout } from '../features/auth/useCurrentUser';
@@ -109,6 +111,15 @@ const COVERAGE_ITEM: NavItem = {
   matches: (p) => p.startsWith('/gardes'),
 };
 
+/** Espace de travail de l'administrateur (018) : file commune, demandes dont il est responsable, historique. */
+const WORKSPACE_ITEM: NavItem = {
+  to: '/espace',
+  label: t('Espace de travail'),
+  icon: BriefcaseBusiness,
+  matches: (p) => p === '/espace' || p.startsWith('/espace/'),
+  current: (p) => p === '/espace',
+};
+
 /** Espace Administrateur : admin et super administrateur (011) ; le serveur vérifie chaque route /api/admin. */
 const ADMIN_ITEM: NavItem = {
   to: '/admin',
@@ -143,6 +154,7 @@ export function navItemsFor(me: Me | undefined): NavItem[] {
     ...(teacherHome ? [TEACHER_HOME_ITEM] : []),
     requestsItem(!superAdmin && !teacherHome),
     ...NAV_ITEMS,
+    ...(hasWorkspace(me) ? [WORKSPACE_ITEM] : []),
     ...(canSeeCoverage(me) ? [COVERAGE_ITEM] : []),
     ...(me?.isTeacher || canUseAdministrationSpace(me) ? [COMMUNICATIONS_ITEM] : []),
     ...(canUseAdministrationSpace(me) ? [ADMIN_ITEM] : []),

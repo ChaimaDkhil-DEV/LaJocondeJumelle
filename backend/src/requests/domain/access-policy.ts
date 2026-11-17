@@ -1,5 +1,6 @@
 import type { RequestKind, RequestStatus, Role, RoutingMode } from '@prisma/client';
 import type { PolicyUser } from '../../common/authorization';
+import { actsAsAdministration } from './ownership';
 import { availableActions, type Actor, type MachineRequest, type RequestAction } from './request-state-machine';
 
 /**
@@ -25,6 +26,8 @@ export interface PolicyRequest extends MachineRequest {
   kind: RequestKind;
   requesterId: string;
   categoryId: string;
+  /** Responsable administratif (018) ; absent ou null : demande libre. */
+  adminOwnerId?: string | null;
 }
 
 /** Action supplémentaire, hors machine à états, exposée dans `allowedActions`. */
@@ -62,6 +65,8 @@ export function administrationActs(category: Pick<PolicyCategory, 'routingMode'>
  * Relations de l'utilisateur avec la demande. Le super administrateur agit comme admin de la catégorie, mais
  * seulement en mode « via l'administration » : en DIRECT et PEER, l'administration n'agit pas (sauf la
  * clôture, si elle lui a été confiée dans une catégorie antérieure au mode de routage).
+ * Une fois la demande prise en charge (018), seul son responsable agit au titre de l'administration ; les
+ * autres admins de la catégorie la consultent (isCategoryReader). Le super administrateur est inchangé.
  */
 export function actorsFor(user: PolicyUser, req: PolicyRequest, category: PolicyCategory): Actor[] {
   if (!user.active) return [];
@@ -69,8 +74,17 @@ export function actorsFor(user: PolicyUser, req: PolicyRequest, category: Policy
   if (req.requesterId === user.id) actors.push('REQUESTER');
   if (req.assigneeId !== null && req.assigneeId === user.id) actors.push('ASSIGNEE');
   const manages = user.role === 'SUPER_ADMIN' || (isAdministration(user) && category.managerIds.has(user.id));
-  if (manages && (administrationActs(category) || req.rules.closureMode === 'MANAGER')) actors.push('MANAGER');
+  const acts = manages && (administrationActs(category) || req.rules.closureMode === 'MANAGER');
+  if (acts && actsAsAdministration(user, { adminOwnerId: req.adminOwnerId ?? null })) actors.push('MANAGER');
   return actors;
+}
+
+/**
+ * Admin de la catégorie, en mode « via l'administration » : il lit la demande même quand un collègue en
+ * est le responsable (018). Sans effet sur une demande libre, qu'il lit déjà comme acteur.
+ */
+export function isCategoryReader(user: PolicyUser, req: PolicyRequest, category: PolicyCategory): boolean {
+  return user.active && req.kind === 'WORK' && req.status !== 'DRAFT' && administrationActs(category) && user.role === 'ADMIN' && category.managerIds.has(user.id);
 }
 
 /**
@@ -87,7 +101,7 @@ export function canReadRequest(user: PolicyUser, req: PolicyRequest, category: P
   if (req.kind !== 'WORK') return false;
   // Un brouillon n'est visible que de son auteur.
   if (req.status === 'DRAFT') return req.requesterId === user.id;
-  return actorsFor(user, req, category).length > 0 || isObserver(user, req, category);
+  return actorsFor(user, req, category).length > 0 || isObserver(user, req, category) || isCategoryReader(user, req, category);
 }
 
 export function allowedActions(user: PolicyUser, req: PolicyRequest, category: PolicyCategory): PolicyAction[] {

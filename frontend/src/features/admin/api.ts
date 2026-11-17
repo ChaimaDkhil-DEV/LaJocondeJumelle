@@ -115,6 +115,8 @@ export interface AdminSettings {
   pushWindowDays: string[];
   pushWindowStart: string;
   pushWindowEnd: string;
+  /** Transferts entre administrateurs (018) : délai de réponse à une proposition, en minutes. */
+  transferResponseMinutes?: number;
 }
 
 export type ConfigurableRole = 'EMPLOYEE' | 'ADMIN';

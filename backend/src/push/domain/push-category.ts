@@ -67,6 +67,14 @@ const RULES: Record<NotificationType, Rule> = {
   COMM_INTERNAL_NEW: NONE,
   COMM_ADMIN_REPLY: NONE,
   COMM_PARENT_NEW: NONE,
+  // Responsable administratif et transferts entre administrateurs (018) : cloche seulement.
+  TRANSFER_TAKEOVER_REQUESTED: NONE,
+  TRANSFER_DELEGATION_REQUESTED: NONE,
+  TRANSFER_ACCEPTED: NONE,
+  TRANSFER_REJECTED: NONE,
+  TRANSFER_CANCELLED: NONE,
+  TRANSFER_EXPIRED: NONE,
+  ADMIN_OWNER_REASSIGNED: NONE,
 };
 
 /** Catégorie push d'une notification, ou null si elle reste dans l'application. */

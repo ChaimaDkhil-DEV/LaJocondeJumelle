@@ -11,10 +11,12 @@ import { OrphanFilesJob } from './orphan-files.job';
 import { PushSubscriptionsCleanupJob } from './push-subscriptions-cleanup.job';
 import { OverdueJob } from './overdue.job';
 import { SessionRevalidationJob } from './session-revalidation.job';
+import { TransfersModule } from '../transfers/transfers.module';
 import { SuperAdminAlertsJob } from './super-admin-alerts.job';
+import { TransferExpiryJob } from './transfer-expiry.job';
 
 @Module({
-  imports: [ScheduleModule.forRoot(), RequestsModule, FilesModule, CoverageModule],
+  imports: [ScheduleModule.forRoot(), RequestsModule, FilesModule, CoverageModule, TransfersModule],
   providers: [
     AutoCloseJob,
     OverdueJob,
@@ -25,6 +27,7 @@ import { SuperAdminAlertsJob } from './super-admin-alerts.job';
     CoverageRemindersJob,
     CoverageAnonymizationJob,
     SuperAdminAlertsJob,
+    TransferExpiryJob,
   ],
 })
 export class SchedulerModule {}

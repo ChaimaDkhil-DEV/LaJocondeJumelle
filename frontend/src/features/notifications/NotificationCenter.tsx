@@ -105,6 +105,14 @@ const NOTIFICATION_ICONS: Record<NotificationType, LucideIcon> = {
   COMM_INTERNAL_NEW: MessageSquare,
   COMM_ADMIN_REPLY: MessageSquare,
   COMM_PARENT_NEW: MessageSquare,
+  // Transferts entre administrateurs (018)
+  TRANSFER_TAKEOVER_REQUESTED: Hand,
+  TRANSFER_DELEGATION_REQUESTED: UsersRound,
+  TRANSFER_ACCEPTED: UserCheck,
+  TRANSFER_REJECTED: CircleX,
+  TRANSFER_CANCELLED: Ban,
+  TRANSFER_EXPIRED: Hourglass,
+  ADMIN_OWNER_REASSIGNED: RefreshCw,
 };
 
 function UrgentMark() {

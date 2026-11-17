@@ -17,6 +17,7 @@ import { CategoriesAdminPage } from './CategoriesAdminPage';
 import { EmployeesAdminPage } from './EmployeesAdminPage';
 import { GuidelinesAdminPage } from './GuidelinesAdminPage';
 import { SettingsAdminPage } from './SettingsAdminPage';
+import { SupervisionPage } from './SupervisionPage';
 import { GuardiansAdminPage } from '../parent-communications/GuardiansAdminPage';
 import { TeacherClassesAdminPage } from '../parent-communications/TeacherClassesAdminPage';
 import { UsersAdminPage } from './UsersAdminPage';
@@ -56,6 +57,8 @@ export const adminRoutes: RouteObject[] = [
       { index: true, element: <AdminIndex /> },
       { path: 'tableau-de-bord', element: reserved(<DashboardMoved />) },
       { path: 'comptes', element: reserved(<UsersAdminPage />) },
+      // Supervision des demandes, des administrateurs et de leurs transferts (018).
+      { path: 'supervision', element: reserved(<SupervisionPage />) },
       { path: 'categories', element: reserved(<CategoriesAdminPage />) },
       { path: 'consignes', element: reserved(<GuidelinesAdminPage />) },
       { path: 'reglages', element: reserved(<SettingsAdminPage />) },

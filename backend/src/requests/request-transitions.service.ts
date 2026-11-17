@@ -11,6 +11,7 @@ import { SettingsService } from '../settings/settings.service';
 import { nextDeadlineState } from './domain/deadlines';
 import { transitionNotifications } from './domain/transition-notifications';
 import { actorsFor, administrationActs, canPickRecipient, canReadRequest, isReadOnlyStatus } from './domain/access-policy';
+import { isFinishedStatus, takesByActing } from './domain/ownership';
 import {
   applyAction,
   type ActionContext,
@@ -24,6 +25,7 @@ import {
   toPolicyRequest,
   type CategoryWithMembers,
 } from './request-policy.loader';
+import { RequestOwnershipService } from './request-ownership.service';
 import type { RequestContext } from './requests.service';
 
 type SuccessfulTransition = Extract<TransitionResult, { ok: true }>;
@@ -131,6 +133,7 @@ export class RequestTransitionsService {
     private readonly realtime: RealtimeService,
     private readonly settings: SettingsService,
     private readonly superAdminAlerts: SuperAdminAlertsService,
+    private readonly ownership: RequestOwnershipService,
   ) {}
 
   /** Action d'un utilisateur (POST /requests/:id/actions). */
@@ -173,7 +176,9 @@ export class RequestTransitionsService {
     }
 
     const audited = AUDITED.includes(input.action) ? { action: input.action, ip: ctx.ip } : undefined;
-    await this.commit(request, category, result, user.id, now, input.proofFileIds ?? [], assigneeSource, audited);
+    // D4 (018) : une action d'administration sur une demande libre vaut prise en charge, dans la même écriture.
+    const takes = result.steps[0].actor === 'MANAGER' && takesByActing(user, request, toPolicyCategory(category));
+    await this.commit(request, category, result, user.id, now, input.proofFileIds ?? [], assigneeSource, audited, takes);
   }
 
   /** Transition déclenchée par le système (job planifié). Renvoie false si elle n'est pas applicable. */
@@ -268,6 +273,8 @@ export class RequestTransitionsService {
     proofFileIds: string[],
     assigneeSource?: AssigneeSource,
     audited?: AuditedAction,
+    /** L'auteur devient le responsable administratif de la demande, encore libre (D4, 018). */
+    takesOwnership = false,
   ): Promise<void> {
     // Délais : l'étape suivie démarre, continue ou s'arrête selon la transition (US6).
     const deadline = nextDeadlineState(
@@ -282,12 +289,19 @@ export class RequestTransitionsService {
       now,
       await this.settings.get('deadlineWarnPercent'),
     );
-    const { pending, after } = await this.prisma.$transaction(async (tx) => {
+    const { pending, after, cancelledTransfers } = await this.prisma.$transaction(async (tx) => {
+      const taking = takesOwnership && actorId !== null;
       const { count } = await tx.request.updateMany({
-        where: { id: request.id, status: result.from, version: request.version },
-        data: { ...updateFor(result, now), ...deadline, version: { increment: 1 } },
+        where: { id: request.id, status: result.from, version: request.version, ...(taking ? { adminOwnerId: null } : {}) },
+        data: {
+          ...updateFor(result, now),
+          ...deadline,
+          ...(taking ? { adminOwnerId: actorId, adminOwnedAt: now } : {}),
+          version: { increment: 1 },
+        },
       });
       if (count === 0) throw new AppException('STATE_CHANGED');
+      if (taking) await this.ownership.recordInTx(tx, { requestId: request.id, adminId: actorId, actorId, operation: 'CLAIMED' });
 
       if (proofFileIds.length > 0) {
         await tx.file.updateMany({
@@ -316,11 +330,43 @@ export class RequestTransitionsService {
           tx,
         );
       }
-      return { after, pending: await this.recordTransition(tx, request, after, category, result, actorId, assigneeSource) };
+      const pending = await this.recordTransition(tx, request, after, category, result, actorId, assigneeSource);
+      // Demande terminée (018, FR-017) : la proposition de transfert en attente devient caduque, dans la même opération.
+      const cancelledTransfers = isFinishedStatus(after.status)
+        ? await this.ownership.cancelPendingTransfersInTx(tx, request.id, 'REQUEST_FINISHED', now)
+        : [];
+      for (const transfer of cancelledTransfers) {
+        await this.audit.log(
+          'REQUEST_MANAGED',
+          {
+            actorId,
+            ip: audited?.ip ?? null,
+            targetType: 'Request',
+            targetId: request.id,
+            details: { action: 'TRANSFER_CANCELLED', transferId: transfer.id, reason: 'REQUEST_FINISHED' },
+          },
+          tx,
+        );
+        pending.push(
+          ...(await this.notifications.notifyInTx(tx, [transfer.initiatorId, transfer.recipientId], actorId, {
+            type: 'TRANSFER_CANCELLED',
+            requestId: request.id,
+            priority: after.priority,
+          })),
+        );
+      }
+      return { after, pending, cancelledTransfers };
     });
     await this.notifications.flushAfterCommit(pending);
+    for (const transfer of cancelledTransfers) {
+      this.realtime.emitTransferUpdated([transfer.initiatorId, transfer.recipientId, transfer.currentOwnerId], {
+        transferId: transfer.id,
+        requestId: request.id,
+        status: 'CANCELLED',
+      });
+    }
     // Les lecteurs de la demande rafraîchissent liste et détail (contracts/realtime-events.md).
-    this.realtime.emitRequestUpdated([after.requesterId, after.assigneeId, ...category.managers.map((m) => m.userId)], {
+    this.realtime.emitRequestUpdated([after.requesterId, after.assigneeId, after.adminOwnerId, ...category.managers.map((m) => m.userId)], {
       requestId: after.id,
       status: after.status,
       version: after.version,
@@ -391,7 +437,8 @@ export class RequestTransitionsService {
     result: SuccessfulTransition,
     actorId: string | null,
   ): Promise<Notification[]> {
-    const managers = category.managers.map((m) => m.userId);
+    // Demande prise en charge (018) : son responsable seul ; libre : tous les admins de la catégorie.
+    const managers = after.adminOwnerId ? [after.adminOwnerId] : category.managers.map((m) => m.userId);
     const created: Notification[] = [];
     for (const { users, type } of transitionNotifications(result, before, after, managers)) {
       created.push(...(await this.notifications.notifyInTx(tx, users, actorId, { type, requestId: after.id, priority: after.priority })));
