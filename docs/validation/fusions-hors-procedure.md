@@ -636,3 +636,27 @@ its own, check that `npm audit --audit-level=high` passes again, and record here
 
 A failed CI step is a failure even when the cause lies outside the pull request: the merge is the owner's decision, and it is
 recorded here.
+
+## 17/11/2026 — pull request #127
+
+| Pull request | Content | Merged at (UTC) | Check not satisfied at merge time |
+|---------|---------|-------------------|-----------------------------------------------|
+| #127 (`docs-registre-fusion-126`) | This register: entry for #124 and #126 (documentation only) | 19:11:28 | **1. CI**: both runs on `99d32af` were in progress (44155710066 `pull_request`, 44155656568 `push`); **all four checkboxes unticked** |
+
+#127 was opened at 19:10:22 and merged 1 min 6 s later, at the owner's request, with `gh pr merge 127 --merge` pinned to the
+head commit `99d32af`. It is recorded here, not in an entry of its own, as decided on 13/11/2026 for register pull requests.
+
+### Findings after the fact
+
+- Both runs finished with a **failure** after the merge, on the single step "Audit des dépendances": `pull_request` 44155710066
+  at 19:20:18 and `push` 44155656568 at 19:24:06. Same cause as for #126 above: the advisory `GHSA-fc5q-39xc-vjpf` on `picomatch`,
+  still without a fixed version (4.0.7 is the latest published). The pull request changes one documentation file.
+- `master` after the merge: run 44155900626 on the merge commit `c8266f9` failed at 19:21:54 on the same step. Every other
+  step of the three runs succeeded.
+
+No fix or `git revert` needed for #127 itself. The follow-up recorded for #126 stands: `master` is red on the dependency audit
+until `picomatch` is fixed and the dependencies are updated.
+
+### Reminder
+
+Wait for CI on the latest commit of the pull request, then tick the four checks, before merging.
