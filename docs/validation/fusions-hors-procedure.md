@@ -530,3 +530,43 @@ No fix or `git revert` needed.
 ### Reminder
 
 Wait for CI on the latest commit of the pull request, then tick the four checks, before merging.
+
+## 13/11/2026 and 17/11/2026 — pull requests #115, #122 and #123
+
+| Pull request | Content | Merged at (UTC) | Check not satisfied at merge time |
+|---------|---------|-------------------|-----------------------------------------------|
+| #115 (`docs-registre-fusion-114`) | This register: entry for #114 (documentation only) | 13/11 00:08:48 | **1. CI**: both runs on `487ebab` were in progress (43334565983 `pull_request`, 43334558725 `push`); **all four checkboxes unticked** |
+| #122 (`feat-deploiement-ecole-local`) | School server deployment: Caddy profile `school` (DNS-01 with Cloudflare), `cloudflared` service, `COMPOSE_OVERRIDE_FILE` in `deploy/deploy.sh`, `docs/deploiement-ecole-local.md`, 12 configuration tests | 17/11 12:19:33 | **1. CI**: the `push` run 44079925460 (attempt 2) was still in progress (it ended at 12:19:49, 16 s after the merge); **all four checkboxes unticked**, so **3. No unresolved failure** and **4. Diff reviewed** were not recorded |
+| #123 (`fix-test-config-vapid-instable`) | `backend/test/unit/config.spec.ts`: the private VAPID key built by the test is padded to 32 bytes, plus one deterministic test (no application code) | 17/11 12:30:01 | **All four checkboxes unticked** (CI itself was green before the merge, see below) |
+
+#122 was opened at 12:05:51 and merged from the owner's account 13 min 42 s later; #123 was opened at 12:12:15 and merged 17 min 46 s later.
+#115 is recorded here, not in an entry of its own: the repository owner chose on 13/11/2026 to add it to the next entry that
+touches this register.
+
+### Findings after the fact
+
+- #115: the three runs finished with success after the merge: `pull_request` 43334565983 at 00:16:36, `push` 43334558725 at
+  00:18:53, and `master` run 43334694269 on `45fe6dd` at 00:18:54 (the two branch runs ended 8 to 10 minutes after the merge).
+  Test totals were not read.
+- #122: attempt 1 of both branch runs failed at about 12:08 on the same test, `config.spec.ts` "lit les trois variables valides"
+  (`PUSH_VAPID_PRIVATE_KEY invalide`, 1 failure out of 1215 unit tests); the diff does not touch that file or `backend/src/`.
+  Cause: the test builds a P-256 key with `createECDH().getPrivateKey()`, which drops leading zero bytes, so the key was 31 bytes
+  long about 0.38 % of the time (76 out of 20,000 keys measured locally). Both runs were rerun (attempt 2) and succeeded: the
+  `pull_request` run 44079960454 at 12:19:03 (before the merge), the `push` run 44079925460 at 12:19:49 (after it). `master` CI
+  on the merge commit `45080de`: run 44082076298, success at 12:29:34.
+- #123 fixes that test and only that test (`getPrivateKey` is used nowhere else). Both branch runs on `ec0638e` finished with
+  success before the merge: `push` 44080932951 at 12:21:45 and `pull_request` 44080943667 at 12:24:06. Locally: `config.spec.ts`
+  70 tests, all 64 backend unit suites, eslint and typecheck green; 0 invalid keys out of 50,000 after the change. `master` CI on
+  the merge commit `4f90542`: run 44083700558, success at 12:42:45.
+- Not verified at merge time for #122: the real issuance of the certificate (DNS-01), the tunnel and the client IP seen from a
+  mobile network, which need the school's Cloudflare tokens and server (step 6 of `docs/deploiement-ecole-local.md`). Verified
+  locally: `docker compose config`, the image build, and `caddy validate` for both profiles (`public` and `school`, the latter with a
+  token in the right format but fictitious).
+- The repository-wide `npm run lint` fails on the git-ignored `playwright-report/` files; this is not related to these pull
+  requests.
+
+No fix or `git revert` needed.
+
+### Reminder
+
+Wait for CI on the latest commit of the pull request, then tick the four checks, before merging.
