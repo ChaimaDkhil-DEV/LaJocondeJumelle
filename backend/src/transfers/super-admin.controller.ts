@@ -7,7 +7,7 @@ import type { Page } from '../common/pagination';
 import { clientIp, requestPath } from '../common/request-info';
 import type { RequestDetail } from '../requests/requests.mapper';
 import type { RequestContext } from '../requests/requests.service';
-import { SupervisionService, type AdministratorLoad, type SupervisedRequest } from './supervision.service';
+import { SupervisionService, type AdministratorLoad, type ReassignOptions, type SupervisedRequest } from './supervision.service';
 import { AllTransfersQuery, ReassignOwnerDto, SupervisedRequestsQuery } from './transfers.dto';
 import type { TransferView } from './transfers.mapper';
 
@@ -41,6 +41,12 @@ export class SuperAdminController {
   @Get('transfers')
   transfers(@CurrentUser() user: AuthenticatedUser, @Query() query: AllTransfersQuery): Promise<Page<TransferView>> {
     return this.supervision.transfers(user, query);
+  }
+
+  /** Qui a la demande à sa charge maintenant, et à qui elle peut être réattribuée (actifs, admins de sa catégorie). */
+  @Get('requests/:id/reassign-candidates')
+  reassignOptions(@Param('id') id: string): Promise<ReassignOptions> {
+    return this.supervision.reassignOptions(id);
   }
 
   /** Réattribution administrative ou libération (`adminId` null), avec motif. */

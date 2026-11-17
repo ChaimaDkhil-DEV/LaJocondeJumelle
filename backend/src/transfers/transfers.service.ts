@@ -15,7 +15,15 @@ import type { RequestContext } from '../requests/requests.service';
 import { SettingsService } from '../settings/settings.service';
 import { canAnswer, canCancel, isOverdue, newOwnerOf } from './domain/transfer-policy';
 import type { ProposeTransferDto, TransfersQuery } from './transfers.dto';
-import { ADMIN_REF, TRANSFER_INCLUDE, toTransferView, type AdminRefView, type TransferView, type TransferWithRelations } from './transfers.mapper';
+import {
+  ADMIN_REF,
+  eligibleAdminsWhere,
+  TRANSFER_INCLUDE,
+  toTransferView,
+  type AdminRefView,
+  type TransferView,
+  type TransferWithRelations,
+} from './transfers.mapper';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MINUTE_MS = 60_000;
@@ -59,7 +67,7 @@ export class TransfersService {
       throw new AppException('FORBIDDEN');
     }
     return this.prisma.user.findMany({
-      where: { active: true, role: 'ADMIN', id: { not: user.id }, managerOf: { some: { categoryId: request.categoryId } } },
+      where: eligibleAdminsWhere(request.categoryId, user.id),
       select: ADMIN_REF.select,
       orderBy: { displayName: 'asc' },
     });

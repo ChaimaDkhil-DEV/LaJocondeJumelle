@@ -3,6 +3,20 @@ import type { Prisma } from '@prisma/client';
 /** Administrateur tel qu'il est montré à ses collègues : nom et fonction seulement (FR-033). */
 export const ADMIN_REF = { select: { id: true, displayName: true, jobTitle: true } } satisfies Prisma.UserDefaultArgs;
 
+/**
+ * Équivalent SQL de isEligibleAdmin (requests/domain/ownership.ts) : comptes Admin actifs, admins de la
+ * catégorie, éventuellement sans un compte donné (celui qui propose, ou celui qui a déjà la demande). Une
+ * seule écriture de cette règle pour les listes proposées à l'écran : délégation et réattribution.
+ */
+export function eligibleAdminsWhere(categoryId: string, excludeId?: string | null): Prisma.UserWhereInput {
+  return {
+    active: true,
+    role: 'ADMIN',
+    managerOf: { some: { categoryId } },
+    ...(excludeId ? { id: { not: excludeId } } : {}),
+  };
+}
+
 export const ASSIGNMENT_INCLUDE = {
   request: { select: { id: true, reference: true, title: true } },
   admin: ADMIN_REF,

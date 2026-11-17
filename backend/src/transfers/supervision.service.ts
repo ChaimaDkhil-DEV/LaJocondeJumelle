@@ -13,7 +13,7 @@ import { RequestPolicyLoader, toPolicyCategory } from '../requests/request-polic
 import { REQUEST_INCLUDE, toRequestSummary, type RequestDetail, type RequestSummary } from '../requests/requests.mapper';
 import { RequestsService, type RequestContext } from '../requests/requests.service';
 import type { AllTransfersQuery, ReassignOwnerDto, SupervisedRequestsQuery } from './transfers.dto';
-import { TRANSFER_INCLUDE, toTransferView, type TransferView } from './transfers.mapper';
+import { ADMIN_REF, eligibleAdminsWhere, TRANSFER_INCLUDE, toTransferView, type AdminRefView, type TransferView } from './transfers.mapper';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const FINISHED = ['CLOSED', 'REJECTED', 'CANCELLED'] as const;
@@ -23,6 +23,16 @@ export type SupervisedRequest = RequestSummary & {
   /** Vrai si le compte responsable est désactivé, n'est plus Admin ou n'est plus admin de la catégorie. */
   adminOwnerUnavailable: boolean;
 };
+
+/** Ce que le dialogue de réattribution doit savoir sur une demande, lu au moment de l'appel. */
+export interface ReassignOptions {
+  /** Faux pour une demande terminée : la réattribution la refuserait. */
+  reassignable: boolean;
+  /** Qui a la demande à sa charge maintenant (pas quand la liste a été affichée) ; null : demande libre. */
+  adminOwner: AdminRefView | null;
+  /** Administrateurs à qui la demande peut être confiée ; vide si elle n'est pas réattribuable. */
+  candidates: AdminRefView[];
+}
 
 export interface AdministratorLoad {
   id: string;
@@ -148,16 +158,47 @@ export class SupervisionService {
   }
 
   /**
+   * Demande « via l'administration » que le super administrateur peut réattribuer, avec sa catégorie ;
+   * sinon 404. Commun à la liste des administrateurs proposés et à la réattribution elle-même.
+   */
+  private async loadOwnable(requestId: string) {
+    const request = UUID.test(requestId) ? await this.prisma.request.findUnique({ where: { id: requestId } }) : null;
+    const loaded = request && (await this.policies.category(request.categoryId));
+    const category = loaded && toPolicyCategory(loaded);
+    if (!request || !category || !isOwnable(request, category)) throw new AppException('NOT_FOUND');
+    return { request, category };
+  }
+
+  /**
+   * Ce que le dialogue de réattribution propose, lu au moment de l'appel : qui a la demande, et à qui elle
+   * peut être confiée (comptes Admin actifs, admins de sa catégorie, sans celui qui l'a déjà). Mêmes règles
+   * que `reassign` : une demande terminée n'a aucun candidat, et tout administrateur proposé est accepté.
+   * Nom et fonction seulement.
+   */
+  async reassignOptions(requestId: string): Promise<ReassignOptions> {
+    const { request } = await this.loadOwnable(requestId);
+    const reassignable = !isFinishedStatus(request.status);
+    const [adminOwner, candidates] = await Promise.all([
+      request.adminOwnerId ? this.prisma.user.findUnique({ where: { id: request.adminOwnerId }, select: ADMIN_REF.select }) : null,
+      reassignable
+        ? this.prisma.user.findMany({
+            where: eligibleAdminsWhere(request.categoryId, request.adminOwnerId),
+            select: ADMIN_REF.select,
+            orderBy: { displayName: 'asc' },
+          })
+        : [],
+    ]);
+    return { reassignable, adminOwner, candidates };
+  }
+
+  /**
    * Réattribution administrative (FR-028) : confie la demande à un autre administrateur éligible, ou la
    * libère (`adminId` null). Sans l'accord des intéressés, mais avec un motif. Dans une transaction :
    * changement conditionnel du responsable, historique (l'ancien responsable y reste), annulation de la
    * proposition de transfert en attente, notifications, audit.
    */
   async reassign(user: AuthenticatedUser, requestId: string, dto: ReassignOwnerDto, ctx: RequestContext): Promise<RequestDetail> {
-    const request = UUID.test(requestId) ? await this.prisma.request.findUnique({ where: { id: requestId } }) : null;
-    const loaded = request && (await this.policies.category(request.categoryId));
-    const category = loaded && toPolicyCategory(loaded);
-    if (!request || !category || !isOwnable(request, category)) throw new AppException('NOT_FOUND');
+    const { request, category } = await this.loadOwnable(requestId);
     if (isFinishedStatus(request.status)) throw new AppException('TRANSFER_NOT_POSSIBLE');
     const reason = dto.reason?.trim();
     if (!reason) throw new AppException('REASON_REQUIRED');
