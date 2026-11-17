@@ -570,3 +570,69 @@ No fix or `git revert` needed.
 ### Reminder
 
 Wait for CI on the latest commit of the pull request, then tick the four checks, before merging.
+
+## 17/11/2026 — pull requests #124 and #126
+
+| Pull request | Content | Merged at (UTC) | Check not satisfied at merge time |
+|---------|---------|-------------------|-----------------------------------------------|
+| #124 (`docs-registre-fusion-122-123`) | This register: entry for #115, #122 and #123 (documentation only) | 12:44:44 | **1. CI**: both runs on `6678e0b` were in progress (44085800330 `pull_request`, 44085791033 `push`); **all four checkboxes unticked** |
+| #126 (`feat-transcription-langue`) | Feature 018, multi-administrator handling of work requests: file commune, prise en charge, transfers between administrators, supervision and reattribution by the super administrator; migration `0029_request_admin_owner_transfers`; 92 files | 18:56:11 | **1. CI**: the four "Contrôles qualité" runs **failed** on the step "Audit des dépendances" (see below); the owner chose to merge despite this failure. **All four checkboxes unticked** |
+
+#124 was opened at 12:43:19 and merged from the owner's account 1 min 25 s later. It is recorded here, not in an entry of its
+own, as decided on 13/11/2026 for register pull requests.
+
+#126 was opened at 18:23:02. After the CI failure was reported with its cause, the owner asked for the merge to be made on
+their behalf; it was made with `gh pr merge 126 --merge`, pinned to the head commit `48d326d`, from the owner's account. A first
+attempt a few seconds earlier, pinned by mistake to a wrong commit identifier, was refused by GitHub and merged nothing.
+
+### Cause of the failure on #126
+
+`npm audit --audit-level=high` reports a high-severity advisory on `picomatch` (`GHSA-fc5q-39xc-vjpf`, ReDoS through repeated
+extglobs, all versions up to 4.0.7): 57 vulnerabilities on CI (11 moderate, 46 high), almost all of them packages that depend
+on it (the Jest tooling in particular).
+
+- The pull request changes no dependency file (`package.json`, `backend/package.json`, `frontend/package.json`,
+  `package-lock.json`: empty diff against `master`).
+- The same audit passed earlier the same day: on the CI of #125 (runs 44092245296 and 44092234126 on `8b61570`, success at
+  about 13:33) and on `master` after it (run 44094310330 on `c97b467`, success at 13:46:00); and locally on this branch at
+  17:26 UTC. It fails locally too since the advisory was published. `master` will therefore fail in the same way at its next run.
+- No fixed version exists: 4.0.7 is the latest version published (`npm view picomatch version`, 17/11/2026), so
+  `npm audit fix` cannot resolve it.
+
+### Findings after the fact
+
+- #124: the three runs finished with success after the merge: `push` 44085791033 at 12:52:17, `pull_request` 44085800330 at
+  12:52:58, and `master` run 44086018652 on the merge commit `35cd0fc` at 12:54:19 (8 to 10 minutes after the merge). Test
+  totals were not read.
+- #126, the four failed runs, all on the single step "Audit des dépendances":
+  - on `1e9b947` (the three commits of feature 018): `push` 44147231348 (ended 18:36:07) and `pull_request` 44147243580 (ended
+    18:35:51);
+  - on `48d326d` (merge of `master` into the branch, no content change): `push` 44147669233 (ended 18:35:06) and `pull_request`
+    44147684425 (ended 18:37:02).
+- #126, every other step succeeded in run 44147684425 on `48d326d`: lint, types (backend and frontend), backend unit tests,
+  backend integration tests, frontend tests, Docker image build.
+- #126, verified locally before the pull request was opened: lint (the git-ignored `playwright-report/` folder excluded), both
+  builds, 1348 backend unit tests, 1156 integration tests (2 skipped), 849 frontend tests; `e2e/multi-admin.spec.ts` (three
+  scenarios, axe included) on the seven browser profiles.
+- #126, end-to-end suite on Chromium only: 53 passed, 9 skipped, 5 failed. Four of these failures exist without this pull
+  request (`auth.spec.ts` and `teacher-home.spec.ts`: colour contrast on the teacher's home page; `communications.spec.ts`: label
+  « Famille »; `drafts.spec.ts`: label « Brouillon »), checked on the previous code with the changes stashed. The fifth,
+  `coverage-class.spec.ts` (768 px, « classe vide → seconde déclaration en renfort »), timed out waiting for the login page and
+  passes when the file is run alone (12 out of 12).
+- #126, not verified: the end-to-end suite on the six profiles other than Chromium (only the three multi-administrator
+  scenarios ran there); the manual walk-through of `specs/018-multi-admin-transferts/quickstart.md`.
+- #126, commits: split by file. The commits of lots 1 and 2 (`2ca5fdf`, `44704c1`) contain shared files already in their final
+  state and do not build on their own; the state tested is `1e9b947`.
+- #126, `master` after the merge: run 44153167405 on the merge commit `b8d5764` **failed** at 19:08:59, on the same single step
+  "Audit des dépendances"; lint, types, backend unit and integration tests, frontend tests and the Docker image build
+  succeeded. `master` stays red on that step for as long as `picomatch` has no fixed version.
+
+### Fix needed
+
+No `git revert`. One follow-up: when a fixed version of `picomatch` is published, update the dependencies in a pull request of
+its own, check that `npm audit --audit-level=high` passes again, and record here the run that turns `master` green.
+
+### Reminder
+
+A failed CI step is a failure even when the cause lies outside the pull request: the merge is the owner's decision, and it is
+recorded here.
