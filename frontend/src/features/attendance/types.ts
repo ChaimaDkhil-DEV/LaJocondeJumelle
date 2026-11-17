@@ -33,10 +33,28 @@ export type ArrivalMatch =
   | { kind: 'ANNOUNCED_ABSENCE'; requestId: string }
   | { kind: 'SUBSTITUTE'; requestId: string; titularId: string };
 
+/** Présence dans l'établissement (019) : arrivé aujourd'hui et pas reparti. */
+export type PresenceState = 'NOT_ARRIVED' | 'PRESENT' | 'DEPARTED';
+
+/** Ce que l'enseignant voit de sa propre présence. */
+export interface OwnPresence {
+  state: PresenceState;
+  firstArrivalAt: string | null;
+  /** Heure du départ en cours ; null s'il est présent ou pas arrivé. */
+  departedAt: string | null;
+}
+
+/** Réponse d'un scan de départ ou de retour ; `created` faux : l'état était déjà enregistré. */
+export interface PresenceResult {
+  created: boolean;
+  presence: OwnPresence;
+}
+
 export interface ArrivalResolution {
   class: SchoolClass;
   attendance: AttendanceItem | null;
   preview: ArrivalMatch;
+  presence: OwnPresence;
 }
 
 export interface ArrivalResult {
@@ -78,6 +96,41 @@ export interface AttendanceDay {
   announced: AnnouncedItem[];
   emptyClasses: EmptyClassItem[];
   classStates: ClassState[];
+}
+
+/** Une ligne par enseignant, quel que soit le nombre de classes scannées. */
+export interface PresentTeacher {
+  teacher: Person;
+  /** null : saisie de l'administration sans heure. */
+  firstArrivalAt: string | null;
+  lastClass: SchoolClass;
+  lastSeenAt: string;
+}
+
+export interface TeacherDeparture {
+  id: string;
+  departedAt: string;
+  method: AttendanceMethod;
+  /** Classe dont le QR a été scanné pour partir ; null pour une saisie de l'administration. */
+  class: SchoolClass | null;
+  recordedBy: Person;
+  comment: string | null;
+}
+
+export interface DepartedTeacher extends PresentTeacher {
+  departure: TeacherDeparture;
+}
+
+export interface PresentList {
+  date: string;
+  present: PresentTeacher[];
+  departed: DepartedTeacher[];
+}
+
+export interface DepartureInput {
+  teacherId: string;
+  departedTime?: string;
+  comment?: string;
 }
 
 export interface ManualInput {

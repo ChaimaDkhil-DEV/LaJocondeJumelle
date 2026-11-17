@@ -462,8 +462,8 @@ describe('Onglets du surveillant', () => {
     });
     renderWith(<CoveragePage />, '/gardes');
     const tabs = (await screen.findAllByRole('tab')).map((tab) => tab.textContent);
-    // 012 : trois onglets d'administration, puis ceux du groupe.
-    expect(tabs).toEqual(['Absences et retards', 'Affectation des surveillants', 'Suivi des interventions', 'Mes affectations', 'Historique']);
+    // 012 puis 019 : quatre onglets d'administration, puis ceux du groupe.
+    expect(tabs).toEqual(['Absences et retards', 'Enseignants présents', 'Affectation des surveillants', 'Suivi des interventions', 'Mes affectations', 'Historique']);
     // L'onglet par défaut est le premier de l'administration.
     expect(screen.getByRole('tab', { name: 'Absences et retards' })).toHaveAttribute('aria-selected', 'true');
   });

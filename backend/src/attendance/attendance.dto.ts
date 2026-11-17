@@ -56,6 +56,23 @@ export class ManualAttendanceDto {
   comment?: string;
 }
 
+/** Départ saisi par l'administration pour un enseignant présent parti sans scanner (019). Aujourd'hui seulement. */
+export class ManualDepartureDto {
+  @IsUUID('all', { message: 'Choisissez l’enseignant.' })
+  teacherId!: string;
+
+  /** Heure réelle du départ ; à défaut, l'heure de la saisie (serveur). */
+  @IsOptional()
+  @Matches(TIME_FORMAT, { message: 'Heure de départ attendue (HH:MM).' })
+  departedTime?: string;
+
+  @IsOptional()
+  @Transform(trimOrUndefined)
+  @IsString()
+  @MaxLength(500)
+  comment?: string;
+}
+
 /** Correction d'une saisie ou qualification d'un scan ; le motif est obligatoire et tracé. */
 export class CorrectAttendanceDto {
   @IsOptional()

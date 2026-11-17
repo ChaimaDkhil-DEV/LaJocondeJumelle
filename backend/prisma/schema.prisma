@@ -427,6 +427,9 @@ model User {
   attendances          TeacherAttendance[] @relation("AttendanceTeacher")
   attendancesRecorded  TeacherAttendance[] @relation("AttendanceRecorder")
   attendancesTitular   TeacherAttendance[] @relation("AttendanceTitular")
+  departures           TeacherDeparture[]  @relation("DepartureTeacher")
+  departuresRecorded   TeacherDeparture[]  @relation("DepartureRecorder")
+  departuresReturned   TeacherDeparture[]  @relation("DepartureReturner")
 
   pushSubscriptions      PushSubscription[]
   notificationPreference NotificationPreference?
@@ -891,6 +894,7 @@ model SchoolClass {
   coverages   CoverageDetail[]
   students    Student[]
   attendances TeacherAttendance[]
+  departures  TeacherDeparture[]
   teachers    TeacherClass[]
 
   @@index([levelId])
@@ -1146,6 +1150,37 @@ model TeacherAttendance {
   @@index([localDate])
   @@index([classId, localDate])
   @@index([requestId])
+}
+
+/// Départ d'un enseignant de l'établissement (019) : second scan du QR d'une classe, ou saisie de
+/// l'administration. Un départ sans `returnedAt` est « en cours » : l'enseignant n'est plus compté présent.
+/// Un seul départ en cours par enseignant et par jour (index unique partiel `TeacherDeparture_one_open`,
+/// créé par la migration 0030 : Prisma ne sait pas le décrire). Lignes non supprimables.
+model TeacherDeparture {
+  id           String           @id @default(uuid()) @db.Uuid
+  teacherId    String           @db.Uuid
+  /// Jour dans le fuseau de l'école.
+  localDate    DateTime         @db.Date
+  /// Heure du départ : heure serveur du scan (QR) ou heure indiquée par l'administration.
+  departedAt   DateTime         @db.Timestamptz(3)
+  method       AttendanceMethod
+  /// Classe dont le QR a été scanné pour partir ; null pour une saisie de l'administration.
+  classId      String?          @db.Uuid
+  recordedAt   DateTime         @default(now()) @db.Timestamptz(3)
+  /// Auteur : l'enseignant (QR) ou l'administration (saisie).
+  recordedById String           @db.Uuid
+  comment      String?          @db.VarChar(500)
+  /// Retour dans l'établissement : clôt le départ. Posé par un scan de l'enseignant ou par l'administration.
+  returnedAt   DateTime?        @db.Timestamptz(3)
+  returnedById String?          @db.Uuid
+
+  teacher    User         @relation("DepartureTeacher", fields: [teacherId], references: [id])
+  class      SchoolClass? @relation(fields: [classId], references: [id])
+  recordedBy User         @relation("DepartureRecorder", fields: [recordedById], references: [id])
+  returnedBy User?        @relation("DepartureReturner", fields: [returnedById], references: [id])
+
+  @@index([localDate])
+  @@index([teacherId, localDate])
 }
 
 // ---------------------------------------------------------------------------

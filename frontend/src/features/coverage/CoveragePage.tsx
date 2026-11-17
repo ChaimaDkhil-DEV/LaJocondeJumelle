@@ -12,6 +12,7 @@ import { PageHeader } from '../../components/PageHeader';
 import { useCoverageProfile } from './api';
 import { AttendanceFollowUpTab } from '../attendance/AttendanceFollowUpTab';
 import { MyAttendanceTab } from '../attendance/MyAttendanceTab';
+import { PresentTeachersTab } from '../attendance/PresentTeachersTab';
 import { MyGuardTab, PersonalHistoryTab } from './EmployeeViews';
 import { AssignmentTab } from './AssignmentTab';
 import { TrackingTab } from './TrackingTab';
@@ -31,6 +32,8 @@ interface TabDef {
  */
 const ADMIN_TABS: TabDef[] = [
   { key: 'absences-retards', label: t('Absences et retards'), render: () => <AttendanceFollowUpTab /> },
+  // 019 : qui est dans l'établissement maintenant, d'après les scans du jour.
+  { key: 'presents', label: t('Enseignants présents'), render: () => <PresentTeachersTab /> },
   { key: 'affectation', label: t('Affectation des surveillants'), render: () => <AssignmentTab /> },
   { key: 'suivi', label: t('Suivi des interventions'), render: () => <TrackingTab /> },
 ];

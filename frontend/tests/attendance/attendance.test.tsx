@@ -119,7 +119,9 @@ describe('Page du QR code : aiguillage selon le profil', () => {
   );
   const profileOf = (kind: keyof typeof PROFILES) => (call: Call) => {
     if (call.url === '/api/coverage/availability') return json(200, { availability: 'AVAILABLE', activeGuards: [], ...PROFILES[kind] });
-    if (call.url === '/api/attendance/resolve') return json(200, { class: VIOLET, attendance: null, preview: { kind: 'NONE' } });
+    if (call.url === '/api/attendance/resolve') {
+      return json(200, { class: VIOLET, attendance: null, preview: { kind: 'NONE' }, presence: { state: 'NOT_ARRIVED', firstArrivalAt: null, departedAt: null } });
+    }
     if (call.url === '/api/coverage/presence/resolve') return json(200, { class: VIOLET, coverage: null, otherClassGuard: false });
     return undefined;
   };
@@ -164,7 +166,14 @@ describe('Enregistrer mon arrivée', () => {
     return (call: Call) => {
       if (call.url === '/api/coverage/availability') return json(200, { availability: 'AVAILABLE', activeGuards: [], ...PROFILES.teacher });
       if (call.url === '/api/attendance/resolve') {
-        return json(200, { class: VIOLET, attendance: recorded, preview: options.preview ?? { kind: 'NONE' } });
+        return json(200, {
+          class: VIOLET,
+          attendance: recorded,
+          preview: options.preview ?? { kind: 'NONE' },
+          presence: recorded
+            ? { state: 'PRESENT', firstArrivalAt: recorded.arrivedAt, departedAt: null }
+            : { state: 'NOT_ARRIVED', firstArrivalAt: null, departedAt: null },
+        });
       }
       if (call.url === '/api/attendance/arrive') {
         if (options.arrive) return options.arrive;

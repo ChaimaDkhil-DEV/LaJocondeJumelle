@@ -15,7 +15,7 @@ test.describe('Section « Surveillance » (012)', () => {
     test.setTimeout(90_000);
   });
 
-  test('admin : trois onglets, filtres, ancienne adresse, accessibilité', async ({ page }) => {
+  test('admin : onglets, filtres, ancienne adresse, accessibilité', async ({ page }) => {
     await login(page, 'admin');
     const menu = page.getByRole('button', { name: 'Ouvrir le menu' });
     if (await menu.isVisible()) await menu.click();
@@ -23,12 +23,13 @@ test.describe('Section « Surveillance » (012)', () => {
 
     await expect(page.getByRole('heading', { level: 1, name: 'Surveillance' })).toBeVisible();
     const tabs = page.getByRole('tablist', { name: 'Surveillance' }).getByRole('tab');
-    await expect(tabs).toHaveText(['Absences et retards', 'Affectation des surveillants', 'Suivi des interventions']);
+    await expect(tabs).toHaveText(['Absences et retards', 'Enseignants présents', 'Affectation des surveillants', 'Suivi des interventions']);
     await expect(tabs.first()).toHaveAttribute('aria-selected', 'true');
     await expect(page.getByRole('heading', { name: 'Suivi des présences' })).toBeVisible();
     await expectNoA11yViolations(page);
 
-    await tabs.nth(1).click();
+    // Par nom : l'onglet « Enseignants présents » (019) s'est inséré en deuxième position.
+    await tabs.filter({ hasText: 'Affectation des surveillants' }).click();
     const panel = page.getByRole('tabpanel');
     await expect(panel.getByRole('link', { name: 'Nouvelle affectation' })).toBeVisible();
     await expect(panel.getByRole('heading', { level: 2 }).filter({ hasText: /^(À assigner|Doublons possibles|Équipe)$/ })).toHaveText([
@@ -38,7 +39,7 @@ test.describe('Section « Surveillance » (012)', () => {
     ]);
     await expectNoA11yViolations(page);
 
-    await tabs.nth(2).click();
+    await tabs.filter({ hasText: 'Suivi des interventions' }).click();
     const filters = page.getByRole('group', { name: 'Filtrer les interventions' });
     await expect(filters.getByRole('button', { name: 'Prise en charge' })).toHaveAttribute('aria-pressed', 'true');
     await filters.getByRole('button', { name: 'Terminée' }).click();
