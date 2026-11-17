@@ -2,8 +2,9 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import InputAdornment from '@mui/material/InputAdornment';
 import TextField from '@mui/material/TextField';
-import { Plus, Search } from 'lucide-react';
-import { useState } from 'react';
+import IconButton from '@mui/material/IconButton';
+import { Search } from 'lucide-react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
@@ -11,7 +12,6 @@ import { UserAvatar } from '../../components/UserAvatar';
 import { icon, radius } from '../../design/tokens';
 import { t } from '../../i18n';
 import {
-  TYPE_LABELS,
   fullName,
   useConversations,
   useInbox,
@@ -34,13 +34,12 @@ export function ConversationLine({
   selected: boolean;
   to: string;
 }) {
-  const kind = space === 'admin' ? `${TYPE_LABELS[c.type]} · ` : '';
   return (
     <ConversationLink
       to={to}
       avatar={<UserAvatar name={fullName(c.student)} id={c.student.id} size="lg" />}
       title={fullName(c.student)}
-      subtitle={`${kind}${counterpart(space, c)} · ${c.student.class.name}${c.status === 'CLOSED' && c.type !== 'LEGACY_TEACHER_PARENT' ? ` · ${t('Clôturée')}` : ''}`}
+      subtitle={`${c.student.class.name} · ${counterpart(space, c)}${c.status === 'CLOSED' && c.type !== 'LEGACY_TEACHER_PARENT' ? ` · ${t('Clôturée')}` : ''}`}
       preview={c.lastMessage?.excerpt ?? (c.lastMessage?.hasVoice ? t('Message vocal') : '')}
       when={c.lastMessage?.at ?? c.lastMessageAt}
       unread={c.unread}
@@ -50,6 +49,67 @@ export function ConversationLine({
 }
 
 const pill = { '& .MuiOutlinedInput-root': { borderRadius: `${radius.round}px` } };
+
+/**
+ * Recherche d'élève repliée : une icône (44 px) ; le champ s'ouvre au clic et reste ouvert tant qu'il
+ * contient du texte. `trailing` (les filtres) occupe le reste de la ligne.
+ */
+function CollapsibleSearch({
+  query,
+  onChange,
+  trailing,
+}: {
+  query: string;
+  onChange: (value: string) => void;
+  trailing?: ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const input = useRef<HTMLInputElement>(null);
+  // Le champ reçoit le focus à l'ouverture (clic sur l'icône), pas à l'affichage d'une recherche déjà saisie.
+  useEffect(() => {
+    if (open) input.current?.focus();
+  }, [open]);
+  const expanded = open || query !== '';
+  return (
+    <>
+      {expanded && (
+        <TextField
+          type="search"
+          size="small"
+          inputRef={input}
+          value={query}
+          onChange={(e) => onChange(e.target.value)}
+          onBlur={() => setOpen(false)}
+          placeholder={t('Rechercher un élève')}
+          sx={pill}
+          slotProps={{
+            htmlInput: { 'aria-label': t('Rechercher un élève'), style: { minHeight: 28 } },
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Search size={icon.sm} strokeWidth={icon.stroke} aria-hidden="true" />
+                </InputAdornment>
+              ),
+            },
+          }}
+        />
+      )}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
+        <Box sx={{ flex: 1, minWidth: 0 }}>{trailing}</Box>
+        {!expanded && (
+          <IconButton
+            aria-label={t('Rechercher un élève')}
+            aria-expanded={false}
+            onClick={() => setOpen(true)}
+            sx={{ width: 44, height: 44, ml: 'auto', flexShrink: 0 }}
+          >
+            <Search size={icon.md} strokeWidth={icon.stroke} aria-hidden="true" />
+          </IconButton>
+        )}
+      </Box>
+    </>
+  );
+}
 
 const FILTERS: Array<{ key: ConversationFilter; label: string }> = [
   { key: 'all', label: t('Tous') },
@@ -71,7 +131,7 @@ function FilterPills({
     <Box
       role="group"
       aria-label={t('Filtrer les conversations')}
-      sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}
+      sx={{ display: 'flex', flexWrap: 'nowrap', gap: 0.75, overflowX: 'auto', scrollbarWidth: 'none', '&::-webkit-scrollbar': { display: 'none' }, pb: 0.25 }}
     >
       {FILTERS.map(({ key, label }) => {
         const active = key === value;
@@ -83,7 +143,7 @@ function FilterPills({
             color={active ? 'primary' : 'inherit'}
             aria-pressed={active}
             onClick={() => onChange(key)}
-            sx={{ minHeight: 44, minWidth: 44, px: 1.75, borderRadius: `${radius.round}px` }}
+            sx={{ minHeight: 44, minWidth: 44, px: 1.75, flexShrink: 0, borderRadius: `${radius.round}px` }}
           >
             {label}
           </Button>
@@ -119,25 +179,7 @@ export function AdminConversationList({
   return (
     <>
       <Box sx={{ display: 'grid', gap: 1.25, p: 1.5, borderBottom: 1, borderColor: 'divider' }}>
-        <TextField
-          type="search"
-          size="small"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder={t('Rechercher un élève')}
-          sx={pill}
-          slotProps={{
-            htmlInput: { 'aria-label': t('Rechercher un élève'), style: { minHeight: 28 } },
-            input: {
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Search size={icon.sm} strokeWidth={icon.stroke} aria-hidden="true" />
-                </InputAdornment>
-              ),
-            },
-          }}
-        />
-        <FilterPills value={filter} onChange={setFilter} />
+        <CollapsibleSearch query={query} onChange={setQuery} trailing={<FilterPills value={filter} onChange={setFilter} />} />
       </Box>
       {list.isPending ? (
         <LoadingState />
@@ -186,17 +228,15 @@ export function AdminConversationList({
 }
 
 /**
- * Colonne gauche de l'enseignant : « Nouveau message », recherche par élève, conversations.
+ * Colonne gauche de l'enseignant : recherche par élève et conversations (« Nouveau message » est le bouton flottant de la page).
  * `hrefOf` donne l'adresse d'une conversation (même page, `?conversation=<id>`).
  */
 export function TeacherConversationList({
   selectedId,
   hrefOf,
-  onNew,
 }: {
   selectedId: string | null;
   hrefOf: (id: string) => string;
-  onNew: () => void;
 }) {
   const list = useConversations('teacher');
   const [query, setQuery] = useState('');
@@ -207,33 +247,7 @@ export function TeacherConversationList({
   return (
     <>
       <Box sx={{ display: 'grid', gap: 1.25, p: 1.5, borderBottom: 1, borderColor: 'divider' }}>
-        <Button
-          variant="contained"
-          fullWidth
-          onClick={onNew}
-          startIcon={<Plus size={icon.md} strokeWidth={icon.stroke} aria-hidden="true" />}
-          sx={{ minHeight: 48, borderRadius: `${radius.round}px` }}
-        >
-          {t('Nouveau message')}
-        </Button>
-        <TextField
-          type="search"
-          size="small"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder={t('Rechercher un élève')}
-          sx={pill}
-          slotProps={{
-            htmlInput: { 'aria-label': t('Rechercher un élève'), style: { minHeight: 28 } },
-            input: {
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Search size={icon.sm} strokeWidth={icon.stroke} aria-hidden="true" />
-                </InputAdornment>
-              ),
-            },
-          }}
-        />
+        <CollapsibleSearch query={query} onChange={setQuery} />
       </Box>
       {list.isPending ? (
         <LoadingState />

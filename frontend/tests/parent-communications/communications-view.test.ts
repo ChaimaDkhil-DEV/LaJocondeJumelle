@@ -38,16 +38,16 @@ const list = [
 const ids = (items: ConversationSummary[]) => items.map((c) => c.id);
 
 describe('parseVue', () => {
-  it('lit ?vue= et retombe sur la boîte de réception', () => {
+  it('lit ?vue= et retombe sur « Messages » (toutes les conversations)', () => {
     expect(parseVue('conversations', false)).toBe('conversations');
     expect(parseVue('boite', false)).toBe('boite');
-    expect(parseVue(null, true)).toBe('boite');
-    expect(parseVue('nimporte-quoi', true)).toBe('boite');
+    expect(parseVue(null, true)).toBe('conversations');
+    expect(parseVue('nimporte-quoi', true)).toBe('conversations');
   });
 
   it('« À valider » n’est accessible qu’avec le droit de valider', () => {
     expect(parseVue('valider', true)).toBe('valider');
-    expect(parseVue('valider', false)).toBe('boite');
+    expect(parseVue('valider', false)).toBe('conversations');
   });
 });
 

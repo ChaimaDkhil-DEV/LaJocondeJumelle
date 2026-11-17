@@ -1,24 +1,18 @@
 import Alert from '@mui/material/Alert';
-import Box from '@mui/material/Box';
 import type { ReactNode } from 'react';
-import { Badge } from '../../components/Badge';
 import { UserAvatar } from '../../components/UserAvatar';
 import { t } from '../../i18n';
+import { useCurrentUser } from '../auth/useCurrentUser';
 import {
-  TYPE_LABELS,
   fullName,
   usePostMessage,
   type ConversationDetail,
   type ConversationSummary,
+  type Message,
   type Space,
 } from './api';
-import {
-  ChatHeader,
-  ConversationBubble,
-  DayList,
-  MessageComposer,
-  MessageScroller,
-} from './ChatParts';
+import { ChatHeader, ConversationBubble, DayList, MessageScroller, dayLabel } from './ChatParts';
+import { ChatComposer } from './ChatComposer';
 
 /** Interlocuteur affiché selon l'espace : l'école pour le parent, l'administration pour l'enseignant. */
 export function counterpart(space: Space, c: ConversationSummary): string {
@@ -32,15 +26,20 @@ export function counterpart(space: Space, c: ConversationSummary): string {
   return c.teacher?.displayName ?? '';
 }
 
-const HINTS: Record<Space, string> = {
-  teacher: t(
-    'Votre message part directement à l’administration. Un vocal suffit ; vous pouvez ajouter un texte.',
-  ),
-  parent: t(
-    'Votre message part directement à l’école. Un vocal suffit ; vous pouvez ajouter un texte.',
-  ),
-  admin: t('Un vocal, un texte, ou les deux.'),
-};
+/** Nom seul de l'expéditeur d'un message reçu : « Administration » (sans le prénom) côté enseignant. */
+function senderName(space: Space, m: Message): string {
+  return space === 'teacher' && m.authorKind === 'ADMIN' ? t('Administration') : m.authorLabel;
+}
+
+/** Deux messages se suivent du même auteur, le même jour : ils forment un groupe (un seul avatar, un seul nom). */
+function sameGroup(a: Message, b: Message): boolean {
+  return (
+    a.mine === b.mine &&
+    a.authorKind === b.authorKind &&
+    a.authorLabel === b.authorLabel &&
+    dayLabel(a.createdAt) === dayLabel(b.createdAt)
+  );
+}
 
 /** Raison pour laquelle on ne peut plus écrire, dite clairement (FR-006, D3). */
 function readOnlyNotice(c: ConversationDetail): string {
@@ -78,47 +77,38 @@ export function ConversationView({
 }) {
   const post = usePostMessage(space, c.id);
   const other = counterpart(space, c);
+  const me = useCurrentUser().data;
   return (
     <>
-      <ChatHeader
-        backTo={backTo}
-        avatar={<UserAvatar name={fullName(c.student)} id={c.student.id} size="md" />}
-        title={fullName(c.student)}
-        subtitle={
-          <Box
-            component="span"
-            sx={{ display: 'inline-flex', flexWrap: 'wrap', gap: 0.75, alignItems: 'center' }}
-          >
-            <span>
-              {c.student.class.name} · {other}
-            </span>
-            {space !== 'parent' && (
-              <Badge
-                tone={c.type === 'INTERNAL' ? 'info' : c.type === 'PARENT' ? 'success' : 'neutral'}
-              >
-                {TYPE_LABELS[c.type]}
-              </Badge>
-            )}
-            {c.status === 'CLOSED' && c.type !== 'LEGACY_TEACHER_PARENT' && (
-              <Badge tone="neutral">{t('Clôturée')}</Badge>
-            )}
-          </Box>
-        }
-        aside={actions}
-      />
+      <ChatHeader backTo={backTo} title={other} aside={actions} />
       <MessageScroller count={c.messages.length}>
         <DayList
           items={c.messages}
           dateOf={(m) => m.createdAt}
           label={t('Messages')}
-          render={(m) => (
-            <ConversationBubble message={m} showStatus={m.mine || space === 'admin'} />
-          )}
+          render={(m, i) => {
+            const prev = c.messages[i - 1];
+            const next = c.messages[i + 1];
+            const first = !prev || !sameGroup(prev, m);
+            const last = !next || !sameGroup(m, next);
+            const name = m.mine ? (me?.displayName ?? '') : senderName(space, m);
+            return (
+              <ConversationBubble
+                message={m}
+                showStatus={m.mine || space === 'admin'}
+                senderName={first ? name : undefined}
+                avatar={
+                  last ? (
+                    <UserAvatar name={name} id={m.mine ? me?.id : undefined} size={28} />
+                  ) : null
+                }
+              />
+            );
+          }}
         />
       </MessageScroller>
       {c.canPost ? (
-        <MessageComposer
-          hint={HINTS[space]}
+        <ChatComposer
           submitLabel={submitLabel}
           placeholder={placeholder}
           requireContent={space === 'teacher'}

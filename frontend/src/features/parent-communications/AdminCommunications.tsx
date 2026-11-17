@@ -1,12 +1,17 @@
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import { Lock, LockOpen, Plus, UserCheck, Users } from 'lucide-react';
+import IconButton from '@mui/material/IconButton';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
+import { EllipsisVertical, Lock, LockOpen, UserCheck, Users } from 'lucide-react';
+import { useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
 import { PageHeader } from '../../components/PageHeader';
-import { icon, radius } from '../../design/tokens';
+import { icon } from '../../design/tokens';
 import { t } from '../../i18n';
 import { useCurrentUser } from '../auth/useCurrentUser';
 import {
@@ -26,7 +31,9 @@ import {
   unreadTotal,
   type Vue,
 } from './communicationsView';
+import { BOTTOM_BAR_HEIGHT, CommunicationsBottomBar } from './CommunicationsBottomBar';
 import { CommunicationsTabs, PANEL_ID, tabId } from './CommunicationsTabs';
+import { NewMessageFab } from './NewMessageFab';
 import { AdminConversationList } from './ConversationList';
 import { ConversationView } from './ConversationView';
 import {
@@ -36,9 +43,13 @@ import {
 } from './NewMessageDrawer';
 import { ValidationList, ValidationPanel } from './ValidationPanel';
 
-/** Actions de 44 px au moins : le public aime les boutons, souvent utilisés au doigt. */
+/** Éléments de menu de 44 px au moins : le public aime les boutons, souvent utilisés au doigt. */
 const action = { minHeight: 44 };
 
+/**
+ * Actions d'une conversation, dans le menu ⋮ de l'en-tête. « Prendre en charge » n'est affiché
+ * directement que si personne n'est responsable ; sinon il (ou « Libérer ») rejoint le menu.
+ */
 function ConversationActions({
   c,
   onContactParent,
@@ -48,49 +59,90 @@ function ConversationActions({
 }) {
   const me = useCurrentUser().data;
   const actions = useConversationActions(c.id);
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   if (c.type === 'LEGACY_TEACHER_PARENT') return null;
   const mine = c.responsibleAdmin?.id === me?.id;
+  const unassigned = !c.responsibleAdmin;
+  const close = () => setAnchor(null);
+  const toggleResponsible = () => actions.responsible.mutate(mine ? null : (me?.id ?? null));
   return (
-    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, justifyContent: 'flex-end' }}>
-      {c.type === 'INTERNAL' && (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+      {unassigned && (
         <Button
-          variant="outlined"
-          startIcon={<Users size={icon.sm} aria-hidden="true" />}
-          onClick={onContactParent}
-          sx={action}
+          size="small"
+          onClick={toggleResponsible}
+          loading={actions.responsible.isPending}
+          sx={{ minHeight: 44 }}
         >
-          {t('Contacter le parent')}
+          {t('Prendre en charge')}
         </Button>
       )}
-      <Button
-        startIcon={<UserCheck size={icon.sm} aria-hidden="true" />}
-        onClick={() => actions.responsible.mutate(mine ? null : (me?.id ?? null))}
-        loading={actions.responsible.isPending}
-        sx={action}
+      <IconButton
+        aria-label={t('Plus d’actions')}
+        aria-haspopup="menu"
+        aria-expanded={anchor ? true : undefined}
+        onClick={(e) => setAnchor(e.currentTarget)}
+        sx={{ width: 44, height: 44 }}
       >
-        {mine ? t('Libérer') : t('Prendre en charge')}
-      </Button>
-      {c.status === 'OPEN' ? (
-        <Button
-          color="inherit"
-          startIcon={<Lock size={icon.sm} aria-hidden="true" />}
-          onClick={() => actions.close.mutate()}
-          loading={actions.close.isPending}
-          sx={action}
-        >
-          {t('Clôturer')}
-        </Button>
-      ) : (
-        <Button
-          color="inherit"
-          startIcon={<LockOpen size={icon.sm} aria-hidden="true" />}
-          onClick={() => actions.reopen.mutate()}
-          loading={actions.reopen.isPending}
-          sx={action}
-        >
-          {t('Rouvrir')}
-        </Button>
-      )}
+        <EllipsisVertical size={icon.md} aria-hidden="true" />
+      </IconButton>
+      <Menu anchorEl={anchor} open={Boolean(anchor)} onClose={close}>
+        {c.type === 'INTERNAL' && (
+          <MenuItem
+            sx={action}
+            onClick={() => {
+              close();
+              onContactParent();
+            }}
+          >
+            <ListItemIcon>
+              <Users size={icon.sm} aria-hidden="true" />
+            </ListItemIcon>
+            {t('Contacter le parent')}
+          </MenuItem>
+        )}
+        {!unassigned && (
+          <MenuItem
+            sx={action}
+            onClick={() => {
+              close();
+              toggleResponsible();
+            }}
+          >
+            <ListItemIcon>
+              <UserCheck size={icon.sm} aria-hidden="true" />
+            </ListItemIcon>
+            {mine ? t('Libérer') : t('Prendre en charge')}
+          </MenuItem>
+        )}
+        {c.status === 'OPEN' ? (
+          <MenuItem
+            sx={action}
+            onClick={() => {
+              close();
+              actions.close.mutate();
+            }}
+          >
+            <ListItemIcon>
+              <Lock size={icon.sm} aria-hidden="true" />
+            </ListItemIcon>
+            {t('Clôturer')}
+          </MenuItem>
+        ) : (
+          <MenuItem
+            sx={action}
+            onClick={() => {
+              close();
+              actions.reopen.mutate();
+            }}
+          >
+            <ListItemIcon>
+              <LockOpen size={icon.sm} aria-hidden="true" />
+            </ListItemIcon>
+            {t('Rouvrir')}
+          </MenuItem>
+        )}
+      </Menu>
     </Box>
   );
 }
@@ -180,20 +232,7 @@ export function AdminCommunications() {
 
   return (
     <>
-      <PageHeader
-        title={t('Communications')}
-        breadcrumb={false}
-        actions={
-          <Button
-            variant="contained"
-            onClick={() => openComposer()}
-            startIcon={<Plus size={icon.md} strokeWidth={icon.stroke} aria-hidden="true" />}
-            sx={{ minHeight: 48, px: 2.5, borderRadius: `${radius.round}px` }}
-          >
-            {t('Nouveau message')}
-          </Button>
-        }
-      />
+      <PageHeader title={t('Messages')} breadcrumb={false} />
       {sendMode.isPending ? (
         <LoadingState />
       ) : (
@@ -209,6 +248,7 @@ export function AdminCommunications() {
             <ChatShell
               listWidth={340}
               height={780}
+              fab={<NewMessageFab onClick={() => openComposer()} />}
               detailOpen={Boolean(selectedId)}
               detailLabel={vue === 'valider' ? t('Message à examiner') : t('Conversation')}
               list={
@@ -253,6 +293,19 @@ export function AdminCommunications() {
               }
             />
           </Box>
+        </>
+      )}
+      {/* Mobile : espace réservé sous la page, et barre d'onglets du bas (masquée dans une conversation). */}
+      {!selectedId && !composing && (
+        <>
+          <Box sx={(theme) => ({ height: BOTTOM_BAR_HEIGHT, [theme.breakpoints.up('md')]: { display: 'none' } })} />
+          <CommunicationsBottomBar
+            active={vue === 'valider' ? 'valider' : 'messages'}
+            messagesTo={`${ROOT}?${PARAM.vue}=conversations`}
+            validerTo={canValidate ? `${ROOT}?${PARAM.vue}=valider` : undefined}
+            unread={unreadTotal(inbox.data)}
+            toValidate={toValidate.data?.filter((m) => m.decidable).length ?? 0}
+          />
         </>
       )}
       <NewMessageDrawer

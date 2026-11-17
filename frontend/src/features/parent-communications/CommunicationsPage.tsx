@@ -18,7 +18,7 @@ export function CommunicationsPage() {
   if (canUseAdministrationSpace(me.data)) return <AdminCommunications />;
   return (
     <>
-      <PageHeader title={t('Communications')} />
+      <PageHeader title={t('Messages')} />
       <TeacherCommunications />
     </>
   );

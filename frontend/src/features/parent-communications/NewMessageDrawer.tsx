@@ -1,6 +1,7 @@
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import ButtonBase from '@mui/material/ButtonBase';
 import Drawer from '@mui/material/Drawer';
 import FormControl from '@mui/material/FormControl';
 import FormControlLabel from '@mui/material/FormControlLabel';
@@ -130,7 +131,7 @@ function StudentPicker({
   );
 }
 
-/** Deux gros boutons à la place des boutons radio : Un enseignant / Un parent. */
+/** Sélecteur segmenté Enseignant | Parent : un seul segment actif (teinte douce, pas de bouton plein). */
 function RecipientTypeButtons({
   value,
   onChange,
@@ -141,29 +142,48 @@ function RecipientTypeButtons({
   teacherDisabled: boolean;
 }) {
   const options: Array<{ type: RecipientType; label: string; disabled: boolean }> = [
-    { type: 'INTERNAL', label: t('Un enseignant'), disabled: teacherDisabled },
-    { type: 'PARENT', label: t('Un parent'), disabled: false },
+    { type: 'INTERNAL', label: t('Enseignant'), disabled: teacherDisabled },
+    { type: 'PARENT', label: t('Parent'), disabled: false },
   ];
   return (
     <Box role="group" aria-labelledby="new-message-recipient" sx={{ display: 'grid', gap: 1 }}>
       <Typography id="new-message-recipient" variant="subtitle2" component="p">
         {t('Destinataire')}
       </Typography>
-      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
+      <Box
+        sx={(theme) => ({
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          p: 0.5,
+          gap: 0.5,
+          borderRadius: '12px',
+          bgcolor: tokensOf(theme).surfaceMuted,
+        })}
+      >
         {options.map(({ type, label, disabled }) => {
           const active = type === value;
           return (
-            <Button
+            <ButtonBase
               key={type}
-              variant={active ? 'contained' : 'outlined'}
-              color={active ? 'primary' : 'inherit'}
               aria-pressed={active}
               disabled={disabled}
               onClick={() => onChange(type)}
-              sx={{ minHeight: 48, fontWeight: font.semibold }}
+              sx={(theme) => {
+                const tk = tokensOf(theme);
+                return {
+                  minHeight: 44,
+                  borderRadius: '9px',
+                  fontWeight: active ? font.semibold : font.medium,
+                  color: active ? tk.accent.text : tk.textSecondary,
+                  bgcolor: active ? tk.surface : 'transparent',
+                  boxShadow: active ? '0 1px 2px rgba(16, 24, 40, 0.08)' : 'none',
+                  '&.Mui-disabled': { opacity: 0.45 },
+                  '&.Mui-focusVisible': { outline: `2px solid ${tk.focus}`, outlineOffset: 1 },
+                };
+              }}
             >
               {label}
-            </Button>
+            </ButtonBase>
           );
         })}
       </Box>
@@ -186,19 +206,14 @@ function NewMessageForm({
   const sendMode = useSendMode();
   const start = useStartConversation('admin');
   const forbidden = type === 'PARENT' && sendMode.data?.toParents === 'FORBIDDEN';
+  // Élève sans représentant lié : rien à envoyer à un parent (alerte rouge, « Envoyer » désactivé).
+  const noGuardian = type === 'PARENT' && Boolean(studentId) && recipients.data?.guardians.length === 0;
 
   // Élève choisi (ou prérempli par « Contacter le parent ») : affiché d'après ses destinataires.
   const knownStudents = recipients.data ? [recipients.data.student] : [];
 
   return (
     <Box sx={{ display: 'grid', gap: 2.5, p: { xs: 2, sm: 3 }, overflowY: 'auto' }}>
-      {linkedInternalId && (
-        <Alert severity="info">
-          {t(
-            'Message au parent à partir d’un signalement : rien de la conversation interne n’est transmis au parent.',
-          )}
-        </Alert>
-      )}
       <RecipientTypeButtons
         value={type}
         teacherDisabled={Boolean(linkedInternalId)}
@@ -247,15 +262,22 @@ function NewMessageForm({
                   />
                 ))}
           </RadioGroup>
-          {(type === 'INTERNAL' ? recipients.data.teachers : recipients.data.guardians).length ===
-            0 && (
+          {type === 'INTERNAL' && recipients.data.teachers.length === 0 && (
             <Typography color="text.secondary">
-              {type === 'INTERNAL'
-                ? t('Aucun enseignant n’est affecté à la classe de cet élève.')
-                : t('Aucun représentant n’est lié à cet élève.')}
+              {t('Aucun enseignant n’est affecté à la classe de cet élève.')}
             </Typography>
           )}
         </FormControl>
+      )}
+      {noGuardian && (
+        <Alert severity="error" role="alert">
+          {t('Aucun représentant n’est lié à cet élève. Contactez l’administration pour en ajouter un.')}
+        </Alert>
+      )}
+      {type === 'PARENT' && (
+        <Typography variant="body2" color="text.secondary">
+          {t('Rien de la conversation interne n’est transmis au parent.')}
+        </Typography>
       )}
       {forbidden && (
         <Alert severity="warning">
@@ -266,17 +288,12 @@ function NewMessageForm({
       )}
       <MessageComposer
         disabled={forbidden}
-        submitLabel={
-          type === 'PARENT' && sendMode.data?.toParents === 'SUBMIT'
-            ? t('Envoyer pour validation')
-            : t('Envoyer')
-        }
+        ready={!noGuardian}
+        submitLabel={t('Envoyer')}
         hint={
           type === 'PARENT'
             ? sendMode.data?.toParents === 'SUBMIT'
-              ? t(
-                  'Votre message sera validé par un autre membre de l’administration avant d’être transmis. Le parent voit « L’école ».',
-                )
+              ? t('Validé par l’administration avant l’envoi')
               : t('Le parent reçoit le message signé « L’école ».')
             : t('L’enseignant reçoit le message directement.')
         }

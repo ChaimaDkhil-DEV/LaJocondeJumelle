@@ -1,5 +1,14 @@
 /** Communications (015, 017). */
 export const parentCommunications: Record<string, string> = {
+  'Profil': 'Profile',
+  'Rien de la conversation interne n’est transmis au parent.': 'Nothing from the internal conversation is passed on to the parent.',
+  'Aucun représentant n’est lié à cet élève. Contactez l’administration pour en ajouter un.': 'No guardian is linked to this student. Contact the administration to add one.',
+  'Validé par l’administration avant l’envoi': 'Approved by the administration before sending',
+  'Envoyé directement à l’administration': 'Sent directly to the administration',
+  'Votre message (facultatif)': 'Your message (optional)',
+  'Appuyez pour parler': 'Tap to speak',
+  'Navigation des messages': 'Messages navigation',
+  '{count} non lus': '{count} unread',
   'Écrire votre message…': 'Write your message…',
   'Le message part directement à l’administration. Un vocal suffit ; durée maximale : {duration}.':
     'The message goes straight to the administration. A voice message is enough; maximum length: {duration}.',

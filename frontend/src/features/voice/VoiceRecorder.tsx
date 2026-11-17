@@ -1,13 +1,16 @@
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import ButtonBase from '@mui/material/ButtonBase';
 import Typography from '@mui/material/Typography';
 import { keyframes } from '@mui/material/styles';
 import { Mic, RotateCcw, Square, Trash2 } from 'lucide-react';
 import { font, icon, tokensOf } from '../../design/tokens';
 import { formatDuration } from './recorderFormat';
 import { useVoiceRecorder, type VoiceRecording } from './useVoiceRecorder';
+import { useId } from 'react';
 import { VoicePlayer } from './VoicePlayer';
+import { DENIED_MESSAGE, ERROR_MESSAGE, UNSUPPORTED_MESSAGE } from './recorderMessages';
 import { t } from '../../i18n';
 
 export type { VoiceRecording } from './useVoiceRecorder';
@@ -18,17 +21,12 @@ interface VoiceRecorderProps {
   onChange: (recording: VoiceRecording | null) => void;
   /** Demande en lecture seule : aucun enregistrement possible. */
   disabled?: boolean;
+  /**
+   * `hero` : un grand bouton rond au centre (« Appuyez pour parler ») ; le minuteur n'apparaît que
+   * pendant l'enregistrement.
+   */
+  variant?: 'default' | 'hero';
 }
-
-const DENIED_MESSAGE = t(
-  'L’accès au micro a été refusé. Autorisez le micro pour ce site dans les réglages de votre navigateur, ou écrivez votre demande dans la description écrite.',
-);
-const UNSUPPORTED_MESSAGE = t(
-  'Votre navigateur ne permet pas d’enregistrer un message vocal. Écrivez votre demande dans la description.',
-);
-const ERROR_MESSAGE = t(
-  'Impossible d’accéder au micro. Vérifiez qu’il est branché et disponible, ou écrivez votre demande dans la description.',
-);
 
 /** Pastille rouge « enregistrement en cours » (immobile si l'utilisateur réduit les animations). */
 const pulse = keyframes`
@@ -37,8 +35,9 @@ const pulse = keyframes`
 `;
 
 /** Enregistrer, réécouter, refaire ou supprimer un message vocal avant l'envoi. */
-export function VoiceRecorder({ maxSeconds, value, onChange, disabled = false }: VoiceRecorderProps) {
+export function VoiceRecorder({ maxSeconds, value, onChange, disabled = false, variant = 'default' }: VoiceRecorderProps) {
   const recorder = useVoiceRecorder({ maxSeconds, onRecorded: onChange });
+  const captionId = useId();
 
   function discard(): void {
     if (value) URL.revokeObjectURL(value.url);
@@ -67,6 +66,66 @@ export function VoiceRecorder({ maxSeconds, value, onChange, disabled = false }:
             </Button>
           </Box>
         </>
+      ) : variant === 'hero' ? (
+        <Box sx={{ display: 'grid', justifyItems: 'center', gap: 1, py: 1 }}>
+          <ButtonBase
+            aria-labelledby={captionId}
+            aria-busy={recorder.state === 'requesting' || undefined}
+            disabled={disabled || recorder.state === 'requesting'}
+            onClick={() => {
+              if (recorder.state === 'recording') {
+                recorder.stop();
+              } else {
+                recorder.clearError();
+                void recorder.start();
+              }
+            }}
+            sx={(theme) => {
+              const tk = tokensOf(theme);
+              const recording = recorder.state === 'recording';
+              return {
+                width: 96,
+                height: 96,
+                borderRadius: '50%',
+                color: '#fff',
+                bgcolor: recording ? tk.error.main : tk.accent.main,
+                boxShadow: recording ? `0 0 0 8px ${tk.error.soft}` : `0 0 0 8px ${tk.accent.soft}`,
+                transition: 'background .15s, box-shadow .15s',
+                '&:hover': { bgcolor: recording ? tk.error.text : tk.accent.hover },
+                '&.Mui-disabled': { opacity: 0.5, color: '#fff' },
+                '&.Mui-focusVisible': { outline: `3px solid ${tk.focus}`, outlineOffset: 4 },
+              };
+            }}
+          >
+            {recorder.state === 'recording' ? (
+              <Square size={32} fill="currentColor" aria-hidden="true" />
+            ) : (
+              <Mic size={40} aria-hidden="true" />
+            )}
+          </ButtonBase>
+          {recorder.state === 'recording' ? (
+            <Typography
+              id={captionId}
+              sx={(theme) => ({ fontWeight: font.medium, color: tokensOf(theme).error.text, fontVariantNumeric: 'tabular-nums' })}
+            >
+              <Box component="span" sx={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>
+                {t('Arrêter l’enregistrement')}{' '}
+              </Box>
+              <span aria-hidden="true">
+                {formatDuration(recorder.elapsedSeconds)} / {formatDuration(maxSeconds)}
+              </span>
+              {recorder.nearLimit && (
+                <Box component="span" sx={(theme) => ({ ml: 1, color: tokensOf(theme).warning.text })}>
+                  {t('Plus que {n} secondes', { n: recorder.remainingSeconds })}
+                </Box>
+              )}
+            </Typography>
+          ) : (
+            <Typography id={captionId} color="text.secondary" sx={{ fontWeight: font.medium }}>
+              {t('Appuyez pour parler')}
+            </Typography>
+          )}
+        </Box>
       ) : recorder.state === 'recording' ? (
         <Box
           sx={(theme) => ({
