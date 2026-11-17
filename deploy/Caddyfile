@@ -3,12 +3,15 @@
 # (défauts api:3000 et /srv) ne servent qu’aux tests locaux de cette configuration.
 {
 	email {$ACME_EMAIL}
+	# Profil (CADDY_PROFILE, défaut « public » = VPS) : options globales et TLS, voir deploy/profiles/.
+	import profiles/{$CADDY_PROFILE:public}/global.caddy
 	# Autorité interne (relais Whisper ci-dessous) : son certificat racine reste dans /data, rien
 	# n'est installé dans le magasin du système.
 	skip_install_trust
 }
 
 {$DOMAIN} {
+	import profiles/{$CADDY_PROFILE:public}/tls.caddy
 	encode zstd gzip
 
 	header {

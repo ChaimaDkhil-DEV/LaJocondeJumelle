@@ -29,7 +29,13 @@ if [ "$PULL" = 1 ]; then
   exec bash "$0" --no-pull
 fi
 
-COMPOSE=(docker compose -f deploy/docker-compose.yml --env-file deploy/.env)
+# Fichier compose complémentaire facultatif (serveur d'école : deploy/docker-compose.school.yml).
+COMPOSE=(docker compose -f deploy/docker-compose.yml)
+if [ -n "${COMPOSE_OVERRIDE_FILE:-}" ]; then
+  [ -f "$COMPOSE_OVERRIDE_FILE" ] || { echo "COMPOSE_OVERRIDE_FILE introuvable : $COMPOSE_OVERRIDE_FILE" >&2; exit 1; }
+  COMPOSE+=(-f "$COMPOSE_OVERRIDE_FILE")
+fi
+COMPOSE+=(--env-file deploy/.env)
 
 echo "[deploy] commit déployé : $(git rev-parse --short HEAD)"
 

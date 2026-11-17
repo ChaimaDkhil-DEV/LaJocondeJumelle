@@ -1,0 +1,23 @@
+# Serveur local d'une école : HTTPS par défi DNS-01 (Cloudflare) et accès des parents par Cloudflare
+# Tunnel (aucun port à ouvrir sur le routeur). À ajouter au fichier de base :
+#   COMPOSE_OVERRIDE_FILE=deploy/docker-compose.school.yml deploy/deploy.sh
+# ou, à la main :
+#   docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.school.yml --env-file deploy/.env up -d --build
+# Procédure complète : docs/deploiement-ecole-local.md
+services:
+  caddy:
+    environment:
+      CADDY_PROFILE: school
+      CF_API_TOKEN: ${CF_API_TOKEN:?CF_API_TOKEN manquant}
+
+  # Tunnel sortant vers Cloudflare : aucun port publié. Le nom d'hôte public (DOMAIN) est déclaré dans
+  # Cloudflare Zero Trust (Tunnels) avec le service https://caddy:443 et « Origin Server Name » = DOMAIN.
+  cloudflared:
+    image: cloudflare/cloudflared:2026.11.0
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CF_TUNNEL_TOKEN:?CF_TUNNEL_TOKEN manquant}
+    depends_on:
+      caddy:
+        condition: service_started

@@ -1,0 +1,9 @@
+# Profil « school » : certificat Let's Encrypt par défi DNS-01 (Cloudflare). Aucun accès entrant
+# depuis Internet n'est nécessaire, et le même certificat sert le Wi-Fi de l'école et le tunnel.
+# Jeton d'API Cloudflare (Zone:DNS:Edit, Zone:Zone:Read, limité à la zone de l'école) : CF_API_TOKEN.
+tls {
+	dns cloudflare {env.CF_API_TOKEN}
+	# Résolveurs publics pour vérifier l'enregistrement _acme-challenge, même si le DNS interne de
+	# l'école renvoie une autre réponse (split DNS).
+	resolvers 1.1.1.1 1.0.0.1
+}
