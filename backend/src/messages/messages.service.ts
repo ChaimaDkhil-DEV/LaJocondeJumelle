@@ -171,6 +171,8 @@ export class MessagesService {
    */
   private participants(request: Request, category: CategoryWithMembers): string[] {
     if (request.assigneeId) return [request.requesterId, request.assigneeId];
+    // Demande prise en charge (018) : seul son responsable ; libre : tous les admins de la catégorie.
+    if (request.adminOwnerId) return [request.requesterId, request.adminOwnerId];
     return [request.requesterId, ...category.managers.map((m) => m.userId)];
   }
 

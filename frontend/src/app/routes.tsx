@@ -1,5 +1,6 @@
 import { createBrowserRouter, type RouteObject } from 'react-router';
 import { adminRoutes } from '../features/admin/adminRoutes';
+import { workspaceRoutes } from '../features/admin-workspace/workspaceRoutes';
 import { ChangePasswordPage } from '../features/auth/ChangePasswordPage';
 import { LoginPage } from '../features/auth/LoginPage';
 import { ProfilePage } from '../features/auth/ProfilePage';
@@ -83,6 +84,8 @@ export const routes: RouteObject[] = [
         element: <ParentMessagesPage />,
       },
       { path: 'messages-ecole/:id', element: <ParentMessageRedirect /> },
+      // Espace de travail de l'administrateur (018) : file commune, mes demandes, historique.
+      ...workspaceRoutes,
       ...adminRoutes,
     ],
   },

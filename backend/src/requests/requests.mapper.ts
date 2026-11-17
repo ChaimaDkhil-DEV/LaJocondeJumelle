@@ -1,6 +1,7 @@
 import type { Prisma } from '@prisma/client';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import { allowedActions, canWriteInThread, type PolicyAction, type PolicyCategory } from './domain/access-policy';
+import { canAskTakeover, canClaim, canProposeDelegation } from './domain/ownership';
 import { readRulesSnapshot, toPolicyRequest } from './request-policy.loader';
 
 /** Relations chargées pour construire RequestSummary / RequestDetail (contracts/rest-api.md). */
@@ -8,6 +9,9 @@ export const REQUEST_INCLUDE = {
   category: { select: { id: true, name: true } },
   requester: { select: { id: true, displayName: true } },
   assignee: { select: { id: true, displayName: true } },
+  adminOwner: { select: { id: true, displayName: true, jobTitle: true } },
+  // Proposition de transfert en attente (018) : une au plus par demande (index unique partiel).
+  transfers: { where: { status: 'PENDING' }, select: { id: true } },
   voiceFile: { select: { id: true, durationSeconds: true } },
   files: {
     where: { isCompletionProof: true },
@@ -28,6 +32,9 @@ export function toRequestSummary(request: RequestWithRelations, unreadCount: num
     status: request.status,
     requester: request.requester,
     assignee: request.assignee,
+    /** Responsable administratif (018) : null = demande libre. Distinct de l'employé affecté. */
+    adminOwner: request.adminOwner,
+    adminOwnedAt: request.adminOwnedAt,
     createdAt: request.createdAt,
     currentStage: request.currentStage,
     currentDueAt: request.currentDueAt,
@@ -49,6 +56,7 @@ export function toRequestDetail(
   const rules = readRulesSnapshot(request);
   const policyRequest = toPolicyRequest(request);
   const actions: PolicyAction[] = allowedActions(user, policyRequest, category);
+  const pendingTransferId = request.transfers[0]?.id ?? null;
   return {
     ...toRequestSummary(request, unreadCount),
     description: request.description,
@@ -82,6 +90,13 @@ export function toRequestDetail(
     allowedActions: actions,
     /** Le formulaire de réponse du fil n'est affiché que si l'utilisateur peut écrire. */
     canWriteInThread: canWriteInThread(user, policyRequest, category),
+    /** Responsable administratif (018) : ce que l'utilisateur peut faire à ce sujet. */
+    ownership: {
+      canClaim: canClaim(user, request, category),
+      canDelegate: canProposeDelegation(user, request, category, pendingTransferId !== null),
+      canAskTakeover: canAskTakeover(user, request, category, pendingTransferId !== null),
+      pendingTransferId,
+    },
   };
 }
 

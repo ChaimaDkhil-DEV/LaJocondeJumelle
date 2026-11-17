@@ -62,6 +62,9 @@ const ALLOWED_DETAIL_KEYS = new Set([
   'guardianId',
   'classIds',
   'channels',
+  // Responsable administratif et transferts (018) : identifiants seulement, jamais le texte du motif
+  'transferId',
+  'adminOwnerId',
 ]);
 
 function scrub(value: unknown): unknown {

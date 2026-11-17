@@ -1,8 +1,9 @@
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
-import { AlignLeft, Camera, Info, Lock, Mic } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { AlignLeft, ArrowLeftRight, Camera, Eye, Hand, Info, Lock, Mic } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router';
 import { ApiError } from '../../api/client';
 import { Countdown } from '../../components/Countdown';
@@ -16,6 +17,11 @@ import { StatusBadge } from '../../components/StatusBadge';
 import { Person } from '../../components/UserAvatar';
 import { icon } from '../../design/tokens';
 import { t } from '../../i18n';
+import { ClaimDialog } from '../admin-workspace/ClaimDialog';
+import { PendingTransfer } from '../admin-workspace/PendingTransfer';
+import { TransferDialog } from '../admin-workspace/TransferDialog';
+import type { TransferType } from '../admin-workspace/types';
+import { useCurrentUser } from '../auth/useCurrentUser';
 import { ThreadPanel } from '../thread/ThreadPanel';
 import { VoicePlayer } from '../voice/VoicePlayer';
 import { useRequest } from './api';
@@ -43,6 +49,11 @@ export function RequestDetailPage() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
   const request = useRequest(id);
+  const me = useCurrentUser();
+  // Prise en charge (018) : confirmation avant de devenir responsable de la demande.
+  const [claiming, setClaiming] = useState(false);
+  // Transfert (018) : délégation par celui qui a la demande à sa charge, demande de reprise par un collègue.
+  const [proposing, setProposing] = useState<TransferType | null>(null);
   // Ouverte depuis un push (014) : notification marquée lue après le chargement réussi.
   useMarkReadFromPush(request.isSuccess);
 
@@ -65,6 +76,8 @@ export function RequestDetailPage() {
   // Un brouillon se reprend dans son formulaire (spec 007).
   if (r.status === 'DRAFT') return <Navigate to={`/demandes/${id}/brouillon`} replace />;
   const readOnly = isReadOnlyStatus(r.status);
+  // Demande prise par un collègue (018) : l'administrateur la consulte sans pouvoir agir.
+  const ownedByColleague = me.data?.role === 'ADMIN' && r.adminOwner != null && r.adminOwner.id !== me.data.id && r.allowedActions.length === 0;
 
   return (
     <>
@@ -80,6 +93,42 @@ export function RequestDetailPage() {
         <Alert severity="info" variant="outlined" icon={<Lock size={icon.md} aria-hidden="true" />} sx={{ mb: 2 }}>
           {readOnlyNotice(r.status)}
         </Alert>
+      )}
+      {ownedByColleague && r.adminOwner && (
+        <Alert severity="info" variant="outlined" icon={<Eye size={icon.md} aria-hidden="true" />} sx={{ mb: 2 }}>
+          {t('{name} a pris cette demande en charge : vous la consultez en lecture seule.', { name: r.adminOwner.displayName })}
+        </Alert>
+      )}
+      {r.ownership?.canClaim && (
+        <Box sx={{ mb: 2 }}>
+          <Button variant="outlined" startIcon={<Hand size={icon.sm} aria-hidden="true" />} onClick={() => setClaiming(true)} sx={{ minHeight: 44 }}>
+            {t('Prendre en charge')}
+          </Button>
+          <ClaimDialog
+            request={claiming ? { id: r.id, title: r.title, version: r.version } : null}
+            onClose={() => setClaiming(false)}
+            onClaimed={() => setClaiming(false)}
+          />
+        </Box>
+      )}
+      {r.ownership?.pendingTransferId && <PendingTransfer transferId={r.ownership.pendingTransferId} />}
+      {(r.ownership?.canDelegate || r.ownership?.canAskTakeover) && (
+        <Box sx={{ mb: 2 }}>
+          <Button
+            variant="outlined"
+            startIcon={<ArrowLeftRight size={icon.sm} aria-hidden="true" />}
+            onClick={() => setProposing(r.ownership?.canDelegate ? 'DELEGATION_REQUEST' : 'TAKEOVER_REQUEST')}
+            sx={{ minHeight: 44 }}
+          >
+            {r.ownership.canDelegate ? t('Proposer une délégation') : t('Demander la reprise')}
+          </Button>
+          <TransferDialog
+            open={proposing !== null}
+            type={proposing ?? (r.ownership.canDelegate ? 'DELEGATION_REQUEST' : 'TAKEOVER_REQUEST')}
+            request={{ id: r.id, title: r.title }}
+            onClose={() => setProposing(null)}
+          />
+        </Box>
       )}
       <Box sx={{ mb: 3 }}>
         <RequestActions request={r} />
@@ -164,6 +213,17 @@ export function RequestDetailPage() {
                   </Box>
                 )}
               </InfoRow>
+              {(r.adminOwner != null || r.ownership?.canClaim) && (
+                <InfoRow label={t('Prise en charge par')}>
+                  {r.adminOwner ? (
+                    <Person name={r.adminOwner.displayName} id={r.adminOwner.id} />
+                  ) : (
+                    <Box component="span" sx={{ color: 'text.secondary' }}>
+                      {t('Personne pour le moment')}
+                    </Box>
+                  )}
+                </InfoRow>
+              )}
               <InfoRow label={t('Créée le')}>
                 <time dateTime={r.createdAt}>{formatDateTime(r.createdAt)}</time>
               </InfoRow>

@@ -125,6 +125,22 @@ export const ERROR_CATALOG = {
     message: 'La conversation liée doit être une conversation interne au sujet du même élève.',
   },
   PARENT_COMM_VOICE_INVALID: { status: 422, message: 'Ce message vocal est introuvable ou ne vous appartient pas.' },
+  // Responsable administratif et transferts entre administrateurs (018).
+  REQUEST_ALREADY_CLAIMED: { status: 409, message: 'Un collègue vient de prendre cette demande en charge.' },
+  TRANSFER_NOT_POSSIBLE: {
+    status: 409,
+    message: 'Cette demande ne peut pas être transférée : personne ne l’a prise en charge ou elle est terminée.',
+  },
+  TRANSFER_PENDING_EXISTS: { status: 409, message: 'Une proposition de transfert est déjà en attente pour cette demande.' },
+  TRANSFER_ALREADY_ANSWERED: { status: 409, message: 'Cette proposition a déjà reçu une réponse, a été annulée ou a expiré.' },
+  TRANSFER_OWNER_CHANGED: {
+    status: 409,
+    message: 'La demande a changé de mains depuis la proposition : celle-ci a été annulée.',
+  },
+  TRANSFER_RECIPIENT_INVALID: {
+    status: 422,
+    message: 'Choisissez un autre administrateur, actif et admin de la catégorie de la demande.',
+  },
   INTEGRATION_UNAUTHORIZED: { status: 401, message: 'Appel d’intégration non autorisé.' },
   CHANNEL_DISABLED: { status: 422, message: 'Ce canal de notification externe n’est pas activé.' },
   GUARDIAN_STUDENT_INVALID: { status: 422, message: 'Un des élèves choisis est introuvable ou désactivé.' },

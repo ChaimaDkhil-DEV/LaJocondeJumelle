@@ -54,7 +54,8 @@ export function toPolicyRequest(
     | 'autoCloseAt'
     | 'requesterId'
     | 'categoryId'
-  >,
+  > &
+    Partial<Pick<Request, 'adminOwnerId'>>,
 ): PolicyRequest {
   return {
     kind: request.kind,
@@ -66,6 +67,7 @@ export function toPolicyRequest(
     autoCloseAt: request.autoCloseAt,
     requesterId: request.requesterId,
     categoryId: request.categoryId,
+    adminOwnerId: request.adminOwnerId ?? null,
   };
 }
 

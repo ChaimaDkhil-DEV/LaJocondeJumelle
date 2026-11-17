@@ -35,6 +35,9 @@ export interface RequestSummary {
   status: RequestStatus;
   requester: PersonRef;
   assignee: PersonRef | null;
+  /** Responsable administratif (018) : l'administrateur qui traite la demande ; null : demande libre. */
+  adminOwner?: (PersonRef & { jobTitle: string | null }) | null;
+  adminOwnedAt?: string | null;
   createdAt: string;
   currentStage: DeadlineStage | null;
   currentDueAt: string | null;
@@ -74,6 +77,8 @@ export interface RequestDetail extends RequestSummary {
   rejectionReason: string | null;
   allowedActions: string[];
   canWriteInThread: boolean;
+  /** Responsable administratif (018) : ce que l'utilisateur connecté peut faire à ce sujet. */
+  ownership?: { canClaim: boolean; canDelegate?: boolean; canAskTakeover?: boolean; pendingTransferId?: string | null };
 }
 
 export interface Page<T> {

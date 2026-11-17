@@ -17,6 +17,7 @@ interface OverdueRow {
   requesterId: string;
   assigneeId: string | null;
   categoryId: string;
+  adminOwnerId: string | null;
 }
 
 /**
@@ -62,7 +63,7 @@ export class OverdueJob {
         AND "currentStage" IS NOT NULL
         AND "currentDueAt" < now()
         AND "overdueStage" IS DISTINCT FROM "currentStage"
-      RETURNING "id", "currentStage", "status", "version", "priority", "requesterId", "assigneeId", "categoryId"`;
+      RETURNING "id", "currentStage", "status", "version", "priority", "requesterId", "assigneeId", "categoryId", "adminOwnerId"`;
 
     for (const row of rows) {
       // Admins de la catégorie prévenus seulement en mode « via l'administration » : ailleurs, l'administration
@@ -76,7 +77,9 @@ export class OverdueJob {
         await tx.requestEvent.create({
           data: { requestId: row.id, actorId: null, type: 'OVERDUE', toValue: { stage: row.currentStage } },
         });
-        return this.notifications.notifyInTx(tx, [...managers, row.assigneeId], null, {
+        // Demande prise en charge (018) : son responsable seul ; libre : tous les admins de la catégorie.
+        const administration = row.adminOwnerId && managers.length > 0 ? [row.adminOwnerId] : managers;
+        return this.notifications.notifyInTx(tx, [...administration, row.assigneeId], null, {
           type: 'OVERDUE',
           requestId: row.id,
           priority: row.priority,

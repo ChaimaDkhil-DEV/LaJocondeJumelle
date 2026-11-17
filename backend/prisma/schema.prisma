@@ -277,6 +277,45 @@ enum NotificationType {
   COMM_ADMIN_REPLY
   /// Administration : message d'un parent (017).
   COMM_PARENT_NEW
+  // Responsable administratif et transferts entre administrateurs (018) : cloche seulement
+  TRANSFER_TAKEOVER_REQUESTED
+  TRANSFER_DELEGATION_REQUESTED
+  TRANSFER_ACCEPTED
+  TRANSFER_REJECTED
+  TRANSFER_CANCELLED
+  TRANSFER_EXPIRED
+  ADMIN_OWNER_REASSIGNED
+}
+
+/// Opération sur le responsable administratif d'une demande (018).
+enum RequestAssignmentOperation {
+  CLAIMED
+  REASSIGNED
+  RELEASED
+  TRANSFERRED
+}
+
+/// Proposition de transfert entre administrateurs (018) : demande de reprise ou délégation.
+enum RequestTransferType {
+  TAKEOVER_REQUEST
+  DELEGATION_REQUEST
+}
+
+enum RequestTransferStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELLED
+  EXPIRED
+}
+
+/// Cause d'une annulation de proposition (018) : toujours tracée.
+enum RequestTransferCancelCause {
+  INITIATOR
+  REQUEST_FINISHED
+  OWNER_CHANGED
+  REASSIGNED_BY_SUPER_ADMIN
+  PARTICIPANT_UNAVAILABLE
 }
 
 /// Origine d'une affectation (004).
@@ -372,6 +411,8 @@ model User {
   autoAssigneeOf    Category[]            @relation("CategoryAutoAssignee")
   requestsCreated   Request[]             @relation("RequestRequester")
   requestsAssigned  Request[]             @relation("RequestAssignee")
+  /// Demandes dont le compte est le responsable administratif (018).
+  requestsOwned     Request[]             @relation("RequestAdminOwner")
   messages          Message[]
   filesUploaded     File[]
   requestEvents     RequestEvent[]
@@ -401,6 +442,14 @@ model User {
   conversationsClosed         Conversation[]             @relation("ConversationCloser")
   parentCommunicationsDecided ParentCommunication[]      @relation("ParentCommunicationDecider")
   parentCommunicationEvents   ParentCommunicationEvent[]
+
+  // Responsable administratif et transferts (018)
+  assignmentsAsAdmin    RequestAssignment[] @relation("RequestAssignmentAdmin")
+  assignmentsAsPrevious RequestAssignment[] @relation("RequestAssignmentPrevious")
+  assignmentsAsActor    RequestAssignment[] @relation("RequestAssignmentActor")
+  transfersInitiated    RequestTransfer[]   @relation("RequestTransferInitiator")
+  transfersReceived     RequestTransfer[]   @relation("RequestTransferRecipient")
+  transfersAsOwner      RequestTransfer[]   @relation("RequestTransferOwner")
 }
 
 /// Session serveur : `id` est le haché HMAC du jeton aléatoire (256 bits) placé dans le cookie.
@@ -524,6 +573,11 @@ model Request {
   priority                       Priority
   requesterId                    String         @db.Uuid
   assigneeId                     String?        @db.Uuid
+  /// Responsable administratif (018) : l'administrateur qui traite la demande ; null = demande libre.
+  /// Distinct de l'employé affecté (assigneeId). Demandes de travail « via l'administration » seulement.
+  adminOwnerId                   String?        @db.Uuid
+  /// Depuis quand le responsable actuel l'est ; null avec adminOwnerId (contrainte CHECK, migration 0029).
+  adminOwnedAt                   DateTime?      @db.Timestamptz(3)
   status                         RequestStatus
   /// Verrouillage optimiste.
   version                        Int            @default(0)
@@ -557,6 +611,9 @@ model Request {
   category      Category                @relation(fields: [categoryId], references: [id])
   requester     User                    @relation("RequestRequester", fields: [requesterId], references: [id])
   assignee      User?                   @relation("RequestAssignee", fields: [assigneeId], references: [id])
+  adminOwner    User?                   @relation("RequestAdminOwner", fields: [adminOwnerId], references: [id], onDelete: Restrict)
+  assignments   RequestAssignment[]
+  transfers     RequestTransfer[]
   files         File[]                  @relation("RequestFiles")
   messages      Message[]
   events        RequestEvent[]
@@ -576,10 +633,73 @@ model Request {
   @@index([status])
   @@index([categoryId])
   @@index([assigneeId])
+  @@index([adminOwnerId, status])
   @@index([requesterId])
   @@index([priority])
   @@index([createdAt])
   @@index([currentDueAt])
+}
+
+/// Historique du responsable administratif d'une demande (018) — ajout seul (trigger, migration 0029).
+model RequestAssignment {
+  id              String                     @id @default(uuid()) @db.Uuid
+  requestId       String                     @db.Uuid
+  /// Administrateur concerné : le nouveau responsable ; pour RELEASED, celui qui est libéré.
+  adminId         String                     @db.Uuid
+  /// Responsable avant l'opération ; null pour une première prise en charge.
+  previousAdminId String?                    @db.Uuid
+  /// Auteur de l'opération.
+  actorId         String                     @db.Uuid
+  operation       RequestAssignmentOperation
+  /// Obligatoire pour REASSIGNED et RELEASED ; copie du motif de la proposition pour TRANSFERRED.
+  reason          String?                    @db.VarChar(500)
+  /// Proposition acceptée, pour TRANSFERRED.
+  transferId      String?                    @db.Uuid
+  createdAt       DateTime                   @default(now()) @db.Timestamptz(3)
+  /// Ordre d'écriture.
+  seq             BigInt                     @default(autoincrement())
+
+  request       Request          @relation(fields: [requestId], references: [id])
+  admin         User             @relation("RequestAssignmentAdmin", fields: [adminId], references: [id])
+  previousAdmin User?            @relation("RequestAssignmentPrevious", fields: [previousAdminId], references: [id], onDelete: Restrict)
+  actor         User             @relation("RequestAssignmentActor", fields: [actorId], references: [id])
+  transfer      RequestTransfer? @relation(fields: [transferId], references: [id], onDelete: Restrict)
+
+  @@index([requestId, seq])
+  @@index([adminId, createdAt])
+  @@index([previousAdminId, createdAt])
+}
+
+/// Proposition de transfert d'une demande entre administrateurs (018). Une seule proposition PENDING par
+/// demande (index unique partiel) ; initiateur ≠ destinataire et cohérence type ↔ responsable imposés par
+/// la base (migration 0029).
+model RequestTransfer {
+  id             String                      @id @default(uuid()) @db.Uuid
+  requestId      String                      @db.Uuid
+  initiatorId    String                      @db.Uuid
+  /// Celui qui répond : le collègue (délégation) ou le responsable (demande de reprise).
+  recipientId    String                      @db.Uuid
+  /// Responsable au moment de la proposition : toute réponse vérifie qu'il n'a pas changé.
+  currentOwnerId String                      @db.Uuid
+  type           RequestTransferType
+  status         RequestTransferStatus       @default(PENDING)
+  reason         String                      @db.VarChar(500)
+  responseReason String?                     @db.VarChar(500)
+  cancelCause    RequestTransferCancelCause?
+  createdAt      DateTime                    @default(now()) @db.Timestamptz(3)
+  respondedAt    DateTime?                   @db.Timestamptz(3)
+  expiresAt      DateTime                    @db.Timestamptz(3)
+  cancelledAt    DateTime?                   @db.Timestamptz(3)
+
+  request      Request             @relation(fields: [requestId], references: [id])
+  initiator    User                @relation("RequestTransferInitiator", fields: [initiatorId], references: [id])
+  recipient    User                @relation("RequestTransferRecipient", fields: [recipientId], references: [id])
+  currentOwner User                @relation("RequestTransferOwner", fields: [currentOwnerId], references: [id])
+  assignments  RequestAssignment[]
+
+  @@index([requestId, status])
+  @@index([recipientId, status])
+  @@index([initiatorId, status])
 }
 
 model Message {
@@ -790,15 +910,15 @@ model GradeLevel {
 
 /// Élève : une classe (le niveau s'en déduit).
 model Student {
-  id          String      @id @default(uuid()) @db.Uuid
-  firstName   String      @db.VarChar(60)
-  lastName    String      @db.VarChar(60)
-  classId     String      @db.Uuid
+  id          String   @id @default(uuid()) @db.Uuid
+  firstName   String   @db.VarChar(60)
+  lastName    String   @db.VarChar(60)
+  classId     String   @db.Uuid
   /// Téléphone d'un parent (format libre contrôlé par le DTO).
-  parentPhone String      @db.VarChar(20)
-  active      Boolean     @default(true)
-  createdAt   DateTime    @default(now()) @db.Timestamptz(3)
-  updatedAt   DateTime    @updatedAt @db.Timestamptz(3)
+  parentPhone String   @db.VarChar(20)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
 
   class                SchoolClass           @relation(fields: [classId], references: [id])
   guardians            GuardianStudent[]

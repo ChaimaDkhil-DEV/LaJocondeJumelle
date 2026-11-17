@@ -89,6 +89,24 @@ const ADMIN_ALLOWED: readonly string[] = [
   `PATCH /api/admin/communications/messages/${UUID}`,
   `POST /api/admin/communications/messages/${UUID}/submit`,
   `POST /api/admin/communications/messages/${UUID}/cancel`,
+  // Espace de travail des administrateurs (018) : file commune, prise en charge, historique des responsables.
+  // Le service limite chaque admin à ses catégories ; le super administrateur consulte sans prendre en charge.
+  'GET /api/admin/requests/available',
+  'GET /api/admin/requests/mine',
+  'GET /api/admin/requests/summary',
+  `POST /api/admin/requests/${UUID}/claim`,
+  `GET /api/admin/requests/${UUID}/assignments`,
+  'GET /api/admin/assignments/mine',
+  // Transferts entre administrateurs (018, lot 2) : chaque route ne sert que l'auteur ou le destinataire lu dans la session.
+  `GET /api/admin/requests/${UUID}/transfer-candidates`,
+  `POST /api/admin/requests/${UUID}/transfers`,
+  'GET /api/admin/transfers/received',
+  'GET /api/admin/transfers/sent',
+  'GET /api/admin/transfers/history',
+  `GET /api/admin/transfers/${UUID}`,
+  `POST /api/admin/transfers/${UUID}/accept`,
+  `POST /api/admin/transfers/${UUID}/reject`,
+  `POST /api/admin/transfers/${UUID}/cancel`,
 ];
 const key = ({ verb, path }: { verb: Verb; path: string }) => `${verb.toUpperCase()} ${path}`;
 

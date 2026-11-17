@@ -297,3 +297,71 @@ describe('Mode de routage', () => {
     expect(canCreateInCategory(responsable, { ...employeesOnly, active: false })).toBe(false);
   });
 });
+
+/** 018 — data-model.md §Rules : une fois la demande prise, seul son responsable agit pour l'administration. */
+describe('Administrateur responsable (018)', () => {
+  const partagee: PolicyCategory = { ...category, managerIds: new Set(['responsable', 'autre-responsable']) };
+  const circuitB: RulesSnapshot = { ...rules, circuit: 'B_ADMIN_VALIDATION', finalValidation: true };
+  const enAttente = (adminOwnerId?: string | null) =>
+    request('PENDING_ADMIN_VALIDATION', { assigneeId: null, rules: circuitB, ...(adminOwnerId === undefined ? {} : { adminOwnerId }) });
+
+  it('demande libre : chaque admin de la catégorie agit comme avant (champ absent ou null)', () => {
+    for (const libre of [enAttente(), enAttente(null)]) {
+      for (const admin of [responsable, autreResponsable]) {
+        expect(actorsFor(admin, libre, partagee)).toEqual(['MANAGER']);
+        expect(allowedActions(admin, libre, partagee).sort()).toEqual(['APPROVE', 'CHANGE_PRIORITY', 'REJECT']);
+        expect(canWriteInThread(admin, libre, partagee)).toBe(true);
+      }
+    }
+  });
+
+  it('demande prise : le responsable garde ses actions', () => {
+    const prise = enAttente('responsable');
+    expect(actorsFor(responsable, prise, partagee)).toEqual(['MANAGER']);
+    expect(allowedActions(responsable, prise, partagee).sort()).toEqual(['APPROVE', 'CHANGE_PRIORITY', 'REJECT']);
+    expect(canWriteInThread(responsable, prise, partagee)).toBe(true);
+  });
+
+  it('demande prise : un autre admin de la catégorie la lit, sans aucune action ni écriture', () => {
+    const prise = enAttente('responsable');
+    expect(actorsFor(autreResponsable, prise, partagee)).toEqual([]);
+    expect(canReadRequest(autreResponsable, prise, partagee)).toBe(true);
+    expect(allowedActions(autreResponsable, prise, partagee)).toEqual([]);
+    expect(canWriteInThread(autreResponsable, prise, partagee)).toBe(false);
+  });
+
+  it('demande prise, à chaque étape d’administration : seul le responsable agit', () => {
+    for (const status of ['SENT', 'IN_PROGRESS', 'PENDING_FINAL_VALIDATION'] as RequestStatus[]) {
+      const prise = request(status, { rules: circuitB, adminOwnerId: 'responsable' });
+      expect(allowedActions(autreResponsable, prise, partagee)).toEqual([]);
+      expect(allowedActions(responsable, prise, partagee).length).toBeGreaterThan(0);
+    }
+  });
+
+  it('demande prise : un admin hors de la catégorie ne la lit toujours pas', () => {
+    expect(canReadRequest(autreResponsable, enAttente('responsable'), category)).toBe(false);
+  });
+
+  it('demande prise : un compte rétrogradé resté listé ne la lit pas', () => {
+    const retrograde = user('autre-responsable', 'EMPLOYEE');
+    expect(canReadRequest(retrograde, enAttente('responsable'), partagee)).toBe(false);
+  });
+
+  it('demande prise : le super administrateur garde ses actions', () => {
+    const prise = enAttente('responsable');
+    expect(actorsFor(superadmin, prise, partagee)).toEqual(['MANAGER']);
+    expect(allowedActions(superadmin, prise, partagee).sort()).toEqual(['APPROVE', 'CHANGE_PRIORITY', 'REJECT']);
+  });
+
+  it('demande prise : demandeur et employé affecté gardent leurs relations', () => {
+    const prise = request('SENT', { rules: circuitB, adminOwnerId: 'responsable' });
+    expect(actorsFor(enseignante, prise, partagee)).toEqual(['REQUESTER']);
+    expect(actorsFor(reprographie, prise, partagee)).toEqual(['ASSIGNEE']);
+  });
+
+  it('un admin non responsable mais demandeur garde ses droits de demandeur', () => {
+    const prise = request('PENDING_ADMIN_VALIDATION', { assigneeId: null, rules: circuitB, requesterId: 'autre-responsable', adminOwnerId: 'responsable' });
+    expect(actorsFor(autreResponsable, prise, partagee)).toEqual(['REQUESTER']);
+    expect(allowedActions(autreResponsable, prise, partagee)).toContain('CANCEL');
+  });
+});

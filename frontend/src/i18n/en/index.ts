@@ -18,6 +18,7 @@ import { shared } from './shared';
 import { students } from './students';
 import { thread } from './thread';
 import { voice } from './voice';
+import { workspace } from './workspace';
 
 /** English translations, keyed by the French text used in the interface. */
 export const en: Record<string, string> = {
@@ -40,5 +41,6 @@ export const en: Record<string, string> = {
   ...push,
   ...parentCommunications,
   ...auth,
+  ...workspace,
   ...common,
 };
