@@ -57,6 +57,7 @@ export function SocketProvider({
       invalidate(NOTIFICATIONS_KEY);
       invalidate(requestKeys.all);
       invalidate(['coverage']);
+      invalidate(['attendance']);
     });
     socket.on('notification:new', (event?: NotificationEvent) => {
       invalidate(NOTIFICATIONS_KEY);
@@ -80,6 +81,9 @@ export function SocketProvider({
     // Couvertures de classe : listes « À prendre », « Ma garde », suivi en direct (relues par REST).
     socket.on('coverage:updated', () => invalidate(['coverage']));
     socket.on('coverage:taken', () => invalidate(['coverage']));
+    // Pointage des enseignants (019) : arrivée, départ, retour, saisie ou correction. Enseignants présents,
+    // suivi de la journée et « Mes présences » sont relus par REST.
+    socket.on('attendance:updated', () => invalidate(['attendance']));
     socket.on('message:new', (event?: { requestId: string }) => {
       if (event) invalidate(messageKeys.thread(event.requestId));
     });

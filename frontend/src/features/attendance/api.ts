@@ -7,7 +7,11 @@ import type {
   AttendanceDay,
   AttendanceItem,
   CorrectionInput,
+  DepartureInput,
   ManualInput,
+  PresenceResult,
+  PresentList,
+  TeacherDeparture,
 } from './types';
 
 /** Toutes les clés commencent par « attendance » : une saisie ou un scan invalide le module. */
@@ -15,6 +19,7 @@ export const attendanceKeys = {
   all: ['attendance'] as const,
   mine: ['attendance', 'mine'] as const,
   day: (date: string) => ['attendance', 'day', date] as const,
+  present: ['attendance', 'present'] as const,
   resolve: (token: string) => ['attendance', 'resolve', token] as const,
 };
 
@@ -34,6 +39,51 @@ export function useArrive() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (token: string) => apiFetch<ArrivalResult>('/api/attendance/arrive', { method: 'POST', body: { token } }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: attendanceKeys.all }),
+  });
+}
+
+/** Second scan : départ de l'établissement (019). Le jeton seul part au serveur, comme pour l'arrivée. */
+export function useDepart() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (token: string) => apiFetch<PresenceResult>('/api/attendance/depart', { method: 'POST', body: { token } }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: attendanceKeys.all }),
+  });
+}
+
+/** Nouveau scan après un départ : retour dans l'établissement. */
+export function useComeBack() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (token: string) => apiFetch<PresenceResult>('/api/attendance/return', { method: 'POST', body: { token } }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: attendanceKeys.all }),
+  });
+}
+
+/**
+ * Enseignants présents maintenant et repartis aujourd'hui (admins). Sous la clé « attendance » : relue à
+ * chaque événement `attendance:updated` du serveur (SocketProvider), donc à chaque scan.
+ */
+export function usePresentTeachers() {
+  return useQuery({ queryKey: attendanceKeys.present, queryFn: () => apiFetch<PresentList>('/api/attendance/present') });
+}
+
+/** Admins : départ d'un enseignant parti sans scanner. */
+export function useRecordDeparture() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: DepartureInput) => apiFetch<TeacherDeparture>('/api/attendance/departures', { method: 'POST', body: input }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: attendanceKeys.all }),
+  });
+}
+
+/** Admins : l'enseignant noté parti est de retour. */
+export function useMarkReturned() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (departureId: string) =>
+      apiFetch<{ id: string; returnedAt: string }>(`/api/attendance/departures/${departureId}/return`, { method: 'POST' }),
     onSettled: () => queryClient.invalidateQueries({ queryKey: attendanceKeys.all }),
   });
 }

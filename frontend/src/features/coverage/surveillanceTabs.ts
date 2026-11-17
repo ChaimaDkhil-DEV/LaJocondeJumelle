@@ -4,7 +4,7 @@
  * `/gardes/...` ne changent pas : les QR codes imprimés pointent vers `/gardes/presence`.
  */
 
-export const ADMIN_TAB_KEYS = ['absences-retards', 'affectation', 'suivi'] as const;
+export const ADMIN_TAB_KEYS = ['absences-retards', 'presents', 'affectation', 'suivi'] as const;
 export type AdminTabKey = (typeof ADMIN_TAB_KEYS)[number];
 
 export const TRACKING_FILTERS = ['en-attente', 'prise-en-charge', 'terminee'] as const;

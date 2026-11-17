@@ -146,4 +146,75 @@ test.describe('Pointage des enseignants par QR', () => {
       for (const s of [teacher, admin, supervisor, superadmin]) await s.context.close();
     }
   });
+
+  /**
+   * Enseignants présents (019) : l'administration voit une ligne par enseignant arrivé ; le départ et le
+   * retour passent par un second scan du même QR, et la liste de l'administration change sans rechargement.
+   * Rejouable : part de l'état du jour, quel qu'il soit (pas arrivé, présent ou déjà reparti).
+   */
+  test('départ et retour par second scan ; la liste des présents de l’admin suit en direct', async ({ browser }) => {
+    const teacher = await open(browser, 'enseignante', PHONE);
+    const admin = await open(browser, 'admin', DESKTOP);
+    const superadmin = await open(browser, 'superadmin', DESKTOP);
+    try {
+      const link = await qrLink(superadmin.page);
+      const scanPath = new URL(link).pathname + new URL(link).search;
+      const arriveButton = teacher.page.getByRole('button', { name: 'Enregistrer mon arrivée' });
+      const departButton = teacher.page.getByRole('button', { name: 'Enregistrer mon départ' });
+      const returnButton = teacher.page.getByRole('button', { name: 'Enregistrer mon retour' });
+
+      // --- Mise en état : l'enseignante est présente (arrivée, ou retour si un départ traîne).
+      await teacher.page.goto(scanPath);
+      await expect(arriveButton.or(departButton).or(returnButton).first()).toBeVisible();
+      if (await returnButton.isVisible()) {
+        await returnButton.click();
+        await expect(teacher.page.getByText('Votre retour est enregistré.')).toBeVisible();
+      } else if (await arriveButton.isVisible()) {
+        await arriveButton.click();
+        await expect(teacher.page.getByText('Votre arrivée est enregistrée.')).toBeVisible();
+      }
+
+      // --- Admin : onglet « Enseignants présents », une ligne pour l'enseignante.
+      await admin.page.goto('/gardes?onglet=presents');
+      await expect(admin.page.getByRole('tab', { name: 'Enseignants présents' })).toHaveAttribute('aria-selected', 'true');
+      const present = admin.page.getByRole('list', { name: 'Enseignants présents' });
+      await expect(present.getByRole('listitem').filter({ hasText: 'Enseignante' })).toHaveCount(1);
+      await check(admin.page, 'Enseignants présents');
+
+      // --- Enseignante : second scan du même QR, départ. L'écran de l'admin n'est pas rechargé.
+      await teacher.page.goto(scanPath);
+      await expect(departButton).toBeVisible();
+      await check(teacher.page, 'Enregistrer mon départ');
+      await departButton.click();
+      await expect(teacher.page.getByText('Votre départ est enregistré.')).toBeVisible();
+      await check(teacher.page, 'Départ enregistré');
+
+      const departed = admin.page.getByRole('list', { name: 'Repartis aujourd’hui' });
+      await expect(departed.getByRole('listitem').filter({ hasText: 'Enseignante' })).toHaveCount(1);
+      await expect(present.getByRole('listitem').filter({ hasText: 'Enseignante' })).toHaveCount(0);
+      await expect(departed.getByText(/Parti à \d{2}:\d{2}/)).toBeVisible();
+      await check(admin.page, 'Repartis aujourd’hui');
+
+      // --- Enseignante : nouveau scan, retour ; elle revient en direct dans les présents.
+      await teacher.page.goto(scanPath);
+      await expect(returnButton).toBeVisible();
+      await check(teacher.page, 'Enregistrer mon retour');
+      await returnButton.click();
+      await expect(teacher.page.getByText('Votre retour est enregistré.')).toBeVisible();
+      await expect(present.getByRole('listitem').filter({ hasText: 'Enseignante' })).toHaveCount(1);
+      await expect(departed).toHaveCount(0);
+
+      // --- Admin : saisit le départ d'un enseignant parti sans scanner, puis le marque de retour.
+      await present.getByRole('listitem').filter({ hasText: 'Enseignante' }).getByRole('button', { name: 'Enregistrer un départ' }).click();
+      const dialog = admin.page.getByRole('dialog', { name: 'Enregistrer un départ' });
+      await check(admin.page, 'Enregistrer un départ');
+      await dialog.getByLabel(/^Commentaire/).fill('Partie sans scanner');
+      await dialog.getByRole('button', { name: 'Enregistrer' }).click();
+      await expect(departed.getByRole('listitem').filter({ hasText: 'Partie sans scanner' })).toHaveCount(1);
+      await departed.getByRole('button', { name: 'Marquer de retour' }).click();
+      await expect(present.getByRole('listitem').filter({ hasText: 'Enseignante' })).toHaveCount(1);
+    } finally {
+      for (const s of [teacher, admin, superadmin]) await s.context.close();
+    }
+  });
 });

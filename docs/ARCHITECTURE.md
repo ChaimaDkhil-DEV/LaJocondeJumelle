@@ -962,3 +962,60 @@ Every change is a conditional `updateMany` inside one Prisma transaction, the pr
   une délégation », « Demander la reprise », pending proposal with its actions.
 - The interface says « prise en charge par » and « à votre charge », not « responsable »: that word was the
   former name of the `ADMIN` role and `role-admin-rename.spec.ts` forbids it in API error messages.
+
+## 16. Teachers present in the school (feature 019)
+
+Builds on the teacher attendance by QR code (`backend/src/attendance`, table `TeacherAttendance`, one row per
+teacher, class and day). Answers one question for the administration: who is in the school right now.
+
+### Rule
+
+- A teacher is **present** when they have at least one attendance row today that is not `ABSENT`, and no
+  open departure. A teacher is **departed** when they have an open departure. Pure rule:
+  `attendance/domain/presence.ts` (`presenceOf`).
+- There is still no timetable. A teacher who has not scanned is not listed, and is not thereby absent. A
+  teacher who leaves without scanning stays listed as present until the end of the day, or until the
+  administration records the departure. Both limits are stated on the screen.
+
+### Data (migration `0030_teacher_departure`)
+
+- Table `TeacherDeparture`: teacher, school-local day, `departedAt`, method (`QR` or `MANUAL`, existing
+  enum `AttendanceMethod`), class whose QR was scanned (null for a manual entry), author, comment, and
+  `returnedAt` / `returnedById`, which close the departure.
+- Partial unique index `TeacherDeparture_one_open` (`teacherId`, `localDate`) where `returnedAt IS NULL`: one
+  open departure per teacher and day; simultaneous scans create one row. Not expressible in
+  `schema.prisma`. Rows cannot be deleted (triggers reusing `forbid_deletion()` from 0014): a departure is
+  closed by a return, never removed. No enum value added.
+
+### Routes (`/api/attendance`)
+
+| Route | Who | Effect |
+|---|---|---|
+| `POST resolve` (existing) | Teacher | Now also returns `presence: { state, firstArrivalAt, departedAt }` |
+| `POST depart` `{ token }` | Teacher | Second scan: records the departure at server time. 201, or 200 if already departed. 409 `ATTENDANCE_NOT_PRESENT` without an arrival today |
+| `POST return` `{ token }` | Teacher | Closes the open departure. Nothing changes without one |
+| `POST arrive` (existing) | Teacher | An arrival in another class after a departure closes it, in the same transaction |
+| `GET present` | Admin, super administrator | `{ date, present[], departed[] }`, one line per teacher: first arrival time, last class, and the open departure |
+| `POST departures` `{ teacherId, departedTime?, comment? }` | Admin, super administrator | Departure of a teacher who left without scanning; today only; audited |
+| `POST departures/:id/return` | Admin, super administrator | Closes a departure; 409 `DEPARTURE_ALREADY_CLOSED` if already closed; audited |
+
+Access checks shared by arrival and presence live in `attendance-gate.service.ts`. Other profiles get 404,
+logged, as in the rest of the module.
+
+### Real time and audit
+
+- Event `attendance:updated` `{ teacherId, date }` (new), sent after commit to active Admin and super
+  administrator accounts and to the teacher concerned, on arrival, departure, return, manual entry and
+  correction. It carries no attendance data: the screens re-read by REST (`['attendance']` query keys),
+  where rights are checked again. A repeated scan that changes nothing emits nothing.
+- Audit: existing actions, with `details.action`: `ATTENDANCE_MANUAL` / `DEPARTURE` for a departure entered
+  by the administration, `ATTENDANCE_CORRECTED` / `RETURN` for a departure it closes. Scans by the teacher
+  are not audited, like arrivals: the row itself is the record.
+
+### Screens
+
+- `features/attendance/PresentTeachersTab.tsx`: tab « Enseignants présents » of « Surveillance » for the
+  administration (`?onglet=presents`), with the count, the list of teachers who left today, and the two
+  manual actions.
+- `features/attendance/ArrivalPage.tsx`: the page opened by the class QR code offers the arrival, the
+  departure or the return according to `presence.state`.

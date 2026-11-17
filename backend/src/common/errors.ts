@@ -70,6 +70,12 @@ export const ERROR_CATALOG = {
     status: 409,
     message: 'Une présence est déjà enregistrée pour cet enseignant, cette classe et ce jour.',
   },
+  ATTENDANCE_NOT_PRESENT: {
+    status: 409,
+    message: 'Aucune arrivée n’est enregistrée aujourd’hui pour cet enseignant : un départ suppose une arrivée.',
+  },
+  DEPARTURE_EXISTS: { status: 409, message: 'Le départ de cet enseignant est déjà enregistré.' },
+  DEPARTURE_ALREADY_CLOSED: { status: 409, message: 'Ce départ est déjà clos : l’enseignant est noté de retour.' },
   CLASS_INACTIVE: { status: 400, message: 'Cette classe est introuvable ou désactivée.' },
   RATE_LIMITED: {
     status: 429,

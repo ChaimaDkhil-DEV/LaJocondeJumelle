@@ -7,12 +7,10 @@ import { PrismaService } from '../common/prisma.service';
 import { addDays, atLocalTime, localDate } from '../common/school-time';
 import type { AppConfig } from '../config/config';
 import { APP_CONFIG } from '../config/config.module';
-import { CoverageAccessLoader } from '../coverage/coverage-access.loader';
 import { CoverageActionsService } from '../coverage/coverage-actions.service';
 import { adminRecipients, groupFlagsOf } from '../coverage/coverage-groups';
-import { moduleCapabilities } from '../coverage/domain/coverage-policy';
-import { verifyQrToken } from '../coverage/domain/qr-token';
 import type { RequestContext } from '../requests/requests.service';
+import { AttendanceGate } from './attendance-gate.service';
 import type { CorrectAttendanceDto, DayQuery, ManualAttendanceDto, SetSubstituteDto } from './attendance.dto';
 import {
   ATTENDANCE_INCLUDE,
@@ -30,6 +28,7 @@ import {
   type ArrivalMatch,
   type ClassEvent,
 } from './domain/attendance-matching';
+import { PresenceService } from './presence.service';
 
 /** Une saisie manuelle ne remonte pas plus loin que cette limite (jours) : au-delà, c'est une correction de l'admin. */
 const MANUAL_MAX_DAYS_BACK = 7;
@@ -56,7 +55,8 @@ export interface ArrivalResult {
 export class AttendanceService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly access: CoverageAccessLoader,
+    private readonly gate: AttendanceGate,
+    private readonly presence: PresenceService,
     private readonly actions: CoverageActionsService,
     private readonly audit: AuditService,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
@@ -68,8 +68,8 @@ export class AttendanceService {
 
   /** Page du QR pour un enseignant : classe, pointage du jour s'il existe, rattachement prévu. Rien n'est enregistré. */
   async resolve(user: AuthenticatedUser, token: string, ctx: RequestContext) {
-    await this.assertTeacher(user, ctx);
-    const schoolClass = await this.classFromToken(token);
+    await this.gate.assertTeacher(user, ctx);
+    const schoolClass = await this.gate.classFromToken(token);
     const now = new Date();
     const day = localDate(now, this.config.schoolTimezone);
     const existing = await this.findOwn(user.id, schoolClass.id, day);
@@ -78,6 +78,8 @@ export class AttendanceService {
       class: { id: schoolClass.id, name: schoolClass.name, room: schoolClass.room },
       attendance: existing ? toAttendanceView(existing) : null,
       preview,
+      /** Présence dans l'établissement (019) : la page propose l'arrivée, le départ ou le retour. */
+      presence: await this.presence.own(user.id, day),
     };
   }
 
@@ -86,8 +88,8 @@ export class AttendanceService {
    * simultané, renvoie le pointage existant (unicité en base) sans doublon.
    */
   async arrive(user: AuthenticatedUser, token: string, ctx: RequestContext): Promise<ArrivalResult> {
-    await this.assertTeacher(user, ctx);
-    const schoolClass = await this.classFromToken(token);
+    await this.gate.assertTeacher(user, ctx);
+    const schoolClass = await this.gate.classFromToken(token);
     const now = new Date();
     const day = localDate(now, this.config.schoolTimezone);
 
@@ -111,6 +113,8 @@ export class AttendanceService {
           },
           include: ATTENDANCE_INCLUDE,
         });
+        // Scanner une nouvelle classe après être parti vaut retour : le départ en cours est clos (019).
+        await this.presence.closeOpenDeparture(tx, user.id, day, now, user.id);
         if (match.kind !== 'NONE') {
           await tx.requestEvent.create({
             data: {
@@ -135,6 +139,7 @@ export class AttendanceService {
         }
         return created;
       });
+      await this.presence.notifyChange(user.id, day);
       return { created: true, attendance: toAttendanceView(row), match };
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
@@ -147,7 +152,7 @@ export class AttendanceService {
 
   /** « Mes présences » : historique de l'enseignant. */
   async mine(user: AuthenticatedUser, ctx: RequestContext): Promise<AttendanceView[]> {
-    await this.assertTeacher(user, ctx);
+    await this.gate.assertTeacher(user, ctx);
     const rows = await this.prisma.teacherAttendance.findMany({
       where: { teacherId: user.id },
       include: ATTENDANCE_INCLUDE,
@@ -166,7 +171,7 @@ export class AttendanceService {
    * chaque classe. Aucune liste « d'attendus » : sans emploi du temps, l'absence de scan ne prouve rien.
    */
   async day(user: AuthenticatedUser, query: DayQuery, ctx: RequestContext) {
-    await this.assertManager(user, ctx);
+    await this.gate.assertManager(user, ctx);
     const tz = this.config.schoolTimezone;
     const day = query.date ?? localDate(new Date(), tz);
     const from = atLocalTime(day, '00:00', tz);
@@ -245,7 +250,7 @@ export class AttendanceService {
 
   /** Régularisation d'un oubli de scan. Refusée si un pointage existe déjà pour cet enseignant, cette classe et ce jour. */
   async recordManual(user: AuthenticatedUser, dto: ManualAttendanceDto, ctx: RequestContext): Promise<AttendanceView> {
-    await this.assertManager(user, ctx);
+    await this.gate.assertManager(user, ctx);
     const tz = this.config.schoolTimezone;
     const now = new Date();
     const today = localDate(now, tz);
@@ -313,6 +318,7 @@ export class AttendanceService {
         );
         return created;
       });
+      await this.presence.notifyChange(dto.teacherId, day);
       return toAttendanceView(row);
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') throw new AppException('ATTENDANCE_EXISTS');
@@ -322,7 +328,7 @@ export class AttendanceService {
 
   /** Correction ou qualification par la surveillante : motif obligatoire, avant/après au journal d'audit. */
   async correct(user: AuthenticatedUser, id: string, dto: CorrectAttendanceDto, ctx: RequestContext): Promise<AttendanceView> {
-    await this.assertManager(user, ctx);
+    await this.gate.assertManager(user, ctx);
     const row = UUID.test(id) ? await this.prisma.teacherAttendance.findUnique({ where: { id }, include: ATTENDANCE_INCLUDE }) : null;
     if (!row) throw new AppException('NOT_FOUND');
     if (dto.status === undefined && dto.arrivedTime === undefined && dto.comment === undefined) {
@@ -376,6 +382,7 @@ export class AttendanceService {
       );
       return saved;
     });
+    await this.presence.notifyChange(row.teacherId, dayString(row.localDate));
     return toAttendanceView(updated);
   }
 
@@ -388,7 +395,7 @@ export class AttendanceService {
    * reste l'enseignant de la demande ; le remplaçant pointe ensuite sous son propre compte.
    */
   async setSubstitute(user: AuthenticatedUser, requestId: string, dto: SetSubstituteDto, ctx: RequestContext) {
-    await this.assertManager(user, ctx);
+    await this.gate.assertManager(user, ctx);
     const detail = UUID.test(requestId)
       ? await this.prisma.coverageDetail.findUnique({
           where: { requestId },
@@ -453,14 +460,6 @@ export class AttendanceService {
     }
   }
 
-  /** Classe du QR : signature, version en cours (non révoquée) et classe active. */
-  private async classFromToken(token: string) {
-    const parsed = verifyQrToken(this.actions.key, token);
-    const schoolClass = parsed ? await this.prisma.schoolClass.findUnique({ where: { id: parsed.classId } }) : null;
-    if (!parsed || !schoolClass || !schoolClass.active || schoolClass.qrVersion !== parsed.version) throw new AppException('QR_INVALID');
-    return schoolClass;
-  }
-
   private findOwn(teacherId: string, classId: string, day: string): Promise<AttendanceRow | null> {
     return this.prisma.teacherAttendance.findUnique({
       where: { teacherId_classId_localDate: { teacherId, classId, localDate: dayValue(day) } },
@@ -489,29 +488,5 @@ export class AttendanceService {
       startAt: r.startAt,
       plannedEndAt: r.plannedEndAt,
     }));
-  }
-
-  /** Pointer son arrivée : membre du groupe Enseignants ; sinon 404 journalisé (comme le module Gardes). */
-  private async assertTeacher(user: AuthenticatedUser, ctx: RequestContext): Promise<void> {
-    if (moduleCapabilities(await this.access.viewer(user)).recordArrival) return;
-    await this.logDenied(user, ctx, 'NOT_TEACHER');
-    throw new AppException('NOT_FOUND');
-  }
-
-  /** Suivi, saisie, correction, remplaçant : admin ou super administrateur du module. */
-  private async assertManager(user: AuthenticatedUser, ctx: RequestContext): Promise<void> {
-    if (moduleCapabilities(await this.access.viewer(user)).manage) return;
-    await this.logDenied(user, ctx, 'NOT_MANAGER');
-    throw new AppException('NOT_FOUND');
-  }
-
-  private async logDenied(user: AuthenticatedUser, ctx: RequestContext, reason: string): Promise<void> {
-    await this.audit.log('ACCESS_DENIED', {
-      actorId: user.id,
-      targetType: 'Attendance',
-      targetId: 'attendance',
-      ip: ctx.ip,
-      details: { reason, route: ctx.route, method: ctx.method, channel: 'http' },
-    });
   }
 }
