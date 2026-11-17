@@ -27,6 +27,7 @@ search but is neither displayed nor sent.
 | `ASSIST_CLAUDE_MODEL` | model identifier | `claude-opus-5-5` | non-empty |
 | `ASSIST_WHISPER_URL` | URL | — | `https` in production, `http`/`https` otherwise |
 | `ASSIST_WHISPER_MODEL` | model name | `Systran/faster-whisper-small` | non-empty |
+| `ASSIST_WHISPER_LANGUAGE` | two-letter language code or `auto` | `fr` | `auto` omits `language` so Whisper detects it |
 | `ASSIST_WHISPER_API_KEY` | optional secret | — | never logged |
 
 `ASSIST_TIMEOUT_MS`, `ASSIST_RATE_LIMIT`, `ASSIST_DEMO_TRANSCRIPT`: unchanged (009).

@@ -184,10 +184,23 @@ describe('loadConfig — assistance IA (009, FR-019, FR-020)', () => {
     expect(loadConfig({ ...valid, ANTHROPIC_API_KEY: 'k' }).assist.claude).toBeNull();
   });
 
+  it('langue de transcription Whisper : français par défaut, code de langue ou « auto » (détection)', () => {
+    const base = { ...valid, ASSIST_TRANSCRIPTION_PROVIDER: 'whisper', ASSIST_WHISPER_URL: 'http://whisper.ecole.local:8000' };
+    expect(loadConfig(base).assist.whisper?.language).toBe('fr');
+    expect(loadConfig({ ...base, ASSIST_WHISPER_LANGUAGE: '  ' }).assist.whisper?.language).toBe('fr');
+    expect(loadConfig({ ...base, ASSIST_WHISPER_LANGUAGE: 'ar' }).assist.whisper?.language).toBe('ar');
+    expect(loadConfig({ ...base, ASSIST_WHISPER_LANGUAGE: ' EN ' }).assist.whisper?.language).toBe('en');
+    expect(loadConfig({ ...base, ASSIST_WHISPER_LANGUAGE: 'auto' }).assist.whisper?.language).toBeNull();
+    expect(loadConfig({ ...base, ASSIST_WHISPER_LANGUAGE: 'AUTO' }).assist.whisper?.language).toBeNull();
+    for (const value of ['français', 'a', 'fr-FR', '12', 'ar;en']) {
+      expect(() => loadConfig({ ...base, ASSIST_WHISPER_LANGUAGE: value })).toThrow(ConfigError);
+    }
+  });
+
   it('connecteur Whisper : adresse valide obligatoire, https en production, modèle par défaut', () => {
     const config = loadConfig({ ...valid, ASSIST_TRANSCRIPTION_PROVIDER: 'whisper', ASSIST_WHISPER_URL: 'http://whisper.ecole.local:8000' });
     expect(config.assist.transcriptionProvider).toBe('whisper');
-    expect(config.assist.whisper).toEqual({ url: 'http://whisper.ecole.local:8000', model: 'Systran/faster-whisper-small', apiKey: null, caFile: null });
+    expect(config.assist.whisper).toEqual({ url: 'http://whisper.ecole.local:8000', model: 'Systran/faster-whisper-small', apiKey: null, caFile: null, language: 'fr' });
     expect(
       loadConfig({
         ...valid,
@@ -197,7 +210,7 @@ describe('loadConfig — assistance IA (009, FR-019, FR-020)', () => {
         ASSIST_WHISPER_MODEL: 'Systran/faster-whisper-medium',
         ASSIST_WHISPER_API_KEY: 'secret',
       }).assist.whisper,
-    ).toEqual({ url: 'https://whisper.ecole.fr', model: 'Systran/faster-whisper-medium', apiKey: 'secret', caFile: null });
+    ).toEqual({ url: 'https://whisper.ecole.fr', model: 'Systran/faster-whisper-medium', apiKey: 'secret', caFile: null, language: 'fr' });
     // 011 : autorité interne de Caddy (certificat racine, lu à chaque appel par le connecteur).
     expect(
       loadConfig({ ...valid, ASSIST_TRANSCRIPTION_PROVIDER: 'whisper', ASSIST_WHISPER_URL: 'https://caddy:8444', ASSIST_WHISPER_CA_FILE: ' /caddy/root.crt ' })

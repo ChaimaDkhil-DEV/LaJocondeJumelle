@@ -71,7 +71,8 @@ export function whisperTranscriptionProvider(config: WhisperConfig, transport: W
       const form = new FormData();
       form.append('file', new Blob([await readFile(input.path)], { type: input.mimeType }), 'message-vocal.m4a');
       form.append('model', config.model);
-      form.append('language', 'fr');
+      // Langue configurée (ASSIST_WHISPER_LANGUAGE) ; absente (« auto ») : Whisper détecte la langue.
+      if (config.language) form.append('language', config.language);
       form.append('response_format', 'json');
       const { body, contentType } = await encode(form);
 

@@ -29,11 +29,14 @@ describe('whisperTranscriptionProvider', () => {
   });
 
   const input = () => ({ path: audio, mimeType: 'audio/mp4', durationSeconds: 3 });
-  const config = (extra: Partial<{ url: string; model: string; apiKey: string | null; caFile: string | null }> = {}) => ({
+  const config = (
+    extra: Partial<{ url: string; model: string; apiKey: string | null; caFile: string | null; language: string | null }> = {},
+  ) => ({
     url: 'https://whisper.ecole.fr/',
     model: 'Systran/faster-whisper-small',
     apiKey: null,
     caFile: null,
+    language: 'fr' as string | null,
     ...extra,
   });
   const reply = (status: number, body: unknown) =>
@@ -64,6 +67,20 @@ describe('whisperTranscriptionProvider', () => {
     const file = form.get('file') as File;
     expect(file.type).toBe('audio/mp4');
     expect(Buffer.from(await file.arrayBuffer())).toEqual(AUDIO);
+  });
+
+  it('envoie la langue configurée (arabe) au lieu du français', async () => {
+    const transport = reply(200, { text: 'مرحبا' });
+    await whisperTranscriptionProvider(config({ language: 'ar' }), transport).transcribe(input(), new AbortController().signal);
+    expect((await formOf(transport.mock.calls[0]![0])).get('language')).toBe('ar');
+  });
+
+  it('langue « auto » (null) : aucun champ language, le serveur détecte la langue', async () => {
+    const transport = reply(200, { text: 'مرحبا bonjour' });
+    await whisperTranscriptionProvider(config({ language: null }), transport).transcribe(input(), new AbortController().signal);
+    const form = await formOf(transport.mock.calls[0]![0]);
+    expect(form.has('language')).toBe(false);
+    expect(form.get('model')).toBe('Systran/faster-whisper-small');
   });
 
   it('ajoute la clé en en-tête Bearer quand elle est configurée', async () => {
