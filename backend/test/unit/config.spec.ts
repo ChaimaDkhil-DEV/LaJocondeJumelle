@@ -255,7 +255,8 @@ describe('loadConfig — notifications push (014)', () => {
   const ecdh = createECDH('prime256v1');
   ecdh.generateKeys();
   const publicKey = ecdh.getPublicKey().toString('base64url');
-  const privateKey = ecdh.getPrivateKey().toString('base64url');
+  // getPrivateKey() omet les zéros de tête (31 octets une fois sur ~260) : on complète à 32 octets.
+  const privateKey = Buffer.from(ecdh.getPrivateKey().toString('hex').padStart(64, '0'), 'hex').toString('base64url');
   const push = {
     PUSH_VAPID_PUBLIC_KEY: publicKey,
     PUSH_VAPID_PRIVATE_KEY: privateKey,
@@ -268,6 +269,11 @@ describe('loadConfig — notifications push (014)', () => {
 
   it('traite des variables vides ou faites d’espaces comme absentes', () => {
     expect(loadConfig({ ...valid, PUSH_VAPID_PUBLIC_KEY: '', PUSH_VAPID_PRIVATE_KEY: '  ', PUSH_VAPID_SUBJECT: '' }).push).toBeNull();
+  });
+
+  it('accepte une clé privée dont le premier octet est nul (32 octets, cas jusque-là aléatoire)', () => {
+    const privateKey = Buffer.concat([Buffer.from([0]), Buffer.alloc(31, 7)]).toString('base64url');
+    expect(loadConfig({ ...valid, ...push, PUSH_VAPID_PRIVATE_KEY: privateKey }).push?.privateKey).toBe(privateKey);
   });
 
   it('lit les trois variables valides', () => {
