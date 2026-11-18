@@ -165,4 +165,62 @@ describe('Brouillons de demande (spec 007)', () => {
       }
     });
   });
+
+  /**
+   * Audit de sécurité R12 : la vérification « encore un brouillon » et l'écriture ne faisaient qu'une lecture
+   * puis une écriture sur l'identifiant seul, sans version. Un envoi simultané laissait réécrire catégorie,
+   * destinataire et règles d'une demande déjà envoyée (contournement du circuit de validation).
+   */
+  describe('modification, suppression et envoi simultanés (R12)', () => {
+    const del = (cookie: string, id: string) => api().delete(`/api/requests/${id}`).set('Cookie', cookie).set('Origin', TEST_ORIGIN);
+    const ok = (status: number) => status >= 200 && status < 300;
+
+    it('chaque modification change la version : un envoi fondé sur l’état d’avant est refusé (409)', async () => {
+      const id = await createOk(enseignante, { title: 'Photocopies', description: 'Dix copies', recipientId: reprographieId, asDraft: true });
+      const before = await versionOf(id);
+      const edited = await patch(enseignante, id, { categoryId: circuitB, recipientId: null });
+      expect(edited.status).toBe(200);
+      expect(edited.body.version).toBe(before + 1);
+
+      const stale = await submit(enseignante, id, before);
+      expect(stale.status).toBe(409);
+      expect(stale.body.error.code).toBe('STATE_CHANGED');
+      await expect(prisma.request.findUniqueOrThrow({ where: { id } })).resolves.toMatchObject({ status: 'DRAFT' });
+
+      const sent = await submit(enseignante, id, edited.body.version);
+      expect(sent.status).toBe(200);
+      expect(sent.body.status).toBe('PENDING_ADMIN_VALIDATION');
+    });
+
+    it('modification et envoi simultanés : jamais les deux, et la demande envoyée garde son circuit', async () => {
+      for (let round = 0; round < 5; round++) {
+        const id = await createOk(enseignante, { title: `Course ${round}`, description: 'Dix copies', recipientId: reprographieId, asDraft: true });
+        const version = await versionOf(id);
+        const [edited, sent] = await Promise.all([
+          patch(enseignante, id, { categoryId: circuitB, recipientId: null }),
+          submit(enseignante, id, version),
+        ]);
+        expect(ok(edited.status) && ok(sent.status)).toBe(false);
+        const row = await prisma.request.findUniqueOrThrow({ where: { id } });
+        if (ok(sent.status)) {
+          expect(row).toMatchObject({ status: 'SENT', categoryId: photocopies, assigneeId: reprographieId });
+        } else {
+          expect(row).toMatchObject({ status: 'DRAFT', categoryId: circuitB });
+        }
+      }
+    });
+
+    it('suppression et envoi simultanés : jamais les deux, et une demande envoyée n’est jamais supprimée', async () => {
+      for (let round = 0; round < 5; round++) {
+        const id = await createOk(enseignante, { title: `Suppression ${round}`, description: 'Dix copies', recipientId: reprographieId, asDraft: true });
+        const version = await versionOf(id);
+        const [deleted, sent] = await Promise.all([del(enseignante, id), submit(enseignante, id, version)]);
+        expect(ok(deleted.status) && ok(sent.status)).toBe(false);
+        expect(deleted.status).toBeLessThan(500);
+        const row = await prisma.request.findUnique({ where: { id } });
+        if (ok(sent.status)) expect(row).toMatchObject({ status: 'SENT' });
+        else expect(row).toBeNull();
+      }
+    });
+  });
 });

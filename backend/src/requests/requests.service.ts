@@ -476,9 +476,12 @@ export class RequestsService {
     const rules: RequestRulesSnapshot = await this.policies.rulesSnapshot(category, priority);
 
     await this.prisma.$transaction(async (tx) => {
-      await tx.request.update({
-        where: { id: draft.id },
+      // Écriture conditionnelle (audit R12) : seulement si la demande est encore le brouillon lu, et la version
+      // change, de sorte qu'un envoi fondé sur l'état d'avant échoue (STATE_CHANGED) au lieu d'être réécrit.
+      const { count } = await tx.request.updateMany({
+        where: { id: draft.id, status: 'DRAFT', version: draft.version },
         data: {
+          version: { increment: 1 },
           title: dto.title ?? draft.title,
           description: dto.description === undefined ? draft.description : dto.description || null,
           categoryId: category.id,
@@ -488,6 +491,7 @@ export class RequestsService {
           rulesSnapshot: rules as unknown as Prisma.InputJsonValue,
         },
       });
+      if (count === 0) throw new AppException('STATE_CHANGED');
       if (newVoice) await tx.file.update({ where: { id: newVoice.id }, data: { requestId: draft.id } });
       if (oldVoice) await tx.file.delete({ where: { id: oldVoice.id } });
     });
@@ -501,7 +505,10 @@ export class RequestsService {
     const draft = await this.ownDraft(user, id, ctx);
     const files = await this.prisma.file.findMany({ where: { requestId: draft.id } });
     await this.prisma.$transaction(async (tx) => {
-      await tx.request.update({ where: { id: draft.id }, data: { voiceFileId: null } });
+      // Conditionnelle (audit R12) : une demande envoyée entre-temps n'est jamais supprimée. La ligne verrouillée
+      // ici fait attendre un envoi simultané, qui échoue ensuite.
+      const { count } = await tx.request.updateMany({ where: { id: draft.id, status: 'DRAFT' }, data: { voiceFileId: null } });
+      if (count === 0) throw new AppException('STATE_CHANGED');
       await tx.file.deleteMany({ where: { requestId: draft.id } });
       await tx.request.delete({ where: { id: draft.id } });
     });
