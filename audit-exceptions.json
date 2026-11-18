@@ -1,0 +1,8 @@
+[
+  {
+    "id": "GHSA-fc5q-39xc-vjpf",
+    "package": "picomatch",
+    "reason": "ReDoS (extglobs répétés) sur toutes les versions publiées (<= 4.0.7), sans version corrigée au 2026-11-18. picomatch ne vient que d'outils de développement (jest, vite, vitest, @nestjs/cli, typescript-eslint) : absent de l'arbre de production (npm ls picomatch --omit=dev vide), absent des images Docker (API installée avec --omit=dev, web servi en fichiers statiques), et jamais appliqué à une entrée d'utilisateur.",
+    "review": "2026-12-18"
+  }
+]
