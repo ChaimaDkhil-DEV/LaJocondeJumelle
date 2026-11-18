@@ -163,7 +163,10 @@ cancelling the confirmation deletes nothing.
 - **FR-008**: Existing drafts MUST stay usable (open, save, send,
   delete) when the setting is disabled.
 - **FR-009**: An action on a draft already sent, deleted or changed elsewhere MUST be
-  refused with a clear message, followed by a reload of the list or the detail.
+  refused with a clear message, followed by a reload of the list or the detail. This holds for
+  simultaneous actions too (security audit of 2026-11-18, R12): saving or deleting a draft applies
+  only if it is still a draft, every save changes its version, so a send based on the state before
+  the save is refused, and a request that has been sent is never rewritten nor deleted as a draft.
 - **FR-010**: The actions and the list MUST comply with WCAG 2.2 AA (keyboard, labels, focus,
   announced confirmations and errors) and fit in 320 px width.
 
