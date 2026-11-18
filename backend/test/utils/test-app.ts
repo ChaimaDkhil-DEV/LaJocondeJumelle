@@ -1,7 +1,9 @@
-import { Controller, Get, type INestApplication, type Type } from '@nestjs/common';
+import { Controller, Get, type INestApplication, type OnModuleDestroy, type OnModuleInit, type Type } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { PrismaClient } from '@prisma/client';
 import { AppModule } from '../../src/app.module';
 import { configureApp } from '../../src/app.setup';
+import { PrismaService } from '../../src/common/prisma.service';
 
 export const TEST_ORIGIN = process.env.APP_ORIGIN ?? 'http://localhost:5173';
 
@@ -20,12 +22,29 @@ export interface ProviderOverride {
   useValue: unknown;
 }
 
-/** Démarre l'application Nest complète sur la base de test, avec la même configuration que main.ts. */
+/** Client Prisma de l'application sur le rôle d'exécution, avec le cycle de vie de PrismaService. */
+class RuntimePrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
+  async onModuleInit(): Promise<void> {
+    await this.$connect();
+  }
+
+  async onModuleDestroy(): Promise<void> {
+    await this.$disconnect();
+  }
+}
+
+/**
+ * Démarre l'application Nest complète sur la base de test, avec la même configuration que main.ts.
+ * Audit de sécurité R02 : comme en production, elle se connecte avec le rôle d'exécution
+ * (RUNTIME_DATABASE_URL_TEST, créé par global-setup), jamais avec le compte propriétaire des tests.
+ */
 export async function createTestApp(extraControllers: Type[] = [], overrides: ProviderOverride[] = []): Promise<INestApplication> {
   const builder = Test.createTestingModule({
     imports: [AppModule],
     controllers: extraControllers,
   });
+  const runtimeUrl = process.env.RUNTIME_DATABASE_URL_TEST;
+  if (runtimeUrl) builder.overrideProvider(PrismaService).useValue(new RuntimePrismaService({ datasourceUrl: runtimeUrl }));
   for (const { provide, useValue } of overrides) builder.overrideProvider(provide).useValue(useValue);
   const moduleRef = await builder.compile();
   const app = moduleRef.createNestApplication();

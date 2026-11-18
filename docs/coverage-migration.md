@@ -66,7 +66,7 @@ In production, run the update from the repository root:
 deploy/deploy.sh
 ```
 
-The script backs up the database **and** the files, then rebuilds and restarts the containers; at startup, the API applies `prisma migrate deploy` (`deploy/api-entrypoint.sh`). If the backup fails, nothing is updated.
+The script backs up the database **and** the files, then rebuilds and restarts the containers; at startup, the `migrate` service applies `prisma migrate deploy` (`deploy/migrate-entrypoint.sh`) before the API starts. If the backup fails, nothing is updated.
 
 Note the timestamp displayed by the backup (for example `[backup] terminé : db-20261013T173000Z.dump files-20261013T173000Z.tar.gz`, where "terminé" means "done"), then check that both files are present in the backups folder: this is the backup to restore in case of a problem.
 

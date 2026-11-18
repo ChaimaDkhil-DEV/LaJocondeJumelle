@@ -25,8 +25,10 @@ echo "Arrêt de l'application"
 "${COMPOSE[@]}" stop caddy api backup
 
 echo "Restauration de la base"
+# Droits de la sauvegarde ignorés (--no-privileges) : le rôle d'exécution peut ne pas exister ici (nouveau
+# serveur). Le service migrate le crée et réapplique ses droits au redémarrage (audit de sécurité R02).
 "${COMPOSE[@]}" run --rm --no-deps -T --entrypoint pg_restore backup \
-  --clean --if-exists --no-owner --exit-on-error --dbname="postgres://" "/backups/${DB_ARCHIVE}"
+  --clean --if-exists --no-owner --no-privileges --exit-on-error --dbname="postgres://" "/backups/${DB_ARCHIVE}"
 
 echo "Restauration des fichiers"
 "${COMPOSE[@]}" run --rm --no-deps -T -u root --entrypoint sh \

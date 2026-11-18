@@ -32,14 +32,14 @@ services:
       - '3000'
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD manquant}@db:5432/${POSTGRES_DB:-app}
+      # Rôle d'exécution (audit de sécurité R02) : lecture et écriture des lignes seulement, créé par le
+      # service migrate. Jamais le compte propriétaire : l'API refuse alors de démarrer.
+      DATABASE_URL: postgresql://${APP_DB_USER:-app_runtime}:${APP_DB_PASSWORD:?APP_DB_PASSWORD manquant (voir deploy/.env.example)}@db:5432/${POSTGRES_DB:-app}
       SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET manquant}
       APP_ORIGIN: https://${DOMAIN}
       FILES_DIR: /data/files
       # Adresse IP cliente transmise par Caddy (réseau Docker privé).
       TRUST_PROXY: uniquelocal
-      # Une migration en attente n'est appliquée qu'avec une sauvegarde plus récente (deploy/deploy.sh).
-      PRE_MIGRATION_BACKUP_MAX_AGE_MINUTES: ${PRE_MIGRATION_BACKUP_MAX_AGE_MINUTES:-60}
       # Fuseau de l'école (jours et heures locales des affectations), identifiant IANA.
       SCHOOL_TIMEZONE: ${SCHOOL_TIMEZONE:-${TZ:-Europe/Paris}}
       # Assistance aux demandes (specs 009 et 010) : désactivée par défaut ; valeurs vides = défauts
@@ -75,7 +75,33 @@ services:
       - files:/data/files
       # Certificat racine de l'autorité interne de Caddy (relais HTTPS vers Whisper), lecture seule.
       - caddy_data:/caddy-data:ro
-      # Lecture seule : l'API vérifie la présence d'une sauvegarde récente avant de migrer.
+    depends_on:
+      db:
+        condition: service_healthy
+      # Migrations et droits appliqués d'abord ; en cas d'échec, l'API n'est pas (re)démarrée.
+      migrate:
+        condition: service_completed_successfully
+
+  # Migrations et rôle d'exécution (audit de sécurité R02) : exécuté une fois, avant l'API, avec le compte
+  # propriétaire, que l'API ne voit jamais. Une migration en attente n'est appliquée qu'avec une sauvegarde
+  # récente (deploy/deploy.sh) ; voir deploy/migrate-entrypoint.sh.
+  migrate:
+    build:
+      context: ..
+      dockerfile: deploy/api.Dockerfile
+    restart: 'no'
+    entrypoint: ['/usr/local/bin/migrate-entrypoint.sh']
+    # Contrôle de santé de l'image (API HTTP) sans objet ici.
+    healthcheck:
+      disable: true
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD manquant}@db:5432/${POSTGRES_DB:-app}
+      APP_DB_USER: ${APP_DB_USER:-app_runtime}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?APP_DB_PASSWORD manquant (voir deploy/.env.example)}
+      PRE_MIGRATION_BACKUP_MAX_AGE_MINUTES: ${PRE_MIGRATION_BACKUP_MAX_AGE_MINUTES:-60}
+    volumes:
+      # Lecture seule : une sauvegarde récente est exigée avant de migrer.
       - ${BACKUP_DIR:-./backups}:/backups:ro
     depends_on:
       db:
