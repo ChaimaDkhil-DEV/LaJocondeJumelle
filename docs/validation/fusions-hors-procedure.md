@@ -660,3 +660,49 @@ until `picomatch` is fixed and the dependencies are updated.
 ### Reminder
 
 Wait for CI on the latest commit of the pull request, then tick the four checks, before merging.
+
+## 17/11/2026 and 18/11/2026 — pull requests #128, #129, #130 and #131
+
+| Pull request | Content | Merged at (UTC) | Check not satisfied at merge time |
+|---------|---------|-------------------|-----------------------------------------------|
+| #128 (`fix-018-supervision-pagination-candidats`) | Feature 018 fixes (paginated supervision, reassignment limited to the category's admins) and the register entry for #127 | 17/11 22:07:47 | **1. CI**: both runs on `a95b65d` had finished with a **failure**, on the single step "Audit des dépendances" (`pull_request` 44184572314 ended 22:07:07, `push` 44184561847 ended 22:06:43); **all four checkboxes unticked** |
+| #129 (`019-enseignants-presents`) | Feature 019: teachers present in the school, departure by a second QR scan | 17/11 23:25:19 | **1. CI**: both runs on `771e298` were in progress (opened 23:22:58, merged 2 min 21 s later); **all four checkboxes unticked** |
+| #130 (`020-emplois-du-temps`) | Feature 020: teacher timetables linked to the QR attendance | 18/11 09:46:52 | **1. CI**: both runs on `1fe44f2` had finished with a **failure**, on the single step "Audit des dépendances" (`pull_request` 44276476941 ended 09:40:03, `push` 44276088665 ended 09:41:20); **all four checkboxes unticked** |
+| #131 (`fix-audit-picomatch`) | CI: dependency audit with a dated exception for the `picomatch` advisory | 18/11 09:47:23 | **1. CI**: both runs on `9212ec8` were in progress (opened 09:42:42, merged 4 min 41 s later); **all four checkboxes unticked** |
+
+#128 was merged with `gh pr merge --merge` at the owner's explicit request, after both runs had finished. #129, #130 and #131
+were merged by the owner. #130 and #131 were merged 31 s apart, #130 first, so `master` ran once more with the old audit step.
+
+### Cause of the failures
+
+All failed runs below failed on the single step "Audit des dépendances", for the reason recorded for #126 above: the advisory
+`GHSA-fc5q-39xc-vjpf` (ReDoS) on `picomatch`, which covers every published version (`<= 4.0.7`, no fixed version on
+18/11/2026). Every other step (lint, types, backend unit and integration tests, frontend tests, Docker image build) succeeded in
+each run. `picomatch` only comes from development tools: it is absent from the production dependency tree
+(`npm ls picomatch --omit=dev` is empty) and from the Docker images (API installed with `--omit=dev`, web served as static files).
+
+### Findings after the fact
+
+- #128: earlier runs on `1d94415`: `push` 44178692546 failed on the audit only; `pull_request` 44178755269 failed on the Docker
+  image build (`npm ci` ECONNRESET, network). `master` after the merge: run 44186937049 on `a0c1bb3` failed on the audit only.
+- #129: both runs finished with a **failure** after the merge, on the audit only: `push` 44198814331 at 23:31:56 and
+  `pull_request` 44198885915 at 23:34:18. `master` after the merge: run 44199224143 on `db5f2c7` failed on the audit only.
+- #130: verified locally before the pull request was opened: lint, both builds, 1415 backend unit tests, 1260 integration tests
+  (2 skipped), 897 frontend tests, `e2e/timetable.spec.ts` on Chromium (axe included). Not verified: the end-to-end suite on the
+  other browser profiles. `master` after the merge: run 44279136341 on `dce53ac` failed on the audit only (#131 was not merged yet).
+- #131: both runs finished **green** on all steps after the merge: `pull_request` 44278485120 at 09:54:10 and `push` 44278384058
+  at 09:55:02; the audit step ran the new check (10 tests, exception admitted). `master` after the merge: run 44279217353 on
+  `6170596` **green on all steps** at 09:57:05 — the first green `master` since run 44153167405 on `b8d5764` (17/11).
+- Follow-up: `/code-review` on #131 found that the script could exit with success without checking when the file path was
+  written differently (link, virtual drive, letter case on Windows). This did not affect the CI runs above (the audit output is in
+  their logs). Fixed in #132 (merged per the procedure, four boxes ticked, CI green; `master` run 44284237288 on `3585826` green).
+
+### Fix needed
+
+No `git revert`. The follow-up recorded for #126 is closed: `master` is green again since run 44279217353. One follow-up remains:
+the `picomatch` exception in `audit-exceptions.json` must be reviewed by 18/12/2026 at the latest (the audit fails on its own
+after that date); when a fixed version is published, update the dependency and remove the exception.
+
+### Reminder
+
+Wait for CI on the latest commit of the pull request, then tick the four checks, before merging.
