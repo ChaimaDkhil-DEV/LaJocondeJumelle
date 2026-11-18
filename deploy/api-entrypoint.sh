@@ -1,6 +1,6 @@
 #!/bin/sh
 # Démarre l'API (research R12, FR-018). Une migration en attente n'est appliquée que si une
-# sauvegarde de la base (db-*.dump) de moins de PRE_MIGRATION_BACKUP_MAX_AGE_MINUTES minutes
+# sauvegarde chiffrée de la base (db-*.dump.age, audit R03) de moins de PRE_MIGRATION_BACKUP_MAX_AGE_MINUTES minutes
 # existe dans PRE_MIGRATION_BACKUP_DIR ; sinon l'API refuse de démarrer sans toucher la base.
 # deploy/deploy.sh fait cette sauvegarde avant de reconstruire et redémarrer les conteneurs.
 set -eu
@@ -16,7 +16,7 @@ else
   case "$STATUS" in
     *"have not yet been applied"*)
       printf '%s\n' "$STATUS"
-      RECENT="$(find "$BACKUP_DIR" -maxdepth 1 -name 'db-*.dump' -mmin -"$MAX_AGE_MINUTES" 2>/dev/null || true)"
+      RECENT="$(find "$BACKUP_DIR" -maxdepth 1 -name 'db-*.dump.age' -mmin -"$MAX_AGE_MINUTES" 2>/dev/null || true)"
       if [ -z "$RECENT" ]; then
         echo "Migration en attente sans sauvegarde récente : lancez deploy/deploy.sh." >&2
         exit 1

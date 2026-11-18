@@ -138,8 +138,10 @@ has no contact for is skipped.
 - Rotating `N8N_SHARED_SECRET`: change it in `deploy/.env` and redeploy; the API and n8n read the same
   variable. Events sent with the old secret are retried and accepted with the new one.
 - Never change `N8N_ENCRYPTION_KEY` of an existing installation: n8n could no longer decrypt its credentials.
-- Restoring n8n: stop `n8n`, restore `BACKUP_DIR/n8n/db-*.dump` into `n8n-db` with `pg_restore --clean`, extract
-  `files-*.tar.gz` into the `n8n_data` volume, start `n8n` with the same encryption key.
+- Restoring n8n: the archives are encrypted with age (`db-*.dump.age`, `files-*.tar.gz.age`, see
+  `docs/sauvegardes-chiffrees.md`); decrypt them with the backup private key first. Then stop `n8n`, restore
+  the database dump into `n8n-db` with `pg_restore --clean`, extract the files archive into the `n8n_data`
+  volume, start `n8n` with the same encryption key.
 
 ### Deployment and rollback
 

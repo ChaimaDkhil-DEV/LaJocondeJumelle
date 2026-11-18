@@ -62,8 +62,16 @@ interface Run {
   calls: string[];
 }
 
-/** Lance l'entrypoint réel avec de faux `npx` et `node`. `backupAgeMinutes` : âge d'une archive db-*.dump. */
-function runEntrypoint(state: keyof typeof STATUS, backupAgeMinutes?: number): Run {
+/**
+ * Lance l'entrypoint réel avec de faux `npx` et `node`. `backupAgeMinutes` : âge d'une archive de la base.
+ * Audit de sécurité R03 (exception documentée) : l'archive simulée est désormais chiffrée (`db-*.dump.age`) ;
+ * une archive en clair `db-*.dump` ne compte plus (cas 6).
+ */
+function runEntrypoint(
+  state: keyof typeof STATUS,
+  backupAgeMinutes?: number,
+  archiveName = 'db-20260101T000000Z.dump.age',
+): Run {
   const work = mkdtempSync(join(tmpdir(), 'ljj-entrypoint-'));
   try {
     const bin = join(work, 'bin');
@@ -89,7 +97,7 @@ function runEntrypoint(state: keyof typeof STATUS, backupAgeMinutes?: number): R
     fake('node', 'exit 0\n');
 
     if (backupAgeMinutes !== undefined) {
-      const archive = join(backups, 'db-20260101T000000Z.dump');
+      const archive = join(backups, archiveName);
       writeFileSync(archive, 'archive');
       const time = new Date(Date.now() - backupAgeMinutes * 60_000);
       utimesSync(archive, time, time);
@@ -145,6 +153,13 @@ describe('deploy/api-entrypoint.sh', () => {
     const startAt = run.calls.indexOf('node dist/main.js');
     expect(deployAt).toBeGreaterThanOrEqual(0);
     expect(startAt).toBeGreaterThan(deployAt);
+  });
+
+  it('(6) migration en attente, sauvegarde récente mais en clair (avant R03) : refus', () => {
+    const run = runEntrypoint('pending', 5, 'db-20260101T000000Z.dump');
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain(REFUSAL);
+    expect(deployed(run)).toBe(false);
   });
 
   it('(5) base inaccessible : erreur de Prisma recopiée, rien n’est appliqué ni démarré', () => {
