@@ -98,9 +98,15 @@ describe('actorsFor', () => {
     expect(actorsFor(responsable, request('SENT'), category)).toEqual(['MANAGER']);
     expect(actorsFor(superadmin, request('SENT'), category)).toEqual(['MANAGER']);
     expect(actorsFor(autreEmploye, request('SENT'), category)).toEqual([]);
-    expect(
-      actorsFor(responsable, request('SENT', { requesterId: 'responsable' }), category).sort(),
-    ).toEqual(['MANAGER', 'REQUESTER']);
+  });
+
+  it('séparation des tâches (R13) : le demandeur n’agit jamais au titre de l’administration sur sa demande', () => {
+    // Exception documentée : l'attente historique ['MANAGER', 'REQUESTER'] cède à FR-034 (018).
+    expect(actorsFor(responsable, request('SENT', { requesterId: 'responsable' }), category)).toEqual(['REQUESTER']);
+    expect(actorsFor(superadmin, request('SENT', { requesterId: 'superadmin' }), category)).toEqual(['REQUESTER']);
+    const own = request('PENDING_ADMIN_VALIDATION', { requesterId: 'responsable', assigneeId: null });
+    expect(allowedActions(responsable, own, category)).toEqual(expect.not.arrayContaining(['APPROVE', 'REJECT', 'REASSIGN']));
+    expect(canReadRequest(responsable, own, category)).toBe(true);
   });
 
   it('n’accorde aucune relation à un compte désactivé', () => {
@@ -214,10 +220,14 @@ describe('canCreateInCategory', () => {
 
 describe('canPickRecipient', () => {
   it('accepte uniquement un utilisateur actif parmi les destinataires de la catégorie', () => {
-    expect(canPickRecipient(category, { id: 'reprographie', active: true })).toBe(true);
-    expect(canPickRecipient(category, { id: 'reprographie', active: false })).toBe(false);
-    expect(canPickRecipient(category, { id: 'autre', active: true })).toBe(false);
-    expect(canPickRecipient(category, null)).toBe(false);
+    expect(canPickRecipient(category, { id: 'reprographie', active: true }, 'enseignante')).toBe(true);
+    expect(canPickRecipient(category, { id: 'reprographie', active: false }, 'enseignante')).toBe(false);
+    expect(canPickRecipient(category, { id: 'autre', active: true }, 'enseignante')).toBe(false);
+    expect(canPickRecipient(category, null, 'enseignante')).toBe(false);
+  });
+
+  it('séparation des tâches (R13) : jamais le demandeur lui-même', () => {
+    expect(canPickRecipient(category, { id: 'reprographie', active: true }, 'reprographie')).toBe(false);
   });
 });
 

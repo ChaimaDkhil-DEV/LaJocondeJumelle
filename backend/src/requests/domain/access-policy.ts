@@ -67,6 +67,8 @@ export function administrationActs(category: Pick<PolicyCategory, 'routingMode'>
  * clôture, si elle lui a été confiée dans une catégorie antérieure au mode de routage).
  * Une fois la demande prise en charge (018), seul son responsable agit au titre de l'administration ; les
  * autres admins de la catégorie la consultent (isCategoryReader). Le super administrateur est inchangé.
+ * Séparation des tâches (FR-034, audit R13) : le demandeur n'agit jamais au titre de l'administration sur sa
+ * propre demande (validation, refus, réaffectation, validation finale, clôture confiée à l'administration).
  */
 export function actorsFor(user: PolicyUser, req: PolicyRequest, category: PolicyCategory): Actor[] {
   if (!user.active) return [];
@@ -75,7 +77,7 @@ export function actorsFor(user: PolicyUser, req: PolicyRequest, category: Policy
   if (req.assigneeId !== null && req.assigneeId === user.id) actors.push('ASSIGNEE');
   const manages = user.role === 'SUPER_ADMIN' || (isAdministration(user) && category.managerIds.has(user.id));
   const acts = manages && (administrationActs(category) || req.rules.closureMode === 'MANAGER');
-  if (acts && actsAsAdministration(user, { adminOwnerId: req.adminOwnerId ?? null })) actors.push('MANAGER');
+  if (acts && req.requesterId !== user.id && actsAsAdministration(user, { adminOwnerId: req.adminOwnerId ?? null })) actors.push('MANAGER');
   return actors;
 }
 
@@ -135,12 +137,16 @@ export function canCreateInCategory(user: PolicyUser, category: PolicyCategory):
   return category.creatorRoles.includes(user.role) && user.permissions.has('REQUEST_CREATE');
 }
 
-/** Le destinataire choisi doit être un utilisateur actif parmi les destinataires de la catégorie. */
+/**
+ * Le destinataire choisi doit être un utilisateur actif parmi les destinataires de la catégorie, et jamais le
+ * demandeur lui-même (séparation des tâches, FR-034).
+ */
 export function canPickRecipient(
   category: PolicyCategory,
   candidate: { id: string; active: boolean } | null,
+  requesterId: string,
 ): boolean {
-  return candidate !== null && candidate.active && category.recipientIds.has(candidate.id);
+  return candidate !== null && candidate.active && candidate.id !== requesterId && category.recipientIds.has(candidate.id);
 }
 
 /** Écrivent : le demandeur, l'employé affecté et, en mode « via l'administration » seulement, ses admins de catégorie. */

@@ -389,7 +389,7 @@ export class RequestTransitionsService {
         // Clé absente : demande soumise avant la correction, personne lue dans la catégorie (EXC-1, D9).
         const fromSnapshot = 'autoAssigneeId' in rules;
         const planned = fromSnapshot ? rules.autoAssigneeId : category.autoAssigneeId;
-        if (planned && (await this.isAssignable(category, planned))) {
+        if (planned && (await this.isAssignable(category, planned, request.requesterId))) {
           // Un employé proposé par l'admin est ignoré (FR-008).
           return { assigneeId: planned, assigneeAllowed: true, assigneeSource: fromSnapshot ? 'SNAPSHOT' : 'CATEGORY_CURRENT' };
         }
@@ -399,13 +399,13 @@ export class RequestTransitionsService {
       assigneeSource = 'MANAGER_CHOICE';
     }
     if (!assigneeId) return {};
-    return { assigneeId, assigneeAllowed: await this.isAssignable(category, assigneeId), assigneeSource };
+    return { assigneeId, assigneeAllowed: await this.isAssignable(category, assigneeId, request.requesterId), assigneeSource };
   }
 
-  /** Compte actif et destinataire actuel de la catégorie. */
-  private async isAssignable(category: CategoryWithMembers, userId: string): Promise<boolean> {
+  /** Compte actif, destinataire actuel de la catégorie, autre que le demandeur (FR-034). */
+  private async isAssignable(category: CategoryWithMembers, userId: string, requesterId: string): Promise<boolean> {
     const candidate = await this.prisma.user.findUnique({ where: { id: userId }, select: { id: true, active: true } });
-    return canPickRecipient(toPolicyCategory(category), candidate);
+    return canPickRecipient(toPolicyCategory(category), candidate, requesterId);
   }
 
   /** Photos de preuve : téléversées par l'utilisateur, provisoires ou déjà rattachées à cette demande. */

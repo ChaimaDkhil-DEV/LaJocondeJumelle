@@ -7,6 +7,7 @@ import {
   canSeeInCommonQueue,
   inCommonQueue,
   isEligibleAdmin,
+  isEligibleOwner,
   isFinishedStatus,
   isOwnable,
   isTransferable,
@@ -35,6 +36,7 @@ const request = (over: Partial<OwnershipRequest> = {}): OwnershipRequest => ({
   kind: 'WORK',
   status: 'PENDING_ADMIN_VALIDATION',
   adminOwnerId: null,
+  requesterId: 'enseignante',
   ...over,
 });
 
@@ -105,6 +107,7 @@ describe('Responsable administratif — règles pures', () => {
       ['admin non responsable de la catégorie', user(OUTSIDER), {}, false],
       ['admin désactivé', user(ADMIN_A, 'ADMIN', false), {}, false],
       ['employé', user('employe', 'EMPLOYEE'), {}, false],
+      ['séparation des tâches (R13) : sa propre demande', user(ADMIN_A), { requesterId: ADMIN_A }, false],
     ])('%s', (_label, candidate, over, expected) => {
       expect(canClaim(candidate, request(over), category())).toBe(expected);
     });
@@ -130,6 +133,7 @@ describe('Responsable administratif — règles pures', () => {
       ['super administrateur : n’est jamais responsable', user('super', 'SUPER_ADMIN'), {}, 'VIA_ADMIN', false],
       ['catégorie directe (clôture confiée à l’administration)', user(ADMIN_A), { status: 'DONE' }, 'DIRECT', false],
       ['admin non responsable de la catégorie', user(OUTSIDER), {}, 'VIA_ADMIN', false],
+      ['séparation des tâches (R13) : sa propre demande', user(ADMIN_A), { requesterId: ADMIN_A }, 'VIA_ADMIN', false],
     ])('%s', (_label, actor, over, routingMode, expected) => {
       expect(takesByActing(actor, request(over), category(routingMode))).toBe(expected);
     });
@@ -176,8 +180,20 @@ describe('Responsable administratif — règles pures', () => {
       ['un employé', user('employe', 'EMPLOYEE'), taken, false, false],
       ['demande libre : il suffit de la prendre', user(ADMIN_B), request(), false, false],
       ['demande terminée', user(ADMIN_B), request({ adminOwnerId: ADMIN_A, status: 'REJECTED' }), false, false],
+      ['séparation des tâches (R13) : le demandeur de la demande', user(ADMIN_B), request({ adminOwnerId: ADMIN_A, requesterId: ADMIN_B }), false, false],
     ])('%s', (_label, actor, req, pending, expected) => {
       expect(canAskTakeover(actor, req, category(), pending)).toBe(expected);
+    });
+  });
+
+  describe('isEligibleOwner (séparation des tâches, R13 : peut être responsable de cette demande)', () => {
+    it.each<[string, ReturnType<typeof user>, Partial<OwnershipRequest>, boolean]>([
+      ['admin éligible, demande d’un autre', user(ADMIN_A), {}, true],
+      ['admin éligible, sa propre demande', user(ADMIN_A), { requesterId: ADMIN_A }, false],
+      ['admin non responsable de la catégorie', user(OUTSIDER), {}, false],
+      ['super administrateur : jamais responsable', user('super', 'SUPER_ADMIN'), {}, false],
+    ])('%s', (_label, candidate, over, expected) => {
+      expect(isEligibleOwner(candidate, request(over), category())).toBe(expected);
     });
   });
 

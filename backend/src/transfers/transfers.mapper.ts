@@ -4,16 +4,20 @@ import type { Prisma } from '@prisma/client';
 export const ADMIN_REF = { select: { id: true, displayName: true, jobTitle: true } } satisfies Prisma.UserDefaultArgs;
 
 /**
- * Équivalent SQL de isEligibleAdmin (requests/domain/ownership.ts) : comptes Admin actifs, admins de la
- * catégorie, éventuellement sans un compte donné (celui qui propose, ou celui qui a déjà la demande). Une
- * seule écriture de cette règle pour les listes proposées à l'écran : délégation et réattribution.
+ * Équivalent SQL de isEligibleOwner (requests/domain/ownership.ts) : comptes Admin actifs, admins de la
+ * catégorie, jamais le demandeur (FR-034), et sans les comptes exclus (celui qui propose, ou celui qui a déjà
+ * la demande). Une seule écriture de cette règle pour les listes proposées à l'écran : délégation et
+ * réattribution.
  */
-export function eligibleAdminsWhere(categoryId: string, excludeId?: string | null): Prisma.UserWhereInput {
+export function eligibleAdminsWhere(
+  request: { categoryId: string; requesterId: string },
+  ...excludeIds: Array<string | null | undefined>
+): Prisma.UserWhereInput {
   return {
     active: true,
     role: 'ADMIN',
-    managerOf: { some: { categoryId } },
-    ...(excludeId ? { id: { not: excludeId } } : {}),
+    managerOf: { some: { categoryId: request.categoryId } },
+    id: { notIn: [request.requesterId, ...excludeIds.filter((id): id is string => Boolean(id))] },
   };
 }
 
@@ -46,7 +50,7 @@ export type AdminRefView = { id: string; displayName: string; jobTitle: string |
 
 export const TRANSFER_INCLUDE = {
   request: {
-    select: { id: true, reference: true, title: true, priority: true, status: true, kind: true, categoryId: true, adminOwnerId: true },
+    select: { id: true, reference: true, title: true, priority: true, status: true, kind: true, categoryId: true, adminOwnerId: true, requesterId: true },
   },
   initiator: ADMIN_REF,
   recipient: ADMIN_REF,
