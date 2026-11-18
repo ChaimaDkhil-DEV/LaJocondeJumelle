@@ -525,11 +525,18 @@ I cannot verify **which specific items** were in your initial request: the origi
   1. the global role: `/admin/*` is reserved for the super administrator by `SuperAdminGuard`, except the
      reference data (floors, levels, classes and their QR codes, students) and the read-only employee list
      (`/admin/employees`), open to active admins too by `AdministrationGuard` (feature 011,
-     `canUseAdministrationSpace`; route list in `test/integration/admin-routes-access.spec.ts`);
+     `canUseAdministrationSpace`; route list in `test/utils/admin-route-access.ts`, checked by
+     `test/integration/admin-routes-access.spec.ts`);
   2. the permissions configurable per role (`RolePermission`, defaults in `settings/default-permissions.ts`);
   3. the relationship with the request: `actorsFor` → `REQUESTER`, `ASSIGNEE` or `MANAGER`.
 
   A resource that is not visible gives a 404 with an `ACCESS_DENIED` audit entry.
+
+  `test/integration/route-permission-matrix.spec.ts` (security audit G.1) classifies every HTTP route: public,
+  server to server (n8n), or the profiles that pass the access check (super administrator, admin, teacher,
+  supervisor, other employee, parent). A new route without a classification fails the test. It checks 401 without
+  a session, 403 for a parent outside the `@ParentAllowed()` routes, 403 or 404 for every other profile not
+  allowed, and never 401 or 403 for an allowed one.
 
 ### Error handling and logs
 

@@ -29,6 +29,10 @@ nor the voice ever leaves the application.
 | Validator: permission « Valider les communications aux parents » (super administrator always) | « À valider »: approve, return (reason required), reject (reason required). **Never their own message.** |
 | Parent (role `PARENT`) | « Messages de l’école » only: their family conversations and archives, « Nouvelle conversation » (child chosen first), answer by voice or text. Sees « L’école », never an administrator's name. Every other page and API route is refused (403); an internal conversation answers « not found ». |
 
+The « Messages de l’école » API (`/api/parent/messages/*`) answers the parent account only: any staff account gets
+403 (`ParentSpaceGuard`, logged `ACCESS_DENIED` / `NOT_PARENT`), even on a conversation it can open from its own
+screens (security audit G.1, `backend/test/integration/route-permission-matrix.spec.ts`).
+
 Permissions per role: « Administration > Réglages > Permissions par rôle » (super administrator).
 
 ## Setting up (administration)

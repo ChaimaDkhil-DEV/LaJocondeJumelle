@@ -6,7 +6,7 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { ParentAllowed } from '../auth/parent-allowed.decorator';
 import { clientIp } from '../common/request-info';
 import { ConversationsService } from './conversations.service';
-import { CommunicationTeacherGuard, CommunicationValidatorGuard } from './parent-communications.guards';
+import { CommunicationTeacherGuard, CommunicationValidatorGuard, ParentSpaceGuard } from './parent-communications.guards';
 import {
   AdminStartConversationDto,
   ConversationsQuery,
@@ -55,6 +55,7 @@ export class TeacherCommunicationsController {
 
 /** « Messages de l'école » (017) : conversations du parent avec l'école, ses archives 015. */
 @ParentAllowed()
+@UseGuards(ParentSpaceGuard)
 @Controller('parent/messages')
 export class ParentMessagesController {
   constructor(private readonly conversations: ConversationsService) {}
