@@ -760,7 +760,11 @@ gets figures consistent with the data entered.
 - **FR-023a**: After one school year (adjustable duration, to be validated with management),
   the teacher and the reason MUST be anonymized in the module's data; the events
   (date, class, duration, status) MUST be kept for the overall statistics. The audit
-  log MUST be excluded from this anonymization and stay non-modifiable.
+  log MUST be excluded from this anonymization and stay non-modifiable. Completed after the security
+  audit of 2026-11-18 (R09): the cancellation reason is erased too; the attendance records linked to the
+  guard duty lose their comment and the replaced teacher, and the concerned teacher's record no longer
+  points to the guard duty; the history of an anonymized guard duty shows no teacher name nor identifier
+  (masked when read, the stored history is never modified, choice of the school).
 - **FR-023c**: The assigned supervisor MUST see the class, the floor, the time slot and the type of
   report (lateness, absence, empty class), but MUST NEVER see the detailed reason entered
   by the teacher, reserved to the admin and the super administrator.

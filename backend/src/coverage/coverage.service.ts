@@ -4,6 +4,7 @@ import { AuditService } from '../audit/audit.service';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import { AppException } from '../common/errors';
 import { PrismaService } from '../common/prisma.service';
+import { ANONYMOUS_DISPLAY_NAME, ANONYMOUS_USERNAME } from './coverage-anonymization.service';
 import { addDays, atLocalTime, localDate, localTime, relativeDay } from '../common/school-time';
 import type { AppConfig } from '../config/config';
 import { APP_CONFIG } from '../config/config.module';
@@ -781,7 +782,7 @@ export class CoverageService {
       modifiableFields:
         view === 'ADMIN' && allowedActions.includes('UPDATE') ? modifiableFields(row.status as CoverageStatus) : [],
       presences: presenceViews,
-      history: participant ? await this.historyOf(row.id) : null,
+      history: participant ? await this.historyOf(row.id, row.coverage ?? null) : null,
     });
   }
 
@@ -878,12 +879,59 @@ export class CoverageService {
     throw new AppException('NOT_FOUND');
   }
 
-  private async historyOf(requestId: string): Promise<HistoryEntry[]> {
+  private async historyOf(
+    requestId: string,
+    coverage: { anonymizedAt: Date | null; source: string | null } | null,
+  ): Promise<HistoryEntry[]> {
     const events = await this.prisma.requestEvent.findMany({
       where: { requestId },
       include: { actor: { select: { id: true, displayName: true } } },
       orderBy: [{ createdAt: 'asc' }, { seq: 'asc' }],
     });
+    if (coverage?.anonymizedAt) return this.maskedHistory(events, coverage.source, await this.namedHistory(events));
+    return this.namedHistory(events);
+  }
+
+  /**
+   * Historique d'une affectation anonymisée (FR-023a, audit R09, choix de l'établissement) : l'historique en base
+   * n'est jamais modifié, l'enseignant y est masqué à la lecture. Sont masqués : tout enseignant cité
+   * (`teacherId`), et l'auteur d'une demande d'enseignant ; ils deviennent le compte technique. Le personnel
+   * qui a agi (administration, surveillants) reste nommé.
+   */
+  private async maskedHistory(
+    events: Array<{ actorId: string | null; type: string; fromValue: Prisma.JsonValue | null; toValue: Prisma.JsonValue | null }>,
+    source: string | null,
+    named: HistoryEntry[],
+  ): Promise<HistoryEntry[]> {
+    const masked = new Set<string>();
+    for (const e of events) {
+      for (const v of [e.fromValue, e.toValue]) {
+        const teacherId = (v as Record<string, unknown> | null)?.teacherId;
+        if (typeof teacherId === 'string') masked.add(teacherId);
+      }
+      if (source === 'TEACHER_REQUEST' && e.type === 'CREATED' && e.actorId) masked.add(e.actorId);
+    }
+    const anonymous = await this.prisma.user.findUnique({ where: { username: ANONYMOUS_USERNAME }, select: { id: true } });
+    const stand = { id: anonymous?.id ?? null, displayName: ANONYMOUS_DISPLAY_NAME };
+    const maskValue = (value: Prisma.JsonValue | null) => {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+      const id = value.teacherId;
+      return typeof id === 'string' && masked.has(id) ? { ...value, teacherId: stand.id, teacherName: stand.displayName } : value;
+    };
+    return named.map((entry) => ({
+      ...entry,
+      actor: entry.actor && masked.has(entry.actor.id) ? (stand.id ? { id: stand.id, displayName: stand.displayName } : null) : entry.actor,
+      fromValue: maskValue(entry.fromValue),
+      toValue: maskValue(entry.toValue),
+    }));
+  }
+
+  /** Historique avec les noms résolus à la lecture. */
+  private async namedHistory(
+    events: Array<
+      Prisma.RequestEventGetPayload<{ include: { actor: { select: { id: true; displayName: true } } } }>
+    >,
+  ): Promise<HistoryEntry[]> {
     // Noms résolus à la lecture : l'historique ne stocke que des identifiants (R5).
     const NAMED = [
       ['assigneeId', 'assigneeName'],

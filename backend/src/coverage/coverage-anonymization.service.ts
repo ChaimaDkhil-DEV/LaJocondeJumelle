@@ -6,14 +6,19 @@ import { FINAL_STATUSES } from './domain/coverage-status';
 
 const BATCH = 200;
 /** Compte technique créé par la migration 0009 (R5). */
-const ANONYMOUS_USERNAME = 'enseignant-anonymise';
+export const ANONYMOUS_USERNAME = 'enseignant-anonymise';
+export const ANONYMOUS_DISPLAY_NAME = 'Enseignant anonymisé';
+/** Champs effacés, inscrits dans l'événement ANONYMIZED. */
+const ERASED = ['teacherId', 'absentTeacher', 'reason', 'cancelReason', 'requesterId', 'description', 'attendance'] as const;
 
 /**
  * Anonymisation des affectations au bout de la durée de conservation (FR-023a, R5, data-model §8) :
- * enseignant, enseignant absent (texte libre), motif ; pour une demande d'enseignant, auteur
- * remplacé par le compte technique et consigne effacée. Conservés : dates, classe, étage, type,
- * source, statuts, durée. Jamais modifiés : historique (`RequestEvent`, ajout seul), journal
- * d'audit, notifications. Idempotent (`anonymizedAt`).
+ * enseignant, enseignant absent (texte libre), motif, motif d'annulation ; pour une demande d'enseignant,
+ * auteur remplacé par le compte technique et consigne effacée ; pointages liés (audit R09) sans commentaire
+ * ni titulaire, et celui de l'enseignant concerné détaché de l'affectation. Conservés : dates, classe, étage,
+ * type, source, statuts, durée. Jamais modifiés : historique (`RequestEvent`, ajout seul), journal d'audit,
+ * notifications ; l'historique d'une affectation anonymisée est masqué à la lecture (coverage.service).
+ * Idempotent (`anonymizedAt`).
  */
 @Injectable()
 export class CoverageAnonymizationService {
@@ -40,7 +45,7 @@ export class CoverageAnonymizationService {
           update: {},
           create: {
             username: ANONYMOUS_USERNAME,
-            displayName: 'Enseignant anonymisé',
+            displayName: ANONYMOUS_DISPLAY_NAME,
             role: 'EMPLOYEE',
             passwordHash: '!',
             mustChangePassword: true,
@@ -57,7 +62,7 @@ export class CoverageAnonymizationService {
               status: { in: [...FINAL_STATUSES] },
               coverage: { anonymizedAt: null, startAt: { lt: cutoff } },
             },
-            select: { id: true, coverage: { select: { source: true } } },
+            select: { id: true, coverage: { select: { source: true, teacherId: true } } },
             orderBy: { id: 'asc' },
             take: BATCH,
           });
@@ -66,8 +71,16 @@ export class CoverageAnonymizationService {
           const teacherRequests = batch.filter((r) => r.coverage!.source === 'TEACHER_REQUEST').map((r) => r.id);
           await tx.coverageDetail.updateMany({
             where: { requestId: { in: ids } },
-            data: { teacherId: null, absentTeacher: null, reason: null, anonymizedAt: now },
+            data: { teacherId: null, absentTeacher: null, reason: null, cancelReason: null, anonymizedAt: now },
           });
+          // Pointages liés : plus de commentaire (il reprend le motif) ni de titulaire remplacé ; celui de
+          // l'enseignant concerné ne désigne plus l'affectation (audit R09).
+          await tx.teacherAttendance.updateMany({ where: { requestId: { in: ids } }, data: { comment: null, substituteForId: null } });
+          for (const r of batch) {
+            if (r.coverage!.teacherId) {
+              await tx.teacherAttendance.updateMany({ where: { requestId: r.id, teacherId: r.coverage!.teacherId }, data: { requestId: null } });
+            }
+          }
           if (teacherRequests.length > 0) {
             await tx.request.updateMany({ where: { id: { in: teacherRequests } }, data: { requesterId: anonymous.id, description: null } });
           }
@@ -76,7 +89,7 @@ export class CoverageAnonymizationService {
               requestId,
               actorId: null,
               type: 'ANONYMIZED' as const,
-              toValue: { fields: ['teacherId', 'absentTeacher', 'reason', 'requesterId', 'description'], retentionMonths },
+              toValue: { fields: [...ERASED], retentionMonths },
               createdAt: now,
             })),
           });

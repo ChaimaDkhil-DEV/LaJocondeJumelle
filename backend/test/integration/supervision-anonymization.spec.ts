@@ -2,7 +2,8 @@ import type { INestApplication } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { CoverageAnonymizationJob } from '../../src/scheduler/coverage-anonymization.job';
 import { SettingsService } from '../../src/settings/settings.service';
-import { seedDemo, userId } from '../utils/auth-helpers';
+import request from 'supertest';
+import { loginAs, seedDemo, userId } from '../utils/auth-helpers';
 import { clearCoverages, createCoverage, type CoverageFixture } from '../utils/coverage-fixtures';
 import { createTestApp } from '../utils/test-app';
 import { resetDatabase } from '../utils/test-db';
@@ -69,6 +70,24 @@ describe('Anonymisation des affectations (FR-023a)', () => {
   });
 
   beforeEach(() => clearCoverages(prisma));
+
+  /** Pointage lié à l'affectation (journée propre à chaque test : un pointage par enseignant, classe et jour). */
+  async function attendance(requestId: string, teacher: string, day: string, extra: { substituteFor?: string } = {}) {
+    const classId = (await prisma.coverageDetail.findUniqueOrThrow({ where: { requestId } })).classId;
+    return prisma.teacherAttendance.create({
+      data: {
+        teacherId: await userId(prisma, teacher),
+        classId,
+        localDate: new Date(`${day}T00:00:00Z`),
+        method: 'MANUAL',
+        status: 'LATE',
+        recordedById: await userId(prisma, 'admin'),
+        comment: 'Rendez-vous médical',
+        requestId,
+        ...(extra.substituteFor ? { substituteForId: await userId(prisma, extra.substituteFor) } : {}),
+      },
+    });
+  }
 
   afterAll(async () => {
     await app.close();
@@ -173,5 +192,66 @@ describe('Anonymisation des affectations (FR-023a)', () => {
     } finally {
       await settings.set('coverageRetentionMonths', 12, null);
     }
+  });
+
+  /** Audit de sécurité R09 : des données personnelles restaient après l'anonymisation. */
+  describe('anonymisation complète (R09)', () => {
+    it('motif d’annulation effacé ; pointages liés détachés de l’affectation, sans commentaire ni titulaire', async () => {
+      const id = await coverage({ source: 'TEACHER_REQUEST', status: 'CANCELLED' });
+      await prisma.coverageDetail.update({ where: { requestId: id }, data: { cancelReason: 'Mme Martin est malade' } });
+      const own = await attendance(id, 'enseignante', '2026-09-01');
+      const relief = await attendance(id, 'remplacant', '2026-09-01', { substituteFor: 'enseignante' });
+
+      expect(await job.runOnce(now)).toBe(1);
+      expect(await prisma.coverageDetail.findUniqueOrThrow({ where: { requestId: id } })).toMatchObject({ cancelReason: null });
+      // Le pointage de l'enseignant concerné ne désigne plus l'affectation : plus rien ne relie l'absence à son nom
+      // (un pointage par enseignant, classe et jour : le compte technique ne peut pas le remplacer). Le pointage
+      // lui-même relève de la conservation du module présence.
+      expect(await prisma.teacherAttendance.findUniqueOrThrow({ where: { id: own.id } })).toMatchObject({
+        requestId: null,
+        comment: null,
+        substituteForId: null,
+        status: 'LATE',
+        localDate: own.localDate,
+      });
+      // Le remplaçant garde son propre pointage ; seul le lien vers l'enseignant remplacé disparaît.
+      expect(await prisma.teacherAttendance.findUniqueOrThrow({ where: { id: relief.id } })).toMatchObject({
+        teacherId: await userId(prisma, 'remplacant'),
+        comment: null,
+        substituteForId: null,
+      });
+    });
+
+    it('historique d’une affectation anonymisée : plus aucun nom ni identifiant d’enseignant', async () => {
+      const id = await coverage({ source: 'TEACHER_REQUEST' });
+      const teacherId = await userId(prisma, 'enseignante');
+      const teacherName = (await prisma.user.findUniqueOrThrow({ where: { id: teacherId } })).displayName;
+      const supervisorName = (await prisma.user.findUniqueOrThrow({ where: { username: 'surveillant' } })).displayName;
+      await prisma.requestEvent.create({ data: { requestId: id, type: 'CREATED', actorId: teacherId, toValue: { source: 'TEACHER_REQUEST' } } });
+      await prisma.requestEvent.create({
+        data: { requestId: id, type: 'TEACHER_SET', actorId: await userId(prisma, 'admin'), toValue: { teacherId } },
+      });
+      await prisma.requestEvent.create({
+        data: { requestId: id, type: 'ASSIGNED', actorId: await userId(prisma, 'admin'), toValue: { assigneeId: await userId(prisma, 'surveillant') } },
+      });
+      const admin = await loginAs(app, 'admin');
+      const detail = () => request(app.getHttpServer()).get(`/api/coverage/${id}`).set('Cookie', admin);
+
+      const before = await detail();
+      expect(before.status).toBe(200);
+      expect(JSON.stringify(before.body.history)).toContain(teacherName);
+
+      expect(await job.runOnce(now)).toBe(1);
+      const after = await detail();
+      expect(after.status).toBe(200);
+      const history = JSON.stringify(after.body.history);
+      expect(history).not.toContain(teacherId);
+      expect(history).not.toContain(teacherName);
+      expect(history).toContain('Enseignant anonymisé');
+      // Les membres du personnel qui ont agi (administration, surveillant) restent nommés.
+      expect(history).toContain(supervisorName);
+      // L'historique en base n'est jamais modifié : le masque s'applique à la lecture (choix de l'établissement).
+      expect(await prisma.requestEvent.count({ where: { requestId: id, actorId: teacherId } })).toBe(1);
+    });
   });
 });
