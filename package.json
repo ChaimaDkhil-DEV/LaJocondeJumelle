@@ -18,7 +18,7 @@
     "format": "prettier --write .",
     "test": "npm run -w backend test && npm run -w backend test:integration && npm run -w frontend test",
     "test:e2e": "playwright test -c e2e/playwright.config.ts",
-    "audit:check": "node --test scripts/audit-check.test.mjs && node scripts/audit-check.mjs",
+    "audit:check": "node --test scripts/audit-check.test.mjs && node scripts/run-audit-check.mjs",
     "verify": "npm run lint && npm test && npm run audit:check"
   },
   "allowScripts": {
