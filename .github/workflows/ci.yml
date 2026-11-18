@@ -94,6 +94,6 @@ jobs:
           docker build -f deploy/web.Dockerfile -t ljj-web:ci .
 
       # Comme `npm audit --audit-level=high`, sauf les alertes de audit-exceptions.json (sans version corrigée,
-      # hors production, avec motif et date de revue) : scripts/audit-check.mjs.
+      # hors production, avec motif et date de revue) : scripts/audit-check.mjs (règles) et scripts/run-audit-check.mjs (lancement).
       - name: Audit des dépendances
         run: npm run audit:check
