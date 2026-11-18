@@ -224,7 +224,10 @@ Per-teacher data visible to the admin and the super administrator only (FR-023).
 
 ## 8. Anonymization (FR-023a)
 
-See R5. Fields erased: `CoverageDetail.teacherId`, `absentTeacher`, `reason`;
+See R5. Fields erased: `CoverageDetail.teacherId`, `absentTeacher`, `reason`, `cancelReason` (audit R09);
 `Request.requesterId` (teacher request) → technical account, `Request.description` → null.
-Kept: dates, class, floor, type, source, statuses, duration. Never modified: `RequestEvent`,
-`AuditLog`, `Notification`.
+Linked `TeacherAttendance` rows (audit R09): `comment` and `substituteForId` → null; the concerned teacher's
+row gets `requestId` → null (it cannot take the technical account: one record per teacher, class and day).
+Kept: dates, class, floor, type, source, statuses, duration; `substituteTeacherId` (the substitute's own work).
+Never modified: `RequestEvent`, `AuditLog`, `Notification`. Reading the history of an anonymized guard duty
+masks every `teacherId` it cites and the author of a teacher request: they become the technical account.
