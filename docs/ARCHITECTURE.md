@@ -530,6 +530,10 @@ I cannot verify **which specific items** were in your initial request: the origi
   3. the relationship with the request: `actorsFor` → `REQUESTER`, `ASSIGNEE` or `MANAGER`.
 
   A resource that is not visible gives a 404 with an `ACCESS_DENIED` audit entry.
+  `test/integration/idor-matrix.spec.ts` (security audit G.2) checks it resource by resource: request, draft,
+  teacher and parent conversations, transfer proposal, attachment, voice message, notification, push device and
+  timetable session. For each one, the owner reads it, a third party of the same role gets a logged 404 and
+  changes nothing, another role gets 403 or 404, and an unknown or malformed id never gives a 500.
 
 ### Error handling and logs
 
