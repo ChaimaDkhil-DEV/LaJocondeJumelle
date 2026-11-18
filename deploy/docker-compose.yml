@@ -18,6 +18,8 @@ services:
     volumes:
       - caddy_data:/data
       - caddy_config:/config
+      # Certificat racine de l'autorité interne, seul fichier publié pour l'API (deploy/caddy-entrypoint.sh).
+      - caddy_ca:/ca
     depends_on:
       api:
         condition: service_healthy
@@ -50,13 +52,13 @@ services:
       ASSIST_TRANSCRIPTION_TIMEOUT_MS: ${ASSIST_TRANSCRIPTION_TIMEOUT_MS:-}
       ASSIST_RATE_LIMIT: ${ASSIST_RATE_LIMIT:-}
       # Transcription locale : relais HTTPS interne de Caddy (port 8444 non publié) et certificat de
-      # son autorité interne, lu à chaque appel dans le volume de Caddy (monté en lecture seule).
+      # son autorité interne, lu à chaque appel dans le volume caddy_ca (publié par Caddy, sans clé).
       ASSIST_WHISPER_URL: ${ASSIST_WHISPER_URL:-https://caddy:8444}
       ASSIST_WHISPER_MODEL: ${ASSIST_WHISPER_MODEL:-}
       # Langue des vocaux : vide = fr ; code à deux lettres (ar, en…) ou auto (détection).
       ASSIST_WHISPER_LANGUAGE: ${ASSIST_WHISPER_LANGUAGE:-}
       ASSIST_WHISPER_API_KEY: ${ASSIST_WHISPER_API_KEY:-}
-      ASSIST_WHISPER_CA_FILE: ${ASSIST_WHISPER_CA_FILE:-/caddy-data/caddy/pki/authorities/local/root.crt}
+      ASSIST_WHISPER_CA_FILE: ${ASSIST_WHISPER_CA_FILE:-/caddy-ca/root.crt}
       # Connecteur Claude (service payant, décision de l'établissement requise) : clé jamais commitée.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       ASSIST_CLAUDE_MODEL: ${ASSIST_CLAUDE_MODEL:-}
@@ -74,7 +76,8 @@ services:
       # Vocaux, photos et documents : jamais servis par Caddy, lus uniquement via l'API.
       - files:/data/files
       # Certificat racine de l'autorité interne de Caddy (relais HTTPS vers Whisper), lecture seule.
-      - caddy_data:/caddy-data:ro
+      # Jamais le volume caddy_data : il contient les clés privées (audit de sécurité R01).
+      - caddy_ca:/caddy-ca:ro
       # Lecture seule : l'API vérifie la présence d'une sauvegarde récente avant de migrer.
       - ${BACKUP_DIR:-./backups}:/backups:ro
     depends_on:
@@ -284,6 +287,7 @@ volumes:
   files:
   caddy_data:
   caddy_config:
+  caddy_ca:
   whisper_models:
   n8n_data:
   n8n_pgdata:
