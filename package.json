@@ -18,7 +18,8 @@
     "format": "prettier --write .",
     "test": "npm run -w backend test && npm run -w backend test:integration && npm run -w frontend test",
     "test:e2e": "playwright test -c e2e/playwright.config.ts",
-    "verify": "npm run lint && npm test && npm audit --audit-level=high"
+    "audit:check": "node --test scripts/audit-check.test.mjs && node scripts/audit-check.mjs",
+    "verify": "npm run lint && npm test && npm run audit:check"
   },
   "allowScripts": {
     "@prisma/client@6.19.3": true,

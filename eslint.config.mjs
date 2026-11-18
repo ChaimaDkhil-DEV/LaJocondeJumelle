@@ -28,6 +28,11 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
+    // Scripts de la CI (audit des dépendances) : Node, tests avec node:test.
+    files: ['scripts/**/*.mjs'],
+    languageOptions: { globals: { ...globals.node } },
+  },
+  {
     files: ['backend/**/*.ts'],
     languageOptions: { globals: { ...globals.node, ...globals.jest } },
     rules: {
