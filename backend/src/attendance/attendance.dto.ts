@@ -107,3 +107,25 @@ export class SetSubstituteDto {
   @IsUUID('all', { message: 'Choisissez l’enseignant remplaçant.' })
   teacherId!: string | null;
 }
+
+/** Statuts calculés d'une séance (020) : filtre de la liste des enseignants attendus. */
+export const SESSION_STATUSES = ['UPCOMING', 'EXPECTED', 'PRESENT', 'LATE', 'NOT_ARRIVED', 'EXCUSED', 'CANCELLED'] as const;
+
+/** Enseignants attendus (020) : jour (aujourd'hui par défaut), enseignant, classe, statut. */
+export class ExpectedQuery {
+  @IsOptional()
+  @Matches(DATE_FORMAT, { message: 'Date attendue (AAAA-MM-JJ).' })
+  date?: string;
+
+  @IsOptional()
+  @IsUUID('all')
+  teacherId?: string;
+
+  @IsOptional()
+  @IsUUID('all')
+  classId?: string;
+
+  @IsOptional()
+  @IsIn(SESSION_STATUSES)
+  status?: (typeof SESSION_STATUSES)[number];
+}

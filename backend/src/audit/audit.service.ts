@@ -65,6 +65,9 @@ const ALLOWED_DETAIL_KEYS = new Set([
   // Responsable administratif et transferts (018) : identifiants seulement, jamais le texte du motif
   'transferId',
   'adminOwnerId',
+  // Emplois du temps (020) : série concernée et nombre de séances écrites
+  'seriesId',
+  'sessionCount',
 ]);
 
 function scrub(value: unknown): unknown {

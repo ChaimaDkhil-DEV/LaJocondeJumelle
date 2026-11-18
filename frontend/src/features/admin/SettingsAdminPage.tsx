@@ -54,6 +54,9 @@ const NUMBER_FIELDS: Array<{ key: NumberKey; label: string; megabytes?: boolean 
   { key: 'coverageRetentionMonths', label: t('Affectations : durée de conservation avant anonymisation (mois)') },
   // Transferts entre administrateurs (018).
   { key: 'transferResponseMinutes', label: t('Délai de réponse aux transferts entre administrateurs (minutes)') },
+  // Emplois du temps (020) : statut des séances dans « Enseignants attendus ».
+  { key: 'attendanceLateThresholdMinutes', label: t('Emplois du temps : arrivée à l’heure jusqu’à (minutes après le début)') },
+  { key: 'attendanceToleranceMinutes', label: t('Emplois du temps : « non arrivé » après (minutes, délai de tolérance)') },
 ];
 
 /** Réglages numériques que le serveur a renvoyés : un réglage absent de sa réponse n'est ni affiché ni envoyé. */

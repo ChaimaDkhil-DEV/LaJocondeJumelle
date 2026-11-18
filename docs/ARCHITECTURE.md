@@ -973,7 +973,8 @@ teacher, class and day). Answers one question for the administration: who is in 
 - A teacher is **present** when they have at least one attendance row today that is not `ABSENT`, and no
   open departure. A teacher is **departed** when they have an open departure. Pure rule:
   `attendance/domain/presence.ts` (`presenceOf`).
-- There is still no timetable. A teacher who has not scanned is not listed, and is not thereby absent. A
+- This list does not use the timetable (feature 020 computes session statuses separately, section 17). A
+  teacher who has not scanned is not listed here, and is not thereby absent. A
   teacher who leaves without scanning stays listed as present until the end of the day, or until the
   administration records the departure. Both limits are stated on the screen.
 
@@ -1019,3 +1020,57 @@ logged, as in the rest of the module.
   manual actions.
 - `features/attendance/ArrivalPage.tsx`: the page opened by the class QR code offers the arrival, the
   departure or the return according to `presence.state`.
+
+## 17. Teacher timetables (feature 020)
+
+Builds on the QR attendance (lot 3) and on the presence in the school (019), without a second attendance record:
+scanning is unchanged. Design documents: `specs/020-emplois-du-temps/`.
+
+### Data (migration `0031_timetable`)
+
+- `TimetableSeries`: a weekly pattern (teacher, class, ISO weekday, local `HH:MM` start and end, optional subject
+  and room, period). It only produces sessions; its weekday never changes.
+- `TeachingSession`: one dated session (teacher, class, school-local day, `startAt`/`endAt`, optional subject and
+  room, `SCHEDULED` or `CANCELLED` with a mandatory reason, `detached` when edited apart from its series). Every
+  reader reads this table. The grade level is the class's level, never copied.
+- SQL-only, not expressible in `schema.prisma` (`prisma migrate diff` reports no drift):
+  `TeachingSession_teacher_no_overlap` and `TeachingSession_class_no_overlap`, exclusion constraints
+  (`btree_gist`, `tstzrange(startAt, endAt, '[)')`, only on `SCHEDULED` rows), so two administrators saving at
+  the same time cannot create overlapping sessions; touching sessions are allowed. Plus `TeachingSession_range`,
+  `TeachingSession_cancel_reason`, and no-delete/no-truncate triggers (`forbid_deletion()` from 0014) on both
+  tables. New audit action `TIMETABLE_CHANGED`; two settings `attendanceLateThresholdMinutes` (5) and
+  `attendanceToleranceMinutes` (10), threshold ≤ tolerance.
+
+### Session status (computed, never stored)
+
+Pure rule `attendance/domain/session-status.ts`, called by `ExpectedTeachersService` on every read, from the facts
+of the day: arrivals (`TeacherAttendance`), departures and returns (`TeacherDeparture`), announced latenesses and
+absences and their substitute (`CoverageDetail`, source `TEACHER_REQUEST`), empty-class declarations
+(`EMPTY_CLASS`). Order: cancelled → excused (announced absence, or an `ABSENT` entry of the day) → before the
+start "À venir" → a person's qualification (`ON_TIME`/`LATE` in the session's class) → presence at the start
+("Présent", or "En retard" if the class was declared empty before the teacher arrived in it) → arrival during the
+session ("Présent" up to the threshold, else "En retard" with minutes) → no arrival: announced lateness, class
+declared empty, "Attendu" until the tolerance ends, then "Non arrivé". "Non arrivé" never writes an absence. A
+named substitute gives two lines: the titular "Absence justifiée", the substitute evaluated.
+
+### Routes
+
+| Route | Who | Effect |
+|---|---|---|
+| `GET/POST /api/timetable/sessions`, `PATCH /sessions/:id`, `POST /sessions/:id/cancel` | Admin, super admin | List (≤ 31 days), create, edit a future session (detaches it), cancel (reason, ≤ 7 days back) |
+| `GET/POST /api/timetable/series`, `PATCH /series/:id`, `POST /series/:id/cancel` | Admin, super admin | Weekly series (all or nothing, every conflict listed in `409 TIMETABLE_CONFLICT`), change from a date, cancel a range |
+| `GET /api/timetable/mine?from&to` | Teacher | Own sessions and sessions as named substitute (≤ 14 days); no teacher parameter accepted |
+| `GET /api/attendance/expected?date&teacherId&classId&status` | Admin, super admin | Lines and counts (counts ignore the status filter) |
+| `POST /api/attendance/resolve`, `arrive` (existing) | Teacher | Also return `session: { current, next }` of the day, for information |
+
+Denials: `ACCESS_DENIED` in the audit log and 404, through `AttendanceGate` (exported by `AttendanceModule`, used
+by `TimetableModule`). Writes emit `timetable:updated` (no data) to active admins and the teachers concerned.
+
+### Screens
+
+- `/admin/emplois-du-temps` (`features/timetable/TimetableAdminPage.tsx`): by teacher or by class, week by week;
+  series and session form, conflicts listed with focus, cancel dialog.
+- `/emploi-du-temps` (`MyTimetablePage.tsx`): day and week views, link from the teacher home page.
+- « Surveillance » → « Enseignants attendus » (`?onglet=attendus`, `ExpectedTeachersTab.tsx`): four indicators,
+  filters in the address, refetched on `attendance:updated`, `timetable:updated` and every minute.
+- Demo data: `db:seed:demo -- --timetable` gives a timetable to part of the teachers only (`prisma/demo/timetable.ts`).

@@ -1,8 +1,9 @@
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 import ButtonBase from '@mui/material/ButtonBase';
 import type { CSSObject, Theme } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
-import { ChevronRight, Mic, QrCode, Siren, type LucideIcon } from 'lucide-react';
+import { CalendarDays, ChevronRight, Mic, QrCode, Siren, type LucideIcon } from 'lucide-react';
 import { useId, useState } from 'react';
 import { Link as RouterLink, useNavigate } from 'react-router';
 import { visuallyHidden } from '../../components/a11y';
@@ -243,6 +244,10 @@ export function TeacherHomePage() {
           <NewRequestButton priority="URGENT" label={t('Demande urgente')} icon={Siren} />
           <NewRequestButton priority="NORMAL" label={t('Demande normale')} icon={Mic} />
         </Box>
+        {/* Emploi du temps (020) : ses séances du jour et de la semaine. */}
+        <Button component={RouterLink} to="/emploi-du-temps" variant="outlined" size="large" startIcon={<CalendarDays size={22} aria-hidden="true" />} sx={{ minHeight: 48, justifyContent: 'flex-start' }}>
+          {t('Mon emploi du temps')}
+        </Button>
       </Box>
 
       <Box component="section" aria-labelledby={trackingId} sx={{ mt: 4 }}>

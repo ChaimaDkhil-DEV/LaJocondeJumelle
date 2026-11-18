@@ -1,0 +1,99 @@
+/** Teacher timetables (020). */
+export const timetable: Record<string, string> = {
+  // Administration page
+  'Emplois du temps': 'Timetables',
+  'Séances des enseignants : séries hebdomadaires, changements exceptionnels et annulations.':
+    'Teachers’ sessions: weekly series, exceptional changes and cancellations.',
+  'Nouvelle série': 'New series',
+  'Nouvelle séance': 'New session',
+  'Afficher par': 'Show by',
+  'Semaine précédente': 'Previous week',
+  'Semaine suivante': 'Next week',
+  'Semaine du {date}': 'Week of {date}',
+  'Choisissez un enseignant': 'Choose a teacher',
+  'Choisissez une classe': 'Choose a class',
+  'Son emploi du temps de la semaine s’affiche ici.': 'Their timetable for the week is shown here.',
+  'Chargement de l’emploi du temps': 'Loading the timetable',
+  'l’emploi du temps': 'the timetable',
+  'Modifier la séance de {start}, {date}': 'Edit the {start} session, {date}',
+  'Annuler la séance de {start}, {date}': 'Cancel the {start} session, {date}',
+
+  // Session list
+  'Aucune séance ce jour-là.': 'No session that day.',
+  'Séance de {start} à {end}, {class}': 'Session from {start} to {end}, {class}',
+  '{start} – {end}': '{start} – {end}',
+  'Matière non précisée': 'Subject not specified',
+  'Salle : {room}': 'Room: {room}',
+  'Salle non précisée': 'Room not specified',
+  'Séance annulée': 'Session cancelled',
+
+  // Form
+  'Nouvelle série hebdomadaire': 'New weekly series',
+  'Modifier la séance': 'Edit the session',
+  'Série enregistrée : {count} séances.': 'Series saved: {count} sessions.',
+  'Séance enregistrée.': 'Session saved.',
+  'Séances de la série modifiées.': 'Series sessions updated.',
+  'Séance modifiée.': 'Session updated.',
+  'Appliquer à': 'Apply to',
+  'Cette séance seulement': 'This session only',
+  'Cette séance et les suivantes de la série': 'This session and the following ones in the series',
+  'Jour de la semaine': 'Day of the week',
+  'Les séances de la série gardent leur jour.': 'The series sessions keep their day.',
+  'Début': 'Start',
+  'Matière (facultatif)': 'Subject (optional)',
+  'Salle (facultatif)': 'Room (optional)',
+  'Sans salle, la séance a lieu dans la salle de la classe.': 'Without a room, the session takes place in the class’s room.',
+
+  // Conflicts
+  'Conflit d’horaires : rien n’a été enregistré': 'Schedule conflict: nothing was saved',
+  '{date}, {start} – {end} : {teacher} a déjà une séance en {class}.': '{date}, {start} – {end}: {teacher} already has a session in {class}.',
+  '{date}, {start} – {end} : la classe {class} a déjà une séance avec {teacher}.':
+    '{date}, {start} – {end}: class {class} already has a session with {teacher}.',
+  'Choisissez un autre horaire, ou annulez d’abord la séance existante.': 'Choose another time, or cancel the existing session first.',
+
+  // Cancellation
+  'Annuler une séance': 'Cancel a session',
+  '{class}, {date}, {start} – {end}. Une séance annulée n’est jamais comptée comme une absence.':
+    '{class}, {date}, {start} – {end}. A cancelled session is never counted as an absence.',
+  'Les séances de la série entre deux dates': 'The series sessions between two dates',
+  'Motif de l’annulation': 'Reason for the cancellation',
+  'Indiquez le motif de l’annulation.': 'Give the reason for the cancellation.',
+  'Confirmer l’annulation': 'Confirm the cancellation',
+  'Séance annulée.': 'Session cancelled.',
+  '{count} séances annulées.': '{count} sessions cancelled.',
+  // Expected teachers tab (Surveillance)
+  'Enseignants attendus': 'Expected teachers',
+  'À venir': 'Upcoming',
+  'Attendu': 'Expected',
+  'Absence justifiée': 'Excused absence',
+  'Non arrivé': 'Not arrived',
+  'Attendus': 'Expected',
+  'Présents': 'Present',
+  'Non arrivés': 'Not arrived',
+  'Indicateurs du jour': 'Indicators for the day',
+  'Séances du jour': 'Sessions of the day',
+  'Effacer les filtres': 'Clear the filters',
+  'Chargement des enseignants attendus': 'Loading the expected teachers',
+  'les enseignants attendus': 'the expected teachers',
+  'Aucune séance ne correspond.': 'No session matches.',
+  'Aucune séance prévue ce jour-là.': 'No session scheduled that day.',
+  'Les séances viennent des emplois du temps saisis par l’administration.': 'Sessions come from the timetables entered by the administration.',
+  'Arrivée à {time} · {minutes} min de retard': 'Arrived at {time} · {minutes} min late',
+  'Classe déclarée vide par un surveillant': 'Class reported empty by a supervisor',
+  'Retard annoncé par l’enseignant': 'Lateness announced by the teacher',
+  'Retard constaté par l’administration': 'Lateness recorded by the administration',
+  'Remplacé(e) par {name}': 'Replaced by {name}',
+  'Tolérance : {tolerance} min ; retard au-delà de {threshold} min. « Non arrivé » n’enregistre aucune absence : il signale qu’aucun pointage n’a été fait.':
+    'Tolerance: {tolerance} min; late beyond {threshold} min. “Not arrived” records no absence: it signals that no check-in was made.',
+  // Teacher's own timetable
+  'Mon emploi du temps': 'My timetable',
+  'Vos séances : jour, heures, classe et niveau, matière et salle.': 'Your sessions: day, times, class and level, subject and room.',
+  'Affichage': 'View',
+  'Jour précédent': 'Previous day',
+  'Jour suivant': 'Next day',
+  'Séance en cours : {session}': 'Current session: {session}',
+  'Prochaine séance : {session}': 'Next session: {session}',
+  // Settings page
+  'Emplois du temps : arrivée à l’heure jusqu’à (minutes après le début)': 'Timetables: on time up to (minutes after the start)',
+  'Emplois du temps : « non arrivé » après (minutes, délai de tolérance)': 'Timetables: “not arrived” after (minutes, tolerance delay)',
+};

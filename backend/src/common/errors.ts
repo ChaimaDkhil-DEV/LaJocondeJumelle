@@ -76,6 +76,15 @@ export const ERROR_CATALOG = {
   },
   DEPARTURE_EXISTS: { status: 409, message: 'Le départ de cet enseignant est déjà enregistré.' },
   DEPARTURE_ALREADY_CLOSED: { status: 409, message: 'Ce départ est déjà clos : l’enseignant est noté de retour.' },
+  // Emplois du temps (020)
+  TIMETABLE_CONFLICT: {
+    status: 409,
+    message: 'Cet horaire chevauche une autre séance du même enseignant ou de la même classe : changez l’horaire ou annulez l’autre séance.',
+  },
+  SESSION_LOCKED: {
+    status: 409,
+    message: 'Cette séance a commencé ou est annulée : elle ne peut plus être modifiée.',
+  },
   CLASS_INACTIVE: { status: 400, message: 'Cette classe est introuvable ou désactivée.' },
   RATE_LIMITED: {
     status: 429,

@@ -26,6 +26,7 @@ import {
   ValidationLegacyRedirect,
 } from '../features/parent-communications/LegacyRedirects';
 import { ParentMessagesPage } from '../features/parent-communications/ParentMessagesPage';
+import { MyTimetablePage } from '../features/timetable/MyTimetablePage';
 import { AppLayout } from './AppLayout';
 
 export const routes: RouteObject[] = [
@@ -48,6 +49,8 @@ export const routes: RouteObject[] = [
       { path: 'demandes/:id/brouillon', element: <DraftPage /> },
       { path: 'demandes/:id', element: <RequestDetailPage /> },
       { path: 'profil', element: <ProfilePage /> },
+      // Emploi du temps de l'enseignant (020) : ses seules séances, par jour ou par semaine.
+      { path: 'emploi-du-temps', element: <MyTimetablePage /> },
       // Couverture de classe (garde / remplacement).
       { path: 'gardes', element: <CoveragePage /> },
       { path: 'gardes/signaler', element: <TeacherRequestPage /> },

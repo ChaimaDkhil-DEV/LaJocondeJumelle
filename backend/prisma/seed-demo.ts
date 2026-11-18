@@ -9,6 +9,8 @@
  *                                                de test, puis crée le jeu de démonstration
  *   npm run -w backend db:seed:demo -- --parents seulement la communication avec les parents
  *                                                (classes des enseignants, familles, comptes parents)
+ *   npm run -w backend db:seed:demo -- --timetable seulement les emplois du temps (020), pour une
+ *                                                partie des enseignants (demo/timetable.ts)
  * Mot de passe commun des comptes : variable DEMO_PASSWORD (sinon tiré au hasard et affiché une fois).
  */
 import { PrismaClient, type Prisma, type Role } from '@prisma/client';
@@ -21,6 +23,7 @@ import { loadEnvFile } from '../src/config/load-env-file';
 import { Random, stableId } from './demo/random';
 import { SCENARIOS } from './demo/request-scenarios';
 import { seedParentCommunicationDemo, type DemoFamily } from './demo/parents';
+import { seedDemoTimetable, type DemoTimetableReport } from './demo/timetable';
 import { assertLocalDevelopmentDatabase, backupDatabase, purgeLocalData } from './demo/reset';
 import {
   ALL_ACCOUNTS,
@@ -66,6 +69,8 @@ export interface DemoSeedReport {
   /** Communication avec les parents (015) : familles avec un compte parent, comptes parents créés. */
   families: DemoFamily[];
   createdParents: string[];
+  /** Emplois du temps (020) : une partie des enseignants seulement. */
+  timetable: DemoTimetableReport;
 }
 
 const BATCH = 500;
@@ -247,7 +252,8 @@ export async function runDemoSeed(prisma: PrismaClient, options: DemoSeedOptions
         firstName,
         lastName,
         classId: classIds.get(c.key)!,
-        parentPhone: fictionalPhone(students.length + 1),
+        parentPhone: fictionalPhone(students.length + 1),
+
         createdAt: rentree,
       });
     });
@@ -257,11 +263,14 @@ export async function runDemoSeed(prisma: PrismaClient, options: DemoSeedOptions
   // --- Communication avec les parents (015) : classes des enseignants, familles, comptes parents.
   const { families, createdParents } = await seedParentCommunicationDemo(prisma, { password: options.password, createdAt: rentree });
 
+  // --- Emplois du temps (020) : quelques enseignants seulement, à partir d'aujourd'hui.
+  const timetable = await seedDemoTimetable(prisma, { now, timeZone, authorId: userId(DIRECTION.username) });
+
   // --- Demandes, historique, messages, notifications et audit : en une transaction, une seule fois.
   const already = await prisma.request.count({ where: { id: { in: SCENARIOS.map((_s, i) => stableId(`request:${i}`)) } } });
   if (already > 0) {
     log(`Demandes de démonstration déjà présentes (${already}) : rien n'est ajouté. Utilisez --reset pour les recréer.`);
-    return { createdUsers, students: students.length, requests: 0, skippedRequests: true, cutoff, families, createdParents };
+    return { createdUsers, students: students.length, requests: 0, skippedRequests: true, cutoff, families, createdParents, timetable };
   }
 
   const directory: Directory = {
@@ -309,7 +318,7 @@ export async function runDemoSeed(prisma: PrismaClient, options: DemoSeedOptions
     { timeout: 300_000, maxWait: 30_000 },
   );
 
-  return { createdUsers, students: students.length, requests: data.requests.length, skippedRequests: false, cutoff, families, createdParents };
+  return { createdUsers, students: students.length, requests: data.requests.length, skippedRequests: false, cutoff, families, createdParents, timetable };
 }
 
 async function main(): Promise<void> {
@@ -318,7 +327,9 @@ async function main(): Promise<void> {
   const target = assertLocalDevelopmentDatabase(url);
   const reset = process.argv.includes('--reset');
   const parentsOnly = process.argv.includes('--parents');
+  const timetableOnly = process.argv.includes('--timetable');
   if (reset && parentsOnly) throw new Error('--reset et --parents ne se combinent pas.');
+  if (timetableOnly && (reset || parentsOnly)) throw new Error('--timetable ne se combine ni avec --reset ni avec --parents.');
   const generated = !process.env.DEMO_PASSWORD;
   const password = process.env.DEMO_PASSWORD || randomBytes(9).toString('base64url');
   console.log(`Base ciblée : ${target.host}:${target.port}/${target.database} (développement local).`);
@@ -333,6 +344,13 @@ async function main(): Promise<void> {
       printFamilies(report.families, report.createdParents.length > 0, generated, password);
       return;
     }
+    if (timetableOnly) {
+      // N'ajoute que les emplois du temps de démonstration (020), pour une partie des enseignants seulement.
+      const direction = await prisma.user.findUnique({ where: { username: DIRECTION.username }, select: { id: true } });
+      if (!direction) throw new Error('Compte « direction » absent : lancez d’abord le seed de démonstration complet.');
+      printTimetable(await seedDemoTimetable(prisma, { now: new Date(), timeZone: schoolTimezoneFromEnv(), authorId: direction.id }));
+      return;
+    }
     if (reset) {
       const report = await purgeLocalData(prisma, url!, process.env.FILES_DIR);
       console.log(`Anciennes données supprimées : ${Object.entries(report.counts).map(([k, v]) => `${k} ${v}`).join(', ')} ; fichiers retirés : ${report.removedFiles}.`);
@@ -341,6 +359,7 @@ async function main(): Promise<void> {
     console.log(
       `Démonstration prête : ${report.createdUsers} comptes créés, ${report.students} élèves, ${report.requests} demandes (jusqu'au ${report.cutoff.toISOString()}).`,
     );
+    printTimetable(report.timetable);
     if (report.createdUsers > 0) {
       console.log(
         generated
@@ -353,6 +372,12 @@ async function main(): Promise<void> {
   } finally {
     await prisma.$disconnect();
   }
+}
+
+function printTimetable(report: DemoTimetableReport): void {
+  console.log(
+    `Emplois du temps (une partie des enseignants seulement) : ${report.teachers} enseignants, ${report.series} séries et ${report.sessions} séances ajoutées.`,
+  );
 }
 
 function printFamilies(families: DemoFamily[], newAccounts: boolean, generated: boolean, password: string): void {

@@ -20,6 +20,7 @@ import { SettingsAdminPage } from './SettingsAdminPage';
 import { SupervisionPage } from './SupervisionPage';
 import { GuardiansAdminPage } from '../parent-communications/GuardiansAdminPage';
 import { TeacherClassesAdminPage } from '../parent-communications/TeacherClassesAdminPage';
+import { TimetableAdminPage } from '../timetable/TimetableAdminPage';
 import { UsersAdminPage } from './UsersAdminPage';
 
 /** Ancienne adresse du tableau de bord, devenu la page d'accueil : la vue choisie (`?vue=`) est conservée. */
@@ -75,6 +76,8 @@ export const adminRoutes: RouteObject[] = [
       // Communication avec les parents (015) : représentants et classes des enseignants.
       { path: 'representants', element: <GuardiansAdminPage /> },
       { path: 'classes-enseignants', element: <TeacherClassesAdminPage /> },
+      // Emplois du temps des enseignants (020) : admin et super administrateur.
+      { path: 'emplois-du-temps', element: <TimetableAdminPage /> },
     ],
   },
 ];

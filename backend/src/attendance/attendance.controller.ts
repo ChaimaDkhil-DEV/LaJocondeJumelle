@@ -4,8 +4,9 @@ import type { AuthenticatedUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { clientIp, requestPath } from '../common/request-info';
 import type { RequestContext } from '../requests/requests.service';
-import { CorrectAttendanceDto, DayQuery, ManualAttendanceDto, ManualDepartureDto, QrTokenDto, SetSubstituteDto } from './attendance.dto';
+import { CorrectAttendanceDto, DayQuery, ExpectedQuery, ManualAttendanceDto, ManualDepartureDto, QrTokenDto, SetSubstituteDto } from './attendance.dto';
 import { AttendanceService } from './attendance.service';
+import { ExpectedTeachersService } from './expected-teachers.service';
 import { PresenceService } from './presence.service';
 
 function contextOf(req: Request): RequestContext {
@@ -21,6 +22,7 @@ export class AttendanceController {
   constructor(
     private readonly attendance: AttendanceService,
     private readonly presence: PresenceService,
+    private readonly expectedTeachers: ExpectedTeachersService,
   ) {}
 
   /** Enseignant : page du QR (classe, pointage du jour, rattachement prévu), sans rien enregistrer. */
@@ -73,6 +75,12 @@ export class AttendanceController {
   @Get('day')
   day(@CurrentUser() user: AuthenticatedUser, @Query() query: DayQuery, @Req() req: Request) {
     return this.attendance.day(user, query, contextOf(req));
+  }
+
+  /** Admins : enseignants attendus d'après l'emploi du temps (020), statut calculé de chaque séance et compteurs. */
+  @Get('expected')
+  expected(@CurrentUser() user: AuthenticatedUser, @Query() query: ExpectedQuery, @Req() req: Request) {
+    return this.expectedTeachers.day(user, query, contextOf(req));
   }
 
   /** Admins : enseignants présents dans l'établissement maintenant, et repartis aujourd'hui. */

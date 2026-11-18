@@ -28,6 +28,7 @@ import {
   type ArrivalMatch,
   type ClassEvent,
 } from './domain/attendance-matching';
+import { ownSessions, type OwnSessionView } from '../timetable/own-sessions';
 import { PresenceService } from './presence.service';
 
 /** Une saisie manuelle ne remonte pas plus loin que cette limite (jours) : au-delà, c'est une correction de l'admin. */
@@ -44,12 +45,20 @@ export interface ArrivalResult {
   created: boolean;
   attendance: AttendanceView;
   match: ArrivalMatch;
+  /** Emploi du temps (020) : séance en cours et prochaine séance du jour, pour information. */
+  session: TodaySession;
+}
+
+export interface TodaySession {
+  current: OwnSessionView | null;
+  next: OwnSessionView | null;
 }
 
 /**
  * Pointage des enseignants par QR. Le QR identifie la classe, la session identifie l'enseignant, l'heure
- * est celle du serveur. Il n'y a pas d'emploi du temps : l'heure de référence d'un retard ne vient que
- * d'une demande de retard annoncée ; sans demande, l'arrivée est enregistrée sans jugement.
+ * est celle du serveur. L'heure de référence d'un retard enregistré ne vient que d'une demande de retard
+ * annoncée ; sans demande, l'arrivée est enregistrée sans jugement. L'emploi du temps (020) n'écrit rien ici :
+ * le statut des séances est calculé à la lecture (expected-teachers.service.ts).
  */
 @Injectable()
 export class AttendanceService {
@@ -80,6 +89,7 @@ export class AttendanceService {
       preview,
       /** Présence dans l'établissement (019) : la page propose l'arrivée, le départ ou le retour. */
       presence: await this.presence.own(user.id, day),
+      session: await this.todaySession(user.id, day, now),
     };
   }
 
@@ -94,7 +104,7 @@ export class AttendanceService {
     const day = localDate(now, this.config.schoolTimezone);
 
     const existing = await this.findOwn(user.id, schoolClass.id, day);
-    if (existing) return { created: false, attendance: toAttendanceView(existing), match: { kind: 'NONE' } };
+    if (existing) return { created: false, attendance: toAttendanceView(existing), match: { kind: 'NONE' }, session: await this.todaySession(user.id, day, now) };
 
     const match = matchArrival(user.id, now, await this.announcedFor(schoolClass.id, day));
     try {
@@ -140,11 +150,11 @@ export class AttendanceService {
         return created;
       });
       await this.presence.notifyChange(user.id, day);
-      return { created: true, attendance: toAttendanceView(row), match };
+      return { created: true, attendance: toAttendanceView(row), match, session: await this.todaySession(user.id, day, now) };
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         const duplicate = await this.findOwn(user.id, schoolClass.id, day);
-        if (duplicate) return { created: false, attendance: toAttendanceView(duplicate), match: { kind: 'NONE' } };
+        if (duplicate) return { created: false, attendance: toAttendanceView(duplicate), match: { kind: 'NONE' }, session: await this.todaySession(user.id, day, now) };
       }
       throw error;
     }
@@ -168,7 +178,7 @@ export class AttendanceService {
 
   /**
    * Journée : pointages, demandes annoncées (scannées ou non), classes vides déclarées et état courant de
-   * chaque classe. Aucune liste « d'attendus » : sans emploi du temps, l'absence de scan ne prouve rien.
+   * chaque classe. Les enseignants attendus d'après l'emploi du temps sont une autre liste (020, GET expected).
    */
   async day(user: AuthenticatedUser, query: DayQuery, ctx: RequestContext) {
     await this.gate.assertManager(user, ctx);
@@ -458,6 +468,15 @@ export class AttendanceService {
       case 'NONE':
         return {};
     }
+  }
+
+  /** Séance en cours et prochaine séance prévue du jour (020) ; lecture seule, le scan ne change pas. */
+  private async todaySession(teacherId: string, day: string, now: Date): Promise<TodaySession> {
+    const sessions = (await ownSessions(this.prisma, teacherId, day, day, this.config.schoolTimezone)).filter((s) => s.status === 'SCHEDULED');
+    return {
+      current: sessions.find((s) => s.startAt <= now && now < s.endAt) ?? null,
+      next: sessions.find((s) => s.startAt > now) ?? null,
+    };
   }
 
   private findOwn(teacherId: string, classId: string, day: string): Promise<AttendanceRow | null> {

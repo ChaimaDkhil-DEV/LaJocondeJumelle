@@ -222,6 +222,8 @@ enum AuditAction {
   PARENT_COMMUNICATION_DELIVERY
   /// Conversation (017) : clôture, réouverture, prise en charge, lien vers une conversation interne.
   COMMUNICATION_CONVERSATION_CHANGED
+  /// Emplois du temps (020) : création, modification ou annulation d'une série ou d'une séance.
+  TIMETABLE_CHANGED
 }
 
 enum NotificationType {
@@ -371,6 +373,7 @@ enum AttendanceMethod {
 
 /// ARRIVED : arrivée scannée, sans jugement (aucune heure de référence connue). ON_TIME, LATE et
 /// ABSENT ne sont posés que par une personne (saisie ou correction) : une absence n'est jamais déduite.
+/// L'emploi du temps (020) n'écrit jamais ici : « non arrivé » est un statut calculé de la séance.
 enum AttendanceStatus {
   ARRIVED
   ON_TIME
@@ -430,6 +433,13 @@ model User {
   departures           TeacherDeparture[]  @relation("DepartureTeacher")
   departuresRecorded   TeacherDeparture[]  @relation("DepartureRecorder")
   departuresReturned   TeacherDeparture[]  @relation("DepartureReturner")
+
+  // Emplois du temps (020)
+  timetableSeries          TimetableSeries[] @relation("SeriesTeacher")
+  timetableSeriesCreated   TimetableSeries[] @relation("SeriesCreator")
+  teachingSessions         TeachingSession[] @relation("SessionTeacher")
+  teachingSessionsCreated  TeachingSession[] @relation("SessionCreator")
+  teachingSessionsCanceled TeachingSession[] @relation("SessionCanceller")
 
   pushSubscriptions      PushSubscription[]
   notificationPreference NotificationPreference?
@@ -896,6 +906,9 @@ model SchoolClass {
   attendances TeacherAttendance[]
   departures  TeacherDeparture[]
   teachers    TeacherClass[]
+  /// Emplois du temps (020).
+  timetableSeries  TimetableSeries[]
+  teachingSessions TeachingSession[]
 
   @@index([levelId])
 }
@@ -1181,6 +1194,87 @@ model TeacherDeparture {
 
   @@index([localDate])
   @@index([teacherId, localDate])
+}
+
+// ---------------------------------------------------------------------------
+// Emplois du temps des enseignants (020)
+// ---------------------------------------------------------------------------
+
+/// État d'une séance d'emploi du temps (020). Une séance n'est jamais supprimée : une erreur s'annule.
+enum TeachingSessionStatus {
+  SCHEDULED
+  CANCELLED
+}
+
+/// Série hebdomadaire (020) : un créneau répété chaque semaine sur une période. Elle sert à produire les
+/// séances datées (TeachingSession), que tout le reste lit. Le jour de la semaine ne change pas : on termine la
+/// série et on en crée une autre. Lignes non supprimables (déclencheurs de la migration 0031).
+model TimetableSeries {
+  id          String   @id @default(uuid()) @db.Uuid
+  teacherId   String   @db.Uuid
+  classId     String   @db.Uuid
+  /// Jour ISO : 1 (lundi) … 7 (dimanche).
+  weekday     Int
+  /// Heures locales de l'école, `HH:MM`.
+  startTime   String   @db.VarChar(5)
+  endTime     String   @db.VarChar(5)
+  subject     String?  @db.VarChar(100)
+  /// Salle ; null : la salle de la classe.
+  room        String?  @db.VarChar(80)
+  startDate   DateTime @db.Date
+  endDate     DateTime @db.Date
+  createdById String   @db.Uuid
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+
+  teacher   User              @relation("SeriesTeacher", fields: [teacherId], references: [id])
+  class     SchoolClass       @relation(fields: [classId], references: [id])
+  createdBy User              @relation("SeriesCreator", fields: [createdById], references: [id])
+  sessions  TeachingSession[]
+
+  @@index([teacherId])
+  @@index([classId])
+}
+
+/// Séance datée (020) : enseignant, classe (le niveau est celui de la classe), jour et heures. Le statut de
+/// présence d'une séance n'est pas stocké : il se calcule à la lecture à partir des pointages existants
+/// (attendance/domain/session-status.ts). Contraintes posées en SQL par la migration 0031, que Prisma ne sait
+/// pas décrire : `TeachingSession_teacher_no_overlap` et `TeachingSession_class_no_overlap` (exclusion
+/// btree_gist : pas deux séances SCHEDULED qui se chevauchent pour un même enseignant ou une même classe),
+/// `TeachingSession_range` (fin après début), `TeachingSession_cancel_reason` (motif d'annulation obligatoire).
+/// Lignes non supprimables.
+model TeachingSession {
+  id            String                @id @default(uuid()) @db.Uuid
+  /// Série d'origine ; null pour une séance isolée.
+  seriesId      String?               @db.Uuid
+  teacherId     String                @db.Uuid
+  classId       String                @db.Uuid
+  /// Jour dans le fuseau de l'école.
+  localDate     DateTime              @db.Date
+  startAt       DateTime              @db.Timestamptz(3)
+  endAt         DateTime              @db.Timestamptz(3)
+  subject       String?               @db.VarChar(100)
+  room          String?               @db.VarChar(80)
+  status        TeachingSessionStatus @default(SCHEDULED)
+  /// Modifiée à part de sa série : les changements de la série ne la touchent plus.
+  detached      Boolean               @default(false)
+  cancelReason  String?               @db.VarChar(500)
+  cancelledAt   DateTime?             @db.Timestamptz(3)
+  cancelledById String?               @db.Uuid
+  createdById   String                @db.Uuid
+  createdAt     DateTime              @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime              @updatedAt @db.Timestamptz(3)
+
+  series      TimetableSeries? @relation(fields: [seriesId], references: [id])
+  teacher     User             @relation("SessionTeacher", fields: [teacherId], references: [id])
+  class       SchoolClass      @relation(fields: [classId], references: [id])
+  createdBy   User             @relation("SessionCreator", fields: [createdById], references: [id])
+  cancelledBy User?            @relation("SessionCanceller", fields: [cancelledById], references: [id])
+
+  @@index([localDate])
+  @@index([teacherId, localDate])
+  @@index([classId, localDate])
+  @@index([seriesId])
 }
 
 // ---------------------------------------------------------------------------

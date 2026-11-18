@@ -94,7 +94,7 @@ describe('File de l’admin', () => {
   it('012 puis 019 : quatre onglets d’administration, « Absences et retards » en tête', async () => {
     setup({ canManage: true });
     const tabs = await screen.findAllByRole('tab');
-    expect(tabs.map((t) => t.textContent)).toEqual(['Absences et retards', 'Enseignants présents', 'Affectation des surveillants', 'Suivi des interventions']);
+    expect(tabs.map((t) => t.textContent)).toEqual(['Absences et retards', 'Enseignants présents', 'Enseignants attendus', 'Affectation des surveillants', 'Suivi des interventions']);
     expect(tabs[0]).toHaveAttribute('aria-selected', 'true');
   });
 

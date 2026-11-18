@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import request from 'supertest';
 import { runDemoSeed } from '../../prisma/seed-demo';
 import { CLASSES, FLOORS, LEVELS } from '../../prisma/demo/school-data';
+import { DEMO_TIMETABLE_TEACHERS } from '../../prisma/demo/timetable';
 import { atLocalTime } from '../../src/common/school-time';
 import { SEED_PASSWORD } from '../utils/auth-helpers';
 import { createTestApp, sessionCookie, TEST_ORIGIN } from '../utils/test-app';
@@ -183,11 +184,24 @@ describe('Seed de démonstration', () => {
       floors: await prisma.floor.count(),
       guardians: await prisma.guardian.count(),
       teacherClasses: await prisma.teacherClass.count(),
+      timetableSeries: await prisma.timetableSeries.count(),
+      teachingSessions: await prisma.teachingSession.count(),
     });
     const before = await counts();
     const report = await runDemoSeed(prisma, { password: SEED_PASSWORD, now: NOW, log: () => undefined });
     expect(report.skippedRequests).toBe(true);
     expect(report.createdUsers).toBe(0);
+    expect(report.timetable).toMatchObject({ series: 0, sessions: 0 });
     expect(await counts()).toEqual(before);
   }, 120_000);
+
+  it('emplois du temps (020) : une partie des enseignants seulement, à partir du jour du seed', async () => {
+    const teachers = await prisma.employeeGroupMember.count({ where: { group: { systemKey: 'TEACHERS' } } });
+    const withTimetable = await prisma.teachingSession.findMany({ distinct: ['teacherId'], select: { teacherId: true } });
+    expect(withTimetable).toHaveLength(DEMO_TIMETABLE_TEACHERS + 1);
+    expect(withTimetable.length).toBeLessThan(teachers);
+    const first = await prisma.teachingSession.findFirstOrThrow({ orderBy: { startAt: 'asc' } });
+    expect(first.startAt.getTime()).toBeGreaterThanOrEqual(atLocalTime('2026-11-02', '00:00', TZ).getTime());
+    expect(await prisma.teachingSession.count({ where: { status: 'CANCELLED' } })).toBe(0);
+  });
 });

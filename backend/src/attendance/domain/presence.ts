@@ -2,7 +2,8 @@
  * Présence d'un enseignant dans l'établissement (019), déduite de ses pointages du jour et de ses départs.
  * Fonctions pures : aucune lecture en base, aucune horloge.
  *
- * Il n'y a pas d'emploi du temps : « présent » veut dire « arrivé aujourd'hui et pas reparti ». Un
+ * « Présent » veut dire « arrivé aujourd'hui et pas reparti » (l'emploi du temps de 020 n'y change rien ; le
+ * statut des séances, calculé à part, s'appuie sur ces mêmes arrivées, départs et retours). Un
  * enseignant qui part sans scanner reste présent jusqu'à ce que l'administration saisisse son départ.
  */
 

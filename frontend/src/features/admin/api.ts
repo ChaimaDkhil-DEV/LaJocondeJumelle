@@ -117,6 +117,9 @@ export interface AdminSettings {
   pushWindowEnd: string;
   /** Transferts entre administrateurs (018) : délai de réponse à une proposition, en minutes. */
   transferResponseMinutes?: number;
+  /** Emplois du temps (020) : arrivée « à l'heure » jusqu'à N minutes après le début ; « non arrivé » après la tolérance. */
+  attendanceLateThresholdMinutes?: number;
+  attendanceToleranceMinutes?: number;
 }
 
 export type ConfigurableRole = 'EMPLOYEE' | 'ADMIN';

@@ -6,6 +6,7 @@ import { CategoriesModule } from './categories/categories.module';
 import { PrismaModule } from './common/prisma.service';
 import { ConfigModule } from './config/config.module';
 import { AttendanceModule } from './attendance/attendance.module';
+import { TimetableModule } from './timetable/timetable.module';
 import { CoverageModule } from './coverage/coverage.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { FilesModule } from './files/files.module';
@@ -41,6 +42,7 @@ import { IntegrationsModule } from './integrations/integrations.module';
     AssistModule,
     CoverageModule,
     AttendanceModule,
+    TimetableModule,
     DashboardModule,
     MessagesModule,
     SchedulerModule,

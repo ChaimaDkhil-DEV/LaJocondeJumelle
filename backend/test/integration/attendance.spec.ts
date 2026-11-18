@@ -1,7 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import request from 'supertest';
-import { localTime } from '../../src/common/school-time';
+import { localDate, localTime } from '../../src/common/school-time';
 import { loginAs, seedDemo, userId } from '../utils/auth-helpers';
 import { clearCoverages, createCoverage, minutesFrom, notificationsOf } from '../utils/coverage-fixtures';
 import { useMiddayTimezone } from '../utils/school-timezone';
@@ -436,4 +436,57 @@ describe('Pointage des enseignants par QR', () => {
       expect(await prisma.teacherAttendance.count()).toBe(1);
     });
   });
+  // 020 — la page du QR indique aussi la séance en cours ou la prochaine du jour (information seulement).
+  describe('Séance du jour sur la page du QR (020)', () => {
+    async function sessionToday(startOffset: number, minutes: number) {
+      const startAt = minutesFrom(new Date(), startOffset);
+      return prisma.teachingSession.create({
+        data: {
+          teacherId: id.enseignante,
+          classId: await classId(VIOLET),
+          localDate: new Date(`${localDate(new Date(), schoolTz)}T00:00:00.000Z`),
+          startAt,
+          endAt: minutesFrom(startAt, minutes),
+          subject: 'Mathématiques',
+          createdById: id.admin,
+        },
+      });
+    }
+
+    afterEach(async () => {
+      await prisma.$transaction([
+        prisma.$executeRawUnsafe('SET LOCAL session_replication_role = replica'),
+        prisma.$executeRawUnsafe('DELETE FROM "TeachingSession"'),
+      ]);
+    });
+
+    it('sans emploi du temps : aucune séance', async () => {
+      const res = await post('enseignante', '/api/attendance/resolve', { token: await tokenOf(VIOLET) });
+      expect(res.status).toBe(200);
+      expect(res.body.session).toEqual({ current: null, next: null });
+    });
+
+    it('séance en cours et prochaine séance, à la consultation comme après le scan', async () => {
+      const current = await sessionToday(-10, 60);
+      const next = await sessionToday(90, 60);
+      const resolved = await post('enseignante', '/api/attendance/resolve', { token: await tokenOf(VIOLET) });
+      expect(resolved.body.session).toMatchObject({
+        current: { id: current.id, subject: 'Mathématiques', class: { name: VIOLET }, startTime: expect.stringMatching(/^\d{2}:\d{2}$/) },
+        next: { id: next.id },
+      });
+      expect(resolved.body.session.current).not.toHaveProperty('cancelReason');
+      const arrived = await arrive('enseignante');
+      expect(arrived.status).toBe(201);
+      expect(arrived.body.session).toMatchObject({ current: { id: current.id }, next: { id: next.id } });
+      // Le scan reste celui de 019 : une arrivée, sans autre effet.
+      expect(await prisma.teacherAttendance.count({ where: { teacherId: id.enseignante } })).toBe(1);
+    });
+
+    it('les séances d’un autre enseignant ne sont jamais montrées', async () => {
+      await sessionToday(-10, 60);
+      const res = await post('reprographie', '/api/attendance/resolve', { token: await tokenOf(VIOLET) });
+      expect(res.body.session).toEqual({ current: null, next: null });
+    });
+  });
 });
+

@@ -6,6 +6,8 @@ import type {
   ArrivalResult,
   AttendanceDay,
   AttendanceItem,
+  ExpectedDay,
+  ExpectedFilter,
   CorrectionInput,
   DepartureInput,
   ManualInput,
@@ -20,6 +22,7 @@ export const attendanceKeys = {
   mine: ['attendance', 'mine'] as const,
   day: (date: string) => ['attendance', 'day', date] as const,
   present: ['attendance', 'present'] as const,
+  expected: (filter: ExpectedFilter) => ['attendance', 'expected', filter] as const,
   resolve: (token: string) => ['attendance', 'resolve', token] as const,
 };
 
@@ -126,5 +129,23 @@ export function useSetSubstitute() {
         body: { teacherId },
       }),
     onSettled: () => Promise.all([queryClient.invalidateQueries({ queryKey: attendanceKeys.all }), queryClient.invalidateQueries({ queryKey: coverageKeys.all })]),
+  });
+}
+
+/**
+ * Enseignants attendus (020). Relue à chaque pointage (`attendance:updated`), à chaque changement d'emploi du temps
+ * (`timetable:updated`) et chaque minute : « Attendu » devient « Non arrivé » avec le temps, sans autre événement.
+ */
+export function useExpectedTeachers(filter: ExpectedFilter) {
+  const params = new URLSearchParams();
+  if (filter.date) params.set('date', filter.date);
+  if (filter.teacherId) params.set('teacherId', filter.teacherId);
+  if (filter.classId) params.set('classId', filter.classId);
+  if (filter.status) params.set('status', filter.status);
+  const query = params.toString();
+  return useQuery({
+    queryKey: attendanceKeys.expected(filter),
+    queryFn: () => apiFetch<ExpectedDay>(`/api/attendance/expected${query ? `?${query}` : ''}`),
+    refetchInterval: 60_000,
   });
 }

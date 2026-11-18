@@ -33,6 +33,10 @@ export const SETTING_DEFAULTS = {
   pushWindowEnd: '18:30',
   // Transferts entre administrateurs (018) : délai de réponse à une proposition, compté en temps réel.
   transferResponseMinutes: 120,
+  // Emplois du temps (020) : une arrivée au plus tard N minutes après le début d'une séance est « à l'heure » ;
+  // sans arrivée, l'enseignant n'est « non arrivé » qu'après le délai de tolérance. Seuil ≤ tolérance.
+  attendanceLateThresholdMinutes: 5,
+  attendanceToleranceMinutes: 10,
 };
 
 export type Settings = typeof SETTING_DEFAULTS;
@@ -73,6 +77,8 @@ export const SETTING_RULES: Record<SettingKey, Rule> = {
   pushWindowStart: { kind: 'time' },
   pushWindowEnd: { kind: 'time' },
   transferResponseMinutes: { kind: 'int', min: 5, max: 2880, label: 'entre 5 et 2880 minutes' },
+  attendanceLateThresholdMinutes: { kind: 'int', min: 0, max: 60, label: 'entre 0 et 60 minutes' },
+  attendanceToleranceMinutes: { kind: 'int', min: 0, max: 60, label: 'entre 0 et 60 minutes' },
 };
 
 /** Message d'erreur si la valeur est invalide pour ce réglage, sinon null. */

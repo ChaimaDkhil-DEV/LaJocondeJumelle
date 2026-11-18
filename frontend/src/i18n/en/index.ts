@@ -17,6 +17,7 @@ import { requests } from './requests';
 import { shared } from './shared';
 import { students } from './students';
 import { thread } from './thread';
+import { timetable } from './timetable';
 import { voice } from './voice';
 import { workspace } from './workspace';
 
@@ -28,6 +29,7 @@ export const en: Record<string, string> = {
   ...coverage,
   ...imports,
   ...attendance,
+  ...timetable,
   ...admin,
   ...dashboard,
   ...home,

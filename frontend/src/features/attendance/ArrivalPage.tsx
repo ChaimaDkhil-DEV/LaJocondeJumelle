@@ -18,7 +18,7 @@ import { formatTime } from '../coverage/labels';
 import { t } from '../../i18n';
 import { useArrive, useComeBack, useDepart, useResolveArrival } from './api';
 import { attendanceNotes, STATUS_COLORS, STATUS_LABELS } from './labels';
-import type { ArrivalMatch, ArrivalResult, OwnPresence, PresenceResult } from './types';
+import type { ArrivalMatch, ArrivalResult, OwnPresence, PresenceResult, TodaySession } from './types';
 
 /** Ce que l'enregistrement va faire, d'après la demande annoncée trouvée pour cette classe aujourd'hui. */
 function previewMessage(match: ArrivalMatch): { severity: 'info' | 'warning'; text: string } {
@@ -120,6 +120,19 @@ function Movement({ kind, result }: { kind: 'depart' | 'return'; result: Presenc
  * Second scan (019) : un enseignant déjà arrivé peut enregistrer son départ de l'établissement ; parti, il
  * peut enregistrer son retour. L'arrivée dans une autre classe après un départ vaut retour.
  */
+/** Séance en cours et prochaine séance du jour (020) : simple rappel, le scan reste le même. */
+function SessionNote({ session }: { session?: TodaySession }) {
+  if (!session || (!session.current && !session.next)) return null;
+  const text = (s: NonNullable<TodaySession['current']>) =>
+    [`${s.startTime} – ${s.endTime}`, s.class.name, s.subject].filter(Boolean).join(', ');
+  return (
+    <Box sx={{ display: 'grid', gap: 0.5 }}>
+      {session.current && <Typography variant="body2">{t('Séance en cours : {session}', { session: text(session.current) })}</Typography>}
+      {session.next && <Typography variant="body2" color="text.secondary">{t('Prochaine séance : {session}', { session: text(session.next) })}</Typography>}
+    </Box>
+  );
+}
+
 export function ArrivalPage() {
   const [params] = useSearchParams();
   const token = params.get('c') ?? '';
@@ -136,7 +149,7 @@ export function ArrivalPage() {
   const presenceHeader = <PageHeader title={t('Ma présence dans l’établissement')} back={back} />;
 
   if (moved) return (<>{presenceHeader}<Movement {...moved} /></>);
-  if (result) return (<>{header}<Confirmation result={result} /></>);
+  if (result) return (<>{header}<Confirmation result={result} /><Box sx={{ mt: 2 }}><SessionNote session={result.session} /></Box></>);
   if (!token) return (<>{header}<ErrorState message={t('Lien de QR code incomplet. Scannez de nouveau le QR code de la classe.')} /></>);
   if (resolution.isPending) return (<>{header}<LoadingState label={t('Vérification du QR code')} variant="detail" /></>);
   if (resolution.error) {
@@ -214,6 +227,7 @@ export function ArrivalPage() {
             </Typography>
           )}
         </Box>
+        <SessionNote session={resolution.data.session} />
         {/* Information statique : pas de rôle « alert » (annonce assertive) pour un simple aperçu. */}
         <Alert severity={message.severity} role="note">{message.text}</Alert>
         {presence.state === 'DEPARTED' && (
