@@ -21,12 +21,15 @@ export interface Viewer {
   isTeacher: boolean;
   /** Compte parent : représentant actif rattaché à ce compte ; null sinon. */
   guardianId: string | null;
+  /** Compte parent : élèves auxquels ce représentant est lié aujourd'hui (vide sinon). */
+  studentIds: ReadonlySet<string>;
   permissions: ReadonlySet<Permission>;
 }
 
 export interface ConversationFacts {
   type: ConversationType;
   status: ConversationStatus;
+  studentId: string;
   teacherId: string | null;
   guardianId: string | null;
 }
@@ -63,13 +66,15 @@ export function isAdministration(viewer: Pick<Viewer, 'role' | 'active'>): boole
  */
 export function partyOf(viewer: Viewer, conversation: ConversationFacts): Party | null {
   if (!viewer.active) return null;
-  const { type, teacherId, guardianId } = conversation;
+  const { type, teacherId, guardianId, studentId } = conversation;
   if (type !== 'PARENT' && viewer.role !== 'PARENT' && teacherId === viewer.userId) return 'TEACHER';
   if (
     type !== 'INTERNAL' &&
     viewer.role === 'PARENT' &&
     viewer.guardianId !== null &&
-    guardianId === viewer.guardianId
+    guardianId === viewer.guardianId &&
+    // FR-023 modifiée (audit R10) : délié de l'élève (changement de garde), le représentant perd la conversation.
+    viewer.studentIds.has(studentId)
   )
     return 'GUARDIAN';
   if (isAdministration(viewer)) return 'ADMIN';

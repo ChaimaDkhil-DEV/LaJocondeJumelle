@@ -121,7 +121,8 @@ export class N8nController {
             id,
             author: 'ADMIN',
             status: { in: ['APPROVED', 'SENT'] },
-            conversation: { type: 'PARENT', guardian: { active: true } },
+            // Représentant actif, compte parent actif (audit R10) ; le lien avec l'élève est vérifié plus bas.
+            conversation: { type: 'PARENT', guardian: { active: true, user: { is: { active: true } } } },
           },
           select: {
             id: true,
@@ -130,15 +131,21 @@ export class N8nController {
             conversation: {
               select: {
                 id: true,
+                studentId: true,
                 student: { select: { firstName: true } },
-                guardian: { select: { firstName: true, lastName: true, email: true, phone: true } },
+                guardian: {
+                  select: { firstName: true, lastName: true, email: true, phone: true, students: { select: { studentId: true } } },
+                },
               },
             },
           },
         })
       : null;
     const guardian = row?.conversation.guardian;
-    if (!row || !guardian) throw new AppException('NOT_FOUND');
+    // Représentant délié de l'élève depuis l'approbation (changement de garde) : rien n'est transmis (R10).
+    if (!row || !guardian || !guardian.students.some((s) => s.studentId === row.conversation.studentId)) {
+      throw new AppException('NOT_FOUND');
+    }
     const channels = this.communications.channelsFor(guardian);
     await this.audit.log('PARENT_COMMUNICATION_DELIVERY', {
       targetType: 'ParentCommunication',
