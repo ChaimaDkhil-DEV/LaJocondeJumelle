@@ -343,6 +343,14 @@ responsible, A is told, a pending proposal on the request is cancelled, history 
   the audit log, without message content or personal data beyond the identifiers of the accounts and request
   concerned.
 - **FR-033**: Lists of colleagues offered for a delegation MUST show only name and job title.
+- **FR-034** (separation of duties, security audit of 2026-11-18, R13): nobody handles their own request.
+  The requester MUST NOT act as administration on it (approve, reject, reassign, final validation,
+  correction request at final validation, closure entrusted to the administration), MUST NOT take it, ask
+  to take it over, receive it by delegation or by reattribution, and MUST NOT be designated to carry it
+  out (recipient chosen at creation, sole recipient picked by default, employee chosen at approval or
+  reassignment, automatic assignee). Their own requests do not appear in their file commune, and the
+  lists of colleagues and employees offered never include them. This applies to the super administrator
+  too: another administrator of the category handles the request. Refusals follow FR-031.
 
 ### Key Entities
 

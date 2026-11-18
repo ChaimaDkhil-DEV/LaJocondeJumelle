@@ -8,7 +8,7 @@ import { PrismaService } from '../common/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { canReadRequest } from '../requests/domain/access-policy';
-import { isEligibleAdmin, isFinishedStatus, isOwnable, isTransferable, type OwnershipCategory } from '../requests/domain/ownership';
+import { isEligibleAdmin, isEligibleOwner, isFinishedStatus, isOwnable, isTransferable, type OwnershipCategory } from '../requests/domain/ownership';
 import { RequestOwnershipService } from '../requests/request-ownership.service';
 import { RequestPolicyLoader, toPolicyCategory, toPolicyRequest } from '../requests/request-policy.loader';
 import type { RequestContext } from '../requests/requests.service';
@@ -67,7 +67,7 @@ export class TransfersService {
       throw new AppException('FORBIDDEN');
     }
     return this.prisma.user.findMany({
-      where: eligibleAdminsWhere(request.categoryId, user.id),
+      where: eligibleAdminsWhere(request, user.id),
       select: ADMIN_REF.select,
       orderBy: { displayName: 'asc' },
     });
@@ -98,9 +98,14 @@ export class TransfersService {
     } else {
       if (dto.recipientId !== undefined) throw fieldError('recipientId', 'Une demande de reprise s’adresse toujours à la personne qui a pris la demande en charge.');
       if (ownerId === user.id) throw new AppException('TRANSFER_RECIPIENT_INVALID');
+      // Le demandeur ne reprend jamais sa propre demande (séparation des tâches, FR-034).
+      if (request.requesterId === user.id) {
+        await this.logDenied(user, 'Request', requestId, ctx, 'OWN_REQUEST');
+        throw new AppException('FORBIDDEN');
+      }
       recipientId = ownerId;
     }
-    if (!(await this.eligible(recipientId, category))) throw new AppException('TRANSFER_RECIPIENT_INVALID');
+    if (!(await this.eligible(recipientId, request, category))) throw new AppException('TRANSFER_RECIPIENT_INVALID');
 
     const reason = dto.reason?.trim();
     if (!reason) throw new AppException('REASON_REQUIRED');
@@ -156,7 +161,7 @@ export class TransfersService {
     const now = new Date();
     const newOwnerId = newOwnerOf(transfer);
     const category = await this.categoryOf(transfer.request.categoryId);
-    if (!category || !(await this.eligible(newOwnerId, category))) {
+    if (!category || !(await this.eligible(newOwnerId, transfer.request, category))) {
       await this.cancelBySystem(transfer, 'PARTICIPANT_UNAVAILABLE', now);
       throw new AppException('TRANSFER_RECIPIENT_INVALID');
     }
@@ -347,7 +352,7 @@ export class TransfersService {
     const category = await this.categoryOf(transfer.request.categoryId);
     if (!category) return 'PARTICIPANT_UNAVAILABLE';
     for (const userId of new Set([transfer.initiatorId, transfer.recipientId])) {
-      if (!(await this.eligible(userId, category))) return 'PARTICIPANT_UNAVAILABLE';
+      if (!(await this.eligible(userId, transfer.request, category))) return 'PARTICIPANT_UNAVAILABLE';
     }
     return null;
   }
@@ -444,12 +449,12 @@ export class TransfersService {
     return category ? toPolicyCategory(category) : null;
   }
 
-  /** Compte actif, de rôle Admin, admin de la catégorie : peut recevoir ou garder une demande. */
-  private async eligible(userId: string, category: OwnershipCategory): Promise<boolean> {
+  /** Compte actif, de rôle Admin, admin de la catégorie, autre que le demandeur : peut recevoir ou garder la demande. */
+  private async eligible(userId: string, request: { requesterId: string }, category: OwnershipCategory): Promise<boolean> {
     const candidate = UUID.test(userId)
       ? await this.prisma.user.findUnique({ where: { id: userId }, select: { id: true, role: true, active: true } })
       : null;
-    return candidate !== null && isEligibleAdmin(candidate, category);
+    return candidate !== null && isEligibleOwner(candidate, request, category);
   }
 
   private async auditTransfer(

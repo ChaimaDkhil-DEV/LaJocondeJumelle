@@ -57,6 +57,8 @@ export class WorkspaceService {
       kind: 'WORK',
       status: 'PENDING_ADMIN_VALIDATION',
       adminOwnerId: null,
+      // Sans ses propres demandes : personne ne prend en charge la sienne (FR-034).
+      ...(user.role === 'ADMIN' ? { requesterId: { not: user.id } } : {}),
       category: {
         routingMode: 'VIA_ADMIN',
         ...(user.role === 'ADMIN' ? { managers: { some: { userId: user.id } } } : {}),
@@ -145,6 +147,10 @@ export class WorkspaceService {
     }
     if (!isEligibleAdmin(user, policyCategory)) {
       await this.logDenied(user, id, ctx, 'FORBIDDEN_CLAIM');
+      throw new AppException('FORBIDDEN');
+    }
+    if (request.requesterId === user.id) {
+      await this.logDenied(user, id, ctx, 'OWN_REQUEST');
       throw new AppException('FORBIDDEN');
     }
     if (request.adminOwnerId !== null) throw new AppException('REQUEST_ALREADY_CLAIMED');

@@ -22,6 +22,8 @@ export interface OwnershipRequest {
   kind: RequestKind;
   status: RequestStatus;
   adminOwnerId: string | null;
+  /** Auteur de la demande : jamais son responsable (séparation des tâches, FR-034). */
+  requesterId: string;
 }
 
 const FINISHED_STATUSES: readonly RequestStatus[] = ['CLOSED', 'REJECTED', 'CANCELLED'];
@@ -47,20 +49,31 @@ export function isEligibleAdmin(user: OwnershipUser, category: Pick<OwnershipCat
   return user.active && user.role === 'ADMIN' && category.managerIds.has(user.id);
 }
 
+/**
+ * Peut être responsable de cette demande-ci : admin éligible qui n'en est pas l'auteur. Séparation des tâches
+ * (FR-034, audit R13) : personne ne prend en charge, ne reçoit par transfert ni ne valide sa propre demande.
+ */
+export function isEligibleOwner(user: OwnershipUser, request: Pick<OwnershipRequest, 'requesterId'>, category: Pick<OwnershipCategory, 'managerIds'>): boolean {
+  return isEligibleAdmin(user, category) && request.requesterId !== user.id;
+}
+
 /** File commune : demande en attente de validation, sans responsable. */
 export function inCommonQueue(request: OwnershipRequest, category: OwnershipCategory): boolean {
   return isOwnable(request, category) && request.status === 'PENDING_ADMIN_VALIDATION' && request.adminOwnerId === null;
 }
 
-/** La file commune d'un admin se limite à ses catégories ; le super administrateur la voit entière. */
+/**
+ * La file commune d'un admin se limite à ses catégories, sans ses propres demandes ; le super administrateur la
+ * voit entière.
+ */
 export function canSeeInCommonQueue(user: OwnershipUser, request: OwnershipRequest, category: OwnershipCategory): boolean {
   if (!inCommonQueue(request, category)) return false;
-  return (user.active && user.role === 'SUPER_ADMIN') || isEligibleAdmin(user, category);
+  return (user.active && user.role === 'SUPER_ADMIN') || isEligibleOwner(user, request, category);
 }
 
 /** « Prendre en charge ». */
 export function canClaim(user: OwnershipUser, request: OwnershipRequest, category: OwnershipCategory): boolean {
-  return inCommonQueue(request, category) && isEligibleAdmin(user, category);
+  return inCommonQueue(request, category) && isEligibleOwner(user, request, category);
 }
 
 /**
@@ -76,7 +89,7 @@ export function actsAsAdministration(user: Pick<OwnershipUser, 'id' | 'role'>, r
  * demande déjà validée avant l'arrivée des responsables.
  */
 export function takesByActing(user: OwnershipUser, request: OwnershipRequest, category: OwnershipCategory): boolean {
-  return isOwnable(request, category) && request.adminOwnerId === null && isEligibleAdmin(user, category);
+  return isOwnable(request, category) && request.adminOwnerId === null && isEligibleOwner(user, request, category);
 }
 
 /**
@@ -94,5 +107,5 @@ export function canProposeDelegation(user: OwnershipUser, request: OwnershipRequ
 
 /** « Demander la reprise » : un autre admin de la catégorie, tant qu'aucune proposition n'attend déjà. */
 export function canAskTakeover(user: OwnershipUser, request: OwnershipRequest, category: OwnershipCategory, hasPendingTransfer: boolean): boolean {
-  return isTransferable(request, category) && !hasPendingTransfer && isEligibleAdmin(user, category) && request.adminOwnerId !== user.id;
+  return isTransferable(request, category) && !hasPendingTransfer && isEligibleOwner(user, request, category) && request.adminOwnerId !== user.id;
 }

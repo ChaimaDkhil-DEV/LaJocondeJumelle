@@ -94,7 +94,8 @@ export class RequestPolicyLoader {
       where: {
         active: true,
         recipientOf: { some: { categoryId: category.id } },
-        ...(category.routingMode === 'PEER' ? { id: { not: requesterId } } : {}),
+        // Jamais le demandeur lui-même (séparation des tâches, FR-034 ; déjà la règle en PEER).
+        id: { not: requesterId },
       },
       select: { id: true, displayName: true, jobTitle: true, availability: true },
       orderBy: { displayName: 'asc' },

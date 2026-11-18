@@ -95,16 +95,17 @@ Every other status is final. Each transition is a conditional update on `status 
 |---|---|
 | Ownable request | `kind = WORK`, category `routingMode = VIA_ADMIN`, status not `DRAFT` |
 | Eligible administrator | active, role `ADMIN`, listed in the category's `CategoryManager` |
-| In the file commune | ownable, `status = PENDING_ADMIN_VALIDATION`, `adminOwnerId` null, viewer eligible (super administrator: all) |
-| May take | eligible, request in the file commune |
-| Administration actor (`MANAGER`) | `SUPER_ADMIN` as today; `ADMIN` eligible **and** (request free **or** responsible) |
+| Eligible owner (FR-034) | eligible administrator **and** not the requester of the request |
+| In the file commune | ownable, `status = PENDING_ADMIN_VALIDATION`, `adminOwnerId` null, viewer eligible owner (super administrator: all) |
+| May take | eligible owner, request in the file commune |
+| Administration actor (`MANAGER`) | never the requester (FR-034); otherwise `SUPER_ADMIN` as today; `ADMIN` eligible **and** (request free **or** responsible) |
 | May read | unchanged, plus explicitly: eligible administrator of the category |
 | Transferable | ownable, has a responsible administrator, status not `CLOSED` / `REJECTED` / `CANCELLED`, no pending proposal |
-| May propose delegation | responsible administrator; recipient eligible and ≠ self |
-| May ask takeover | eligible, not responsible; recipient = responsible administrator |
+| May propose delegation | responsible administrator; recipient eligible owner and ≠ self |
+| May ask takeover | eligible owner, not responsible; recipient = responsible administrator |
 | May answer | recipient, proposal pending and not overdue |
 | May cancel | initiator, proposal pending |
-| May reassign / release | `SUPER_ADMIN`; request ownable and not finished; target eligible; reason given |
+| May reassign / release | `SUPER_ADMIN`; request ownable and not finished; target eligible owner; reason given |
 | In progress / finished | not in / in `CLOSED`, `REJECTED`, `CANCELLED` |
 
 ## Enum additions

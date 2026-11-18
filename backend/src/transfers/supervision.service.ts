@@ -7,7 +7,7 @@ import { buildPage, decodeCursor, parseLimit, type Page } from '../common/pagina
 import { PrismaService } from '../common/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { RealtimeService } from '../realtime/realtime.service';
-import { isEligibleAdmin, isFinishedStatus, isOwnable } from '../requests/domain/ownership';
+import { isEligibleOwner, isFinishedStatus, isOwnable } from '../requests/domain/ownership';
 import { RequestOwnershipService } from '../requests/request-ownership.service';
 import { RequestPolicyLoader, toPolicyCategory } from '../requests/request-policy.loader';
 import { REQUEST_INCLUDE, toRequestSummary, type RequestDetail, type RequestSummary } from '../requests/requests.mapper';
@@ -182,7 +182,7 @@ export class SupervisionService {
       request.adminOwnerId ? this.prisma.user.findUnique({ where: { id: request.adminOwnerId }, select: ADMIN_REF.select }) : null,
       reassignable
         ? this.prisma.user.findMany({
-            where: eligibleAdminsWhere(request.categoryId, request.adminOwnerId),
+            where: eligibleAdminsWhere(request, request.adminOwnerId),
             select: ADMIN_REF.select,
             orderBy: { displayName: 'asc' },
           })
@@ -208,7 +208,7 @@ export class SupervisionService {
     if (targetId === null && previousId === null) throw new AppException('TRANSFER_NOT_POSSIBLE');
     if (targetId !== null) {
       const target = await this.prisma.user.findUnique({ where: { id: targetId }, select: { id: true, role: true, active: true } });
-      if (!target || targetId === previousId || !isEligibleAdmin(target, category)) throw new AppException('TRANSFER_RECIPIENT_INVALID');
+      if (!target || targetId === previousId || !isEligibleOwner(target, request, category)) throw new AppException('TRANSFER_RECIPIENT_INVALID');
     }
 
     const now = new Date();
