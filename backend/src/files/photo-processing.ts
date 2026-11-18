@@ -1,7 +1,8 @@
 import { open, readFile, rm, stat } from 'node:fs/promises';
-import sharp from 'sharp';
+import type sharp from 'sharp';
 import { AppException } from '../common/errors';
 import { detectFileType } from './file-signature';
+import { openImage, withImageSlot } from './image-limits';
 
 /** Côté long maximal d'une photo enregistrée, en pixels. */
 export const PHOTO_MAX_SIDE = 2560;
@@ -52,18 +53,21 @@ export async function processPhoto(inputPath: string, options: PhotoProcessingOp
       throw new AppException('FILE_TYPE_NOT_ALLOWED', { allowed: options.allowedTypes });
     }
 
-    let info: sharp.OutputInfo;
-    try {
+    // Plafond de pixels et décodages simultanés limités (audit R14).
+    const info: sharp.OutputInfo = await withImageSlot(async () => {
       // Lecture en mémoire : sous Windows, libvips garderait sinon le fichier source verrouillé.
-      // Sans withMetadata()/keepExif(), sharp n'écrit aucune métadonnée dans le fichier produit.
-      info = await sharp(await readFile(inputPath))
-        .rotate()
-        .resize({ width: PHOTO_MAX_SIDE, height: PHOTO_MAX_SIDE, fit: 'inside', withoutEnlargement: true })
-        .jpeg({ quality: JPEG_QUALITY, mozjpeg: true })
-        .toFile(outputPath);
-    } catch {
-      throw new AppException('FILE_TYPE_NOT_ALLOWED');
-    }
+      const image = await openImage(await readFile(inputPath));
+      try {
+        // Sans withMetadata()/keepExif(), sharp n'écrit aucune métadonnée dans le fichier produit.
+        return await image
+          .rotate()
+          .resize({ width: PHOTO_MAX_SIDE, height: PHOTO_MAX_SIDE, fit: 'inside', withoutEnlargement: true })
+          .jpeg({ quality: JPEG_QUALITY, mozjpeg: true })
+          .toFile(outputPath);
+      } catch {
+        throw new AppException('FILE_TYPE_NOT_ALLOWED');
+      }
+    });
 
     const { size } = await stat(outputPath);
     return { path: outputPath, mimeType: 'image/jpeg', sizeBytes: size, width: info.width, height: info.height };
