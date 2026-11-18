@@ -120,7 +120,8 @@ describe('Communication aux parents : intégration n8n (015)', () => {
           firstName: 'Lina',
           lastName: 'Ben Salah',
           classId: violet,
-          parentPhone: '+21620000001',
+          parentPhone: '+21620000001',
+
         },
       })
     ).id;
@@ -284,6 +285,27 @@ describe('Communication aux parents : intégration n8n (015)', () => {
     });
     if (pending)
       expect((await integration('get', `parent-communications/${pending.id}`)).status).toBe(404);
+  });
+
+  it('données pour n8n (R10) : rien pour un représentant délié de l’élève ou dont le compte est désactivé', async () => {
+    const id = await approved();
+    expect((await integration('get', `parent-communications/${id}`)).status).toBe(200);
+    const parentUserId = await userId(prisma, 'parent.lina');
+
+    await prisma.guardianStudent.delete({ where: { guardianId_studentId: { guardianId, studentId } } });
+    try {
+      expect((await integration('get', `parent-communications/${id}`)).status).toBe(404);
+    } finally {
+      await prisma.guardianStudent.create({ data: { guardianId, studentId } });
+    }
+
+    await prisma.user.update({ where: { id: parentUserId }, data: { active: false } });
+    try {
+      expect((await integration('get', `parent-communications/${id}`)).status).toBe(404);
+    } finally {
+      await prisma.user.update({ where: { id: parentUserId }, data: { active: true } });
+    }
+    expect((await integration('get', `parent-communications/${id}`)).status).toBe(200);
   });
 
   it('comptes rendus : liés à un événement envoyé, idempotents ; un échec externe ne retire rien au parent', async () => {

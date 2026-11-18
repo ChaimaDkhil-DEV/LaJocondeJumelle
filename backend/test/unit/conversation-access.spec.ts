@@ -26,6 +26,7 @@ const ADMIN = 'u-admin';
 const OTHER_ADMIN = 'u-admin-2';
 const GUARDIAN = 'g-1';
 const OTHER_GUARDIAN = 'g-2';
+const STUDENT = 's-1';
 
 function viewer(
   userId: string,
@@ -39,6 +40,7 @@ function viewer(
     active: true,
     isTeacher: false,
     guardianId: null,
+    studentIds: new Set<string>(),
     permissions: permissionsFor(role, granted),
     ...rest,
   };
@@ -46,8 +48,8 @@ function viewer(
 
 const teacher = viewer(TEACHER, 'EMPLOYEE', { isTeacher: true });
 const otherTeacher = viewer(OTHER_TEACHER, 'EMPLOYEE', { isTeacher: true });
-const parent = viewer(PARENT_USER, 'PARENT', { guardianId: GUARDIAN });
-const otherParent = viewer(OTHER_PARENT_USER, 'PARENT', { guardianId: OTHER_GUARDIAN });
+const parent = viewer(PARENT_USER, 'PARENT', { guardianId: GUARDIAN, studentIds: new Set([STUDENT]) });
+const otherParent = viewer(OTHER_PARENT_USER, 'PARENT', { guardianId: OTHER_GUARDIAN, studentIds: new Set([STUDENT]) });
 const admin = viewer(ADMIN, 'ADMIN', {
   granted: ['PARENT_COMM_SUBMIT_FOR_APPROVAL', 'PARENT_COMMUNICATION_VALIDATE'],
 });
@@ -58,11 +60,12 @@ const bareAdmin = viewer('u-admin-3', 'ADMIN');
 const superAdmin = viewer('u-super', 'SUPER_ADMIN');
 const plainEmployee = viewer('u-employee', 'EMPLOYEE');
 
-const internal: ConversationFacts = { type: 'INTERNAL', status: 'OPEN', teacherId: TEACHER, guardianId: null };
-const family: ConversationFacts = { type: 'PARENT', status: 'OPEN', teacherId: null, guardianId: GUARDIAN };
+const internal: ConversationFacts = { type: 'INTERNAL', status: 'OPEN', studentId: STUDENT, teacherId: TEACHER, guardianId: null };
+const family: ConversationFacts = { type: 'PARENT', status: 'OPEN', studentId: STUDENT, teacherId: null, guardianId: GUARDIAN };
 const archive: ConversationFacts = {
   type: 'LEGACY_TEACHER_PARENT',
   status: 'CLOSED',
+  studentId: STUDENT,
   teacherId: TEACHER,
   guardianId: GUARDIAN,
 };
@@ -90,6 +93,13 @@ describe('partyOf — qui lit une conversation, et à quel titre', () => {
   it('FR-017 : un parent n’accède qu’aux conversations parent de son représentant', () => {
     expect(partyOf(parent, family)).toBe('GUARDIAN');
     expect(partyOf(otherParent, family)).toBeNull();
+  });
+
+  it('FR-023, audit R10 : un représentant délié de l’élève n’accède plus à ses conversations, archives comprises', () => {
+    const unlinked = viewer(PARENT_USER, 'PARENT', { guardianId: GUARDIAN, studentIds: new Set(['s-autre-enfant']) });
+    expect(partyOf(unlinked, family)).toBeNull();
+    expect(partyOf(unlinked, archive)).toBeNull();
+    expect(partyOf(parent, archive)).toBe('GUARDIAN');
   });
 
   it('FR-020 : un parent n’accède jamais à une conversation interne', () => {

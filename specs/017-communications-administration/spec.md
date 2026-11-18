@@ -214,8 +214,11 @@ read; the teacher keeps their own messages and the guardian's approved ones. No 
 - **FR-021** (rule 7): Active `ADMIN` and `SUPER_ADMIN` users access internal, parent and archive
   conversations; writing to parents and validating follow FR-009 and FR-010.
 - **FR-022** (rule 8): Rights MUST be rechecked at every sending, submission and decision.
-- **FR-023** (rule 9): Past conversations MUST stay readable under these rules after a class, link or account
-  change, unless the reader lost their role entirely (deactivated account).
+- **FR-023** (rule 9): Past conversations MUST stay readable under these rules after a class or account
+  change, unless the reader lost their role entirely (deactivated account). Exception (security audit of
+  2026-11-18, R10, decided by the school): a legal guardian unlinked from a student (change of custody)
+  MUST lose all access to the conversations about that student, history and voice files included, and n8n
+  MUST no longer receive their contact details for them. Linking them again restores access.
 - **FR-024** (rule 10): Voice files MUST be served only to readers of the message that holds them.
 - **FR-025** (rule 11): Knowing a conversation, message or file identifier MUST never be enough: every read
   checks the reader against the conversation; refusals look the same as « not found » for out-of-scope users

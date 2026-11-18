@@ -130,7 +130,10 @@ export class ConversationsService {
   async viewerOf(user: AuthenticatedUser): Promise<Viewer> {
     const guardian =
       user.role === 'PARENT'
-        ? await this.prisma.guardian.findFirst({ where: { userId: user.id, active: true }, select: { id: true } })
+        ? await this.prisma.guardian.findFirst({
+            where: { userId: user.id, active: true },
+            select: { id: true, students: { select: { studentId: true } } },
+          })
         : null;
     return {
       userId: user.id,
@@ -138,6 +141,7 @@ export class ConversationsService {
       active: user.active,
       isTeacher: user.role === 'PARENT' ? false : (await groupFlagsOf(this.prisma, user.id)).isTeacher,
       guardianId: guardian?.id ?? null,
+      studentIds: new Set(guardian?.students.map((s) => s.studentId) ?? []),
       permissions: user.permissions,
     };
   }
@@ -853,7 +857,7 @@ export class ConversationsService {
         currentRevision: true,
         draftVoiceFileId: true,
         revisions: { where: { voiceFileId: fileId }, select: { number: true } },
-        conversation: { select: { type: true, status: true, teacherId: true, guardianId: true } },
+        conversation: { select: { type: true, status: true, studentId: true, teacherId: true, guardianId: true } },
       },
     });
     if (messages.length === 0) return null;

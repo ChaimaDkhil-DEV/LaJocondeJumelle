@@ -7,6 +7,7 @@ import { setupCommunications, type ConversationView, type Fixture } from '../uti
 describe('Communications — parent (017, US4)', () => {
   let f: Fixture;
   let mine: ConversationView;
+  let mineVoice: string;
   let internalId: string;
   let internalVoice: string;
 
@@ -36,6 +37,7 @@ describe('Communications — parent (017, US4)', () => {
 
   it('commence une conversation au sujet de son enfant : reçue directement par l’administration', async () => {
     const voiceFileId = await f.uploadVoice(f.cookies.sonia);
+    mineVoice = voiceFileId;
     const res = await start(f.cookies.sonia, { studentId: f.ids.adam, voiceFileId, text: 'Adam sera absent demain.' });
     expect(res.status).toBe(201);
     mine = res.body as ConversationView;
@@ -99,14 +101,27 @@ describe('Communications — parent (017, US4)', () => {
     expect((await f.get(`/api/parent/messages/by-message/${messageId}`, f.cookies.karim)).status).toBe(404);
   });
 
-  it('représentant délié de l’enfant : lecture conservée, écriture refusée (FR-022, FR-023)', async () => {
+  /**
+   * Audit de sécurité R10 (FR-023 modifiée) : le représentant délié de l'enfant (changement de garde) perd tout
+   * accès aux conversations au sujet de cet enfant, historique et vocaux compris. Avant : lecture conservée.
+   */
+  it('représentant délié de l’enfant : plus aucun accès à ses conversations, rendu s’il est relié (FR-023, R10)', async () => {
+    const messageId = mine.messages![0].id;
     await f.prisma.guardianStudent.delete({ where: { guardianId_studentId: { guardianId: f.ids.sonia, studentId: f.ids.adam } } });
-    const read = await f.get(`/api/parent/messages/conversations/${mine.id}`, f.cookies.sonia);
-    expect(read.status).toBe(200);
-    expect((read.body as ConversationView).canPost).toBe(false);
-    const write = await f.send('post', `/api/parent/messages/conversations/${mine.id}/messages`, f.cookies.sonia, { text: 'x' });
-    expect(write.status).toBe(422);
-    await f.prisma.guardianStudent.create({ data: { guardianId: f.ids.sonia, studentId: f.ids.adam } });
+    try {
+      const list = (await f.get('/api/parent/messages/conversations', f.cookies.sonia)).body as ConversationView[];
+      expect(list.map((c) => c.id)).not.toContain(mine.id);
+      expect((await f.get(`/api/parent/messages/conversations/${mine.id}`, f.cookies.sonia)).status).toBe(404);
+      expect((await f.send('post', `/api/parent/messages/conversations/${mine.id}/messages`, f.cookies.sonia, { text: 'x' })).status).toBe(404);
+      expect((await f.get(`/api/parent/messages/by-message/${messageId}`, f.cookies.sonia)).status).toBe(404);
+      expect((await f.get(`/api/files/${mineVoice}`, f.cookies.sonia)).status).toBe(404);
+      // L'administration garde la conversation.
+      expect((await f.get(`/api/admin/communications/conversations/${mine.id}`, f.cookies.admin)).status).toBe(200);
+    } finally {
+      await f.prisma.guardianStudent.create({ data: { guardianId: f.ids.sonia, studentId: f.ids.adam } });
+    }
+    expect((await f.get(`/api/parent/messages/conversations/${mine.id}`, f.cookies.sonia)).status).toBe(200);
+    expect((await f.get(`/api/files/${mineVoice}`, f.cookies.sonia)).status).toBe(200);
   });
 
   it('compte parent désactivé : plus aucun accès', async () => {
