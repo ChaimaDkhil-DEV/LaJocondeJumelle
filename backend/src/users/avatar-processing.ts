@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
-import sharp from 'sharp';
 import { AppException } from '../common/errors';
 import { detectFileType, type DetectedMime } from '../files/file-signature';
+import { openImage, withImageSlot } from '../files/image-limits';
 
 /** Poids maximal d'une photo envoyée (avant redimensionnement). */
 export const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
@@ -33,14 +33,18 @@ export async function processAvatar(inputPath: string, sizeBytes: number): Promi
   if (!detected || !AVATAR_TYPES.includes(detected)) {
     throw new AppException('FILE_TYPE_NOT_ALLOWED', { allowed: AVATAR_TYPES }, 'Formats acceptés : JPG, PNG ou WebP.');
   }
-  try {
-    // Sans withMetadata()/keepExif(), sharp n'écrit aucune métadonnée dans l'image produite.
-    return await sharp(input)
-      .rotate()
-      .resize(AVATAR_SIZE, AVATAR_SIZE, { fit: 'cover', position: 'centre' })
-      .webp({ quality: WEBP_QUALITY })
-      .toBuffer();
-  } catch {
-    throw new AppException('FILE_TYPE_NOT_ALLOWED', { detected }, 'Cette image est illisible ou endommagée. Choisissez une autre photo.');
-  }
+  // Plafond de pixels et décodages simultanés limités (audit R14).
+  return withImageSlot(async () => {
+    const image = await openImage(input);
+    try {
+      // Sans withMetadata()/keepExif(), sharp n'écrit aucune métadonnée dans l'image produite.
+      return await image
+        .rotate()
+        .resize(AVATAR_SIZE, AVATAR_SIZE, { fit: 'cover', position: 'centre' })
+        .webp({ quality: WEBP_QUALITY })
+        .toBuffer();
+    } catch {
+      throw new AppException('FILE_TYPE_NOT_ALLOWED', { detected }, 'Cette image est illisible ou endommagée. Choisissez une autre photo.');
+    }
+  });
 }
