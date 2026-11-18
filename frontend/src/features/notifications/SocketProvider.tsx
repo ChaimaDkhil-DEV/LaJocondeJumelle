@@ -84,6 +84,11 @@ export function SocketProvider({
     // Pointage des enseignants (019) : arrivée, départ, retour, saisie ou correction. Enseignants présents,
     // suivi de la journée et « Mes présences » sont relus par REST.
     socket.on('attendance:updated', () => invalidate(['attendance']));
+    // Emplois du temps (020) : les séances changent ; l'emploi du temps et la liste des attendus sont relus.
+    socket.on('timetable:updated', () => {
+      invalidate(['timetable']);
+      invalidate(['attendance', 'expected']);
+    });
     socket.on('message:new', (event?: { requestId: string }) => {
       if (event) invalidate(messageKeys.thread(event.requestId));
     });

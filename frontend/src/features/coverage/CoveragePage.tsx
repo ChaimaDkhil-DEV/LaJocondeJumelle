@@ -11,6 +11,7 @@ import { LoadingState } from '../../components/LoadingState';
 import { PageHeader } from '../../components/PageHeader';
 import { useCoverageProfile } from './api';
 import { AttendanceFollowUpTab } from '../attendance/AttendanceFollowUpTab';
+import { ExpectedTeachersTab } from '../attendance/ExpectedTeachersTab';
 import { MyAttendanceTab } from '../attendance/MyAttendanceTab';
 import { PresentTeachersTab } from '../attendance/PresentTeachersTab';
 import { MyGuardTab, PersonalHistoryTab } from './EmployeeViews';
@@ -34,6 +35,8 @@ const ADMIN_TABS: TabDef[] = [
   { key: 'absences-retards', label: t('Absences et retards'), render: () => <AttendanceFollowUpTab /> },
   // 019 : qui est dans l'établissement maintenant, d'après les scans du jour.
   { key: 'presents', label: t('Enseignants présents'), render: () => <PresentTeachersTab /> },
+  // Emplois du temps (020) : séances du jour et statut de chaque enseignant attendu.
+  { key: 'attendus', label: t('Enseignants attendus'), render: () => <ExpectedTeachersTab /> },
   { key: 'affectation', label: t('Affectation des surveillants'), render: () => <AssignmentTab /> },
   { key: 'suivi', label: t('Suivi des interventions'), render: () => <TrackingTab /> },
 ];

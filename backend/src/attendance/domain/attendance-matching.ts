@@ -4,8 +4,9 @@ import type { AttendanceMethod, AttendanceStatus } from '@prisma/client';
  * Pointage des enseignants : modules purs (aucun accès base), comme coverage/domain. Le service charge
  * les demandes du jour pour la classe scannée et applique le résultat.
  *
- * Il n'existe aucun emploi du temps : l'heure de référence d'un retard ne vient que d'une demande de
- * retard ANNONCÉE par l'enseignant (option b). Sans demande, on enregistre l'arrivée à l'heure du
+ * Sur le pointage lui-même, l'heure de référence d'un retard ne vient que d'une demande de retard ANNONCÉE
+ * par l'enseignant (option b). L'emploi du temps (020) ne change pas ce pointage : le statut de chaque
+ * séance est calculé à part, à la lecture (domain/session-status.ts). Sans demande, on enregistre l'arrivée à l'heure du
  * serveur, sans jugement « à l'heure » ni « en retard » : seule une personne peut qualifier.
  * Une absence n'est jamais déduite d'un défaut de scan.
  */

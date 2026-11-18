@@ -21,6 +21,8 @@ export default tseslint.config(
       'frontend/src/api/schema.d.ts',
       'e2e/test-results/**',
       'e2e/playwright-report/**',
+      // Rapport Playwright produit à la racine quand la suite est lancée depuis le dépôt (ignoré par git).
+      'playwright-report/**',
       '.specify/**',
       '.claude/**',
     ],

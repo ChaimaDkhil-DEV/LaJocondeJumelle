@@ -205,4 +205,23 @@ export const api: Record<string, string> = {
   'L’élève est déjà inscrit à ce service.': 'The student is already enrolled in this service.',
   'Trop de tentatives. Patientez quelques minutes avant de réessayer.': 'Too many attempts. Wait a few minutes before trying again.',
   'Le motif ne doit pas dépasser 300 caractères.': 'The reason must not exceed 300 characters.',
+
+  // Emplois du temps (020) : backend/src/common/errors.ts, timetable.service.ts, admin-settings.service.ts
+  'Cet horaire chevauche une autre séance du même enseignant ou de la même classe : changez l’horaire ou annulez l’autre séance.':
+    'This time overlaps another session of the same teacher or class: change the time or cancel the other session.',
+  'Cette séance a commencé ou est annulée : elle ne peut plus être modifiée.': 'This session has started or is cancelled: it can no longer be changed.',
+  'Choisissez un enseignant actif du groupe Enseignants.': 'Choose an active teacher from the Teachers group.',
+  'Choisissez une classe active.': 'Choose an active class.',
+  'Une séance se crée à partir d’aujourd’hui.': 'A session can be created from today onwards.',
+  'Une séance se place à partir d’aujourd’hui.': 'A session can be placed from today onwards.',
+  'L’heure de fin doit être après l’heure de début.': 'The end time must be after the start time.',
+  'Une séance dure au moins 5 minutes.': 'A session lasts at least 5 minutes.',
+  'Une séance dure au plus 12 heures.': 'A session lasts at most 12 hours.',
+  'Indiquez les heures au format HH:MM (par exemple 08:30).': 'Enter times as HH:MM (for example 08:30).',
+  'La fin de la période doit être le même jour ou après son début.': 'The end of the period must be on or after its start.',
+  'Une série couvre au plus un an : raccourcissez la période.': 'A series covers at most one year: shorten the period.',
+  'Cette période ne contient aucun jour à venir correspondant : allongez-la.': 'This period contains no matching upcoming day: extend it.',
+  'Indiquez le motif de l’annulation.': 'Give the reason for the cancellation.',
+  'Le seuil de retard ne peut pas dépasser le délai de tolérance.': 'The lateness threshold cannot exceed the tolerance delay.',
+  'Le délai de tolérance ne peut pas être inférieur au seuil de retard.': 'The tolerance delay cannot be lower than the lateness threshold.',
 };

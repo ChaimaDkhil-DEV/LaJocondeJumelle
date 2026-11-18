@@ -74,6 +74,17 @@ export class AdminSettingsService {
         throw invalid([{ field: 'pushWindowEnd', messages: ['L’heure de fin doit être après l’heure de début.'] }]);
       }
     }
+    // Emplois du temps (020) : le seuil de retard ne dépasse jamais le délai de tolérance, valeurs fusionnées.
+    if ('attendanceLateThresholdMinutes' in body || 'attendanceToleranceMinutes' in body) {
+      const merged = { ...current, ...body } as Settings;
+      if (merged.attendanceLateThresholdMinutes > merged.attendanceToleranceMinutes) {
+        throw invalid(
+          'attendanceLateThresholdMinutes' in body
+            ? [{ field: 'attendanceLateThresholdMinutes', messages: ['Le seuil de retard ne peut pas dépasser le délai de tolérance.'] }]
+            : [{ field: 'attendanceToleranceMinutes', messages: ['Le délai de tolérance ne peut pas être inférieur au seuil de retard.'] }],
+        );
+      }
+    }
     const changed = (Object.entries(body) as Array<[SettingKey, Settings[SettingKey]]>).filter(
       ([key, value]) => JSON.stringify(current[key]) !== JSON.stringify(value),
     );

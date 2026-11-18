@@ -1,3 +1,4 @@
+import type { TimetableSession } from '../timetable/types';
 import type { Person, SchoolClass } from '../coverage/types';
 
 export type AttendanceStatus = 'ARRIVED' | 'ON_TIME' | 'LATE' | 'ABSENT';
@@ -55,12 +56,20 @@ export interface ArrivalResolution {
   attendance: AttendanceItem | null;
   preview: ArrivalMatch;
   presence: OwnPresence;
+  /** Emploi du temps (020) : séance en cours et prochaine séance du jour, pour information. */
+  session?: TodaySession;
+}
+
+export interface TodaySession {
+  current: TimetableSession | null;
+  next: TimetableSession | null;
 }
 
 export interface ArrivalResult {
   created: boolean;
   attendance: AttendanceItem;
   match: ArrivalMatch;
+  session?: TodaySession;
 }
 
 export interface AnnouncedItem {
@@ -148,4 +157,50 @@ export interface CorrectionInput {
   arrivedTime?: string | null;
   comment?: string | null;
   reason: string;
+}
+
+// ---------------------------------------------------------------------------
+// Enseignants attendus (020) : statut calculé de chaque séance de l'emploi du temps
+// ---------------------------------------------------------------------------
+
+export type SessionStatus = 'UPCOMING' | 'EXPECTED' | 'PRESENT' | 'LATE' | 'NOT_ARRIVED' | 'EXCUSED' | 'CANCELLED';
+export type LateReason = 'ARRIVAL' | 'EMPTY_CLASS' | 'ANNOUNCED' | 'QUALIFIED';
+
+export interface ExpectedLine {
+  sessionId: string;
+  /** TITULAR / SUBSTITUTE : remplaçant désigné sur une absence annoncée (deux lignes pour la séance). */
+  role: 'TEACHER' | 'TITULAR' | 'SUBSTITUTE';
+  teacher: { id: string; displayName: string };
+  replaces: { id: string; displayName: string } | null;
+  replacedBy: { id: string; displayName: string } | null;
+  class: { id: string; name: string; room: string | null };
+  level: { id: string; name: string } | null;
+  subject: string | null;
+  room: string | null;
+  date: string;
+  startAt: string;
+  endAt: string;
+  startTime: string;
+  endTime: string;
+  status: SessionStatus;
+  arrivedAt: string | null;
+  lateMinutes: number | null;
+  lateReason: LateReason | null;
+  requestId: string | null;
+  cancelReason: string | null;
+}
+
+export interface ExpectedDay {
+  date: string;
+  serverNow: string;
+  settings: { lateThresholdMinutes: number; toleranceMinutes: number };
+  counts: { expected: number; present: number; late: number; notArrived: number };
+  lines: ExpectedLine[];
+}
+
+export interface ExpectedFilter {
+  date?: string;
+  teacherId?: string;
+  classId?: string;
+  status?: SessionStatus;
 }

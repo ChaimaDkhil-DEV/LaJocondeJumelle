@@ -4,6 +4,7 @@ import { stableId } from '../../prisma/demo/random';
 import { SCENARIOS } from '../../prisma/demo/request-scenarios';
 import { demoFamilies, demoTeacherClasses } from '../../prisma/demo/parents';
 import { assertLocalDevelopmentDatabase, backupName, PURGE_STATEMENTS } from '../../prisma/demo/reset';
+import { DEMO_TIMETABLE_TEACHERS, demoTimetableSeries } from '../../prisma/demo/timetable';
 import { ALL_ACCOUNTS, CATEGORIES, CLASSES, FLOORS, GUIDELINES, LEVELS, STAFF, fictionalPhone } from '../../prisma/demo/school-data';
 import { markReadings, simulateDemo, type DemoData, type Directory } from '../../prisma/demo/simulate';
 import { atLocalTime, localDate, localTime } from '../../src/common/school-time';
@@ -246,6 +247,33 @@ describe('Jeu de démonstration — sécurité de la remise à zéro', () => {
       for (const later of ['File', 'Student', 'SchoolClass', 'User']) expect(at(table)).toBeLessThan(at(later));
     }
     expect(at('ParentCommunicationRevision')).toBeLessThan(at('ParentCommunication'));
+  });
+
+  it('purge : les emplois du temps (020) sont effacés avant les comptes et les classes', () => {
+    const at = (table: string) => PURGE_STATEMENTS.findIndex((s) => s.startsWith(`DELETE FROM "${table}"`));
+    expect(at('TeachingSession')).toBeGreaterThanOrEqual(0);
+    expect(at('TeachingSession')).toBeLessThan(at('TimetableSeries'));
+    for (const later of ['SchoolClass', 'User']) expect(at('TimetableSeries')).toBeLessThan(at(later));
+  });
+
+  it('emplois du temps (020) : une partie des enseignants seulement, sans chevauchement', () => {
+    const series = demoTimetableSeries();
+    const usernames = new Set(series.map((s) => s.username));
+    const teachers = STAFF.filter((s) => s.kind === 'teacher');
+    // 10 titulaires + la professeure d'anglais ; les autres enseignants n'ont pas d'emploi du temps.
+    expect(usernames.size).toBe(DEMO_TIMETABLE_TEACHERS + 1);
+    expect(teachers.filter((t) => !usernames.has(t.username)).length).toBe(teachers.length - DEMO_TIMETABLE_TEACHERS);
+    expect(new Set(series.map((s) => s.key)).size).toBe(series.length);
+    for (const s of series) expect(CLASSES.some((c) => c.key === s.classKey)).toBe(true);
+
+    const minutes = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3));
+    const overlap = (a: (typeof series)[number], b: (typeof series)[number]) =>
+      a.weekday === b.weekday && minutes(a.startTime) < minutes(b.endTime) && minutes(b.startTime) < minutes(a.endTime);
+    for (const [i, a] of series.entries()) {
+      for (const b of series.slice(i + 1)) {
+        if (a.username === b.username || a.classKey === b.classKey) expect(overlap(a, b)).toBe(false);
+      }
+    }
   });
 
   it('communication avec les parents : titulaire dans sa classe, spécialistes partout ; trois familles, la première avec deux enfants dans deux classes', () => {

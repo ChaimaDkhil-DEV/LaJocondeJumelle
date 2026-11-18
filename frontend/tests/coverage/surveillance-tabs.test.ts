@@ -11,8 +11,8 @@ import {
 /** 012 (research R4, data-model.md) : clés des onglets de « Surveillance » et anciennes adresses. */
 
 describe('clés des onglets et des filtres', () => {
-  it('onglets d’administration, dans l’ordre (« Enseignants présents » ajouté par 019)', () => {
-    expect(ADMIN_TAB_KEYS).toEqual(['absences-retards', 'presents', 'affectation', 'suivi']);
+  it('onglets d’administration, dans l’ordre (« Enseignants présents » ajouté par 019, « Enseignants attendus » par 020)', () => {
+    expect(ADMIN_TAB_KEYS).toEqual(['absences-retards', 'presents', 'attendus', 'affectation', 'suivi']);
   });
 
   it('trois filtres de suivi, « Prise en charge » par défaut', () => {
