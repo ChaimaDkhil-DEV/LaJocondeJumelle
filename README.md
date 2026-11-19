@@ -136,7 +136,8 @@ docker compose -f deploy/docker-compose.yml --env-file deploy/.env exec api \
   node dist/cli/bootstrap.js --reset-password
 ```
 
-Backups run daily (database and files, kept 14 days); the restore procedure
+Backups run daily (database and files, encrypted with age, kept 14 days): set `BACKUP_AGE_RECIPIENT`
+and keep the private key off the server, see [docs/sauvegardes-chiffrees.md](docs/sauvegardes-chiffrees.md). The restore procedure
 (`deploy/backup/restore.sh`) must be tested before going live. To change server or go back to the
 previous one, see [docs/migration-hebergeur.md](docs/migration-hebergeur.md).
 

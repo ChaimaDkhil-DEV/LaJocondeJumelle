@@ -41,9 +41,11 @@ git clone <dépôt> && cd LaJocondeJumelle
 cp deploy/.env.example deploy/.env
 ```
 
-Renseigner dans `deploy/.env` : `DOMAIN`, `ACME_EMAIL`, `POSTGRES_PASSWORD` (`openssl rand -hex 32`),
+Renseigner dans `deploy/.env` : `DOMAIN`, `ACME_EMAIL`, `POSTGRES_PASSWORD` et `APP_DB_PASSWORD` (chacun
+`openssl rand -hex 32`, voir `docs/roles-base-de-donnees.md`),
 `SESSION_SECRET` (`openssl rand -base64 48`, **à conserver hors du serveur** : le perdre invalide les QR
-codes imprimés), `SCHOOL_TIMEZONE=Africa/Tunis`, `BACKUP_OFFSITE_DIR`, `CF_API_TOKEN`, `CF_TUNNEL_TOKEN`.
+codes imprimés), `SCHOOL_TIMEZONE=Africa/Tunis`, `BACKUP_OFFSITE_DIR`, `BACKUP_AGE_RECIPIENT` (clé publique de chiffrement des
+sauvegardes, clé privée gardée hors du serveur : `docs/sauvegardes-chiffrees.md`), `CF_API_TOKEN`, `CF_TUNNEL_TOKEN`.
 
 ## 5. Déploiement
 
@@ -66,6 +68,11 @@ données et fichiers seulement).
 - Un message de test du personnel apparaît chez un parent de test (comptes à supprimer ensuite).
 - Dans le journal d'audit, l'adresse IP d'une connexion depuis la 4G est celle du téléphone, pas celle du
   conteneur `cloudflared` (sinon, vérifier `trusted_proxies` et `TRUST_PROXY`).
+- Depuis le Wi-Fi de l'école, l'adresse IP du journal d'audit est celle de l'appareil, même s'il envoie un
+  en-tête `X-Forwarded-For` : Caddy ne fait confiance qu'à l'adresse fixe de `cloudflared`
+  (`CLOUDFLARED_IP`, réseau Docker `tunnel`, audit de sécurité R04). Si le réseau de l'école utilise déjà
+  `172.30.255.0/29`, changer ensemble `TUNNEL_SUBNET`, `TUNNEL_IP_RANGE` et `CLOUDFLARED_IP` (dans le
+  sous-réseau, hors de la plage automatique) : voir `deploy/.env.example`.
 
 ## 7. Points d'attention
 

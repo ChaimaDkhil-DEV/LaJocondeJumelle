@@ -3,6 +3,7 @@
 #   0 8 * * * cd /chemin/du/depot && deploy/backup/check-backup.sh
 # Échoue et alerte BACKUP_ALERT_URL (POST texte) si la dernière sauvegarde de la base ou des
 # fichiers, locale ou hors du serveur, est absente ou plus ancienne que BACKUP_MAX_AGE_HOURS.
+# Seules les archives chiffrées comptent (audit R03) : une archive en clair ne prouve rien.
 # Tourne hors des conteneurs : il signale aussi un service « backup » arrêté.
 set -uo pipefail
 
@@ -24,7 +25,7 @@ ALERT_URL="$(env_value BACKUP_ALERT_URL)"
 problems=()
 check_dir() {
   local label="$1" dir="$2" pattern
-  for pattern in 'db-*.dump' 'files-*.tar.gz'; do
+  for pattern in 'db-*.dump.age' 'files-*.tar.gz.age'; do
     if [ -z "$(find "${dir}" -maxdepth 1 -type f -name "${pattern}" -mmin -"$((MAX_AGE_HOURS * 60))" -print -quit 2>/dev/null)" ]; then
       problems+=("${label} : aucune sauvegarde ${pattern} de moins de ${MAX_AGE_HOURS} h dans ${dir}")
     fi
