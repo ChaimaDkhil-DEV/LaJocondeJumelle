@@ -138,12 +138,13 @@ export const colors: Record<ColorMode, ColorTokens> = {
 
 /**
  * Trois grands boutons de l'accueil enseignant : mêmes couleurs en clair et en sombre (fonds pleins).
- * Seul l'anneau de focus change : sombre sur fond clair, blanc en mode sombre.
+ * Seul l'anneau de focus change : sombre sur fond clair, blanc en mode sombre. Titre et indication (petit texte) à
+ * 4,5:1 au moins sur le fond, au repos et au survol (WCAG 1.4.3) : tests/design/home-actions-contrast.test.ts.
  */
 export const homeActions = {
   scan: { main: '#0B5ED7', hover: '#0A4FB5', text: '#FFFFFF', hint: '#DBEAFE', shadow: '0 8px 20px rgba(11, 94, 215, .35)' },
-  urgent: { main: '#DC2626', hover: '#B91C1C', text: '#FFFFFF', hint: '#FEE2E2', relief: '#991B1B' },
-  normal: { main: '#F59E0B', hover: '#D97706', text: '#1F2937', hint: '#78350F', relief: '#B45309' },
+  urgent: { main: '#DC2626', hover: '#B91C1C', text: '#FFFFFF', hint: '#FFFFFF', relief: '#991B1B' },
+  normal: { main: '#F59E0B', hover: '#D97706', text: '#1F2937', hint: '#3B1702', relief: '#B45309' },
   focusRing: { light: '#1F2937', dark: '#FFFFFF' },
 } as const;
 

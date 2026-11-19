@@ -6,9 +6,8 @@ import { login } from './support/login';
 /**
  * Emplois du temps (020) : l'administration saisit une séance (conflit refusé et expliqué), l'enseignante la voit
  * dans « Mon emploi du temps », la liste « Enseignants attendus » donne son statut à partir du pointage QR existant
- * (« Non arrivé » après la tolérance, « En retard » une fois arrivée), un surveillant n'a pas accès. Rejouable : les
- * séances du jour laissées par un lancement précédent sont annulées d'abord, et le statut attendu suit l'état de
- * présence du jour (déjà arrivée ou non).
+ * (« Non arrivé » après la tolérance, « En retard » une fois arrivée), un surveillant n'a pas accès. Indépendant des
+ * autres scénarios : l'enseignante est un compte créé pour ce lancement (dedicatedTeacher).
  */
 const CLASS_NAME = '1ère année Violet';
 const OTHER_CLASS = '2e année Bleu';
@@ -52,6 +51,51 @@ async function cancelToday(admin: Page, teacherId: string, date: string): Promis
   }
 }
 
+/**
+ * Enseignant propre au scénario, créé par le super administrateur et ajouté au groupe « Enseignants ». Avec le compte
+ * « enseignante », partagé, le statut dépendait de l'ordre des fichiers : coverage-class (Chromium, plus tôt dans le
+ * lancement) lui fait signaler une absence sur l'heure en cours puis la termine, et sa séance devenait « Absence
+ * justifiée » au lieu de « Non arrivé ». Une absence terminée ne s'annule pas : un compte neuf n'a aucun antécédent.
+ */
+async function dedicatedTeacher(browser: Browser, superadmin: Page, viewport: { width: number; height: number }) {
+  const marker = Date.now();
+  const displayName = `Enseignante EDT ${marker}`;
+  const created = await superadmin.request.post('/api/admin/users', {
+    headers: origin(superadmin),
+    data: { username: `edt.${marker}`, displayName, role: 'EMPLOYEE' },
+  });
+  expect(created.status()).toBe(201);
+  const { user, temporaryPassword } = (await created.json()) as { user: { id: string }; temporaryPassword: string };
+  const groups = (await (await superadmin.request.get('/api/admin/coverage/groups')).json()) as Array<{
+    id: string;
+    name: string;
+    active: boolean;
+    systemKey: string | null;
+    members: Array<{ id: string }>;
+  }>;
+  const teachers = groups.find((g) => g.systemKey === 'TEACHERS')!;
+  const joined = await superadmin.request.patch(`/api/admin/coverage/groups/${teachers.id}`, {
+    headers: origin(superadmin),
+    data: { name: teachers.name, active: teachers.active, memberIds: [...teachers.members.map((m) => m.id), user.id] },
+  });
+  expect(joined.ok(), 'ajout au groupe « Enseignants »').toBeTruthy();
+
+  // Première connexion : le mot de passe provisoire est remplacé (même session ensuite pour le navigateur).
+  const context = await browser.newContext({ viewport, hasTouch: viewport.width < 600, isMobile: viewport.width < 600 });
+  const page = await context.newPage();
+  await page.goto('/connexion');
+  const headers = { Origin: new URL(page.url()).origin };
+  const login = await context.request.post('/api/auth/login', { headers, data: { username: `edt.${marker}`, password: temporaryPassword } });
+  expect(login.status()).toBe(200);
+  const changed = await context.request.post('/api/auth/password', {
+    headers,
+    data: { currentPassword: temporaryPassword, newPassword: `Emploi-du-temps-${marker}!` },
+  });
+  expect(changed.status()).toBe(204);
+  await page.goto('/');
+  return { session: { context, page }, me: { id: user.id, displayName } };
+}
+
 test.describe('Emplois du temps', () => {
   // eslint-disable-next-line no-empty-pattern
   test.beforeEach(({}, testInfo) => {
@@ -63,16 +107,13 @@ test.describe('Emplois du temps', () => {
 
   test('séance saisie, conflit refusé, vue de l’enseignante, statut d’après le pointage', async ({ browser }) => {
     const admin = await open(browser, 'admin', DESKTOP);
-    const teacher = await open(browser, 'enseignante', PHONE);
     const supervisor = await open(browser, 'surveillant', PHONE);
     const superadmin = await open(browser, 'superadmin', DESKTOP);
+    const { session: teacher, me } = await dedicatedTeacher(browser, superadmin.page, PHONE);
     try {
       const start = schoolClock(-15);
       const end = schoolClock(25);
       await admin.page.goto('/admin/emplois-du-temps');
-      const teachers = (await (await admin.page.request.get('/api/admin/teacher-classes')).json()) as Array<{ teacher: { id: string; displayName: string } }>;
-      const me = teachers.find((t) => t.teacher.displayName === 'Enseignante')!.teacher;
-      await cancelToday(admin.page, me.id, start.date);
 
       // --- Administration : séance commencée il y a 15 minutes, pour l'enseignante.
       await expect(admin.page.getByRole('heading', { name: 'Emplois du temps' })).toBeVisible();
@@ -148,10 +189,7 @@ test.describe('Emplois du temps', () => {
       const refused = await supervisor.page.request.get(`/api/timetable/sessions?from=${start.date}&to=${start.date}`);
       expect(refused.status()).toBe(404);
     } finally {
-      const date = schoolClock(0).date;
-      const teachers = (await (await admin.page.request.get('/api/admin/teacher-classes')).json()) as Array<{ teacher: { id: string; displayName: string } }>;
-      const me = teachers.find((t) => t.teacher.displayName === 'Enseignante');
-      if (me) await cancelToday(admin.page, me.teacher.id, date);
+      await cancelToday(admin.page, me.id, schoolClock(0).date);
       for (const s of [admin, teacher, supervisor, superadmin]) await s.context.close();
     }
   });

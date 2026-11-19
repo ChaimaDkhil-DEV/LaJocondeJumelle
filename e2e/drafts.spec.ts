@@ -62,7 +62,10 @@ test.describe('Brouillons de demande (spec 007)', () => {
     await expect(page.getByRole('tab', { name: 'Brouillons' })).toHaveAttribute('aria-selected', 'true');
     const row = page.getByRole('link', { name: byTitle(title) });
     await expect(row).toBeVisible();
-    await expect(row.getByText('Brouillon', { exact: true })).toBeVisible();
+    // « Mes demandes » simplifiée (66a816e) : plus de badge de statut sur la ligne ; le brouillon est rangé sous
+    // « Brouillons » et son lien ouvre la page du brouillon.
+    await expect(page.getByRole('tabpanel', { name: 'Brouillons' }).getByRole('heading', { name: title })).toBeVisible();
+    await expect(row).toHaveAttribute('href', /\/brouillon$/);
     await expectNoA11yViolations(page);
     await page.getByRole('tab', { name: 'Envoyées' }).click();
     await expect(page.getByRole('tab', { name: 'Envoyées' })).toHaveAttribute('aria-selected', 'true');

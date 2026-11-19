@@ -39,6 +39,8 @@ test.describe('Espace Administrateur de l’admin (011)', () => {
       'Élèves',
       'Représentants',
       'Classes des enseignants',
+      // Emplois du temps des enseignants (020, 1fe44f2) : section ouverte à l'admin.
+      'Emplois du temps',
       'Employés',
     ]);
     await expectNoA11yViolations(page);

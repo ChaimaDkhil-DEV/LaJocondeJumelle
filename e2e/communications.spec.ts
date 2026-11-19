@@ -242,14 +242,16 @@ test('017 — signalement, réponse, « Contacter le parent », validation, lect
   ).toBeVisible();
   await parent.context().close();
 
-  // La réponse du parent arrive dans la boîte de réception, type « Famille ».
+  // La réponse du parent arrive dans la boîte de réception, non lue. Écrans Messages simplifiés (f8cf4fe) : la ligne
+  // ne porte plus l'étiquette « Famille » mais le nom du représentant, la réponse et la pastille « non lu ».
   await page.goto('/communications/boite');
-  await expect(
-    page
-      .getByRole('list', { name: 'Conversations' })
-      .getByRole('link')
-      .filter({ hasText: data.studentName }),
-  ).toContainText('Famille');
+  const family = page
+    .getByRole('list', { name: 'Conversations' })
+    .getByRole('link')
+    .filter({ hasText: data.studentName })
+    .filter({ hasText: parentReply });
+  await expect(family).toContainText(data.guardianName);
+  await expect(family.getByRole('img', { name: /message non lu/ })).toBeVisible();
 });
 
 test('017 — écrans « Communications » à 320 px : sans défilement horizontal ni violation axe', async ({
