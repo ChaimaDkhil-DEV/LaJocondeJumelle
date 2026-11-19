@@ -29,6 +29,10 @@ nor the voice ever leaves the application.
 | Validator: permission « Valider les communications aux parents » (super administrator always) | « À valider »: approve, return (reason required), reject (reason required). **Never their own message.** |
 | Parent (role `PARENT`) | « Messages de l’école » only: their family conversations and archives, « Nouvelle conversation » (child chosen first), answer by voice or text. Sees « L’école », never an administrator's name. Every other page and API route is refused (403); an internal conversation answers « not found ». |
 
+The « Messages de l’école » API (`/api/parent/messages/*`) answers the parent account only: any staff account gets
+403 (`ParentSpaceGuard`, logged `ACCESS_DENIED` / `NOT_PARENT`), even on a conversation it can open from its own
+screens (security audit G.1, `backend/test/integration/route-permission-matrix.spec.ts`).
+
 Permissions per role: « Administration > Réglages > Permissions par rôle » (super administrator).
 
 ## Setting up (administration)
@@ -138,8 +142,10 @@ has no contact for is skipped.
 - Rotating `N8N_SHARED_SECRET`: change it in `deploy/.env` and redeploy; the API and n8n read the same
   variable. Events sent with the old secret are retried and accepted with the new one.
 - Never change `N8N_ENCRYPTION_KEY` of an existing installation: n8n could no longer decrypt its credentials.
-- Restoring n8n: stop `n8n`, restore `BACKUP_DIR/n8n/db-*.dump` into `n8n-db` with `pg_restore --clean`, extract
-  `files-*.tar.gz` into the `n8n_data` volume, start `n8n` with the same encryption key.
+- Restoring n8n: the archives are encrypted with age (`db-*.dump.age`, `files-*.tar.gz.age`, see
+  `docs/sauvegardes-chiffrees.md`); decrypt them with the backup private key first. Then stop `n8n`, restore
+  the database dump into `n8n-db` with `pg_restore --clean`, extract the files archive into the `n8n_data`
+  volume, start `n8n` with the same encryption key.
 
 ### Deployment and rollback
 

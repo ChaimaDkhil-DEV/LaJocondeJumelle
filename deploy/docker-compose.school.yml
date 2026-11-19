@@ -9,15 +9,36 @@ services:
     environment:
       CADDY_PROFILE: school
       CF_API_TOKEN: ${CF_API_TOKEN:?CF_API_TOKEN manquant}
+      # Seule adresse dont Caddy accepte l'en-tête X-Forwarded-For (audit de sécurité R04).
+      CLOUDFLARED_IP: ${CLOUDFLARED_IP:-172.30.255.2}
+    # Réseau de l'API (default) et réseau du tunnel.
+    networks:
+      - default
+      - tunnel
 
   # Tunnel sortant vers Cloudflare : aucun port publié. Le nom d'hôte public (DOMAIN) est déclaré dans
   # Cloudflare Zero Trust (Tunnels) avec le service https://caddy:443 et « Origin Server Name » = DOMAIN.
+  # Adresse fixe sur un réseau réservé au tunnel : Caddy ne fait confiance qu'à elle ; cloudflared ne
+  # joint ni l'API ni la base.
   cloudflared:
     image: cloudflare/cloudflared:2026.11.0
     restart: unless-stopped
     command: tunnel --no-autoupdate run
     environment:
       TUNNEL_TOKEN: ${CF_TUNNEL_TOKEN:?CF_TUNNEL_TOKEN manquant}
+    networks:
+      tunnel:
+        ipv4_address: ${CLOUDFLARED_IP:-172.30.255.2}
     depends_on:
       caddy:
         condition: service_started
+
+# À changer (deploy/.env) seulement si le réseau de l'école utilise déjà ces adresses. Les adresses
+# attribuées automatiquement (Caddy) restent dans ip_range, hors de CLOUDFLARED_IP : sans cela, Caddy,
+# démarré avant cloudflared, pourrait prendre son adresse.
+networks:
+  tunnel:
+    ipam:
+      config:
+        - subnet: ${TUNNEL_SUBNET:-172.30.255.0/29}
+          ip_range: ${TUNNEL_IP_RANGE:-172.30.255.4/30}

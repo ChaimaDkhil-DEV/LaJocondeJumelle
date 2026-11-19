@@ -11,8 +11,9 @@ the repository root. "Old server" and "new server" are the two hosts.
 
 | Item | How it moves |
 |------|--------------|
-| Database | `db-<timestamp>.dump`, restored with `deploy/backup/restore.sh` |
-| Voice messages, photos, documents, avatars | `files-<timestamp>.tar.gz`, restored by the same script |
+| Database | `db-<timestamp>.dump.age` (encrypted), restored with `deploy/backup/restore.sh` and the private key |
+| Voice messages, photos, documents, avatars | `files-<timestamp>.tar.gz.age` (encrypted), restored by the same script |
+| Backup private key | Never on a server: brought for the restore, then removed ([sauvegardes-chiffrees.md](sauvegardes-chiffrees.md)) |
 | `deploy/.env` | Copied by hand: **no backup contains it** |
 | Code | Same Git commit, cloned on the new server |
 | Images | Rebuilt on the new server |
@@ -20,7 +21,8 @@ the repository root. "Old server" and "new server" are the two hosts.
 
 **Keep the same `SESSION_SECRET`.** Printed class QR codes are signed with a key derived from it: a new
 value invalidates them all, as well as every session. Keep the same `POSTGRES_USER` and `POSTGRES_DB`
-too. `POSTGRES_PASSWORD` can differ.
+too. `POSTGRES_PASSWORD` and `APP_DB_PASSWORD` can differ: the `migrate` service recreates the API's runtime role
+and its grants on the new server ([roles-base-de-donnees.md](roles-base-de-donnees.md)).
 
 Never run `DC down -v` on either server: it deletes the database and file volumes.
 
@@ -57,14 +59,14 @@ Note the timestamp printed at the end of the backup. **Do not delete anything on
 Copy the two archives into the backups folder of the new server (`deploy/backups` by default):
 
 ```bash
-scp deploy/backups/db-<timestamp>.dump deploy/backups/files-<timestamp>.tar.gz new-server:/path/to/repository/deploy/backups/
+scp deploy/backups/db-<timestamp>.dump.age deploy/backups/files-<timestamp>.tar.gz.age new-server:/path/to/repository/deploy/backups/
 ```
 
 Compare `sha256sum` of both files on each server. Then, on the new server:
 
 ```bash
 DC up -d db        # wait for "healthy" in DC ps
-deploy/backup/restore.sh <timestamp>   # type RESTAURER
+deploy/backup/restore.sh <timestamp> /tmp/backup-key.txt   # type RESTAURER, then shred -u the key
 DC ps              # every service running, api healthy
 ```
 
@@ -122,7 +124,7 @@ Going back as in case A would **lose everything written since the move**. Choose
   1. On the new server: `DC stop caddy api`, then a backup as in "Freeze the old server".
   2. Copy both archives to the old server. Its `deploy/.env` already has the right values.
   3. On the old server, check that the commit is the same as on the new one, then run
-     `deploy/backup/restore.sh <timestamp>`.
+     `deploy/backup/restore.sh <timestamp> <private key file>`.
   4. Point the DNS back to the old server and run the checks above.
 
 Run the code that matches the backup. **Nothing stops older code from starting on a newer database:**

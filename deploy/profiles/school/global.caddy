@@ -1,7 +1,13 @@
 # Profil « school » (serveur local d'une école, docker-compose.school.yml).
-# cloudflared (réseau Docker privé) relaie les parents : Caddy garde alors l'en-tête X-Forwarded-For
-# reçu (adresse réelle du parent, ajoutée par Cloudflare) au lieu de le remplacer par l'adresse du
-# conteneur. L'API (TRUST_PROXY=uniquelocal) en tire la bonne IP pour la limitation de débit et l'audit.
+# cloudflared relaie les parents : Caddy garde alors l'en-tête X-Forwarded-For reçu (adresse réelle du
+# parent, ajoutée par Cloudflare) au lieu de le remplacer par l'adresse du conteneur. L'API
+# (TRUST_PROXY=uniquelocal) en tire la bonne IP pour la limitation de débit et l'audit.
+#
+# Audit de sécurité R04 : seule l'adresse fixe de cloudflared (réseau « tunnel ») est digne de confiance,
+# jamais les réseaux privés, sinon tout appareil du Wi-Fi de l'école choisirait son adresse IP.
+# Strict : Cloudflare ajoute l'adresse réelle à droite d'un en-tête éventuellement fourni par le client,
+# c'est donc l'adresse la plus à droite qui n'est pas cloudflared qui compte.
 servers {
-	trusted_proxies static private_ranges
+	trusted_proxies static {$CLOUDFLARED_IP}/32
+	trusted_proxies_strict
 }

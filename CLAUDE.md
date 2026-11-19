@@ -25,8 +25,9 @@
 - If `migrate dev` offers to reset the database ("reset"), refuse and report the drift:
   never wipe the development database without explicit agreement.
 - Never run `migrate dev`, `migrate reset` or `db push` against any database other than the local one.
-  In production, only `prisma migrate deploy` runs, via `deploy/api-entrypoint.sh`, after
-  a recent backup.
+  In production, only `prisma migrate deploy` runs, in the `migrate` service
+  (`deploy/migrate-entrypoint.sh`, owner account), after a recent backup; the API itself only has the
+  runtime role (`docs/roles-base-de-donnees.md`).
 - The project's migrations come with a `down.sql` (manual rollback, see
   `backend/prisma/migrations/0002_coverage/down.sql`).
   - **Exemption: `0001_init` has no `down.sql`.** It creates the whole initial schema; its only
