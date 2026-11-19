@@ -39,6 +39,11 @@ COMPOSE+=(--env-file deploy/.env)
 
 echo "[deploy] commit déployé : $(git rev-parse --short HEAD)"
 
+# Image de sauvegarde (postgres:17 et age, audit R03) reconstruite d'abord : une sauvegarde chiffrée
+# exige age, absent de l'ancienne image.
+echo "[deploy] 1/2 : image de sauvegarde"
+"${COMPOSE[@]}" build backup
+
 echo "[deploy] 1/2 : sauvegarde avant mise à jour"
 if ! "${COMPOSE[@]}" run --rm --entrypoint /bin/bash backup /scripts/backup.sh; then
   echo "[deploy] ÉCHEC de la sauvegarde : aucun conteneur modifié." >&2
@@ -49,6 +54,7 @@ fi
 # quand il tourne déjà (premier déploiement de n8n : rien à sauvegarder).
 if "${COMPOSE[@]}" ps --status running --services 2>/dev/null | grep -qx n8n-db; then
   echo "[deploy] 1/2 : sauvegarde de n8n avant mise à jour"
+  "${COMPOSE[@]}" build n8n-backup
   if ! "${COMPOSE[@]}" run --rm --entrypoint /bin/bash n8n-backup /scripts/backup.sh; then
     echo "[deploy] ÉCHEC de la sauvegarde de n8n : aucun conteneur modifié." >&2
     exit 1

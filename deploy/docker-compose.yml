@@ -201,7 +201,9 @@ services:
   # Sauvegarde quotidienne de n8n (base + dossier /home/node/.n8n), mêmes scripts et même rotation
   # que l'application, dans le sous-dossier n8n de BACKUP_DIR (et de BACKUP_OFFSITE_DIR).
   n8n-backup:
-    image: postgres:17
+    build:
+      context: ..
+      dockerfile: deploy/backup.Dockerfile
     profiles: ['n8n']
     restart: unless-stopped
     environment:
@@ -210,6 +212,8 @@ services:
       PGPASSWORD: ${N8N_POSTGRES_PASSWORD:-}
       PGDATABASE: ${N8N_POSTGRES_DB:-n8n}
       BACKUP_TIME: ${N8N_BACKUP_TIME:-02:45}
+      # Clé(s) publique(s) age : archives chiffrées, refus sans clé (audit R03, docs/sauvegardes-chiffrees.md).
+      BACKUP_AGE_RECIPIENT: ${BACKUP_AGE_RECIPIENT:-}
       BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
       OFFSITE_ENABLED: ${BACKUP_OFFSITE_DIR:+1}
       TZ: ${TZ:-Europe/Paris}
@@ -220,7 +224,7 @@ services:
       - ${BACKUP_OFFSITE_DIR:-./backups}/n8n:/offsite
     entrypoint: ['/bin/bash', '/scripts/run-nightly.sh']
     healthcheck:
-      test: ['CMD-SHELL', 'test -n "$$(find /backups -maxdepth 1 -name "db-*.dump" -mmin -1560 -print -quit)"']
+      test: ['CMD-SHELL', 'test -n "$$(find /backups -maxdepth 1 -name "db-*.dump.age" -mmin -1560 -print -quit)"']
       interval: 5m
       timeout: 10s
       start_period: 1m
@@ -249,9 +253,11 @@ services:
       timeout: 5s
       retries: 10
 
-  # Sauvegarde quotidienne : pg_dump compressé + archive des fichiers, rotation 14 jours.
+  # Sauvegarde quotidienne : pg_dump compressé + archive des fichiers, chiffrés (age), rotation 14 jours.
   backup:
-    image: postgres:17
+    build:
+      context: ..
+      dockerfile: deploy/backup.Dockerfile
     restart: unless-stopped
     environment:
       PGHOST: db
@@ -259,6 +265,8 @@ services:
       PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD manquant}
       PGDATABASE: ${POSTGRES_DB:-app}
       BACKUP_TIME: ${BACKUP_TIME:-02:30}
+      # Clé(s) publique(s) age : archives chiffrées, refus sans clé (audit R03, docs/sauvegardes-chiffrees.md).
+      BACKUP_AGE_RECIPIENT: ${BACKUP_AGE_RECIPIENT:-}
       BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
       # Non vide seulement si BACKUP_OFFSITE_DIR est défini.
       OFFSITE_ENABLED: ${BACKUP_OFFSITE_DIR:+1}
@@ -274,7 +282,7 @@ services:
     # « unhealthy » si aucune sauvegarde de la base n'a réussi depuis 26 h (docker compose ps).
     # L'alerte vers l'extérieur vient de deploy/backup/check-backup.sh (tâche cron de l'hôte).
     healthcheck:
-      test: ['CMD-SHELL', 'test -n "$$(find /backups -maxdepth 1 -name "db-*.dump" -mmin -1560 -print -quit)"']
+      test: ['CMD-SHELL', 'test -n "$$(find /backups -maxdepth 1 -name "db-*.dump.age" -mmin -1560 -print -quit)"']
       interval: 5m
       timeout: 10s
       start_period: 1m
