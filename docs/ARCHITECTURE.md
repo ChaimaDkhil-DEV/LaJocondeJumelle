@@ -421,7 +421,7 @@ Key points:
   - `0002_coverage`: phase 2, additive migration, accompanied by a manual `down.sql`;
   - `0003_request_event_seq` (feature 003, finding N3): `RequestEvent.seq` column, write order of the history events.
 - **[VERIFIED]** In dev: `npm run -w backend prisma:migrate` (`prisma migrate dev`).
-- **[VERIFIED]** In prod: `prisma migrate deploy` is run **at every container start** (`deploy/api-entrypoint.sh`).
+- **[VERIFIED]** In prod: `prisma migrate deploy` is run **at every start**, by the one-shot `migrate` service (`deploy/migrate-entrypoint.sh`, since the security audit of 2026-11-18, R02; previously `deploy/api-entrypoint.sh`).
   → **Fixed** (`4575b84`): a pending migration is applied only if a recent backup exists; `deploy/deploy.sh` produces it.
 - **[VERIFIED]** The backup and rollback procedure for phase 2 is described in `docs/coverage-migration.md`.
 
@@ -584,7 +584,7 @@ npm run -w frontend dev                   # Vite on :5173, /api and /socket.io p
 
 ### Deployment (VPS)
 
-**[VERIFIED]** Sources: `deploy/docker-compose.yml`, `api.Dockerfile`, `web.Dockerfile`, `api-entrypoint.sh`, `deploy.sh`.
+**[VERIFIED]** Sources: `deploy/docker-compose.yml`, `api.Dockerfile`, `web.Dockerfile`, `migrate-entrypoint.sh`, `deploy.sh`.
 
 ```bash
 cp deploy/.env.example deploy/.env
@@ -596,7 +596,10 @@ docker compose -f deploy/docker-compose.yml --env-file deploy/.env exec api node
 
 - **[VERIFIED]** Four services:
   - `caddy`: image built with the SPA;
-  - `api`: Node 24 + ffmpeg, non-root `node` user, `HEALTHCHECK` on `/api/health`, migrations applied at startup;
+  - `api`: Node 24 + ffmpeg, non-root `node` user, `HEALTHCHECK` on `/api/health`; connects with the runtime role
+    `APP_DB_USER` (rows only) and refuses to start in production with a superuser or table owner (R02);
+  - `migrate`: same image, one-shot, owner account: migrations, then the runtime role and its grants
+    (`docs/roles-base-de-donnees.md`); the API starts only after it succeeds;
   - `db`: `postgres:17`;
   - `backup`: daily loop, `pg_dump` + `tar`, 14-day rotation, copy off the VPS only if `BACKUP_OFFSITE_DIR` is set.
     Since the security audit of 2026-11-18 (R03), every archive is encrypted with age for `BACKUP_AGE_RECIPIENT`
@@ -651,9 +654,9 @@ docker compose -f deploy/docker-compose.yml --env-file deploy/.env exec api node
 
 - **[VERIFIED]** The in-memory state (throttler, Socket.IO adapter, `running` flag of the jobs) **imposes a single instance** of the API. This is accepted in the plan.
 - **[VERIFIED]** **No automatic purge** of personal data: `grep` finds neither "retention" nor "purge" in `backend/src`. The README confirms it ("La suppression automatique à l'échéance n'est pas réalisée dans ce lot", i.e. automatic deletion at the due date is not carried out in this phase).
-- **[VERIFIED]** Migrations are applied automatically at every container start (`api-entrypoint.sh`).
+- **[VERIFIED]** Migrations are applied automatically at every start (`api-entrypoint.sh`, now the `migrate` service and `migrate-entrypoint.sh`).
   **[INFERRED]** A faulty migration would prevent the API from starting, with no intermediate validation step. `docs/coverage-migration.md` asks for a manual backup beforehand, but nothing enforces it technically.
-  → **Fixed** (`4575b84`): backup enforced before any migration (entrypoint and `deploy/deploy.sh`, tested by `api-entrypoint.spec.ts`). The real behavior of a faulty migration remains **[INFERRED]**: to be exercised on pre-production (task T055).
+  → **Fixed** (`4575b84`): backup enforced before any migration (entrypoint and `deploy/deploy.sh`, tested by `api-entrypoint.spec.ts`, now `migrate-entrypoint.spec.ts`). The real behavior of a faulty migration remains **[INFERRED]**: to be exercised on pre-production (task T055).
 - **[VERIFIED]** The script `backend/scripts/reset-superadmin-password.ts` changes the super administrator's password **with no audit entry and without revoking their sessions**, whereas `cli/bootstrap.ts` writes to `auditLog`. It therefore bypasses the traceability principle. → **Fixed** (`5ed613d`, decision D2): `bootstrap.js --reset-password`, `PASSWORD_RESET` audit entry and sessions closed; script deleted.
 - **[VERIFIED]** `embedded-postgres` is a beta version (`17.10.0-beta.17`), but only for development and tests.
 

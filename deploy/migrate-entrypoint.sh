@@ -1,8 +1,12 @@
 #!/bin/sh
-# Démarre l'API (research R12, FR-018). Une migration en attente n'est appliquée que si une
-# sauvegarde chiffrée de la base (db-*.dump.age, audit R03) de moins de PRE_MIGRATION_BACKUP_MAX_AGE_MINUTES minutes
-# existe dans PRE_MIGRATION_BACKUP_DIR ; sinon l'API refuse de démarrer sans toucher la base.
-# deploy/deploy.sh fait cette sauvegarde avant de reconstruire et redémarrer les conteneurs.
+# Service « migrate » (audit de sécurité R02), exécuté une fois avant chaque démarrage de l'API, seul à
+# détenir le compte propriétaire de la base (DATABASE_URL) ; l'API se connecte avec le rôle d'exécution.
+# 1. Une migration en attente n'est appliquée que si une sauvegarde chiffrée de la base (db-*.dump.age,
+#    audit R03) de moins de PRE_MIGRATION_BACKUP_MAX_AGE_MINUTES minutes existe dans PRE_MIGRATION_BACKUP_DIR
+#    (research R12, FR-018) ; sinon le service échoue sans toucher la base, et l'API ne démarre pas.
+#    deploy/deploy.sh fait cette sauvegarde avant de reconstruire et redémarrer les conteneurs.
+# 2. Le rôle d'exécution (APP_DB_USER, APP_DB_PASSWORD) et ses droits sont créés ou mis à jour, à chaque
+#    fois : les tables d'une nouvelle migration sont couvertes.
 set -eu
 
 BACKUP_DIR="${PRE_MIGRATION_BACKUP_DIR:-/backups}"
@@ -30,4 +34,4 @@ else
   esac
 fi
 
-exec node dist/main.js
+node dist/cli/db-roles.js

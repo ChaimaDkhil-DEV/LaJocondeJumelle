@@ -21,7 +21,8 @@ the repository root. "Old server" and "new server" are the two hosts.
 
 **Keep the same `SESSION_SECRET`.** Printed class QR codes are signed with a key derived from it: a new
 value invalidates them all, as well as every session. Keep the same `POSTGRES_USER` and `POSTGRES_DB`
-too. `POSTGRES_PASSWORD` can differ.
+too. `POSTGRES_PASSWORD` and `APP_DB_PASSWORD` can differ: the `migrate` service recreates the API's runtime role
+and its grants on the new server ([roles-base-de-donnees.md](roles-base-de-donnees.md)).
 
 Never run `DC down -v` on either server: it deletes the database and file volumes.
 

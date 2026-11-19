@@ -233,8 +233,8 @@ describe('configuration des sauvegardes chiffrées (R03)', () => {
     expect(build).toBeLessThan(script.indexOf('run --rm --entrypoint /bin/bash backup'));
   });
 
-  it('api-entrypoint.sh : la sauvegarde avant migration est une archive chiffrée', () => {
-    expect(read('deploy/api-entrypoint.sh')).toMatch(/-name 'db-\*\.dump\.age'/);
+  it('migrate-entrypoint.sh : la sauvegarde avant migration est une archive chiffrée', () => {
+    expect(read('deploy/migrate-entrypoint.sh')).toMatch(/-name 'db-\*\.dump\.age'/);
   });
 
   it('restore.sh : clé privée demandée, archives déchiffrées et vérifiées avant d’arrêter l’application', () => {

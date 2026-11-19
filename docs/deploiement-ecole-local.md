@@ -41,7 +41,8 @@ git clone <dépôt> && cd LaJocondeJumelle
 cp deploy/.env.example deploy/.env
 ```
 
-Renseigner dans `deploy/.env` : `DOMAIN`, `ACME_EMAIL`, `POSTGRES_PASSWORD` (`openssl rand -hex 32`),
+Renseigner dans `deploy/.env` : `DOMAIN`, `ACME_EMAIL`, `POSTGRES_PASSWORD` et `APP_DB_PASSWORD` (chacun
+`openssl rand -hex 32`, voir `docs/roles-base-de-donnees.md`),
 `SESSION_SECRET` (`openssl rand -base64 48`, **à conserver hors du serveur** : le perdre invalide les QR
 codes imprimés), `SCHOOL_TIMEZONE=Africa/Tunis`, `BACKUP_OFFSITE_DIR`, `BACKUP_AGE_RECIPIENT` (clé publique de chiffrement des
 sauvegardes, clé privée gardée hors du serveur : `docs/sauvegardes-chiffrees.md`), `CF_API_TOKEN`, `CF_TUNNEL_TOKEN`.

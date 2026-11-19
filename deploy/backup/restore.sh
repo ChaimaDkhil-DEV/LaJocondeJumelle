@@ -64,8 +64,10 @@ echo "Arrêt de l'application"
 "${COMPOSE[@]}" stop caddy api backup
 
 echo "Restauration de la base"
+# Droits de la sauvegarde ignorés (--no-privileges) : le rôle d'exécution peut ne pas exister ici (nouveau
+# serveur). Le service migrate le crée et réapplique ses droits au redémarrage (audit de sécurité R02).
 # Copie en clair dans le conteneur éphémère seulement, effacée à la sortie.
-in_backup 'set -e; t="$(mktemp)"; trap "rm -f \"$t\"" EXIT; '"${DB_PLAIN}"'; pg_restore --clean --if-exists --no-owner --exit-on-error --dbname="postgres://" "$t"'
+in_backup 'set -e; t="$(mktemp)"; trap "rm -f \"$t\"" EXIT; '"${DB_PLAIN}"'; pg_restore --clean --if-exists --no-owner --no-privileges --exit-on-error --dbname="postgres://" "$t"'
 
 echo "Restauration des fichiers"
 # Déchiffrement au fil de l'eau, du conteneur de sauvegarde vers l'API : aucun fichier en clair sur l'hôte.

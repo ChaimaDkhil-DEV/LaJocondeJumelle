@@ -67,8 +67,8 @@ une sauvegarde chiffrée, puis met à jour l'application. Le journal doit se ter
    find deploy/backups deploy/backups/n8n -maxdepth 1 -type f \( -name 'db-*.dump' -o -name 'files-*.tar.gz' \) -print -delete
    ```
 
-4. Une migration n'est appliquée au démarrage de l'API qu'après une sauvegarde **chiffrée** récente
-   (`db-*.dump.age`, `deploy/api-entrypoint.sh`).
+4. Une migration n'est appliquée avant le démarrage de l'API qu'après une sauvegarde **chiffrée** récente
+   (`db-*.dump.age`, `deploy/migrate-entrypoint.sh`, service `migrate`).
 
 ## 5. Restaurer
 
