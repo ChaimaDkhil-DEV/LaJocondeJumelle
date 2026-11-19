@@ -1,9 +1,9 @@
 #!/bin/sh
 # Service « migrate » (audit de sécurité R02), exécuté une fois avant chaque démarrage de l'API, seul à
 # détenir le compte propriétaire de la base (DATABASE_URL) ; l'API se connecte avec le rôle d'exécution.
-# 1. Une migration en attente n'est appliquée que si une sauvegarde de la base (db-*.dump) de moins de
-#    PRE_MIGRATION_BACKUP_MAX_AGE_MINUTES minutes existe dans PRE_MIGRATION_BACKUP_DIR (research R12,
-#    FR-018) ; sinon le service échoue sans toucher la base, et l'API ne démarre pas.
+# 1. Une migration en attente n'est appliquée que si une sauvegarde chiffrée de la base (db-*.dump.age,
+#    audit R03) de moins de PRE_MIGRATION_BACKUP_MAX_AGE_MINUTES minutes existe dans PRE_MIGRATION_BACKUP_DIR
+#    (research R12, FR-018) ; sinon le service échoue sans toucher la base, et l'API ne démarre pas.
 #    deploy/deploy.sh fait cette sauvegarde avant de reconstruire et redémarrer les conteneurs.
 # 2. Le rôle d'exécution (APP_DB_USER, APP_DB_PASSWORD) et ses droits sont créés ou mis à jour, à chaque
 #    fois : les tables d'une nouvelle migration sont couvertes.
@@ -20,7 +20,7 @@ else
   case "$STATUS" in
     *"have not yet been applied"*)
       printf '%s\n' "$STATUS"
-      RECENT="$(find "$BACKUP_DIR" -maxdepth 1 -name 'db-*.dump' -mmin -"$MAX_AGE_MINUTES" 2>/dev/null || true)"
+      RECENT="$(find "$BACKUP_DIR" -maxdepth 1 -name 'db-*.dump.age' -mmin -"$MAX_AGE_MINUTES" 2>/dev/null || true)"
       if [ -z "$RECENT" ]; then
         echo "Migration en attente sans sauvegarde récente : lancez deploy/deploy.sh." >&2
         exit 1

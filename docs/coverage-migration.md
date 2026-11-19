@@ -68,7 +68,7 @@ deploy/deploy.sh
 
 The script backs up the database **and** the files, then rebuilds and restarts the containers; at startup, the `migrate` service applies `prisma migrate deploy` (`deploy/migrate-entrypoint.sh`) before the API starts. If the backup fails, nothing is updated.
 
-Note the timestamp displayed by the backup (for example `[backup] terminé : db-20261013T173000Z.dump files-20261013T173000Z.tar.gz`, where "terminé" means "done"), then check that both files are present in the backups folder: this is the backup to restore in case of a problem.
+Note the timestamp displayed by the backup (for example `[backup] terminé : db-20261013T173000Z.dump.age files-20261013T173000Z.tar.gz.age`, where "terminé" means "done"), then check that both files are present in the backups folder: this is the backup to restore in case of a problem.
 
 The API refuses to apply a migration without a backup less than `PRE_MIGRATION_BACKUP_MAX_AGE_MINUTES` minutes old (60 by default): a `docker compose … up` run without the script stops with "Migration en attente sans sauvegarde récente : lancez deploy/deploy.sh." (pending migration without a recent backup: run deploy/deploy.sh), without touching the database.
 
@@ -96,7 +96,7 @@ Special case of a new database: the migration runs before the accounts exist, so
 This is the recommended method as soon as the module has been used:
 
 ```bash
-deploy/backup/restore.sh <timestamp of the backup taken before the migration>
+deploy/backup/restore.sh <timestamp of the backup taken before the migration> <backup private key file>
 ```
 
 Then redeploy the previous version of the application.

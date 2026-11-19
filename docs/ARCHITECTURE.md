@@ -602,6 +602,9 @@ docker compose -f deploy/docker-compose.yml --env-file deploy/.env exec api node
     (`docs/roles-base-de-donnees.md`); the API starts only after it succeeds;
   - `db`: `postgres:17`;
   - `backup`: daily loop, `pg_dump` + `tar`, 14-day rotation, copy off the VPS only if `BACKUP_OFFSITE_DIR` is set.
+    Since the security audit of 2026-11-18 (R03), every archive is encrypted with age for `BACKUP_AGE_RECIPIENT`
+    (image `deploy/backup.Dockerfile`), no backup is written without that key, and the private key stays off the
+    server (`docs/sauvegardes-chiffrees.md`).
 - **[VERIFIED]** Swagger (`/api/docs`) is exposed only outside production (`configureApp`).
 - **[VERIFIED]** There was **no CI/CD** in the repository (no `.github/` folder or equivalent in the tree).
   → **Fixed** (`b9ed428`): `.github/workflows/ci.yml` reruns lint, types, unit, integration and interface tests and `npm audit` on every push and pull request (decision D3). Because the repository is private on the free plan, merging is not technically blocked: a manual check is mandatory before merging (`docs/procedure-fusion.md`, decision D10, `7c2af4f`).

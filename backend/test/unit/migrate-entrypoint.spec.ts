@@ -67,8 +67,17 @@ interface Run {
   calls: string[];
 }
 
-/** Lance l'entrypoint réel avec de faux `npx` et `node`. `backupAgeMinutes` : âge d'une archive db-*.dump. */
-function runEntrypoint(state: keyof typeof STATUS, backupAgeMinutes?: number, rolesFail = false): Run {
+/**
+ * Lance l'entrypoint réel avec de faux `npx` et `node`. `backupAgeMinutes` : âge d'une archive de la base.
+ * Audit de sécurité R03 (exception documentée) : l'archive simulée est désormais chiffrée (`db-*.dump.age`) ;
+ * une archive en clair `db-*.dump` ne compte plus (cas 7). `rolesFail` : échec de l'application des droits (R02).
+ */
+function runEntrypoint(
+  state: keyof typeof STATUS,
+  backupAgeMinutes?: number,
+  archiveName = 'db-20260101T000000Z.dump.age',
+  rolesFail = false,
+): Run {
   const work = mkdtempSync(join(tmpdir(), 'ljj-entrypoint-'));
   try {
     const bin = join(work, 'bin');
@@ -94,7 +103,7 @@ function runEntrypoint(state: keyof typeof STATUS, backupAgeMinutes?: number, ro
     fake('node', rolesFail ? 'exit 1\n' : 'exit 0\n');
 
     if (backupAgeMinutes !== undefined) {
-      const archive = join(backups, 'db-20260101T000000Z.dump');
+      const archive = join(backups, archiveName);
       writeFileSync(archive, 'archive');
       const time = new Date(Date.now() - backupAgeMinutes * 60_000);
       utimesSync(archive, time, time);
@@ -156,9 +165,16 @@ describe('deploy/migrate-entrypoint.sh', () => {
   });
 
   it('(6) échec de l’application des droits : échec du service, l’API ne démarre pas', () => {
-    const run = runEntrypoint('uptodate', undefined, true);
+    const run = runEntrypoint('uptodate', undefined, undefined, true);
     expect(run.status).not.toBe(0);
     expect(rolesApplied(run)).toBe(true);
+  });
+
+  it('(7) migration en attente, sauvegarde récente mais en clair (avant R03) : refus', () => {
+    const run = runEntrypoint('pending', 5, 'db-20260101T000000Z.dump');
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain(REFUSAL);
+    expect(deployed(run)).toBe(false);
   });
 
   it('(5) base inaccessible : erreur de Prisma recopiée, rien n’est appliqué ni démarré', () => {
