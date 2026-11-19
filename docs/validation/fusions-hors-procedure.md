@@ -703,6 +703,10 @@ No `git revert`. The follow-up recorded for #126 is closed: `master` is green ag
 the `picomatch` exception in `audit-exceptions.json` must be reviewed by 18/12/2026 at the latest (the audit fails on its own
 after that date); when a fixed version is published, update the dependency and remove the exception.
 
+- **Closed on 18/11/2026**: GitHub withdrew the advisory `GHSA-fc5q-39xc-vjpf` (`withdrawn_at` 2026-11-18T15:38:56Z,
+  `gh api advisories/GHSA-fc5q-39xc-vjpf`); `npm audit` no longer reports it and the audit failed on the now useless
+  exception. The exception is removed from `audit-exceptions.json` (empty list); `npm run audit:check` is green.
+
 ### Reminder
 
 Wait for CI on the latest commit of the pull request, then tick the four checks, before merging.
