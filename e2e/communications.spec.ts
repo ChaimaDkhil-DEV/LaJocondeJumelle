@@ -281,10 +281,11 @@ test('017 — « Communications » de l’administration à 320 px : sans défil
   ]) {
     await page.goto(path);
     // Le panneau « Nouveau message » est une modale : le reste de la page est alors masqué (aria-hidden).
+    // Titre de la page : « Messages » depuis la refonte des écrans (f8cf4fe), comme pour l'enseignant.
     await expect(
       path.endsWith('nouveau')
         ? page.getByRole('dialog', { name: 'Nouveau message' })
-        : page.getByRole('heading', { level: 1, name: 'Communications' }),
+        : page.getByRole('heading', { level: 1, name: 'Messages' }),
     ).toBeVisible();
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
