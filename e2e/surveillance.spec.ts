@@ -23,7 +23,14 @@ test.describe('Section « Surveillance » (012)', () => {
 
     await expect(page.getByRole('heading', { level: 1, name: 'Surveillance' })).toBeVisible();
     const tabs = page.getByRole('tablist', { name: 'Surveillance' }).getByRole('tab');
-    await expect(tabs).toHaveText(['Absences et retards', 'Enseignants présents', 'Affectation des surveillants', 'Suivi des interventions']);
+    // « Enseignants attendus » (020, 1fe44f2) : séances du jour et pointage.
+    await expect(tabs).toHaveText([
+      'Absences et retards',
+      'Enseignants présents',
+      'Enseignants attendus',
+      'Affectation des surveillants',
+      'Suivi des interventions',
+    ]);
     await expect(tabs.first()).toHaveAttribute('aria-selected', 'true');
     await expect(page.getByRole('heading', { name: 'Suivi des présences' })).toBeVisible();
     await expectNoA11yViolations(page);

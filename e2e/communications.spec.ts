@@ -242,14 +242,16 @@ test('017 — signalement, réponse, « Contacter le parent », validation, lect
   ).toBeVisible();
   await parent.context().close();
 
-  // La réponse du parent arrive dans la boîte de réception, type « Famille ».
+  // La réponse du parent arrive dans la boîte de réception, non lue. Écrans Messages simplifiés (f8cf4fe) : la ligne
+  // ne porte plus l'étiquette « Famille » mais le nom du représentant, la réponse et la pastille « non lu ».
   await page.goto('/communications/boite');
-  await expect(
-    page
-      .getByRole('list', { name: 'Conversations' })
-      .getByRole('link')
-      .filter({ hasText: data.studentName }),
-  ).toContainText('Famille');
+  const family = page
+    .getByRole('list', { name: 'Conversations' })
+    .getByRole('link')
+    .filter({ hasText: data.studentName })
+    .filter({ hasText: parentReply });
+  await expect(family).toContainText(data.guardianName);
+  await expect(family.getByRole('img', { name: /message non lu/ })).toBeVisible();
 });
 
 test('017 — écrans « Communications » à 320 px : sans défilement horizontal ni violation axe', async ({
@@ -279,10 +281,11 @@ test('017 — « Communications » de l’administration à 320 px : sans défil
   ]) {
     await page.goto(path);
     // Le panneau « Nouveau message » est une modale : le reste de la page est alors masqué (aria-hidden).
+    // Titre de la page : « Messages » depuis la refonte des écrans (f8cf4fe), comme pour l'enseignant.
     await expect(
       path.endsWith('nouveau')
         ? page.getByRole('dialog', { name: 'Nouveau message' })
-        : page.getByRole('heading', { level: 1, name: 'Communications' }),
+        : page.getByRole('heading', { level: 1, name: 'Messages' }),
     ).toBeVisible();
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
