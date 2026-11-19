@@ -192,6 +192,7 @@ values as the page, every export logged.
 | Password reset: temporary password shown once, state "Mot de passe à changer" (Password to change) | `POST …/:id/reset-password` | same | Complete |
 | Deactivation and reactivation (sessions closed on deactivation) | `PATCH …/:id` | same, `users.service.ts:208` | Complete |
 | Server safeguards on their own account | `users.service.ts:154-157`, `:216-217` | server | Complete: a super administrator can neither deactivate themselves, nor remove their own role, nor reset their own password by direct request |
+| Last active super administrator (security audit R15) | `users.service.ts`, `keepOneSuperAdmin` | server | Complete: removing the role or deactivating an active super administrator is serialized by a database lock and refused (409, « Il doit rester au moins un super administrateur actif. ») if none would remain, even when two super administrators remove each other at the same moment (`test/integration/last-super-admin.spec.ts`) |
 
 ### 2.4 Catégories (`/admin/categories`)
 
