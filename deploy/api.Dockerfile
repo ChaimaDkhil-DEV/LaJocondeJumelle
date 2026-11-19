@@ -32,8 +32,9 @@ RUN npm ci --workspace backend --omit=dev --no-audit --no-fund && npm cache clea
 COPY backend/prisma backend/prisma
 RUN npm run -w backend prisma:generate
 COPY --from=build /app/backend/dist backend/dist
-COPY deploy/api-entrypoint.sh /usr/local/bin/api-entrypoint.sh
-RUN chmod 0755 /usr/local/bin/api-entrypoint.sh \
+# Service migrate (même image) : migrations et droits du rôle d'exécution (audit R02).
+COPY deploy/migrate-entrypoint.sh /usr/local/bin/migrate-entrypoint.sh
+RUN chmod 0755 /usr/local/bin/migrate-entrypoint.sh \
  && mkdir -p /data/files \
  && chown -R node:node /data
 USER node
@@ -41,4 +42,5 @@ WORKDIR /app/backend
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
   CMD ["node", "-e", "fetch('http://127.0.0.1:3000/api/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
-ENTRYPOINT ["/usr/local/bin/api-entrypoint.sh"]
+# Les migrations ne sont plus appliquées ici : l'API n'a que le rôle d'exécution (service migrate).
+CMD ["node", "dist/main.js"]

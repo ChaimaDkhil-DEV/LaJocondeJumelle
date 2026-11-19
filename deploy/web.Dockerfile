@@ -20,3 +20,8 @@ COPY --from=caddy-build /usr/bin/caddy /usr/bin/caddy
 COPY deploy/Caddyfile /etc/caddy/Caddyfile
 COPY deploy/profiles /etc/caddy/profiles
 COPY --from=build /app/frontend/dist /srv
+# Publie le seul certificat racine de l'autorité interne pour l'API (audit R01), puis lance Caddy.
+COPY deploy/caddy-entrypoint.sh /usr/local/bin/caddy-entrypoint.sh
+RUN chmod 0755 /usr/local/bin/caddy-entrypoint.sh
+ENTRYPOINT ["/usr/local/bin/caddy-entrypoint.sh"]
+CMD ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]

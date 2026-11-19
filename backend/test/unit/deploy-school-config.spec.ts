@@ -35,10 +35,14 @@ describe('Caddyfile : profils sélectionnés par CADDY_PROFILE', () => {
     expect(tls).not.toMatch(/dns cloudflare [A-Za-z0-9_-]{30,}/);
   });
 
-  it('le profil école fait confiance aux réseaux privés (cloudflared) pour l’adresse IP cliente', () => {
-    expect(read('deploy/profiles/school/global.caddy')).toMatch(
-      /trusted_proxies static private_ranges/,
-    );
+  // Audit de sécurité R04 : l'ancienne attente (`trusted_proxies static private_ranges`) laissait tout appareil
+  // du Wi-Fi de l'école (adresses privées) choisir son adresse IP par X-Forwarded-For. Attente remplacée.
+  it('le profil école ne fait confiance qu’à cloudflared, et à aucun réseau privé, pour l’adresse IP cliente', () => {
+    const global = read('deploy/profiles/school/global.caddy');
+    expect(global).toMatch(/^\s*trusted_proxies static \{\$CLOUDFLARED_IP\}\/32\s*$/m);
+    expect(global).not.toMatch(/private_ranges/);
+    // Cloudflare ajoute l'adresse réelle à droite d'un en-tête éventuellement fourni par le client.
+    expect(global).toMatch(/^\s*trusted_proxies_strict\s*$/m);
   });
 });
 
@@ -68,6 +72,22 @@ describe('docker-compose.school.yml', () => {
     expect(compose).toMatch(/depends_on:\s*\n\s+caddy:/);
   });
 
+  it('cloudflared a une adresse fixe sur un réseau réservé au tunnel, la seule à laquelle Caddy se fie (R04)', () => {
+    const lf = compose.replace(/\r\n/g, '\n');
+    const ip = '\\$\\{CLOUDFLARED_IP:-172\\.30\\.255\\.2\\}';
+    // Même adresse par défaut pour cloudflared et pour Caddy, dans le sous-réseau par défaut du tunnel.
+    expect(lf).toMatch(new RegExp(`cloudflared:[\\s\\S]*networks:\\s*\\n\\s+tunnel:\\s*\\n\\s+ipv4_address: ${ip}`));
+    expect(lf).toMatch(new RegExp(`caddy:[\\s\\S]*CLOUDFLARED_IP: ${ip}[\\s\\S]*cloudflared:`));
+    expect(lf).toMatch(/^networks:\n {2}tunnel:\n(?: {4}.*\n)*? {8}- subnet: \$\{TUNNEL_SUBNET:-172\.30\.255\.0\/29\}$/m);
+    // Adresses automatiques (Caddy démarre avant cloudflared) hors de celle de cloudflared : .4 à .7.
+    expect(lf).toMatch(/^ {10}ip_range: \$\{TUNNEL_IP_RANGE:-172\.30\.255\.4\/30\}$/m);
+    // Caddy rejoint le tunnel sans quitter le réseau de l'API ; cloudflared ne voit ni l'API ni la base.
+    const caddy = lf.slice(lf.indexOf('\n  caddy:'), lf.indexOf('\n  cloudflared:'));
+    expect(caddy).toMatch(/networks:\s*\n\s+- default\s*\n\s+- tunnel/);
+    const cloudflared = lf.slice(lf.indexOf('\n  cloudflared:'), lf.indexOf('\nnetworks:'));
+    expect(cloudflared).not.toMatch(/\bdefault\b/);
+  });
+
   it('cloudflared n’ouvre aucun port et utilise une image épinglée', () => {
     const block = compose.slice(compose.indexOf('cloudflared:'));
     expect(block).not.toMatch(/^\s+ports:/m);
@@ -82,6 +102,12 @@ describe('.env.example', () => {
 
   it.each(['CF_API_TOKEN', 'CF_TUNNEL_TOKEN'])('documente %s sans valeur', (name) => {
     expect(env).toMatch(new RegExp(`^#?\\s*${name}=\\s*$`, 'm'));
+  });
+
+  it('documente le réseau du tunnel et l’adresse de cloudflared (R04)', () => {
+    expect(env).toMatch(/^# TUNNEL_SUBNET=172\.30\.255\.0\/29\r?$/m);
+    expect(env).toMatch(/^# TUNNEL_IP_RANGE=172\.30\.255\.4\/30\r?$/m);
+    expect(env).toMatch(/^# CLOUDFLARED_IP=172\.30\.255\.2\r?$/m);
   });
 });
 

@@ -421,7 +421,7 @@ Key points:
   - `0002_coverage`: phase 2, additive migration, accompanied by a manual `down.sql`;
   - `0003_request_event_seq` (feature 003, finding N3): `RequestEvent.seq` column, write order of the history events.
 - **[VERIFIED]** In dev: `npm run -w backend prisma:migrate` (`prisma migrate dev`).
-- **[VERIFIED]** In prod: `prisma migrate deploy` is run **at every container start** (`deploy/api-entrypoint.sh`).
+- **[VERIFIED]** In prod: `prisma migrate deploy` is run **at every start**, by the one-shot `migrate` service (`deploy/migrate-entrypoint.sh`, since the security audit of 2026-11-18, R02; previously `deploy/api-entrypoint.sh`).
   → **Fixed** (`4575b84`): a pending migration is applied only if a recent backup exists; `deploy/deploy.sh` produces it.
 - **[VERIFIED]** The backup and rollback procedure for phase 2 is described in `docs/coverage-migration.md`.
 
@@ -525,11 +525,22 @@ I cannot verify **which specific items** were in your initial request: the origi
   1. the global role: `/admin/*` is reserved for the super administrator by `SuperAdminGuard`, except the
      reference data (floors, levels, classes and their QR codes, students) and the read-only employee list
      (`/admin/employees`), open to active admins too by `AdministrationGuard` (feature 011,
-     `canUseAdministrationSpace`; route list in `test/integration/admin-routes-access.spec.ts`);
+     `canUseAdministrationSpace`; route list in `test/utils/admin-route-access.ts`, checked by
+     `test/integration/admin-routes-access.spec.ts`);
   2. the permissions configurable per role (`RolePermission`, defaults in `settings/default-permissions.ts`);
   3. the relationship with the request: `actorsFor` → `REQUESTER`, `ASSIGNEE` or `MANAGER`.
 
   A resource that is not visible gives a 404 with an `ACCESS_DENIED` audit entry.
+  `test/integration/idor-matrix.spec.ts` (security audit G.2) checks it resource by resource: request, draft,
+  teacher and parent conversations, transfer proposal, attachment, voice message, notification, push device and
+  timetable session. For each one, the owner reads it, a third party of the same role gets a logged 404 and
+  changes nothing, another role gets 403 or 404, and an unknown or malformed id never gives a 500.
+
+  `test/integration/route-permission-matrix.spec.ts` (security audit G.1) classifies every HTTP route: public,
+  server to server (n8n), or the profiles that pass the access check (super administrator, admin, teacher,
+  supervisor, other employee, parent). A new route without a classification fails the test. It checks 401 without
+  a session, 403 for a parent outside the `@ParentAllowed()` routes, 403 or 404 for every other profile not
+  allowed, and never 401 or 403 for an allowed one.
 
 ### Error handling and logs
 
@@ -584,7 +595,7 @@ npm run -w frontend dev                   # Vite on :5173, /api and /socket.io p
 
 ### Deployment (VPS)
 
-**[VERIFIED]** Sources: `deploy/docker-compose.yml`, `api.Dockerfile`, `web.Dockerfile`, `api-entrypoint.sh`, `deploy.sh`.
+**[VERIFIED]** Sources: `deploy/docker-compose.yml`, `api.Dockerfile`, `web.Dockerfile`, `migrate-entrypoint.sh`, `deploy.sh`.
 
 ```bash
 cp deploy/.env.example deploy/.env
@@ -596,9 +607,15 @@ docker compose -f deploy/docker-compose.yml --env-file deploy/.env exec api node
 
 - **[VERIFIED]** Four services:
   - `caddy`: image built with the SPA;
-  - `api`: Node 24 + ffmpeg, non-root `node` user, `HEALTHCHECK` on `/api/health`, migrations applied at startup;
+  - `api`: Node 24 + ffmpeg, non-root `node` user, `HEALTHCHECK` on `/api/health`; connects with the runtime role
+    `APP_DB_USER` (rows only) and refuses to start in production with a superuser or table owner (R02);
+  - `migrate`: same image, one-shot, owner account: migrations, then the runtime role and its grants
+    (`docs/roles-base-de-donnees.md`); the API starts only after it succeeds;
   - `db`: `postgres:17`;
   - `backup`: daily loop, `pg_dump` + `tar`, 14-day rotation, copy off the VPS only if `BACKUP_OFFSITE_DIR` is set.
+    Since the security audit of 2026-11-18 (R03), every archive is encrypted with age for `BACKUP_AGE_RECIPIENT`
+    (image `deploy/backup.Dockerfile`), no backup is written without that key, and the private key stays off the
+    server (`docs/sauvegardes-chiffrees.md`).
 - **[VERIFIED]** Swagger (`/api/docs`) is exposed only outside production (`configureApp`).
 - **[VERIFIED]** There was **no CI/CD** in the repository (no `.github/` folder or equivalent in the tree).
   → **Fixed** (`b9ed428`): `.github/workflows/ci.yml` reruns lint, types, unit, integration and interface tests and `npm audit` on every push and pull request (decision D3). Because the repository is private on the free plan, merging is not technically blocked: a manual check is mandatory before merging (`docs/procedure-fusion.md`, decision D10, `7c2af4f`).
@@ -648,9 +665,9 @@ docker compose -f deploy/docker-compose.yml --env-file deploy/.env exec api node
 
 - **[VERIFIED]** The in-memory state (throttler, Socket.IO adapter, `running` flag of the jobs) **imposes a single instance** of the API. This is accepted in the plan.
 - **[VERIFIED]** **No automatic purge** of personal data: `grep` finds neither "retention" nor "purge" in `backend/src`. The README confirms it ("La suppression automatique à l'échéance n'est pas réalisée dans ce lot", i.e. automatic deletion at the due date is not carried out in this phase).
-- **[VERIFIED]** Migrations are applied automatically at every container start (`api-entrypoint.sh`).
+- **[VERIFIED]** Migrations are applied automatically at every start (`api-entrypoint.sh`, now the `migrate` service and `migrate-entrypoint.sh`).
   **[INFERRED]** A faulty migration would prevent the API from starting, with no intermediate validation step. `docs/coverage-migration.md` asks for a manual backup beforehand, but nothing enforces it technically.
-  → **Fixed** (`4575b84`): backup enforced before any migration (entrypoint and `deploy/deploy.sh`, tested by `api-entrypoint.spec.ts`). The real behavior of a faulty migration remains **[INFERRED]**: to be exercised on pre-production (task T055).
+  → **Fixed** (`4575b84`): backup enforced before any migration (entrypoint and `deploy/deploy.sh`, tested by `api-entrypoint.spec.ts`, now `migrate-entrypoint.spec.ts`). The real behavior of a faulty migration remains **[INFERRED]**: to be exercised on pre-production (task T055).
 - **[VERIFIED]** The script `backend/scripts/reset-superadmin-password.ts` changes the super administrator's password **with no audit entry and without revoking their sessions**, whereas `cli/bootstrap.ts` writes to `auditLog`. It therefore bypasses the traceability principle. → **Fixed** (`5ed613d`, decision D2): `bootstrap.js --reset-password`, `PASSWORD_RESET` audit entry and sessions closed; script deleted.
 - **[VERIFIED]** `embedded-postgres` is a beta version (`17.10.0-beta.17`), but only for development and tests.
 
@@ -877,7 +894,10 @@ Specification: `specs/010-assistance-fournisseurs-similaires/`.
 - **Local Whisper over HTTPS**: `whisper` service (`speaches` 0.8.3-cpu image pinned by digest,
   `whisper` profile disabled by default, **no published port**, `whisper_models` volume); Caddy
   relays it on `https://caddy:8444`, an internal port never published, certificate from its internal authority.
-  The API recognizes this authority through `ASSIST_WHISPER_CA_FILE` (Caddy's volume mounted read-only),
+  The API recognizes this authority through `ASSIST_WHISPER_CA_FILE` (default `/caddy-ca/root.crt`):
+  Caddy's start script (`deploy/caddy-entrypoint.sh`) publishes the authority's root certificate, and
+  only that file, to the `caddy_ca` volume, mounted read-only by the API. The API never mounts
+  `caddy_data`, which holds the private keys (security audit of 2026-11-18, R01). The file is
   re-read on every call by the connector (native Node `http`/`https` transport, TLS
   verification never disabled), because Caddy starts after the API.
 - **Variables** passed to the API by `deploy/docker-compose.yml` (empty values = API

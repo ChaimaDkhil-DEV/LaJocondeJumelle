@@ -10,7 +10,7 @@ import {
 import { ConversationsService } from './conversations.service';
 import { GuardiansService } from './guardians.service';
 import { GuardiansController } from './parent-communications.controller';
-import { CommunicationTeacherGuard, CommunicationValidatorGuard } from './parent-communications.guards';
+import { CommunicationTeacherGuard, CommunicationValidatorGuard, ParentSpaceGuard } from './parent-communications.guards';
 import { ParentCommunicationsService } from './parent-communications.service';
 
 /**
@@ -33,6 +33,7 @@ import { ParentCommunicationsService } from './parent-communications.service';
     CommunicationFileAccess,
     CommunicationTeacherGuard,
     CommunicationValidatorGuard,
+    ParentSpaceGuard,
   ],
   exports: [ParentCommunicationsService],
 })
