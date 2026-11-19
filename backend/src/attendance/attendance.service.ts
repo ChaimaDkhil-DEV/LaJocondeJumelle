@@ -55,6 +55,13 @@ export interface TodaySession {
 }
 
 /**
+ * Affectations affichées sur l'écran des présences du jour : ni rattachées, ni annulées, ni anonymisées. Une
+ * affectation anonymisée (FR-023a, audit R09 et G.3) n'apparaît plus : sa classe et son créneau, rapprochés du
+ * pointage conservé de l'enseignant, suffiraient à retrouver qui avait annoncé l'absence.
+ */
+const LIVE_COVERAGE = { mergedIntoId: null, anonymizedAt: null, request: { status: { not: 'CANCELLED' as const } } };
+
+/**
  * Pointage des enseignants par QR. Le QR identifie la classe, la session identifie l'enseignant, l'heure
  * est celle du serveur. L'heure de référence d'un retard enregistré ne vient que d'une demande de retard
  * annoncée ; sans demande, l'arrivée est enregistrée sans jugement. L'emploi du temps (020) n'écrit rien ici :
@@ -190,7 +197,7 @@ export class AttendanceService {
     const [rows, announced, empties] = await Promise.all([
       this.prisma.teacherAttendance.findMany({ where: { localDate: dayValue(day) }, include: ATTENDANCE_INCLUDE, orderBy: { recordedAt: 'asc' } }),
       this.prisma.coverageDetail.findMany({
-        where: { source: 'TEACHER_REQUEST', mergedIntoId: null, startAt: { gte: from, lt: to }, request: { status: { not: 'CANCELLED' } } },
+        where: { ...LIVE_COVERAGE, source: 'TEACHER_REQUEST', startAt: { gte: from, lt: to } },
         select: {
           requestId: true,
           type: true,
@@ -204,7 +211,7 @@ export class AttendanceService {
         orderBy: { startAt: 'asc' },
       }),
       this.prisma.coverageDetail.findMany({
-        where: { type: 'EMPTY_CLASS', mergedIntoId: null, startAt: { gte: from, lt: to }, request: { status: { not: 'CANCELLED' } } },
+        where: { ...LIVE_COVERAGE, type: 'EMPTY_CLASS', startAt: { gte: from, lt: to } },
         select: {
           requestId: true,
           startAt: true,
