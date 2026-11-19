@@ -253,5 +253,72 @@ describe('Anonymisation des affectations (FR-023a)', () => {
       // L'historique en base n'est jamais modifié : le masque s'applique à la lecture (choix de l'établissement).
       expect(await prisma.requestEvent.count({ where: { requestId: id, actorId: teacherId } })).toBe(1);
     });
+
+    /**
+     * Audit de sécurité G.3 : non-régression de R09 sur tous les écrans, pas seulement l'historique. Le pointage de
+     * l'enseignant reste dans le module présence (choix de l'établissement), mais plus rien ne le relie à l'affectation.
+     */
+    it('aucun écran ne relie plus l’affectation à l’enseignant : détail, liste, statistiques, export, surveillant, présences', async () => {
+      const teacherId = await userId(prisma, 'enseignante');
+      const original = (await prisma.user.findUniqueOrThrow({ where: { id: teacherId } })).displayName;
+      const teacherName = 'Mme Zarrouk Témoin';
+      await prisma.user.update({ where: { id: teacherId }, data: { displayName: teacherName } });
+      try {
+        const id = await coverage({ source: 'TEACHER_REQUEST' });
+        const { reference } = await prisma.request.findUniqueOrThrow({ where: { id } });
+        const day = ago(13).toISOString().slice(0, 10);
+        await prisma.requestEvent.create({ data: { requestId: id, type: 'CREATED', actorId: teacherId, toValue: { source: 'TEACHER_REQUEST' } } });
+        await prisma.requestEvent.create({
+          data: { requestId: id, type: 'TEACHER_SET', actorId: await userId(prisma, 'admin'), toValue: { teacherId } },
+        });
+        await attendance(id, 'enseignante', day);
+
+        const cookies = { admin: await loginAs(app, 'admin'), superadmin: await loginAs(app, 'superadmin') };
+        const surveillant = await loginAs(app, 'surveillant');
+        const get = (cookie: string, path: string, query: Record<string, string> = {}) =>
+          request(app.getHttpServer()).get(path).query(query).set('Cookie', cookie);
+        const period = { from: day, to: day };
+        const screens = (cookie: string): Record<string, () => request.Test> => ({
+          détail: () => get(cookie, `/api/coverage/${id}`),
+          liste: () => get(cookie, '/api/coverage', { from: `${day}T00:00:00.000Z`, to: `${day}T23:59:59.999Z`, includeFinished: 'true' }),
+          statistiques: () => get(cookie, '/api/coverage/stats', { ...period, groupBy: 'teacher' }),
+          export: () => get(cookie, '/api/coverage/stats/export.csv', { ...period, groupBy: 'teacher' }),
+        });
+        const text = (res: request.Response) => (res.type.includes('json') ? JSON.stringify(res.body) : res.text);
+
+        // Avant : les écrans de l'administration nomment l'enseignant (la recherche a un sens).
+        for (const [screen, load] of Object.entries(screens(cookies.admin))) {
+          const res = await load();
+          expect({ screen, status: res.status }).toEqual({ screen, status: 200 });
+          expect({ screen, named: text(res).includes(teacherName) }).toEqual({ screen, named: true });
+        }
+        expect(text(await get(cookies.admin, '/api/attendance/day', { date: day }))).toContain(id);
+
+        expect(await job.runOnce(now)).toBe(1);
+
+        const secrets = [teacherId, teacherName, 'Mme Martin', 'Rendez-vous médical', 'Consigne écrite'];
+        const leaks: string[] = [];
+        for (const [who, cookie] of Object.entries(cookies)) {
+          for (const [screen, load] of Object.entries(screens(cookie))) {
+            const res = await load();
+            if (res.status !== 200) leaks.push(`${who} ${screen} → ${res.status}`);
+            for (const secret of secrets) if (text(res).includes(secret)) leaks.push(`${who} ${screen} : « ${secret} »`);
+          }
+        }
+        // Le surveillant affecté garde l'affectation dans son historique, sans l'enseignant.
+        const history = await get(surveillant, '/api/coverage/history');
+        expect(text(history)).toContain(id);
+        for (const secret of secrets) if (text(history).includes(secret)) leaks.push(`surveillant historique : « ${secret} »`);
+        // Présences du jour : le pointage reste, sans commentaire ni lien vers l'affectation.
+        const day0 = await get(cookies.admin, '/api/attendance/day', { date: day });
+        expect(day0.status).toBe(200);
+        for (const secret of [id, reference, 'Rendez-vous médical']) if (text(day0).includes(secret)) leaks.push(`présences : « ${secret} »`);
+        // Le pointage lui-même reste (conservation du module présence, choix de l'établissement pour R09).
+        expect(text(day0)).toContain(teacherName);
+        expect(leaks).toEqual([]);
+      } finally {
+        await prisma.user.update({ where: { id: teacherId }, data: { displayName: original } });
+      }
+    });
   });
 });

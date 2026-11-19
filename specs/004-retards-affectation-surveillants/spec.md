@@ -764,7 +764,11 @@ gets figures consistent with the data entered.
   audit of 2026-11-18 (R09): the cancellation reason is erased too; the attendance records linked to the
   guard duty lose their comment and the replaced teacher, and the concerned teacher's record no longer
   points to the guard duty; the history of an anonymized guard duty shows no teacher name nor identifier
-  (masked when read, the stored history is never modified, choice of the school).
+  (masked when read, the stored history is never modified, choice of the school). Completed after audit
+  item G.3 (2026-11-19): an anonymized guard duty no longer appears on the « Présences du jour » screen
+  (announced absences, empty classes), because its class and time slot, compared with the teacher's kept
+  attendance record, would identify who announced the absence (choice of the school). It stays in the
+  statistics and in the guard duty history, without the teacher.
 - **FR-023c**: The assigned supervisor MUST see the class, the floor, the time slot and the type of
   report (lateness, absence, empty class), but MUST NEVER see the detailed reason entered
   by the teacher, reserved to the admin and the super administrator.
