@@ -21,6 +21,7 @@ deadlines and a full history. Notifications arrive in real time, inside the appl
 | [Contracts](specs/001-demandes-travail-vocales/contracts/) | REST API, real-time events |
 | [Data model](specs/001-demandes-travail-vocales/data-model.md) | Entities, statuses, default values |
 | [Constitution](.specify/memory/constitution.md) | Project principles (TDD, simplicity, accessibility, security, integrity) |
+| [Production checklist](docs/mise-en-production.md) | Everything to check before opening the application to users (server, secrets, backups, decisions) |
 
 Most of these documents are written in French.
 
@@ -78,7 +79,8 @@ everything except Docker Desktop and Whisper. This mode does not replace the dep
 ## Deployment
 
 On a VPS with Docker (details and checks in the
-[quickstart](specs/001-demandes-travail-vocales/quickstart.md#deployment-vps)):
+[quickstart](specs/001-demandes-travail-vocales/quickstart.md#deployment-vps); before opening the
+application to users, go through the [production checklist](docs/mise-en-production.md)):
 
 ```bash
 cp deploy/.env.example deploy/.env         # domain, secrets, backups
