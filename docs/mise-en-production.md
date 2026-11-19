@@ -121,6 +121,5 @@ Ces points ne bloquent pas l'ouverture, mais doivent être planifiés :
 - séparation des réseaux Docker et images épinglées (R05, R06) ;
 - protection contre la réutilisation d'un QR code déjà scanné (R11) ;
 - double authentification pour les super administrateurs (R28) ;
-- garde-fou « dernier super administrateur » (R15) ;
 - limiteurs de connexion sans éviction exploitable, déblocage par l'administrateur (R17, R18) ;
 - analyse de sécurité automatique dans la CI (SAST, gitleaks, Trivy, E2E) (R30).

@@ -233,7 +233,8 @@ export class UsersService {
   /**
    * Modifie nom, fonction, rôle, activation ou catégories destinataires. La désactivation ferme immédiatement les sessions
    * et les connexions temps réel du compte. Le super administrateur ne peut ni se désactiver
-   * ni perdre son rôle (il resterait sans administrateur).
+   * ni perdre son rôle (il resterait sans administrateur). Audit de sécurité R15 : il reste toujours au moins un
+   * super administrateur actif, même quand deux super administrateurs se retirent l'un l'autre au même moment.
    */
   async update(id: string, dto: UpdateUserDto, ctx: AdminContext): Promise<AdminUser> {
     const current = await this.find(id);
@@ -270,7 +271,10 @@ export class UsersService {
     if (Object.keys(after).length === 0) return this.get(id);
 
     const deactivated = after.active === false;
+    const removesSuperAdmin =
+      current.role === 'SUPER_ADMIN' && current.active && (deactivated || (after.role !== undefined && after.role !== 'SUPER_ADMIN'));
     await this.prisma.$transaction(async (tx) => {
+      if (removesSuperAdmin) await this.keepOneSuperAdmin(tx, id);
       if (categories) {
         await tx.categoryRecipient.deleteMany({ where: { userId: id, categoryId: { notIn: categories.after } } });
         await tx.categoryRecipient.createMany({
@@ -307,6 +311,18 @@ export class UsersService {
     if (deactivated) this.realtime.endUserSessions(id, 'DEACTIVATED');
     else if (after.role !== undefined) this.realtime.syncSuperAdminRoom(id, after.role === 'SUPER_ADMIN');
     return this.get(id);
+  }
+
+  /**
+   * Refuse de retirer le dernier super administrateur actif (R15). Le verrou sérialise ces retraits : le second de
+   * deux retraits simultanés compte après le premier et voit qu'il n'en resterait plus.
+   */
+  private async keepOneSuperAdmin(tx: Prisma.TransactionClient, removedId: string): Promise<void> {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('super-admins'))`;
+    const remaining = await tx.user.count({ where: { role: 'SUPER_ADMIN', active: true, id: { not: removedId } } });
+    if (remaining === 0) {
+      throw new AppException('CONFLICT', undefined, 'Il doit rester au moins un super administrateur actif.');
+    }
   }
 
   /** Nouveau mot de passe provisoire (renvoyé une seule fois) ; toutes les sessions du compte sont fermées. */
