@@ -55,6 +55,24 @@ export class CommunicationValidatorGuard extends CommunicationAccessGuard {
   }
 }
 
+/**
+ * « Messages de l'école » (017) : le compte parent seul. Le personnel a ses propres écrans (administration,
+ * enseignant) ; sans cette garde, l'administration lisait et écrivait dans une conversation par la route du parent
+ * (matrice route × profil, audit de sécurité G.1).
+ */
+@Injectable()
+export class ParentSpaceGuard extends CommunicationAccessGuard {
+  protected readonly reason = 'NOT_PARENT';
+
+  constructor(audit: AuditService) {
+    super(audit);
+  }
+
+  protected allowed(user: AuthenticatedUser): Promise<boolean> {
+    return Promise.resolve(user.active && user.role === 'PARENT');
+  }
+}
+
 /** « Communication avec les parents » : membres actifs du groupe Enseignants. */
 @Injectable()
 export class CommunicationTeacherGuard extends CommunicationAccessGuard {
