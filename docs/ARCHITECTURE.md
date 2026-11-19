@@ -880,7 +880,10 @@ Specification: `specs/010-assistance-fournisseurs-similaires/`.
 - **Local Whisper over HTTPS**: `whisper` service (`speaches` 0.8.3-cpu image pinned by digest,
   `whisper` profile disabled by default, **no published port**, `whisper_models` volume); Caddy
   relays it on `https://caddy:8444`, an internal port never published, certificate from its internal authority.
-  The API recognizes this authority through `ASSIST_WHISPER_CA_FILE` (Caddy's volume mounted read-only),
+  The API recognizes this authority through `ASSIST_WHISPER_CA_FILE` (default `/caddy-ca/root.crt`):
+  Caddy's start script (`deploy/caddy-entrypoint.sh`) publishes the authority's root certificate, and
+  only that file, to the `caddy_ca` volume, mounted read-only by the API. The API never mounts
+  `caddy_data`, which holds the private keys (security audit of 2026-11-18, R01). The file is
   re-read on every call by the connector (native Node `http`/`https` transport, TLS
   verification never disabled), because Caddy starts after the API.
 - **Variables** passed to the API by `deploy/docker-compose.yml` (empty values = API

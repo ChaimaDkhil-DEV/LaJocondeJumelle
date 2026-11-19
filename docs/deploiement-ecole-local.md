@@ -67,6 +67,11 @@ données et fichiers seulement).
 - Un message de test du personnel apparaît chez un parent de test (comptes à supprimer ensuite).
 - Dans le journal d'audit, l'adresse IP d'une connexion depuis la 4G est celle du téléphone, pas celle du
   conteneur `cloudflared` (sinon, vérifier `trusted_proxies` et `TRUST_PROXY`).
+- Depuis le Wi-Fi de l'école, l'adresse IP du journal d'audit est celle de l'appareil, même s'il envoie un
+  en-tête `X-Forwarded-For` : Caddy ne fait confiance qu'à l'adresse fixe de `cloudflared`
+  (`CLOUDFLARED_IP`, réseau Docker `tunnel`, audit de sécurité R04). Si le réseau de l'école utilise déjà
+  `172.30.255.0/29`, changer ensemble `TUNNEL_SUBNET`, `TUNNEL_IP_RANGE` et `CLOUDFLARED_IP` (dans le
+  sous-réseau, hors de la plage automatique) : voir `deploy/.env.example`.
 
 ## 7. Points d'attention
 
