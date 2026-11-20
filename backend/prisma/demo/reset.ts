@@ -110,6 +110,8 @@ export const PURGE_STATEMENTS: readonly string[] = [
   'DELETE FROM "Category"',
   'DELETE FROM "EmployeeGroupMember"',
   'DELETE FROM "EmployeeGroup" WHERE "systemKey" IS NULL',
+  // Historique des classes (021) : avant les élèves et les classes qu'il cite.
+  'DELETE FROM "StudentClassHistory"',
   'DELETE FROM "Student"',
   'DELETE FROM "SchoolClass"',
   'DELETE FROM "GradeLevel"',
@@ -122,7 +124,7 @@ export const PURGE_STATEMENTS: readonly string[] = [
   `SELECT setval(pg_get_serial_sequence('"RequestEvent"', 'seq'), 1, false)`,
 ];
 
-const APPEND_ONLY_TRIGGERS = [
+export const APPEND_ONLY_TRIGGERS = [
   ['RequestEvent', 'RequestEvent_append_only'],
   ['RequestEvent', 'RequestEvent_no_truncate'],
   ['AuditLog', 'AuditLog_append_only'],
@@ -133,6 +135,7 @@ const APPEND_ONLY_TRIGGERS = [
   ['ParentCommunicationEvent', 'ParentCommunicationEvent_no_truncate'],
   ['TeachingSession', 'TeachingSession_no_delete'],
   ['TimetableSeries', 'TimetableSeries_no_delete'],
+  ['StudentClassHistory', 'StudentClassHistory_append_only'],
 ] as const;
 
 export interface PurgeReport {

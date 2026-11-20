@@ -50,3 +50,18 @@ describe('sanitizeAuditDetails', () => {
     expect(sanitizeAuditDetails(undefined)).toBeUndefined();
   });
 });
+
+describe('sanitizeAuditDetails : historique d’un élève (021)', () => {
+  it('garde l’instant consulté et l’identifiant de l’élève d’une consultation de situation', () => {
+    expect(sanitizeAuditDetails({ studentId: 's1', at: '2026-11-12T10:42:00+01:00', inconnu: 'x' })).toEqual({
+      studentId: 's1',
+      at: '2026-11-12T10:42:00+01:00',
+    });
+  });
+
+  it('garde l’avant et l’après d’un changement de classe', () => {
+    expect(
+      sanitizeAuditDetails({ action: 'update', fields: ['classId'], before: { classId: 'a' }, after: { classId: 'b' } }),
+    ).toEqual({ action: 'update', fields: ['classId'], before: { classId: 'a' }, after: { classId: 'b' } });
+  });
+});

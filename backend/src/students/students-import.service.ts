@@ -15,6 +15,7 @@ import {
   type ProcessedRow,
 } from '../common/csv-import';
 import { PrismaService } from '../common/prisma.service';
+import { appendClassHistoryMany } from './class-history';
 import { StudentDto } from './students.dto';
 import type { StudentsContext } from './students.service';
 
@@ -121,6 +122,8 @@ export class StudentsImportService {
     await this.prisma.$transaction(
       async (tx) => {
         await tx.student.createMany({ data: prepared.map((s) => ({ ...s, active: true })) });
+        // Première période de classe de chaque élève importé, dans la même transaction (021).
+        await appendClassHistoryMany(tx, prepared.map((s) => ({ studentId: s.id, classId: s.classId })), ctx.actor.id);
         for (const student of prepared) {
           // Le journal ne garde aucune donnée personnelle d'élève : la classe et l'origine de la création seulement.
           await this.audit.log(

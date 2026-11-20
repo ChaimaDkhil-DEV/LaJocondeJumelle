@@ -19,6 +19,7 @@ import { randomBytes } from 'node:crypto';
 import { DEFAULT_COVERAGE_DEADLINES, PRIORITY_ORDER } from '../src/categories/category-defaults';
 import { atLocalTime } from '../src/common/school-time';
 import { schoolTimezoneFromEnv } from '../src/config/config';
+import { ensureFirstClassPeriods } from '../src/students/class-history';
 import { loadEnvFile } from '../src/config/load-env-file';
 import { Random, stableId } from './demo/random';
 import { SCENARIOS } from './demo/request-scenarios';
@@ -259,6 +260,14 @@ export async function runDemoSeed(prisma: PrismaClient, options: DemoSeedOptions
     });
   });
   await inBatches(students, (data) => prisma.student.createMany({ data, skipDuplicates: true }));
+  // Historique des classes (021) : une première période par élève, au nom de la direction, datée de la rentrée.
+  await inBatches(students, (batch) =>
+    ensureFirstClassPeriods(
+      prisma,
+      batch.map((s) => ({ id: s.id as string, classId: s.classId, startedAt: rentree })),
+      userId(DIRECTION.username),
+    ),
+  );
 
   // --- Communication avec les parents (015) : classes des enseignants, familles, comptes parents.
   const { families, createdParents } = await seedParentCommunicationDemo(prisma, { password: options.password, createdAt: rentree });

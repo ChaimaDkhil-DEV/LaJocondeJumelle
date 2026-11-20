@@ -14,7 +14,7 @@ import Paper from '@mui/material/Paper';
 import TablePagination from '@mui/material/TablePagination';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import { CircleOff, FileUp, GraduationCap, Pencil, Search, SearchX, UserPlus } from 'lucide-react';
+import { CircleOff, FileUp, GraduationCap, History, Pencil, Search, SearchX, UserPlus } from 'lucide-react';
 import { useId, useMemo, useState, type FormEvent } from 'react';
 import { Link as RouterLink } from 'react-router';
 import { ApiError } from '../../api/client';
@@ -27,6 +27,7 @@ import { SectionHeader } from '../../components/SectionHeader';
 import { useToast } from '../../components/Toast';
 import { font, icon } from '../../design/tokens';
 import { isPlural, locale, t } from '../../i18n';
+import { StudentHistoryDrawer } from './StudentHistoryDrawer';
 import { StudentsImportDialog } from './StudentsImportDialog';
 import { useLevels, useSaveStudent, useStudents, type GradeLevel, type Student } from './api';
 
@@ -163,6 +164,7 @@ export function StudentsAdminPage() {
   const toast = useToast();
   const [form, setForm] = useState<{ student: Student | null } | null>(null);
   const [importing, setImporting] = useState(false);
+  const [historyOf, setHistoryOf] = useState<Student | null>(null);
   const [query, setQuery] = useState('');
   const [levelId, setLevelId] = useState('');
   const [classId, setClassId] = useState('');
@@ -310,6 +312,7 @@ export function StudentsAdminPage() {
                         {s.class.name} · {s.parentPhone}
                       </Typography>
                     </Box>
+                    <IconAction icon={History} label={t('Historique de la classe de l’élève {name}', { name: `${s.firstName} ${s.lastName}` })} tooltip={t('Historique de classe')} onClick={() => setHistoryOf(s)} />
                     <IconAction icon={Pencil} label={t('Modifier l’élève {name}', { name: `${s.firstName} ${s.lastName}` })} tooltip={t('Modifier')} onClick={() => setForm({ student: s })} />
                   </Box>
                 ))}
@@ -331,6 +334,7 @@ export function StudentsAdminPage() {
         </Paper>
       )}
       {importing && <StudentsImportDialog onClose={() => setImporting(false)} />}
+      <StudentHistoryDrawer student={historyOf} onClose={() => setHistoryOf(null)} />
       {form && levels.data && (
         <StudentFormDialog
           student={form.student}

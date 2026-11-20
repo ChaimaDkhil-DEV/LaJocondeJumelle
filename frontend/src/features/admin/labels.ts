@@ -89,6 +89,7 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   COVERAGE_STATS_EXPORTED: t('Export des statistiques des affectations'),
   GUIDELINE_CHANGED: t('Consigne créée / modifiée / supprimée'),
   STUDENT_CHANGED: t('Élève créé / modifié'),
+  STUDENT_SITUATION_VIEWED: t('Situation d’un élève consultée'),
   LEVEL_CHANGED: t('Niveau scolaire créé / modifié'),
   GUARDIAN_CHANGED: t('Représentant légal créé / modifié'),
   TEACHER_CLASSES_CHANGED: t('Classes d’un enseignant modifiées'),

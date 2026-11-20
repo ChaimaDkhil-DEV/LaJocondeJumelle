@@ -1,1 +1,8 @@
-[]
+[
+  {
+    "id": "GHSA-7589-6fvf-x4pw",
+    "package": "effect",
+    "reason": "ReDoS dans la regex compilée de Schema.TemplateLiteral (effect 3.21.0). effect n'arrive que par prisma@6.19.3 > @prisma/config (outil Prisma : génération, migrations, chargement de prisma.config) ; aucun code du projet n'importe effect, et le schéma de Prisma n'est pas construit à partir d'entrées d'utilisateur. Le correctif proposé par npm est un retour à prisma@6.12.0, rejeté. À lever dès qu'une version de prisma 6.x embarque effect corrigé.",
+    "review": "2026-12-18"
+  }
+]

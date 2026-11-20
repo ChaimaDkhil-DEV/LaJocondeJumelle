@@ -3,7 +3,7 @@ import { addWorkingMinutes, nextOpening } from '../../prisma/demo/calendar';
 import { stableId } from '../../prisma/demo/random';
 import { SCENARIOS } from '../../prisma/demo/request-scenarios';
 import { demoFamilies, demoTeacherClasses } from '../../prisma/demo/parents';
-import { assertLocalDevelopmentDatabase, backupName, PURGE_STATEMENTS } from '../../prisma/demo/reset';
+import { APPEND_ONLY_TRIGGERS, assertLocalDevelopmentDatabase, backupName, PURGE_STATEMENTS } from '../../prisma/demo/reset';
 import { DEMO_TIMETABLE_TEACHERS, demoTimetableSeries } from '../../prisma/demo/timetable';
 import { ALL_ACCOUNTS, CATEGORIES, CLASSES, FLOORS, GUIDELINES, LEVELS, STAFF, fictionalPhone } from '../../prisma/demo/school-data';
 import { markReadings, simulateDemo, type DemoData, type Directory } from '../../prisma/demo/simulate';
@@ -254,6 +254,13 @@ describe('Jeu de démonstration — sécurité de la remise à zéro', () => {
     expect(at('TeachingSession')).toBeGreaterThanOrEqual(0);
     expect(at('TeachingSession')).toBeLessThan(at('TimetableSeries'));
     for (const later of ['SchoolClass', 'User']) expect(at('TimetableSeries')).toBeLessThan(at(later));
+  });
+
+  it('purge : l’historique des classes (021) est effacé avant les élèves, et son déclencheur d’ajout seul est suspendu le temps de la purge', () => {
+    const at = (table: string) => PURGE_STATEMENTS.findIndex((s) => s.startsWith(`DELETE FROM "${table}"`));
+    expect(at('StudentClassHistory')).toBeGreaterThanOrEqual(0);
+    expect(at('StudentClassHistory')).toBeLessThan(at('Student'));
+    expect(APPEND_ONLY_TRIGGERS).toContainEqual(['StudentClassHistory', 'StudentClassHistory_append_only']);
   });
 
   it('emplois du temps (020) : une partie des enseignants seulement, sans chevauchement', () => {

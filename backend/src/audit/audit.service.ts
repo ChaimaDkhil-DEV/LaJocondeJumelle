@@ -68,6 +68,8 @@ const ALLOWED_DETAIL_KEYS = new Set([
   // Emplois du temps (020) : série concernée et nombre de séances écrites
   'seriesId',
   'sessionCount',
+  // Historique d'un élève (021) : instant dont la situation a été consultée
+  'at',
 ]);
 
 function scrub(value: unknown): unknown {
