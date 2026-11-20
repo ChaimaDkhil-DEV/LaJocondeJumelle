@@ -36,6 +36,18 @@ export function todayOf(now: Date): string {
 const longDay = new Intl.DateTimeFormat(locale(), { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
 const shortDate = new Intl.DateTimeFormat(locale(), { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
 
+const shortWeekday = new Intl.DateTimeFormat(locale(), { weekday: 'short', timeZone: 'UTC' });
+
+/** « lun. » → « lun » (en-tête de colonne de la grille). */
+export function weekdayShort(date: string): string {
+  return shortWeekday.format(toDate(date)).replace('.', '');
+}
+
+/** « 23 » */
+export function dayOfMonth(date: string): string {
+  return String(toDate(date).getUTCDate());
+}
+
 /** « lundi 23 novembre » */
 export function dayLabel(date: string): string {
   return longDay.format(toDate(date));

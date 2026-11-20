@@ -1,8 +1,10 @@
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import IconButton from '@mui/material/IconButton';
 import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
-import TextField from '@mui/material/TextField';
+import Select from '@mui/material/Select';
+import type { Theme } from '@mui/material/styles';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Typography from '@mui/material/Typography';
@@ -14,6 +16,8 @@ import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
 import { PageHeader } from '../../components/PageHeader';
+import { UserAvatar } from '../../components/UserAvatar';
+import { font, fontSize, icon, radius, tokensOf } from '../../design/tokens';
 import { t } from '../../i18n';
 import { useAdminClasses } from '../coverage/adminApi';
 import { useTeacherClasses } from '../parent-communications/api';
@@ -23,14 +27,47 @@ import { addDays, dateLabel, todayOf, weekDays, weekStart } from './labels';
 import { SessionList } from './SessionList';
 import { TimetableFormDialog, type FormMode } from './TimetableFormDialog';
 import type { TimetableSession } from './types';
+import { WeekGrid } from './WeekGrid';
+import { SelectedSessionCard, StatTiles, WeekClassesCard } from './WeekPanels';
+import { weekStats } from './weekLayout';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 /** Une séance passée s'annule jusqu'à 7 jours en arrière (règle du serveur). */
 const CANCEL_DAYS_BACK = 7;
 
+/** Commutateur de deux choix : piste lavande, choix actuel posé en blanc. */
+const segmented = (theme: Theme) => {
+  const c = tokensOf(theme);
+  return {
+    bgcolor: c.surfaceMuted,
+    p: 0.5,
+    gap: 0.5,
+    borderRadius: '12px',
+    '& .MuiToggleButtonGroup-grouped': {
+      border: 0,
+      borderRadius: '9px !important',
+      px: 1.75,
+      py: 0.75,
+      color: c.textSecondary,
+      fontWeight: font.medium,
+      textTransform: 'none',
+      '&.Mui-selected': { bgcolor: c.surface, color: c.accent.text, fontWeight: font.semibold, boxShadow: '0 1px 2px rgba(35, 42, 89, 0.12)' },
+      '&.Mui-selected:hover': { bgcolor: c.surface },
+    },
+  };
+};
+
+const arrowButton = (theme: Theme) => ({
+  width: 40,
+  height: 40,
+  border: `1px solid ${tokensOf(theme).borderStrong}`,
+  borderRadius: `${radius.control}px`,
+});
+
 /**
  * Emplois du temps (020) : l'administration choisit un enseignant ou une classe et une semaine, voit les séances
- * jour par jour, crée des séries hebdomadaires ou des séances, modifie et annule. Le choix est gardé dans l'adresse.
+ * en grille (ou en liste, jour par jour), crée des séries hebdomadaires ou des séances, modifie et annule. Le choix,
+ * la semaine et l'affichage sont gardés dans l'adresse.
  */
 export function TimetableAdminPage() {
   const [params, setParams] = useSearchParams();
@@ -39,6 +76,7 @@ export function TimetableAdminPage() {
   const today = todayOf(serverNow());
   const monday = weekStart(DATE_RE.test(params.get('semaine') ?? '') ? params.get('semaine')! : today);
   const days = weekDays(monday);
+  const asList = params.get('affichage') === 'liste';
 
   const teachers = useTeacherClasses();
   const classes = useAdminClasses();
@@ -50,6 +88,7 @@ export function TimetableAdminPage() {
   );
   const [form, setForm] = useState<FormMode | null>(null);
   const [cancelling, setCancelling] = useState<TimetableSession | null>(null);
+  const [pickedId, setPickedId] = useState<string>();
 
   const update = (changes: Record<string, string | null>) => {
     const next = new URLSearchParams(params);
@@ -61,16 +100,29 @@ export function TimetableAdminPage() {
   };
 
   const now = serverNow();
-  const actions = (s: TimetableSession) =>
+  /** Modifier / annuler : en petits boutons dans la liste, en pleine largeur dans le détail de la grille. */
+  const buttons = (s: TimetableSession, panel: boolean) =>
     s.status === 'CANCELLED' ? null : (
       <>
         {new Date(s.startAt) > now && (
-          <Button size="small" aria-label={t('Modifier la séance de {start}, {date}', { start: s.startTime, date: dateLabel(s.date) })} onClick={() => setForm({ kind: 'edit', session: s })}>
+          <Button
+            size={panel ? 'medium' : 'small'}
+            variant={panel ? 'outlined' : 'text'}
+            color={panel ? 'inherit' : 'primary'}
+            aria-label={t('Modifier la séance de {start}, {date}', { start: s.startTime, date: dateLabel(s.date) })}
+            onClick={() => setForm({ kind: 'edit', session: s })}
+          >
             {t('Modifier')}
           </Button>
         )}
         {s.date >= addDays(today, -CANCEL_DAYS_BACK) && (
-          <Button size="small" color="error" aria-label={t('Annuler la séance de {start}, {date}', { start: s.startTime, date: dateLabel(s.date) })} onClick={() => setCancelling(s)}>
+          <Button
+            size={panel ? 'medium' : 'small'}
+            variant={panel ? 'outlined' : 'text'}
+            color="error"
+            aria-label={t('Annuler la séance de {start}, {date}', { start: s.startTime, date: dateLabel(s.date) })}
+            onClick={() => setCancelling(s)}
+          >
             {t('Annuler')}
           </Button>
         )}
@@ -78,6 +130,14 @@ export function TimetableAdminPage() {
     );
 
   const options = by === 'enseignant' ? teacherList : classList;
+  const ordered = [...(sessions.data ?? [])].sort((a, b) => a.startAt.localeCompare(b.startAt));
+  const held = ordered.filter((s) => s.status !== 'CANCELLED');
+  const current = ordered.find((s) => s.id === pickedId) ?? held[0] ?? ordered[0];
+  /** Jours ouvrés ; samedi et dimanche seulement s'ils ont une séance (aucune séance n'est cachée). */
+  const shownDays = days.filter((d, i) => i < 5 || ordered.some((s) => s.date === d));
+  const pickedPerson = options.find((o) => o.id === selected);
+  const showWeek = Boolean(selected) && !asList && !sessions.isPending && !sessions.error;
+
   return (
     <Box>
       <PageHeader
@@ -85,68 +145,126 @@ export function TimetableAdminPage() {
         description={t('Séances des enseignants : séries hebdomadaires, changements exceptionnels et annulations.')}
         actions={
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-            <Button variant="contained" startIcon={<Plus size={18} aria-hidden />} onClick={() => setForm({ kind: 'series' })}>
-              {t('Nouvelle série')}
-            </Button>
-            <Button variant="outlined" startIcon={<Plus size={18} aria-hidden />} onClick={() => setForm({ kind: 'session' })}>
+            <Button variant="outlined" color="inherit" startIcon={<Plus size={icon.md} aria-hidden />} onClick={() => setForm({ kind: 'session' })}>
               {t('Nouvelle séance')}
+            </Button>
+            <Button variant="contained" startIcon={<Plus size={icon.md} aria-hidden />} onClick={() => setForm({ kind: 'series' })}>
+              {t('Nouvelle série')}
             </Button>
           </Box>
         }
       />
-      <Paper variant="elevated" sx={{ p: 2, mb: 2, display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
-        <ToggleButtonGroup
-          exclusive
-          size="small"
-          value={by}
-          aria-label={t('Afficher par')}
-          onChange={(_e, value: string | null) => value && update({ vue: value === 'classe' ? 'classe' : null, id: null })}
-        >
-          <ToggleButton value="enseignant">{t('Par enseignant')}</ToggleButton>
-          <ToggleButton value="classe">{t('Par classe')}</ToggleButton>
-        </ToggleButtonGroup>
-        <TextField
-          select
-          size="small"
-          label={by === 'enseignant' ? t('Enseignant') : t('Classe')}
-          value={options.some((o) => o.id === selected) ? selected : ''}
-          onChange={(e) => update({ id: e.target.value })}
-          sx={{ minWidth: 240, flex: '1 1 240px' }}
-        >
-          {options.map((o) => (
-            <MenuItem key={o.id} value={o.id}>
-              {'displayName' in o ? o.displayName : o.name}
-            </MenuItem>
-          ))}
-        </TextField>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-          <Button size="small" startIcon={<ChevronLeft size={18} aria-hidden />} onClick={() => update({ semaine: addDays(monday, -7) })}>
-            {t('Semaine précédente')}
-          </Button>
-          <Typography component="p" aria-live="polite" sx={{ fontWeight: 600 }}>
-            {t('Semaine du {date}', { date: dateLabel(monday) })}
-          </Typography>
-          <Button size="small" endIcon={<ChevronRight size={18} aria-hidden />} onClick={() => update({ semaine: addDays(monday, 7) })}>
-            {t('Semaine suivante')}
-          </Button>
-        </Box>
-      </Paper>
 
-      {!selected ? (
-        <Paper variant="elevated">
-          <EmptyState
-            icon={CalendarDays}
-            title={by === 'enseignant' ? t('Choisissez un enseignant') : t('Choisissez une classe')}
-            description={t('Son emploi du temps de la semaine s’affiche ici.')}
-          />
+      {selected && sessions.data && <StatTiles stats={weekStats(ordered)} />}
+
+      <Box sx={{ display: 'grid', gap: 2, alignItems: 'start', gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 1fr) 320px' } }}>
+        <Paper variant="elevated" sx={{ p: { xs: 2, sm: 3 }, minWidth: 0 }}>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1.5, mb: 2 }}>
+            <ToggleButtonGroup
+              exclusive
+              size="small"
+              value={by}
+              aria-label={t('Afficher par')}
+              sx={segmented}
+              onChange={(_e, value: string | null) => value && update({ vue: value === 'classe' ? 'classe' : null, id: null })}
+            >
+              <ToggleButton value="enseignant">{t('Par enseignant')}</ToggleButton>
+              <ToggleButton value="classe">{t('Par classe')}</ToggleButton>
+            </ToggleButtonGroup>
+            <ToggleButtonGroup
+              exclusive
+              size="small"
+              value={asList ? 'liste' : 'semaine'}
+              aria-label={t('Affichage')}
+              sx={segmented}
+              onChange={(_e, value: string | null) => value && update({ affichage: value === 'liste' ? 'liste' : null })}
+            >
+              <ToggleButton value="semaine">{t('Semaine')}</ToggleButton>
+              <ToggleButton value="liste">{t('Liste')}</ToggleButton>
+            </ToggleButtonGroup>
+            <Box sx={{ ml: { sm: 'auto' }, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <IconButton aria-label={t('Semaine précédente')} sx={arrowButton} onClick={() => update({ semaine: addDays(monday, -7) })}>
+                <ChevronLeft size={icon.md} aria-hidden />
+              </IconButton>
+              <Typography component="p" aria-live="polite" sx={{ fontWeight: font.semibold, textAlign: 'center' }}>
+                {t('Semaine du {date}', { date: dateLabel(monday) })}
+              </Typography>
+              <IconButton aria-label={t('Semaine suivante')} sx={arrowButton} onClick={() => update({ semaine: addDays(monday, 7) })}>
+                <ChevronRight size={icon.md} aria-hidden />
+              </IconButton>
+            </Box>
+          </Box>
+
+          {!selected ? (
+            <EmptyState
+              icon={CalendarDays}
+              title={by === 'enseignant' ? t('Choisissez un enseignant') : t('Choisissez une classe')}
+              description={t('Son emploi du temps de la semaine s’affiche ici.')}
+            />
+          ) : sessions.isPending ? (
+            <LoadingState label={t('Chargement de l’emploi du temps')} />
+          ) : sessions.error ? (
+            <ErrorState message={loadErrorMessage(sessions.error, t('l’emploi du temps'))} actionLabel={t('Réessayer')} onAction={() => void sessions.refetch()} />
+          ) : asList ? (
+            <SessionList days={shownDays} sessions={sessions.data} showTeacher={by === 'classe'} actions={(s) => buttons(s, false)} />
+          ) : ordered.length === 0 ? (
+            <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
+              {t('Aucune séance cette semaine.')}
+            </Typography>
+          ) : (
+            <WeekGrid days={shownDays} sessions={ordered} selectedId={current?.id} today={today} onSelect={(s) => setPickedId(s.id)} />
+          )}
         </Paper>
-      ) : sessions.isPending ? (
-        <LoadingState label={t('Chargement de l’emploi du temps')} />
-      ) : sessions.error ? (
-        <ErrorState message={loadErrorMessage(sessions.error, t('l’emploi du temps'))} actionLabel={t('Réessayer')} onAction={() => void sessions.refetch()} />
-      ) : (
-        <SessionList days={days} sessions={sessions.data} showTeacher={by === 'classe'} actions={actions} />
-      )}
+
+        <Box sx={{ display: 'grid', gap: 2, minWidth: 0 }}>
+          <Paper component="section" variant="elevated" aria-labelledby="person-title" sx={{ p: 2 }}>
+            <Typography id="person-title" component="h2" variant="h6" sx={{ mb: 1.5 }}>
+              {by === 'enseignant' ? t('Enseignant') : t('Classe')}
+            </Typography>
+            <Select
+              fullWidth
+              displayEmpty
+              value={pickedPerson ? selected : ''}
+              onChange={(e) => update({ id: e.target.value })}
+              inputProps={{ 'aria-labelledby': 'person-title' }}
+              MenuProps={{ slotProps: { paper: { sx: { maxHeight: 320 } } } }}
+              sx={(theme) => ({ bgcolor: tokensOf(theme).accent.soft, borderRadius: '12px', '& .MuiSelect-select': { py: 1.25 } })}
+              renderValue={(value) => {
+                const person = options.find((o) => o.id === value);
+                if (!person) {
+                  return <Typography color="text.secondary">{by === 'enseignant' ? t('Choisir un enseignant') : t('Choisir une classe')}</Typography>;
+                }
+                const name = 'displayName' in person ? person.displayName : person.name;
+                const detail =
+                  by === 'enseignant'
+                    ? [...new Set(ordered.map((s) => s.subject).filter(Boolean))].join(', ')
+                    : (ordered[0]?.level?.name ?? '');
+                return (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0 }}>
+                    {'displayName' in person && <UserAvatar user={person} size={40} />}
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography sx={{ fontWeight: font.semibold, overflowWrap: 'anywhere' }}>{name}</Typography>
+                      {detail && (
+                        <Typography color="text.secondary" sx={{ fontSize: fontSize.xs }}>
+                          {detail}
+                        </Typography>
+                      )}
+                    </Box>
+                  </Box>
+                );
+              }}
+            >
+              {options.map((o) => (
+                <MenuItem key={o.id} value={o.id}>
+                  {'displayName' in o ? o.displayName : o.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </Paper>
+          {showWeek && current && <SelectedSessionCard session={current} actions={buttons(current, true)} />}
+          {showWeek && held.length > 0 && <WeekClassesCard sessions={held} selectedId={current?.id} onSelect={(s) => setPickedId(s.id)} />}
+        </Box>
+      </Box>
 
       {form && (
         <TimetableFormDialog

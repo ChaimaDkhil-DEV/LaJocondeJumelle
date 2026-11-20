@@ -98,7 +98,7 @@ describe('Emplois du temps — administration', () => {
 
   it('liste les séances de l’enseignant choisi, groupées par jour, et change de semaine', async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-    const { calls } = setup('/admin/emplois-du-temps?id=t1&semaine=2026-11-23', (call) =>
+    const { calls } = setup('/admin/emplois-du-temps?id=t1&semaine=2026-11-23&affichage=liste', (call) =>
       call.url.startsWith('/api/timetable/sessions?') && call.url.includes('from=2026-11-23') ? json(200, [session()]) : undefined,
     );
     const item = await screen.findByRole('listitem', { name: 'Séance de 08:00 à 09:00, 1ère année Violet' });
@@ -209,7 +209,7 @@ describe('Emplois du temps — administration', () => {
   });
 
   it('séance annulée : « Séance annulée » et son motif, sans action ; séance commencée : pas de modification', async () => {
-    setup('/admin/emplois-du-temps?id=t1&semaine=2026-11-16', (call) =>
+    setup('/admin/emplois-du-temps?id=t1&semaine=2026-11-16&affichage=liste', (call) =>
       call.url.startsWith('/api/timetable/sessions?')
         ? json(200, [
             session({ id: 'c', date: '2026-11-16', startAt: '2026-11-16T07:00:00.000Z', endAt: '2026-11-16T08:00:00.000Z', status: 'CANCELLED', cancelReason: 'Vacances' }),
@@ -228,5 +228,122 @@ describe('Emplois du temps — administration', () => {
   it('l’entrée « Emplois du temps » figure dans le menu de l’administration', async () => {
     setup('/admin/emplois-du-temps');
     expect(await screen.findByRole('link', { name: 'Emplois du temps' })).toHaveAttribute('href', '/admin/emplois-du-temps');
+  });
+});
+
+describe('Emplois du temps — grille de la semaine', () => {
+  const lundi = session();
+  const mardi = session({
+    id: 's2',
+    date: '2026-11-24',
+    weekday: 2,
+    startAt: '2026-11-24T09:00:00.000Z',
+    endAt: '2026-11-24T10:30:00.000Z',
+    startTime: '10:00',
+    endTime: '11:30',
+    class: { id: 'k2', name: '2e année Bleu', room: null },
+    subject: 'Sciences',
+    room: 'Labo',
+  });
+  const annulee = session({
+    id: 's3',
+    date: '2026-11-26',
+    weekday: 4,
+    startAt: '2026-11-26T13:00:00.000Z',
+    endAt: '2026-11-26T14:00:00.000Z',
+    startTime: '14:00',
+    endTime: '15:00',
+    class: { id: 'k3', name: '3e année Rouge', room: null },
+    status: 'CANCELLED',
+    cancelReason: 'Sortie',
+  });
+  const week = (call: Call) => (call.url.startsWith('/api/timetable/sessions?') ? json(200, [lundi, mardi, annulee]) : undefined);
+
+  it('affiche les chiffres de la semaine : séances, classes, heures, annulées', async () => {
+    setup('/admin/emplois-du-temps?id=t1&semaine=2026-11-23', week);
+    const stats = await screen.findByRole('region', { name: 'Chiffres de la semaine' });
+    expect(within(stats).getByText('Séances cette semaine').nextSibling).toHaveTextContent('2');
+    expect(within(stats).getByText('Classes').nextSibling).toHaveTextContent('2');
+    expect(within(stats).getByText('Heures / semaine').nextSibling).toHaveTextContent('2 h 30');
+    expect(within(stats).getByText('Annulées').nextSibling).toHaveTextContent('1');
+  });
+
+  it('place chaque séance dans la grille ; la première est sélectionnée et son détail s’affiche', async () => {
+    setup('/admin/emplois-du-temps?id=t1&semaine=2026-11-23', week);
+    const block = await screen.findByRole('button', { name: /Séance de 08:00 à 09:00, 1ère année Violet/ });
+    expect(block).toHaveAttribute('aria-pressed', 'true');
+    const detail = screen.getByRole('region', { name: 'Séance sélectionnée' });
+    expect(within(detail).getByText('1ère année Violet')).toBeInTheDocument();
+    expect(within(detail).getByText(/Mathématiques · Salle : Salle 12/)).toBeInTheDocument();
+    expect(within(detail).getByRole('button', { name: /Modifier la séance de 08:00/ })).toBeInTheDocument();
+    expect(within(detail).getByRole('button', { name: /Annuler la séance de 08:00/ })).toBeInTheDocument();
+  });
+
+  it('choisir une autre séance change le détail ; une séance annulée n’a pas d’action et dit son motif', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    setup('/admin/emplois-du-temps?id=t1&semaine=2026-11-23', week);
+    await user.click(await screen.findByRole('button', { name: /Séance de 10:00 à 11:30, 2e année Bleu/ }));
+    const detail = screen.getByRole('region', { name: 'Séance sélectionnée' });
+    expect(within(detail).getByText('2e année Bleu')).toBeInTheDocument();
+    expect(within(detail).getByText(/Sciences · Salle : Labo/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /Séance annulée de 14:00 à 15:00, 3e année Rouge/ }));
+    expect(within(detail).getByText('Séance annulée')).toBeInTheDocument();
+    expect(within(detail).getByText('Motif : Sortie')).toBeInTheDocument();
+    expect(within(detail).queryByRole('button')).toBeNull();
+  });
+
+  it('« Classes de la semaine » liste les séances tenues, sans les annulées, et sélectionne au clic', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    setup('/admin/emplois-du-temps?id=t1&semaine=2026-11-23', week);
+    const list = await screen.findByRole('region', { name: 'Classes de la semaine' });
+    const rows = within(list).getAllByRole('button');
+    expect(rows).toHaveLength(2);
+    expect(rows[1]).toHaveTextContent('2e année Bleu');
+    expect(rows[1]).toHaveTextContent('Mardi 10:00');
+    await user.click(rows[1]);
+    expect(within(screen.getByRole('region', { name: 'Séance sélectionnée' })).getByText('2e année Bleu')).toBeInTheDocument();
+  });
+
+  it('une semaine sans séance le dit, sans détail à afficher', async () => {
+    setup('/admin/emplois-du-temps?id=t1&semaine=2026-11-23');
+    expect(await screen.findByText('Aucune séance cette semaine.')).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Séance sélectionnée' })).toBeNull();
+  });
+
+  it('le bouton « Liste » garde le choix dans l’adresse et affiche les séances jour par jour', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const { router } = setup('/admin/emplois-du-temps?id=t1&semaine=2026-11-23', week);
+    await screen.findByRole('button', { name: /Séance de 08:00 à 09:00/ });
+    await user.click(screen.getByRole('button', { name: 'Liste' }));
+    expect(await screen.findByRole('listitem', { name: 'Séance de 08:00 à 09:00, 1ère année Violet' })).toBeInTheDocument();
+    expect(router.state.location.search).toContain('affichage=liste');
+    await user.click(screen.getByRole('button', { name: 'Semaine' }));
+    expect(await screen.findByRole('button', { name: /Séance de 08:00 à 09:00/ })).toBeInTheDocument();
+    expect(router.state.location.search).not.toContain('affichage');
+  });
+
+  it('n’affiche ni samedi ni dimanche, sauf si une séance y est planifiée', async () => {
+    const { unmount } = (() => {
+      setup('/admin/emplois-du-temps?id=t1&semaine=2026-11-23', week);
+      return { unmount: () => undefined };
+    })();
+    await screen.findByRole('button', { name: /Séance de 08:00 à 09:00/ });
+    const grid = screen.getByRole('group', { name: 'Séances de la semaine' });
+    expect(within(grid).getByText('ven')).toBeInTheDocument();
+    expect(within(grid).queryByText('sam')).toBeNull();
+    expect(within(grid).queryByText('dim')).toBeNull();
+    unmount();
+  });
+
+  it('une séance du samedi fait apparaître la colonne', async () => {
+    setup('/admin/emplois-du-temps?id=t1&semaine=2026-11-23', (call) =>
+      call.url.startsWith('/api/timetable/sessions?')
+        ? json(200, [session({ id: 'w', date: '2026-11-28', weekday: 6, startAt: '2026-11-28T07:00:00.000Z', endAt: '2026-11-28T08:00:00.000Z' })])
+        : undefined,
+    );
+    const grid = await screen.findByRole('group', { name: 'Séances de la semaine' });
+    expect(within(grid).getByText('sam')).toBeInTheDocument();
+    expect(within(grid).queryByText('dim')).toBeNull();
   });
 });

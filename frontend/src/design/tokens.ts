@@ -205,6 +205,38 @@ export const icon = { sm: 16, md: 18, lg: 20, stroke: 1.75 } as const;
 /** Largeurs de mise en page. */
 export const layout = { sidebar: 256, content: 1200, readable: 720 } as const;
 
+/**
+ * Teintes des séances dans la grille de la semaine : une par classe (choix stable), pour reconnaître une classe d'un
+ * coup d'œil. `bar` est le liseré (décoratif) ; `text` sur `bg` ≥ 4.5:1 (tests/timetable/week-grid-logic.test.ts).
+ */
+export interface SessionTint {
+  bg: string;
+  bar: string;
+  text: string;
+}
+export const sessionPalette: Record<ColorMode, readonly SessionTint[]> = {
+  light: [
+    { bg: '#ede9fe', bar: '#7c3aed', text: '#5b21b6' },
+    { bg: '#ffedd5', bar: '#f59e0b', text: '#9a3412' },
+    { bg: '#fce7f3', bar: '#ec4899', text: '#9d174d' },
+    { bg: '#dcfce7', bar: '#16a34a', text: '#166534' },
+    { bg: '#ccfbf1', bar: '#0d9488', text: '#115e59' },
+    { bg: '#dbeafe', bar: '#3b82f6', text: '#1e40af' },
+    { bg: '#fee2e2', bar: '#ef4444', text: '#991b1b' },
+    { bg: '#e0f2fe', bar: '#0284c7', text: '#075985' },
+  ],
+  dark: [
+    { bg: '#2e1f5e', bar: '#a78bfa', text: '#ddd6fe' },
+    { bg: '#3b2208', bar: '#fbbf24', text: '#fed7aa' },
+    { bg: '#4a1632', bar: '#f472b6', text: '#fbcfe8' },
+    { bg: '#0f3320', bar: '#4ade80', text: '#bbf7d0' },
+    { bg: '#0b3a36', bar: '#2dd4bf', text: '#99f6e4' },
+    { bg: '#16295a', bar: '#60a5fa', text: '#bfdbfe' },
+    { bg: '#4a1717', bar: '#f87171', text: '#fecaca' },
+    { bg: '#0c3347', bar: '#38bdf8', text: '#bae6fd' },
+  ],
+};
+
 /** Couleurs douces des avatars (fond, texte) : contraste ≥ 4.5:1. */
 export const avatarColors: ReadonlyArray<{ bg: string; fg: string }> = [
   { bg: '#e0e7ff', fg: '#3730a3' },
