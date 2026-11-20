@@ -12,20 +12,21 @@ import ListSubheader from '@mui/material/ListSubheader';
 import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
 import TablePagination from '@mui/material/TablePagination';
+import type { Theme } from '@mui/material/styles';
 import TextField from '@mui/material/TextField';
+import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
-import { CircleOff, FileUp, GraduationCap, History, Pencil, Search, SearchX, UserPlus } from 'lucide-react';
+import { CircleOff, FileUp, GraduationCap, History, Pencil, RotateCcw, Search, SearchX, UserPlus } from 'lucide-react';
 import { useId, useMemo, useState, type FormEvent } from 'react';
 import { Link as RouterLink } from 'react-router';
 import { ApiError } from '../../api/client';
 import { Badge } from '../../components/Badge';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
-import { IconAction } from '../../components/IconAction';
 import { LoadingState } from '../../components/LoadingState';
 import { SectionHeader } from '../../components/SectionHeader';
 import { useToast } from '../../components/Toast';
-import { font, icon } from '../../design/tokens';
+import { font, fontSize, icon, tokensOf } from '../../design/tokens';
 import { isPlural, locale, t } from '../../i18n';
 import { StudentHistoryDrawer } from './StudentHistoryDrawer';
 import { StudentsImportDialog } from './StudentsImportDialog';
@@ -156,6 +157,23 @@ function StudentFormDialog({
 }
 
 const normalize = (text: string) => text.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLocaleLowerCase(locale());
+const digitsOf = (text: string) => text.replace(/\D/g, '');
+const compare = (a: string, b: string) => a.localeCompare(b, locale(), { sensitivity: 'base' });
+
+type SortKey = 'nom-asc' | 'nom-desc' | 'classe';
+const byName = (a: Student, b: Student) => compare(a.lastName, b.lastName) || compare(a.firstName, b.firstName);
+const SORTS: Record<SortKey, (a: Student, b: Student) => number> = {
+  'nom-asc': byName,
+  'nom-desc': (a, b) => byName(b, a),
+  classe: (a, b) => (a.class.level?.position ?? Number.MAX_SAFE_INTEGER) - (b.class.level?.position ?? Number.MAX_SAFE_INTEGER) || compare(a.class.name, b.class.name) || byName(a, b),
+};
+
+/** Texte lu par les lecteurs d'écran seulement (grand écran) ; visible comme étiquette sur téléphone. */
+const cellLabel = (theme: Theme) => ({
+  color: 'text.secondary',
+  [theme.breakpoints.up('md')]: { position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' },
+});
+const ROW_COLUMNS = 'minmax(0, 2fr) minmax(0, 1.5fr) minmax(0, 1.3fr) 212px';
 
 /** Élèves par niveau et classe (super administrateur). */
 export function StudentsAdminPage() {
@@ -168,25 +186,38 @@ export function StudentsAdminPage() {
   const [query, setQuery] = useState('');
   const [levelId, setLevelId] = useState('');
   const [classId, setClassId] = useState('');
+  const [sort, setSort] = useState<SortKey>('nom-asc');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(ROWS_PER_PAGE[0]);
 
   const filtered = useMemo(() => {
     const q = normalize(query.trim());
-    return (students.data ?? []).filter(
-      (s) =>
-        (!levelId || s.class.level?.id === levelId) &&
-        (!classId || s.class.id === classId) &&
-        (!q || normalize(`${s.firstName} ${s.lastName} ${s.lastName} ${s.firstName}`).includes(q)),
-    );
-  }, [students.data, query, levelId, classId]);
+    const digits = digitsOf(query);
+    return (students.data ?? [])
+      .filter(
+        (s) =>
+          (!levelId || s.class.level?.id === levelId) &&
+          (!classId || s.class.id === classId) &&
+          (!q || normalize(`${s.firstName} ${s.lastName} ${s.lastName} ${s.firstName}`).includes(q) || (digits.length > 0 && digitsOf(s.parentPhone).includes(digits))),
+      )
+      .sort(SORTS[sort]);
+  }, [students.data, query, levelId, classId, sort]);
   const levelClasses = (levels.data ?? []).find((l) => l.id === levelId)?.classes ?? (levels.data ?? []).flatMap((l) => l.classes);
   const pageCount = Math.max(1, Math.ceil(filtered.length / rowsPerPage));
   const currentPage = Math.min(page, pageCount - 1);
   const rows = filtered.slice(currentPage * rowsPerPage, (currentPage + 1) * rowsPerPage);
   const resetPage = () => setPage(0);
+  const filtering = Boolean(query.trim() || levelId || classId);
+  const total = students.data?.length ?? 0;
+  const enrolled = (students.data ?? []).filter((s) => s.active).length;
+  const classCount = (levels.data ?? []).reduce((sum, l) => sum + l.classes.length, 0);
   // Sans classe rattachée à un niveau, aucun élève ne peut être inscrit : on dit quoi faire.
   const noClassWithLevel = levels.data !== undefined && levels.data.every((l) => l.classes.length === 0);
+  const tiles = [
+    { label: t('Élèves inscrits'), value: enrolled, note: enrolled < total ? t('sur {total} au total', { total }) : null },
+    { label: t('Classes'), value: classCount, note: null },
+    { label: t('Niveaux'), value: levels.data?.length ?? 0, note: null },
+  ];
 
   return (
     <Box component="section" aria-labelledby="titre-eleves">
@@ -228,110 +259,219 @@ export function StudentsAdminPage() {
       ) : students.error || levels.error ? (
         <ErrorState message={t('Impossible de charger les élèves.')} actionLabel={t('Réessayer')} onAction={() => void Promise.all([students.refetch(), levels.refetch()])} />
       ) : (
-        <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, p: 2 }}>
-            <TextField
-              id="eleves-recherche"
-              size="small"
-              placeholder={t('Rechercher un élève…')}
-              value={query}
-              onChange={(e) => (setQuery(e.target.value), resetPage())}
-              sx={{ flex: '1 1 220px' }}
-              slotProps={{
-                htmlInput: { 'aria-label': t('Rechercher un élève') },
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Search size={icon.sm} aria-hidden="true" />
-                    </InputAdornment>
-                  ),
-                },
-              }}
-            />
-            <TextField
-              id="eleves-niveau"
-              select
-              size="small"
-              label={t('Niveau')}
-              value={levelId}
-              onChange={(e) => (setLevelId(e.target.value), setClassId(''), resetPage())}
-              sx={{ flex: '1 1 180px' }}
-              slotProps={{ select: { displayEmpty: true }, inputLabel: { shrink: true } }}
-            >
-              <MenuItem value="">{t('Tous')}</MenuItem>
-              {levels.data.map((l) => (
-                <MenuItem key={l.id} value={l.id}>
-                  {l.name}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              id="eleves-classe"
-              select
-              size="small"
-              label={t('Classe')}
-              value={classId}
-              onChange={(e) => (setClassId(e.target.value), resetPage())}
-              sx={{ flex: '1 1 200px' }}
-              slotProps={{ select: { displayEmpty: true }, inputLabel: { shrink: true } }}
-            >
-              <MenuItem value="">{t('Toutes')}</MenuItem>
-              {levelClasses.map((c) => (
-                <MenuItem key={c.id} value={c.id}>
-                  {c.name}
-                </MenuItem>
-              ))}
-            </TextField>
+        <>
+          <Box component="section" aria-label={t('Chiffres des élèves')} sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)' }, mb: 2 }}>
+            {tiles.map((tile) => (
+              <Paper key={tile.label} variant="outlined" sx={{ px: 2, py: 1.5, minWidth: 0 }}>
+                <Typography component="span" variant="body2" color="text.secondary" sx={{ display: 'block' }}>
+                  {tile.label}
+                </Typography>
+                <Box component="span" sx={{ display: 'block', fontSize: fontSize.xxl, fontWeight: font.semibold, lineHeight: 1.2 }}>
+                  {tile.value}
+                </Box>
+                {tile.note && (
+                  <Typography component="span" variant="body2" color="text.secondary" sx={{ display: 'block' }}>
+                    {tile.note}
+                  </Typography>
+                )}
+              </Paper>
+            ))}
           </Box>
-          <Typography variant="body2" color="text.secondary" aria-live="polite" sx={{ px: 2, pb: 1.5 }}>
-            {t(isPlural(filtered.length) ? '{count} élèves' : '{count} élève', { count: filtered.length })}
-          </Typography>
-          {filtered.length === 0 ? (
-            <EmptyState
-              icon={students.data.length === 0 ? GraduationCap : SearchX}
-              title={students.data.length === 0 ? t('Aucun élève') : t('Aucun élève trouvé')}
-              description={students.data.length === 0 ? t('Ajoutez les élèves de chaque classe.') : t('Aucun élève ne correspond à cette recherche ou à ces filtres.')}
-            />
-          ) : (
-            <>
-              <Box component="ul" aria-label={t('Élèves')} sx={{ listStyle: 'none', m: 0, p: 0, borderTop: 1, borderColor: 'divider', '& > li + li': { borderTop: 1, borderColor: 'divider' } }}>
-                {rows.map((s) => (
-                  <Box component="li" key={s.id} sx={{ display: 'flex', gap: 2, alignItems: 'center', px: { xs: 2, md: 2.5 }, py: 1.25 }}>
-                    <Box sx={{ minWidth: 0, flex: '1 1 auto' }}>
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
-                        <Typography sx={{ fontWeight: font.medium, overflowWrap: 'anywhere' }}>
-                          {s.lastName.toLocaleUpperCase(locale())} {s.firstName}
-                        </Typography>
-                        {!s.active && (
-                          <Badge tone="neutral" icon={CircleOff}>
-                            {t('Inactif')}
-                          </Badge>
-                        )}
-                      </Box>
-                      <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
-                        {s.class.name} · {s.parentPhone}
-                      </Typography>
-                    </Box>
-                    <IconAction icon={History} label={t('Historique de la classe de l’élève {name}', { name: `${s.firstName} ${s.lastName}` })} tooltip={t('Historique de classe')} onClick={() => setHistoryOf(s)} />
-                    <IconAction icon={Pencil} label={t('Modifier l’élève {name}', { name: `${s.firstName} ${s.lastName}` })} tooltip={t('Modifier')} onClick={() => setForm({ student: s })} />
-                  </Box>
-                ))}
-              </Box>
-              <TablePagination
-                component="div"
-                count={filtered.length}
-                page={currentPage}
-                rowsPerPage={rowsPerPage}
-                rowsPerPageOptions={ROWS_PER_PAGE}
-                onPageChange={(_e, next) => setPage(next)}
-                onRowsPerPageChange={(e) => (setRowsPerPage(Number(e.target.value)), resetPage())}
-                labelRowsPerPage={t('Lignes par page :')}
-                labelDisplayedRows={({ from, to, count }) => t('{from}–{to} sur {count}', { from, to, count })}
-                getItemAriaLabel={(type) => (type === 'next' ? t('Page suivante') : type === 'previous' ? t('Page précédente') : type === 'first' ? t('Première page') : t('Dernière page'))}
+
+          <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
+            <Box sx={{ display: 'grid', gap: 1.5, p: 2 }}>
+              <TextField
+                id="eleves-recherche"
+                size="small"
+                fullWidth
+                type="search"
+                placeholder={t('Rechercher par nom, prénom ou téléphone du représentant')}
+                value={query}
+                onChange={(e) => (setQuery(e.target.value), resetPage())}
+                slotProps={{
+                  htmlInput: { 'aria-label': t('Rechercher un élève par nom, prénom ou téléphone du représentant') },
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Search size={icon.sm} aria-hidden="true" />
+                      </InputAdornment>
+                    ),
+                  },
+                }}
               />
-            </>
-          )}
-        </Paper>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
+                <TextField
+                  id="eleves-niveau"
+                  select
+                  size="small"
+                  label={t('Niveau')}
+                  value={levelId}
+                  onChange={(e) => (setLevelId(e.target.value), setClassId(''), resetPage())}
+                  sx={{ flex: '1 1 180px' }}
+                  slotProps={{ select: { displayEmpty: true }, inputLabel: { shrink: true } }}
+                >
+                  <MenuItem value="">{t('Tous')}</MenuItem>
+                  {levels.data.map((l) => (
+                    <MenuItem key={l.id} value={l.id}>
+                      {l.name}
+                    </MenuItem>
+                  ))}
+                </TextField>
+                <TextField
+                  id="eleves-classe"
+                  select
+                  size="small"
+                  label={t('Classe')}
+                  value={classId}
+                  onChange={(e) => (setClassId(e.target.value), resetPage())}
+                  sx={{ flex: '1 1 200px' }}
+                  slotProps={{ select: { displayEmpty: true }, inputLabel: { shrink: true } }}
+                >
+                  <MenuItem value="">{t('Toutes')}</MenuItem>
+                  {levelClasses.map((c) => (
+                    <MenuItem key={c.id} value={c.id}>
+                      {c.name}
+                    </MenuItem>
+                  ))}
+                </TextField>
+                <TextField
+                  id="eleves-tri"
+                  select
+                  size="small"
+                  label={t('Trier par')}
+                  value={sort}
+                  onChange={(e) => (setSort(e.target.value as SortKey), resetPage())}
+                  sx={{ flex: '1 1 180px' }}
+                >
+                  <MenuItem value="nom-asc">{t('Nom (A → Z)')}</MenuItem>
+                  <MenuItem value="nom-desc">{t('Nom (Z → A)')}</MenuItem>
+                  <MenuItem value="classe">{t('Niveau et classe')}</MenuItem>
+                </TextField>
+              </Box>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 1, minHeight: 32 }}>
+                <Typography variant="body2" color="text.secondary" aria-live="polite">
+                  {filtering
+                    ? t('{count} sur {total} élèves', { count: filtered.length, total })
+                    : t(isPlural(filtered.length) ? '{count} élèves' : '{count} élève', { count: filtered.length })}
+                </Typography>
+                {filtering && (
+                  <Button
+                    size="small"
+                    startIcon={<RotateCcw size={icon.sm} aria-hidden="true" />}
+                    onClick={() => {
+                      setQuery('');
+                      setLevelId('');
+                      setClassId('');
+                      resetPage();
+                    }}
+                  >
+                    {t('Réinitialiser les filtres')}
+                  </Button>
+                )}
+              </Box>
+            </Box>
+            {filtered.length === 0 ? (
+              <EmptyState
+                icon={total === 0 ? GraduationCap : SearchX}
+                title={total === 0 ? t('Aucun élève') : t('Aucun élève trouvé')}
+                description={total === 0 ? t('Ajoutez les élèves de chaque classe.') : t('Aucun élève ne correspond à cette recherche ou à ces filtres.')}
+              />
+            ) : (
+              <>
+                <Box
+                  aria-hidden="true"
+                  sx={(theme) => ({
+                    display: { xs: 'none', md: 'grid' },
+                    gridTemplateColumns: ROW_COLUMNS,
+                    gap: 2,
+                    px: 2.5,
+                    py: 1,
+                    borderTop: 1,
+                    borderColor: 'divider',
+                    bgcolor: tokensOf(theme).surfaceMuted,
+                    color: 'text.secondary',
+                    fontSize: fontSize.sm,
+                    fontWeight: font.medium,
+                  })}
+                >
+                  <span>{t('Élève')}</span>
+                  <span>{t('Classe')}</span>
+                  <span>{t('Téléphone du représentant')}</span>
+                  <span style={{ textAlign: 'right' }}>{t('Actions')}</span>
+                </Box>
+                <Box component="ul" aria-label={t('Élèves')} sx={{ listStyle: 'none', m: 0, p: 0, borderTop: 1, borderColor: 'divider', '& > li + li': { borderTop: 1, borderColor: 'divider' } }}>
+                  {rows.map((s) => {
+                    const fullName = `${s.firstName} ${s.lastName}`;
+                    return (
+                      <Box
+                        component="li"
+                        key={s.id}
+                        sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: ROW_COLUMNS }, gap: { xs: 0.5, md: 2 }, alignItems: 'center', px: { xs: 2, md: 2.5 }, py: 1.25 }}
+                      >
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, minWidth: 0 }}>
+                          <Typography sx={{ fontWeight: font.medium, overflowWrap: 'anywhere' }}>
+                            {s.lastName.toLocaleUpperCase(locale())} {s.firstName}
+                          </Typography>
+                          {!s.active && (
+                            <Badge tone="neutral" icon={CircleOff}>
+                              {t('Inactif')}
+                            </Badge>
+                          )}
+                        </Box>
+                        <Typography component="div" variant="body2" sx={{ overflowWrap: 'anywhere' }}>
+                          <Box component="span" sx={cellLabel}>{t('Classe :')} </Box>
+                          <span>{s.class.name}</span>
+                        </Typography>
+                        <Typography component="div" variant="body2" sx={{ overflowWrap: 'anywhere' }}>
+                          <Box component="span" sx={cellLabel}>{t('Téléphone du représentant :')} </Box>
+                          <span>{s.parentPhone}</span>
+                        </Typography>
+                        <Box sx={{ display: 'flex', gap: 1, mt: { xs: 0.5, md: 0 }, justifyContent: { md: 'flex-end' } }}>
+                          <Tooltip title={t('Voir l’historique de classe de {name}', { name: fullName })}>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              color="inherit"
+                              startIcon={<History size={icon.sm} aria-hidden="true" />}
+                              aria-label={t('Historique de la classe de l’élève {name}', { name: fullName })}
+                              onClick={() => setHistoryOf(s)}
+                            >
+                              {t('Historique')}
+                            </Button>
+                          </Tooltip>
+                          <Tooltip title={t('Modifier la fiche de {name}', { name: fullName })}>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              color="inherit"
+                              startIcon={<Pencil size={icon.sm} aria-hidden="true" />}
+                              aria-label={t('Modifier l’élève {name}', { name: fullName })}
+                              onClick={() => setForm({ student: s })}
+                            >
+                              {t('Modifier')}
+                            </Button>
+                          </Tooltip>
+                        </Box>
+                      </Box>
+                    );
+                  })}
+                </Box>
+                <TablePagination
+                  component="div"
+                  count={filtered.length}
+                  page={currentPage}
+                  rowsPerPage={rowsPerPage}
+                  rowsPerPageOptions={ROWS_PER_PAGE}
+                  onPageChange={(_e, next) => setPage(next)}
+                  onRowsPerPageChange={(e) => (setRowsPerPage(Number(e.target.value)), resetPage())}
+                  labelRowsPerPage={t('Lignes par page :')}
+                  labelDisplayedRows={({ from, to, count }) => t('{from}–{to} sur {count}', { from, to, count })}
+                  getItemAriaLabel={(type) => (type === 'next' ? t('Page suivante') : type === 'previous' ? t('Page précédente') : type === 'first' ? t('Première page') : t('Dernière page'))}
+                />
+              </>
+            )}
+          </Paper>
+        </>
       )}
       {importing && <StudentsImportDialog onClose={() => setImporting(false)} />}
       <StudentHistoryDrawer student={historyOf} onClose={() => setHistoryOf(null)} />

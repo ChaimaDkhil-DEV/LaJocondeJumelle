@@ -138,4 +138,68 @@ describe('Élèves (super administrateur)', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Enregistrer l’élève' }));
     await waitFor(() => expect(calls.find((c) => c.method === 'PATCH')).toMatchObject({ url: '/api/admin/students/s2', body: { firstName: 'Adem', classId: 'c1' } }));
   });
+
+  it('indicateurs : élèves inscrits, classes rattachées à un niveau, niveaux', async () => {
+    setup();
+    const stats = await screen.findByRole('region', { name: 'Chiffres des élèves' });
+    expect(within(stats).getByText('Élèves inscrits').nextSibling).toHaveTextContent('3');
+    expect(within(stats).getByText('Classes').nextSibling).toHaveTextContent('3');
+    expect(within(stats).getByText('Niveaux').nextSibling).toHaveTextContent('2');
+  });
+
+  it('recherche par nom, prénom ou téléphone du représentant ; compteur « x sur y » ; réinitialisation', async () => {
+    const user = userEvent.setup();
+    setup();
+    await screen.findByRole('list', { name: 'Élèves' });
+    expect(screen.queryByRole('button', { name: 'Réinitialiser les filtres' })).toBeNull();
+    const search = screen.getByRole('searchbox', { name: /Rechercher un élève/ });
+
+    await user.type(search, 'hammami');
+    expect(screen.getByText('1 sur 3 élèves')).toBeInTheDocument();
+    await user.clear(search);
+    await user.type(search, '06 39 98 00 02');
+    expect(within(screen.getByRole('list', { name: 'Élèves' })).getAllByRole('listitem')).toHaveLength(1);
+    expect(screen.getByText('ZRIBI Adam')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Réinitialiser les filtres' }));
+    expect(search).toHaveValue('');
+    expect(screen.getByText('3 élèves')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Réinitialiser les filtres' })).toBeNull();
+  });
+
+  it('filtres combinés niveau + classe, puis réinitialisation', async () => {
+    const user = userEvent.setup();
+    setup();
+    await screen.findByRole('list', { name: 'Élèves' });
+    await user.click(screen.getByRole('combobox', { name: 'Niveau' }));
+    await user.click(screen.getByRole('option', { name: '1re primaire' }));
+    expect(screen.getByText('Aucun élève trouvé')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Réinitialiser les filtres' }));
+    expect(within(screen.getByRole('list', { name: 'Élèves' })).getAllByRole('listitem')).toHaveLength(3);
+  });
+
+  it('tri : par nom (A → Z par défaut, Z → A) ou par niveau et classe', async () => {
+    const user = userEvent.setup();
+    setup();
+    const names = () => within(screen.getByRole('list', { name: 'Élèves' })).getAllByRole('listitem').map((li) => li.querySelector('p')!.textContent);
+    await screen.findByRole('list', { name: 'Élèves' });
+    expect(names()).toEqual(['BEN ALI Aya', 'HAMMAMI Lina', 'ZRIBI Adam']);
+    await user.click(screen.getByRole('combobox', { name: 'Trier par' }));
+    await user.click(screen.getByRole('option', { name: 'Nom (Z → A)' }));
+    expect(names()).toEqual(['ZRIBI Adam', 'HAMMAMI Lina', 'BEN ALI Aya']);
+    await user.click(screen.getByRole('combobox', { name: 'Trier par' }));
+    await user.click(screen.getByRole('option', { name: 'Niveau et classe' }));
+    expect(names()).toEqual(['BEN ALI Aya', 'ZRIBI Adam', 'HAMMAMI Lina']);
+  });
+
+  it('chaque élève sépare nom, classe et téléphone ; les actions ont un nom explicite et une infobulle', async () => {
+    const user = userEvent.setup();
+    setup();
+    const item = within(await screen.findByRole('list', { name: 'Élèves' })).getAllByRole('listitem')[0];
+    expect(within(item).getByText('Préparatoire 1 - Rose')).toBeInTheDocument();
+    expect(within(item).getByText('06 39 98 00 01')).toBeInTheDocument();
+    expect(within(item).getByText('Historique')).toBeInTheDocument();
+    await user.hover(within(item).getByRole('button', { name: /Historique de la classe de l’élève Aya Ben Ali/ }));
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Voir l’historique de classe de Aya Ben Ali');
+  });
 });
