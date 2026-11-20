@@ -18,6 +18,20 @@ export const timetable: Record<string, string> = {
   'Modifier la séance de {start}, {date}': 'Edit the {start} session, {date}',
   'Annuler la séance de {start}, {date}': 'Cancel the {start} session, {date}',
 
+  // Week grid
+  'Liste': 'List',
+  'Chiffres de la semaine': 'Figures for the week',
+  'Séances cette semaine': 'Sessions this week',
+  'Heures / semaine': 'Hours / week',
+  'Séances de la semaine': 'Sessions of the week',
+  'Séance annulée de {start} à {end}, {class}': 'Cancelled session from {start} to {end}, {class}',
+  'Annulée': 'Cancelled',
+  'Aucune séance cette semaine.': 'No session this week.',
+  'Séance sélectionnée': 'Selected session',
+  'Classes de la semaine': 'Classes of the week',
+  'Choisir un enseignant': 'Choose a teacher',
+  'Choisir une classe': 'Choose a class',
+
   // Session list
   'Aucune séance ce jour-là.': 'No session that day.',
   'Séance de {start} à {end}, {class}': 'Session from {start} to {end}, {class}',
