@@ -132,6 +132,7 @@ describe('Rôle d’exécution PostgreSQL de l’API (R02)', () => {
       'ParentCommunicationRevision',
       'RequestAssignment',
       'RequestEvent',
+      'StudentClassHistory',
     ]);
     expect(without('delete')).toEqual([
       'AuditLog',
@@ -139,6 +140,7 @@ describe('Rôle d’exécution PostgreSQL de l’API (R02)', () => {
       'ParentCommunicationRevision',
       'RequestAssignment',
       'RequestEvent',
+      'StudentClassHistory',
       'TeacherAttendance',
       'TeacherDeparture',
       'TeachingSession',

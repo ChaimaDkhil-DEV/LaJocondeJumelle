@@ -4,6 +4,7 @@ import { AuditService } from '../audit/audit.service';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import { AppException } from '../common/errors';
 import { PrismaService } from '../common/prisma.service';
+import { appendClassHistory } from './class-history';
 import type { LevelDto, StudentDto, UpdateLevelDto } from './students.dto';
 
 export interface StudentsContext {
@@ -60,6 +61,18 @@ export function byLevelClassAndName(a: SortableStudent, b: SortableStudent): num
 function changedFields(before: Student, after: StudentDto): string[] {
   const keys = ['firstName', 'lastName', 'classId', 'parentPhone', 'active'] as const;
   return keys.filter((key) => after[key] !== undefined && after[key] !== before[key]);
+}
+
+/** Champs dont le journal d'audit garde l'avant et l'après (021) : jamais le téléphone d'un parent. */
+const AUDITED_VALUES = ['firstName', 'lastName', 'classId', 'active'] as const;
+
+/** Avant et après des seuls champs modifiés, parmi les champs qui peuvent être journalisés avec leur valeur. */
+function changedValues(before: Student, after: StudentDto) {
+  const changed = AUDITED_VALUES.filter((key) => after[key] !== undefined && after[key] !== before[key]);
+  return {
+    before: Object.fromEntries(changed.map((key) => [key, before[key]])),
+    after: Object.fromEntries(changed.map((key) => [key, after[key]])),
+  };
 }
 
 /** Niveaux, classes et élèves (super administrateur). */
@@ -155,6 +168,8 @@ export class StudentsService {
         },
         select: STUDENT_SELECT,
       });
+      // Première période de classe, dans la même transaction que l'élève (021).
+      await appendClassHistory(tx, { studentId: student.id, classId: dto.classId, changedById: ctx.actor.id });
       await this.audit.log(
         'STUDENT_CHANGED',
         { actorId: ctx.actor.id, ip: ctx.ip, targetType: 'Student', targetId: student.id, details: { action: 'create', classId: dto.classId } },
@@ -181,9 +196,17 @@ export class StudentsService {
       });
       if (count === 0) throw new AppException('STATE_CHANGED');
       const student = await tx.student.findUniqueOrThrow({ where: { id }, select: STUDENT_SELECT });
+      // Une nouvelle période seulement si la classe change (021, FR-003).
+      if (dto.classId !== current.classId) await appendClassHistory(tx, { studentId: id, classId: dto.classId, changedById: ctx.actor.id });
       await this.audit.log(
         'STUDENT_CHANGED',
-        { actorId: ctx.actor.id, ip: ctx.ip, targetType: 'Student', targetId: id, details: { action: 'update', fields: changedFields(current, dto) } },
+        {
+          actorId: ctx.actor.id,
+          ip: ctx.ip,
+          targetType: 'Student',
+          targetId: id,
+          details: { action: 'update', fields: changedFields(current, dto), ...changedValues(current, dto) },
+        },
         tx,
       );
       return student;

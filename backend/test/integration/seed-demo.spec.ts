@@ -79,6 +79,19 @@ describe('Seed de démonstration', () => {
     expect(students.every((s) => /^06 39 98 \d{2} \d{2}$/.test(s.parentPhone))).toBe(true);
   });
 
+  it('historique des classes (021) : chaque élève a une période, la dernière est sa classe actuelle (SC-004)', async () => {
+    const orphans = await prisma.$queryRaw<{ n: number }[]>`
+      SELECT count(*)::int AS n FROM "Student" s
+      WHERE NOT EXISTS (SELECT 1 FROM "StudentClassHistory" h WHERE h."studentId" = s."id")`;
+    expect(orphans[0].n).toBe(0);
+    const mismatched = await prisma.$queryRaw<{ n: number }[]>`
+      SELECT count(*)::int AS n FROM "Student" s
+      WHERE (SELECT h."classId" FROM "StudentClassHistory" h WHERE h."studentId" = s."id" ORDER BY h."startedAt" DESC, h."seq" DESC LIMIT 1) <> s."classId"`;
+    expect(mismatched[0].n).toBe(0);
+    const students = await prisma.student.count();
+    expect(await prisma.studentClassHistory.count()).toBe(students);
+  });
+
   it('demandes du 12 au 30 octobre, catégories et priorités existantes, numérotation chronologique', async () => {
     const requests = await prisma.request.findMany({ include: { category: true }, orderBy: { number: 'asc' } });
     expect(requests.length).toBeGreaterThanOrEqual(120);
@@ -155,6 +168,18 @@ describe('Seed de démonstration', () => {
     expect(audit?.details).toEqual({ action: 'create', classId });
   });
 
+  it('situation d’un élève (021, SC-007) : répond en moins de 3 secondes sur le jeu de démonstration complet', async () => {
+    const direction = await login('direction');
+    const student = await prisma.student.findFirstOrThrow({ orderBy: { id: 'asc' } });
+    const at = encodeURIComponent('2026-10-20T10:30');
+    const started = Date.now();
+    const res = await request(app.getHttpServer()).get(`/api/admin/students/${student.id}/situation?at=${at}`).set('Cookie', direction);
+    const elapsed = Date.now() - started;
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ class: { availability: 'KNOWN' } });
+    expect(elapsed).toBeLessThan(3000);
+  });
+
   it('communication avec les parents : classes des enseignants, trois familles avec un compte parent prêt à écrire à l’école', async () => {
     const classes = await prisma.schoolClass.findMany({ include: { teachers: true } });
     // Titulaire + trois enseignants spécialistes par classe.
@@ -177,6 +202,7 @@ describe('Seed de démonstration', () => {
       users: await prisma.user.count(),
       classes: await prisma.schoolClass.count(),
       students: await prisma.student.count(),
+      classHistory: await prisma.studentClassHistory.count(),
       requests: await prisma.request.count(),
       events: await prisma.requestEvent.count(),
       notifications: await prisma.notification.count(),

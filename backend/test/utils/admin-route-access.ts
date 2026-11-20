@@ -15,6 +15,10 @@ export const ADMIN_ALLOWED: readonly string[] = [
   'POST /api/admin/students',
   `PATCH /api/admin/students/${UUID}`,
   'POST /api/admin/students/import',
+  // Historique des classes et situation d'un élève (021) : administration seulement.
+  `GET /api/admin/students/${UUID}/class-history`,
+  `GET /api/admin/students/${UUID}/situation`,
+  `GET /api/admin/students/${UUID}/audit`,
   'GET /api/admin/coverage/classes',
   'POST /api/admin/coverage/classes',
   `PATCH /api/admin/coverage/classes/${UUID}`,

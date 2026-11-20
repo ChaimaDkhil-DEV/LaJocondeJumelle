@@ -5,11 +5,12 @@ import { resetDatabase } from '../utils/test-db';
  * V17 — L'historique des demandes et le journal d'audit sont en ajout seul :
  * la base elle-même refuse UPDATE, DELETE et TRUNCATE (principe V, research R6).
  */
-describe('Tables en ajout seul (AuditLog, RequestEvent)', () => {
+describe('Tables en ajout seul (AuditLog, RequestEvent, StudentClassHistory)', () => {
   const prisma = new PrismaClient();
   let requestId: string;
   let auditId: string;
   let eventId: string;
+  let historyId: string;
 
   beforeAll(async () => {
     await resetDatabase(prisma);
@@ -38,6 +39,16 @@ describe('Tables en ajout seul (AuditLog, RequestEvent)', () => {
       })
     ).id;
     auditId = (await prisma.auditLog.create({ data: { actorId: user.id, action: 'LOGIN_SUCCESS' } })).id;
+    // Période de classe d'un élève (021).
+    const schoolClass = await prisma.schoolClass.create({ data: { name: 'CE1 A' } });
+    const student = await prisma.student.create({
+      data: { firstName: 'Amine', lastName: 'Ben Salah', classId: schoolClass.id, parentPhone: '+216 20 123 456' },
+    });
+    historyId = (
+      await prisma.studentClassHistory.create({
+        data: { studentId: student.id, classId: schoolClass.id, startedAt: new Date(), changedById: user.id },
+      })
+    ).id;
   });
 
   afterAll(async () => {
@@ -47,6 +58,7 @@ describe('Tables en ajout seul (AuditLog, RequestEvent)', () => {
   it('accepte les insertions', async () => {
     await expect(prisma.auditLog.count()).resolves.toBe(1);
     await expect(prisma.requestEvent.count()).resolves.toBe(1);
+    await expect(prisma.studentClassHistory.count()).resolves.toBe(1);
   });
 
   it.each([
@@ -56,6 +68,9 @@ describe('Tables en ajout seul (AuditLog, RequestEvent)', () => {
     ['RequestEvent', () => `UPDATE "RequestEvent" SET "comment" = 'modifié' WHERE "id" = '${eventId}'`],
     ['RequestEvent', () => `DELETE FROM "RequestEvent" WHERE "id" = '${eventId}'`],
     ['RequestEvent', () => 'TRUNCATE TABLE "RequestEvent" CASCADE'],
+    ['StudentClassHistory', () => `UPDATE "StudentClassHistory" SET "reconstructed" = true WHERE "id" = '${historyId}'`],
+    ['StudentClassHistory', () => `DELETE FROM "StudentClassHistory" WHERE "id" = '${historyId}'`],
+    ['StudentClassHistory', () => 'TRUNCATE TABLE "StudentClassHistory"'],
   ])('refuse la modification de %s : %s', async (_table, sql) => {
     await expect(prisma.$executeRawUnsafe(sql())).rejects.toThrow(/ajout seul/);
   });
@@ -65,5 +80,6 @@ describe('Tables en ajout seul (AuditLog, RequestEvent)', () => {
     const event = await prisma.requestEvent.findUniqueOrThrow({ where: { id: eventId } });
     expect(audit.ip).toBeNull();
     expect(event.comment).toBeNull();
+    expect((await prisma.studentClassHistory.findUniqueOrThrow({ where: { id: historyId } })).reconstructed).toBe(false);
   });
 });

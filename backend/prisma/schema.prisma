@@ -224,6 +224,8 @@ enum AuditAction {
   COMMUNICATION_CONVERSATION_CHANGED
   /// Emplois du temps (020) : création, modification ou annulation d'une série ou d'une séance.
   TIMETABLE_CHANGED
+  /// Historique d'un élève (021) : consultation de sa situation à un instant donné.
+  STUDENT_SITUATION_VIEWED
 }
 
 enum NotificationType {
@@ -435,11 +437,13 @@ model User {
   departuresReturned   TeacherDeparture[]  @relation("DepartureReturner")
 
   // Emplois du temps (020)
-  timetableSeries          TimetableSeries[] @relation("SeriesTeacher")
-  timetableSeriesCreated   TimetableSeries[] @relation("SeriesCreator")
-  teachingSessions         TeachingSession[] @relation("SessionTeacher")
-  teachingSessionsCreated  TeachingSession[] @relation("SessionCreator")
-  teachingSessionsCanceled TeachingSession[] @relation("SessionCanceller")
+  timetableSeries          TimetableSeries[]     @relation("SeriesTeacher")
+  timetableSeriesCreated   TimetableSeries[]     @relation("SeriesCreator")
+  teachingSessions         TeachingSession[]     @relation("SessionTeacher")
+  teachingSessionsCreated  TeachingSession[]     @relation("SessionCreator")
+  teachingSessionsCanceled TeachingSession[]     @relation("SessionCanceller")
+  /// Changements de classe d'élèves faits par cet utilisateur (021).
+  studentClassChanges      StudentClassHistory[] @relation("StudentClassChanger")
 
   pushSubscriptions      PushSubscription[]
   notificationPreference NotificationPreference?
@@ -808,6 +812,8 @@ model AuditLog {
   @@index([actorId])
   @@index([action])
   @@index([createdAt])
+  /// Journal d'un élève (021) : lecture par cible.
+  @@index([targetType, targetId, createdAt])
 }
 
 /// Notification de la cloche : rattachée soit à une demande, soit à une communication aux parents
@@ -899,16 +905,18 @@ model SchoolClass {
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
 
-  floor       Floor?              @relation(fields: [floorId], references: [id])
-  level       GradeLevel?         @relation(fields: [levelId], references: [id])
-  coverages   CoverageDetail[]
-  students    Student[]
-  attendances TeacherAttendance[]
-  departures  TeacherDeparture[]
-  teachers    TeacherClass[]
+  floor            Floor?                @relation(fields: [floorId], references: [id])
+  level            GradeLevel?           @relation(fields: [levelId], references: [id])
+  coverages        CoverageDetail[]
+  students         Student[]
+  attendances      TeacherAttendance[]
+  departures       TeacherDeparture[]
+  teachers         TeacherClass[]
   /// Emplois du temps (020).
   timetableSeries  TimetableSeries[]
   teachingSessions TeachingSession[]
+  /// Périodes de classe des élèves (021).
+  studentHistory   StudentClassHistory[]
 
   @@index([levelId])
 }
@@ -941,9 +949,37 @@ model Student {
   guardians            GuardianStudent[]
   parentCommunications ParentCommunication[]
   conversations        Conversation[]
+  /// Périodes de classe (021) : la dernière ligne est la classe actuelle.
+  classHistory         StudentClassHistory[]
 
   @@index([classId])
   @@index([lastName, firstName])
+}
+
+/// Période de classe d'un élève (021) : « à partir de `startedAt`, l'élève est dans cette classe ». Une période
+/// finit quand la suivante du même élève commence (ordre `startedAt`, puis `seq`) : il n'y a pas de date de fin
+/// stockée, donc ni chevauchement ni deux classes actuelles. Ajout seul (déclencheurs de la migration 0032 :
+/// aucune modification, suppression ni vidage). Une ligne `reconstructed` a été créée par la migration à partir de
+/// la classe actuelle de l'élève : avant `createdAt` (la mise en service), elle n'est pas garantie.
+model StudentClassHistory {
+  id            String   @id @default(uuid()) @db.Uuid
+  /// Ordre d'écriture : départage deux changements de la même minute.
+  seq           BigInt   @default(autoincrement())
+  studentId     String   @db.Uuid
+  classId       String   @db.Uuid
+  /// Heure serveur du changement (jamais une valeur du client) ; date de création pour une ligne reconstituée.
+  startedAt     DateTime @db.Timestamptz(3)
+  /// Auteur du changement ; null seulement pour une ligne reconstituée.
+  changedById   String?  @db.Uuid
+  reconstructed Boolean  @default(false)
+  createdAt     DateTime @default(now()) @db.Timestamptz(3)
+
+  student   Student     @relation(fields: [studentId], references: [id])
+  class     SchoolClass @relation(fields: [classId], references: [id])
+  changedBy User?       @relation("StudentClassChanger", fields: [changedById], references: [id], onDelete: Restrict)
+
+  @@index([studentId, startedAt, seq])
+  @@index([classId])
 }
 
 /// Étage, géré par le super administrateur (004, FR-006). Désactivé, il reste lié à l'historique.
