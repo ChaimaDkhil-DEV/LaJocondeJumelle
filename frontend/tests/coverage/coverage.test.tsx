@@ -379,18 +379,20 @@ describe('Confirmer ma présence : scan du QR dans l’application', () => {
 
 describe('Section « Surveillance » (012)', () => {
   it.each([
-    ['admin', { isTeacher: false, isSupervisor: false, inGroup: false, canManage: true }],
-    ['enseignant', { isTeacher: true, isSupervisor: false, inGroup: true, canManage: false }],
-    ['surveillant', { isTeacher: false, isSupervisor: true, inGroup: true, canManage: false }],
-  ])('%s : titre et liste d’onglets « Surveillance », plus « Gardes de classe »', async (_label, flags) => {
+    ['admin', 'Surveillance', { isTeacher: false, isSupervisor: false, inGroup: false, canManage: true }],
+    ['enseignant', 'Mon assiduité', { isTeacher: true, isSupervisor: false, inGroup: true, canManage: false }],
+    ['surveillant', 'Surveillance', { isTeacher: false, isSupervisor: true, inGroup: true, canManage: false }],
+    ['enseignant et surveillant', 'Surveillance', { isTeacher: true, isSupervisor: true, inGroup: true, canManage: false }],
+    ['admin enseignant', 'Surveillance', { isTeacher: true, isSupervisor: false, inGroup: true, canManage: true }],
+  ])('%s : titre et liste d’onglets « %s », plus « Gardes de classe »', async (_label, name, flags) => {
     mockFetch((call) => {
       if (call.url === '/api/coverage/availability') return json(200, { availability: 'AVAILABLE', activeGuards: [], ...flags });
       if (call.url === '/api/coverage/mine') return json(200, { availability: { availability: 'AVAILABLE', activeGuards: [], ...flags }, items: [] });
       return json(200, []);
     });
     renderWith(<CoveragePage />, '/gardes');
-    expect(await screen.findByRole('heading', { level: 1, name: 'Surveillance' })).toBeInTheDocument();
-    expect(screen.getByRole('tablist', { name: 'Surveillance' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name })).toBeInTheDocument();
+    expect(screen.getByRole('tablist', { name })).toBeInTheDocument();
     expect(screen.queryByText('Gardes de classe')).not.toBeInTheDocument();
   });
 

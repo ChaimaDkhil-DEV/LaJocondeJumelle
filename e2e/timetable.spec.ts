@@ -146,7 +146,10 @@ test.describe('Emplois du temps', () => {
 
       // --- Enseignante : la séance figure dans son emploi du temps du jour.
       await teacher.page.goto('/');
-      await teacher.page.getByRole('link', { name: /Mon emploi du temps/ }).click();
+      // Section du menu de gauche (replié derrière le bouton « Ouvrir le menu » sur petit écran), plus un bouton de l'accueil.
+      const menu = teacher.page.getByRole('button', { name: 'Ouvrir le menu' });
+      if (await menu.isVisible()) await menu.click();
+      await teacher.page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('link', { name: 'Mon emploi du temps' }).click();
       await expect(teacher.page.getByRole('heading', { name: 'Mon emploi du temps' })).toBeVisible();
       await teacher.page.getByRole('button', { name: 'Jour', exact: true }).click();
       await expect(teacher.page.getByRole('listitem', { name: new RegExp(`Séance de ${start.time} à ${end.time}, ${CLASS_NAME}`) })).toBeVisible();

@@ -180,6 +180,23 @@ describe('Doublons possibles', () => {
     expect(await screen.findByRole('link', { name: 'Surveillance' })).toHaveAttribute('href', '/gardes');
   });
 
+  it('le détail d’une affectation renvoie un enseignant vers « Mon assiduité »', async () => {
+    setup('/gardes/1', {
+      'GET /api/coverage/1': detail(),
+      'GET /api/coverage/availability': {
+        availability: 'AVAILABLE',
+        activeGuards: [],
+        isTeacher: true,
+        isSupervisor: false,
+        inGroup: true,
+        canManage: false,
+        schoolDates: { timezone: 'Europe/Paris', today: '2026-10-20', tomorrow: '2026-10-21' },
+      },
+    });
+    expect(await screen.findByRole('link', { name: 'Mon assiduité' })).toHaveAttribute('href', '/gardes');
+    expect(screen.queryByRole('link', { name: 'Surveillance' })).toBeNull();
+  });
+
   it('012 : « Trancher » un doublon possible mène aux doublons de « Affectation des surveillants »', async () => {
     setup('/gardes/1', { 'GET /api/coverage/1': detail({ alerts: ['POSSIBLE_DUPLICATE'] }) });
     expect(await screen.findByRole('link', { name: 'Trancher' })).toHaveAttribute('href', '/gardes?onglet=affectation#doublons');

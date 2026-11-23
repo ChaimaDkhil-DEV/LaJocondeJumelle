@@ -14,6 +14,7 @@ import { fontSize, icon, tokensOf } from '../../design/tokens';
 import { VoicePlayer } from '../voice/VoicePlayer';
 import { SupportsList, TeacherField } from './AdminCoverageTools';
 import { useCoverage, useCoverageProfile } from './api';
+import { sectionNameFor } from './sectionName';
 import { CoverageActions } from './CoverageActions';
 import { EditCoverageButton } from './EditCoverageDialog';
 import { ClassHeading } from './EmployeeViews';
@@ -223,7 +224,7 @@ export function CoverageDetailPage() {
   const coverage = useCoverage(id);
   // Ouverte depuis un push (014) : notification marquée lue après le chargement réussi.
   useMarkReadFromPush(coverage.isSuccess);
-  const back = { to: '/gardes', label: t('Surveillance') };
+  const back = { to: '/gardes', label: sectionNameFor(useCoverageProfile().data ?? {}) };
 
   if (coverage.isPending) return <LoadingState label={t('Chargement de la garde')} variant="detail" />;
   if (coverage.error) {

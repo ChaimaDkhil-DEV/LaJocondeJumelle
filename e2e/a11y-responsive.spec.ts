@@ -176,7 +176,7 @@ test('004 — écrans des affectations à 320 px, sans violation axe', async ({ 
   });
   expect(created.status()).toBe(201);
   const request = (await created.json()) as { id: string; version: number };
-  await visit('/gardes', 'Surveillance', 'Mes signalements');
+  await visit('/gardes', 'Mon assiduité', 'Mes signalements');
   await visit('/gardes/signaler', 'Signaler un retard ou une absence');
   await page.getByRole('button', { name: 'Se déconnecter' }).click();
 
