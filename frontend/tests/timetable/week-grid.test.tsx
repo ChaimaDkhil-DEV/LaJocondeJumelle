@@ -143,3 +143,78 @@ describe('WeekGrid : repères du jour et de l’heure', () => {
     expect(grid().container.querySelector('[data-now-line]')).toBeNull();
   });
 });
+
+describe('WeekGrid : présence de l’enseignant (administration)', () => {
+  const BILEL = { id: 't2', displayName: 'Bilel Professeur' };
+  const presence = (over: Partial<NonNullable<TimetableSession['presence']>> = {}): NonNullable<TimetableSession['presence']> => ({
+    status: 'PRESENT',
+    arrivedAt: '2026-11-23T07:00:00.000Z',
+    lateMinutes: null,
+    lateReason: null,
+    requestId: null,
+    replacedBy: null,
+    substitute: null,
+    ...over,
+  });
+  const makeSession = session;
+  const withPresence = (over: Partial<NonNullable<TimetableSession['presence']>>, extra: Partial<TimetableSession> = {}) =>
+    grid({ showPresence: true, sessions: [makeSession({ presence: presence(over), ...extra })] });
+
+  it.each([
+    ['PRESENT', 'Présent'],
+    ['NOT_ARRIVED', 'Non arrivé'],
+    ['EXCUSED', 'Absence justifiée'],
+    ['EXPECTED', 'Attendu'],
+  ] as const)('%s : le statut est écrit sur la séance (« %s »)', (status, label) => {
+    withPresence({ status });
+    const block = screen.getByRole('button', { name: new RegExp(`Séance de 08:00 à 10:00, Préparatoire 1 - Rose, ${label}$`) });
+    expect(within(block).getByText(label)).toBeVisible();
+  });
+
+  it('en retard : le statut et la durée du retard', () => {
+    withPresence({ status: 'LATE', lateMinutes: 12, lateReason: 'ARRIVAL' });
+    const block = screen.getByRole('button', { name: /En retard, 12 min$/ });
+    expect(within(block).getByText('En retard')).toBeVisible();
+    expect(within(block).getByText('12 min')).toBeVisible();
+  });
+
+  it('en retard sans durée connue : le statut seul', () => {
+    withPresence({ status: 'LATE', lateMinutes: null, lateReason: 'ANNOUNCED' });
+    const block = screen.getByRole('button', { name: /En retard$/ });
+    expect(within(block).queryByText(/min$/)).toBeNull();
+  });
+
+  it('remplacé : le nom du remplaçant est sur la séance, sans ouvrir le détail, et le titulaire reste celui de la séance', () => {
+    withPresence({ status: 'EXCUSED', replacedBy: BILEL, substitute: { teacher: BILEL, status: 'PRESENT', arrivedAt: '2026-11-23T07:05:00.000Z', lateMinutes: null } });
+    const block = screen.getByRole('button', { name: /Absence justifiée, remplacé\(e\) par Bilel Professeur$/ });
+    expect(within(block).getByText('Absence justifiée')).toBeVisible();
+    expect(within(block).getByText('Remplacé(e) par Bilel Professeur')).toBeVisible();
+  });
+
+  it('à venir : rien de plus que l’heure et la classe (pas de pastille sur chaque séance future)', () => {
+    withPresence({ status: 'UPCOMING', arrivedAt: null });
+    const block = screen.getByRole('button', { name: 'Séance de 08:00 à 10:00, Préparatoire 1 - Rose' });
+    expect(within(block).queryByText('À venir')).toBeNull();
+  });
+
+  it('séance annulée : « Annulée » seulement, sans statut de présence', () => {
+    withPresence({ status: 'PRESENT' }, { status: 'CANCELLED' });
+    const block = screen.getByRole('button', { name: /Séance annulée de 08:00 à 10:00, Préparatoire 1 - Rose$/ });
+    expect(within(block).getByText('Annulée')).toBeVisible();
+    expect(within(block).queryByText('Présent')).toBeNull();
+  });
+
+  it('sans showPresence ou sans présence reçue : la grille reste celle d’avant', () => {
+    grid({ sessions: [session({ presence: presence({ status: 'NOT_ARRIVED' }) })] });
+    expect(screen.getByRole('button', { name: 'Séance de 08:00 à 10:00, Préparatoire 1 - Rose' })).toBeVisible();
+    expect(screen.queryByText('Non arrivé')).toBeNull();
+    grid({ showPresence: true, sessions: [session({ id: 'sans', presence: undefined })] });
+    expect(screen.getAllByRole('button', { name: 'Séance de 08:00 à 10:00, Préparatoire 1 - Rose' }).length).toBeGreaterThan(0);
+  });
+
+  it('l’icône du statut n’est pas la seule information : le libellé est écrit', () => {
+    const { container } = withPresence({ status: 'NOT_ARRIVED' });
+    expect(container.querySelector('[data-presence="NOT_ARRIVED"] svg')).not.toBeNull();
+    expect(container.querySelector('[data-presence="NOT_ARRIVED"]')).toHaveTextContent('Non arrivé');
+  });
+});

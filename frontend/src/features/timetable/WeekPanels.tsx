@@ -7,6 +7,8 @@ import { Badge } from '../../components/Badge';
 import { font, fontSize, icon, radius, tokensOf } from '../../design/tokens';
 import { t } from '../../i18n';
 import { KpiCard } from '../admin/KpiCard';
+import { SESSION_STATUS } from '../attendance/sessionStatus';
+import { formatTime } from '../coverage/labels';
 import { dayLabel, WEEKDAY_LABELS } from './labels';
 import type { TimetableSession } from './types';
 import { tintOf } from './WeekGrid';
@@ -36,6 +38,40 @@ export function StatTiles({ stats }: { stats: WeekStats }) {
   );
 }
 
+/** Ce que le pointage dit de la séance : statut, heure du pointage, retard, remplaçant et son propre pointage. */
+function PresenceDetails({ presence: p }: { presence: NonNullable<TimetableSession['presence']> }) {
+  const { label, tone, icon: Icon } = SESSION_STATUS[p.status];
+  const lines: string[] = [];
+  if (p.arrivedAt && (p.status === 'PRESENT' || p.status === 'LATE')) lines.push(t('Pointage à {time}', { time: formatTime(p.arrivedAt) }));
+  if (p.lateMinutes) lines.push(t('Retard : {minutes} min', { minutes: p.lateMinutes }));
+  if (p.status === 'LATE' && p.lateReason === 'EMPTY_CLASS') lines.push(t('Classe déclarée vide par un surveillant'));
+  if (p.status === 'LATE' && p.lateReason === 'ANNOUNCED') lines.push(t('Retard annoncé par l’enseignant'));
+  if (p.status === 'LATE' && p.lateReason === 'QUALIFIED') lines.push(t('Retard constaté par l’administration'));
+  if (p.replacedBy) lines.push(t('Remplacé(e) par {name}', { name: p.replacedBy.displayName }));
+  const sub = p.substitute;
+  if (sub) {
+    lines.push(
+      sub.arrivedAt && (sub.status === 'PRESENT' || sub.status === 'LATE')
+        ? sub.lateMinutes
+          ? t('Remplaçant arrivé à {time} · {minutes} min de retard', { time: formatTime(sub.arrivedAt), minutes: sub.lateMinutes })
+          : t('Remplaçant arrivé à {time}', { time: formatTime(sub.arrivedAt) })
+        : t('Remplaçant : {status}', { status: SESSION_STATUS[sub.status].label }),
+    );
+  }
+  return (
+    <Box sx={{ mt: 1.5, display: 'grid', gap: 0.5, justifyItems: 'start' }}>
+      <Badge tone={tone} icon={Icon}>
+        {label}
+      </Badge>
+      {lines.map((line) => (
+        <Typography key={line} variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
+          {line}
+        </Typography>
+      ))}
+    </Box>
+  );
+}
+
 /** Détail de la séance choisie dans la grille, avec ses actions (modifier, annuler) quand elles sont permises. */
 export function SelectedSessionCard({ session, actions }: { session: TimetableSession; actions: ReactNode }) {
   const cancelled = session.status === 'CANCELLED';
@@ -52,6 +88,10 @@ export function SelectedSessionCard({ session, actions }: { session: TimetableSe
       <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
         {meta}
       </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
+        {t('Enseignant : {name}', { name: session.teacher.displayName })}
+      </Typography>
+      {!cancelled && session.presence && <PresenceDetails presence={session.presence} />}
       {cancelled ? (
         <Box sx={{ mt: 1.5, display: 'grid', gap: 0.75, justifyItems: 'start' }}>
           <Badge tone="neutral" icon={Ban}>

@@ -183,7 +183,7 @@ export function TimetableAdminPage() {
               {t('Aucune séance cette semaine.')}
             </Typography>
           ) : (
-            <WeekGrid days={shownDays} sessions={ordered} selectedId={current?.id} today={today} onSelect={(s) => setPickedId(s.id)} />
+            <WeekGrid days={shownDays} sessions={ordered} selectedId={current?.id} today={today} onSelect={(s) => setPickedId(s.id)} showPresence />
           )}
         </Paper>
 

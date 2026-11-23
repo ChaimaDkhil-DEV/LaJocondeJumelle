@@ -105,6 +105,12 @@ export const timetable: Record<string, string> = {
   'Retard annoncé par l’enseignant': 'Lateness announced by the teacher',
   'Retard constaté par l’administration': 'Lateness recorded by the administration',
   'Remplacé(e) par {name}': 'Replaced by {name}',
+  'remplacé(e) par {name}': 'replaced by {name}',
+  'Pointage à {time}': 'Clocked in at {time}',
+  'Retard : {minutes} min': 'Late: {minutes} min',
+  'Remplaçant arrivé à {time}': 'Substitute arrived at {time}',
+  'Remplaçant arrivé à {time} · {minutes} min de retard': 'Substitute arrived at {time} · {minutes} min late',
+  'Remplaçant : {status}': 'Substitute: {status}',
   'Tolérance : {tolerance} min ; retard au-delà de {threshold} min. « Non arrivé » n’enregistre aucune absence : il signale qu’aucun pointage n’a été fait.':
     'Tolerance: {tolerance} min; late beyond {threshold} min. “Not arrived” records no absence: it signals that no check-in was made.',
   // Teacher's own timetable

@@ -16,7 +16,7 @@ export interface SessionsFilter {
   classId?: string;
 }
 
-/** Administration : séances d'une période, annulées comprises (affichées comme telles). */
+/** Administration : séances d'une période, annulées comprises (affichées comme telles), avec la présence de l'enseignant. */
 export function useTimetableSessions(filter: SessionsFilter, enabled = true) {
   const params = new URLSearchParams({ from: filter.from, to: filter.to, includeCancelled: 'true' });
   if (filter.teacherId) params.set('teacherId', filter.teacherId);
@@ -25,6 +25,8 @@ export function useTimetableSessions(filter: SessionsFilter, enabled = true) {
     queryKey: timetableKeys.sessions(filter),
     queryFn: () => apiFetch<TimetableSession[]>(`/api/timetable/sessions?${params.toString()}`),
     enabled,
+    // « Attendu » devient « Non arrivé » avec le temps, sans autre événement : relue chaque minute (et à chaque pointage).
+    refetchInterval: 60_000,
   });
 }
 

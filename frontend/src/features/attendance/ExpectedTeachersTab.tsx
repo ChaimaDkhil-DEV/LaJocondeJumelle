@@ -4,45 +4,25 @@ import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import {
-  AlarmClock,
-  Ban,
-  CalendarClock,
-  CircleCheck,
-  FileCheck,
-  Hourglass,
-  UserRoundCheck,
-  UserRoundX,
-  UsersRound,
-  type LucideIcon,
-} from 'lucide-react';
+import { AlarmClock, CalendarClock, UserRoundCheck, UserRoundX, UsersRound } from 'lucide-react';
 import { useSearchParams } from 'react-router';
 import { loadErrorMessage } from '../../api/client';
 import { Badge } from '../../components/Badge';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
-import type { Tone } from '../../design/tokens';
 import { t } from '../../i18n';
 import { KpiCard } from '../admin/KpiCard';
 import { formatTime } from '../coverage/labels';
 import { useAdminClasses } from '../coverage/adminApi';
 import { useTeacherClasses } from '../parent-communications/api';
 import { useExpectedTeachers } from './api';
+import { SESSION_STATUS } from './sessionStatus';
 import type { ExpectedLine, SessionStatus } from './types';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-/** Statut d'une séance : libellé, teinte et icône (jamais la couleur seule). */
-export const SESSION_STATUS: Record<SessionStatus, { label: string; tone: Tone; icon: LucideIcon }> = {
-  UPCOMING: { label: t('À venir'), tone: 'neutral', icon: CalendarClock },
-  EXPECTED: { label: t('Attendu'), tone: 'info', icon: Hourglass },
-  PRESENT: { label: t('Présent'), tone: 'success', icon: CircleCheck },
-  LATE: { label: t('En retard'), tone: 'warning', icon: AlarmClock },
-  NOT_ARRIVED: { label: t('Non arrivé'), tone: 'error', icon: UserRoundX },
-  EXCUSED: { label: t('Absence justifiée'), tone: 'neutral', icon: FileCheck },
-  CANCELLED: { label: t('Séance annulée'), tone: 'neutral', icon: Ban },
-};
+export { SESSION_STATUS };
 const STATUSES = Object.keys(SESSION_STATUS) as SessionStatus[];
 
 /** Détail sous le statut : heure d'arrivée, minutes de retard, origine du retard, remplacement, motif d'annulation. */

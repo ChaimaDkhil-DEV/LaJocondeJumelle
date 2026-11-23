@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { dayString, dayValue } from '../attendance/attendance.mapper';
 import { AttendanceGate } from '../attendance/attendance-gate.service';
+import { ExpectedTeachersService, type SessionPresence } from '../attendance/expected-teachers.service';
 import { AuditService } from '../audit/audit.service';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import { AppException } from '../common/errors';
@@ -30,6 +31,8 @@ import { SERIES_INCLUDE, SESSION_INCLUDE, toSeriesView, toSessionView, type Sess
 
 /** Plage maximale d'une liste de séances (administration). */
 const LIST_MAX_DAYS = 31;
+/** La présence se calcule jour par jour : au plus une semaine à la fois (la grille de l'administration). */
+const PRESENCE_MAX_DAYS = 7;
 /** Plage maximale de « Mon emploi du temps » (deux semaines). */
 const MINE_MAX_DAYS = 14;
 /** Une séance passée s'annule jusqu'à 7 jours en arrière (même limite que la saisie manuelle d'un pointage). */
@@ -72,6 +75,7 @@ export class TimetableService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly gate: AttendanceGate,
+    private readonly expected: ExpectedTeachersService,
     private readonly audit: AuditService,
     private readonly realtime: RealtimeService,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
@@ -81,7 +85,8 @@ export class TimetableService {
   // Lecture (administration)
   // ---------------------------------------------------------------------------
 
-  async listSessions(user: AuthenticatedUser, query: SessionsQuery, ctx: RequestContext): Promise<SessionView[]> {
+  /** Séances d'une période ; sur une semaine au plus, chacune porte la présence de l'enseignant (même calcul que « Attendus »). */
+  async listSessions(user: AuthenticatedUser, query: SessionsQuery, ctx: RequestContext): Promise<Array<SessionView & { presence: SessionPresence | null }>> {
     await this.gate.assertManager(user, ctx);
     if (query.to < query.from) throw fieldError('to', 'La fin doit être le même jour ou après le début.');
     if (query.to > addDays(query.from, LIST_MAX_DAYS)) throw fieldError('to', `Affichez au plus ${LIST_MAX_DAYS} jours à la fois.`);
@@ -95,7 +100,9 @@ export class TimetableService {
       include: SESSION_INCLUDE,
       orderBy: [{ startAt: 'asc' }, { id: 'asc' }],
     });
-    return rows.map((r) => toSessionView(r, this.config.schoolTimezone));
+    const withPresence = query.to <= addDays(query.from, PRESENCE_MAX_DAYS - 1);
+    const presence = withPresence ? await this.expected.presenceBySession([...new Set(rows.map((r) => dayString(r.localDate)))], query.classId) : new Map<string, SessionPresence>();
+    return rows.map((r) => ({ ...toSessionView(r, this.config.schoolTimezone), presence: r.status === 'SCHEDULED' ? (presence.get(r.id) ?? null) : null }));
   }
 
   async listSeries(user: AuthenticatedUser, query: SeriesQuery, ctx: RequestContext) {

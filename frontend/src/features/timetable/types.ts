@@ -5,6 +5,25 @@ export interface Person {
   displayName: string;
 }
 
+import type { LateReason, SessionStatus } from '../attendance/types';
+
+/**
+ * Présence de l'enseignant sur une séance, calculée par le serveur d'après le pointage (administration seulement,
+ * sur une semaine au plus) : même calcul que la liste des enseignants attendus.
+ */
+export interface SessionPresence {
+  status: SessionStatus;
+  /** Heure réelle du pointage de l'enseignant prévu ; null sans pointage. */
+  arrivedAt: string | null;
+  lateMinutes: number | null;
+  lateReason: LateReason | null;
+  requestId: string | null;
+  /** Remplaçant désigné sur une absence annoncée : le titulaire reste `teacher`. */
+  replacedBy: Person | null;
+  /** Le remplaçant, évalué sur ses propres pointages. */
+  substitute: { teacher: Person; status: SessionStatus; arrivedAt: string | null; lateMinutes: number | null } | null;
+}
+
 export interface TimetableSession {
   id: string;
   seriesId: string | null;
@@ -30,6 +49,8 @@ export interface TimetableSession {
   replaces?: { displayName: string } | null;
   /** Vue de l'enseignant : séance couverte par une absence qu'il a annoncée. */
   announcedAbsence?: boolean;
+  /** Vue d'administration : présence de l'enseignant ; null ou absente hors d'une semaine, ou séance annulée. */
+  presence?: SessionPresence | null;
 }
 
 export interface TimetableSeries {

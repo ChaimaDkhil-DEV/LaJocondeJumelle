@@ -42,6 +42,20 @@ export interface ExpectedLine extends SessionStatusResult {
   cancelReason: string | null;
 }
 
+/** Présence d'une séance dans l'emploi du temps d'administration : l'enseignant prévu, et son remplaçant s'il y en a un. */
+export interface SessionPresence {
+  status: SessionStatus;
+  /** Heure réelle du pointage de l'enseignant prévu ; null sans pointage. */
+  arrivedAt: Date | null;
+  lateMinutes: number | null;
+  lateReason: SessionStatusResult['lateReason'];
+  requestId: string | null;
+  /** Remplaçant désigné sur une absence annoncée ; l'enseignant prévu (titulaire) reste celui de la séance. */
+  replacedBy: Person | null;
+  /** Le remplaçant, évalué sur ses propres pointages. */
+  substitute: { teacher: Person; status: SessionStatus; arrivedAt: Date | null; lateMinutes: number | null } | null;
+}
+
 export interface ExpectedDay {
   date: string;
   serverNow: Date;
@@ -73,19 +87,77 @@ export class ExpectedTeachersService {
 
   async day(user: AuthenticatedUser, query: ExpectedQuery, ctx: RequestContext): Promise<ExpectedDay> {
     await this.gate.assertManager(user, ctx);
-    const tz = this.config.schoolTimezone;
     const now = new Date();
-    const date = query.date ?? localDate(now, tz);
-    const from = atLocalTime(date, '00:00', tz);
-    const to = atLocalTime(addDays(date, 1), '00:00', tz);
+    const date = query.date ?? localDate(now, this.config.schoolTimezone);
+    const rules = await this.rules();
+    const lines = await this.linesFor(date, now, rules, query.classId);
+
+    const scoped = lines
+      .filter((l) => !query.teacherId || l.teacher.id === query.teacherId)
+      .sort((a, b) => a.startAt.getTime() - b.startAt.getTime() || a.teacher.displayName.localeCompare(b.teacher.displayName, 'fr'));
+    // Les compteurs suivent la date, l'enseignant et la classe, jamais le filtre de statut.
+    const counts = {
+      expected: scoped.filter((l) => !NOT_EXPECTED.includes(l.status)).length,
+      present: scoped.filter((l) => l.status === 'PRESENT').length,
+      late: scoped.filter((l) => l.status === 'LATE').length,
+      notArrived: scoped.filter((l) => l.status === 'NOT_ARRIVED').length,
+    };
+    return {
+      date,
+      serverNow: now,
+      settings: rules,
+      counts,
+      lines: query.status ? scoped.filter((l) => l.status === query.status) : scoped,
+    };
+  }
+
+  /**
+   * Présence de chaque séance non annulée des jours donnés, pour l'emploi du temps d'administration : le même calcul
+   * que la liste des attendus (rien n'est écrit, aucune règle n'est modifiée), regroupé par séance. Le droit d'accès
+   * est vérifié par l'appelant.
+   */
+  async presenceBySession(dates: readonly string[], classId?: string): Promise<Map<string, SessionPresence>> {
+    const now = new Date();
+    const rules = await this.rules();
+    const bySession = new Map<string, SessionPresence>();
+    for (const date of dates) {
+      for (const line of await this.linesFor(date, now, rules, classId)) {
+        const entry = bySession.get(line.sessionId) ?? {
+          status: line.status,
+          arrivedAt: null,
+          lateMinutes: null,
+          lateReason: null,
+          requestId: null,
+          replacedBy: null,
+          substitute: null,
+        };
+        if (line.role === 'SUBSTITUTE') {
+          entry.substitute = { teacher: line.teacher, status: line.status, arrivedAt: line.arrivedAt, lateMinutes: line.lateMinutes };
+        } else {
+          Object.assign(entry, { status: line.status, arrivedAt: line.arrivedAt, lateMinutes: line.lateMinutes, lateReason: line.lateReason, requestId: line.requestId, replacedBy: line.replacedBy });
+        }
+        bySession.set(line.sessionId, entry);
+      }
+    }
+    return bySession;
+  }
+
+  private async rules() {
     const [lateThresholdMinutes, toleranceMinutes] = await Promise.all([
       this.settings.get('attendanceLateThresholdMinutes'),
       this.settings.get('attendanceToleranceMinutes'),
     ]);
-    const rules = { lateThresholdMinutes, toleranceMinutes };
+    return { lateThresholdMinutes, toleranceMinutes };
+  }
+
+  /** Les lignes d'un jour : une par séance et enseignant attendu (deux quand un remplaçant est désigné, R6). */
+  private async linesFor(date: string, now: Date, rules: { lateThresholdMinutes: number; toleranceMinutes: number }, classId?: string): Promise<ExpectedLine[]> {
+    const tz = this.config.schoolTimezone;
+    const from = atLocalTime(date, '00:00', tz);
+    const to = atLocalTime(addDays(date, 1), '00:00', tz);
 
     const sessions = await this.prisma.teachingSession.findMany({
-      where: { localDate: dayValue(date), ...(query.classId ? { classId: query.classId } : {}) },
+      where: { localDate: dayValue(date), ...(classId ? { classId } : {}) },
       include: {
         teacher: { select: { id: true, displayName: true } },
         class: { select: { id: true, name: true, room: true, level: { select: { id: true, name: true } } } },
@@ -170,23 +242,6 @@ export class ExpectedTeachersService {
       }
       return [{ ...base, ...evaluate(s.teacherId), role: 'TEACHER' as const, teacher: s.teacher, replaces: null, replacedBy: null }];
     });
-
-    const scoped = lines
-      .filter((l) => !query.teacherId || l.teacher.id === query.teacherId)
-      .sort((a, b) => a.startAt.getTime() - b.startAt.getTime() || a.teacher.displayName.localeCompare(b.teacher.displayName, 'fr'));
-    // Les compteurs suivent la date, l'enseignant et la classe, jamais le filtre de statut.
-    const counts = {
-      expected: scoped.filter((l) => !NOT_EXPECTED.includes(l.status)).length,
-      present: scoped.filter((l) => l.status === 'PRESENT').length,
-      late: scoped.filter((l) => l.status === 'LATE').length,
-      notArrived: scoped.filter((l) => l.status === 'NOT_ARRIVED').length,
-    };
-    return {
-      date,
-      serverNow: now,
-      settings: rules,
-      counts,
-      lines: query.status ? scoped.filter((l) => l.status === query.status) : scoped,
-    };
+    return lines;
   }
 }

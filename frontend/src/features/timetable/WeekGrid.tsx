@@ -4,16 +4,21 @@ import { MapPin } from 'lucide-react';
 import { font, fontSize, icon, radius, sessionPalette, tokensOf, type SessionTint } from '../../design/tokens';
 import { t } from '../../i18n';
 import { dayOfMonth, weekdayShort } from './labels';
+import { PresencePill, presenceAria, shownPresence } from './presence';
 import type { TimetableSession } from './types';
 import { hourRange, minutesOf, paletteIndex, tintKey } from './weekLayout';
 
 const HOUR_HEIGHT = 50;
 /** Séance détaillée : un peu plus haute, pour que l'heure, la matière, la classe et la salle tiennent sur deux heures. */
 const DETAILED_HOUR_HEIGHT = 60;
+/** Avec la présence : une séance d'une heure porte l'heure, la classe, le statut et le remplaçant. */
+const PRESENCE_HOUR_HEIGHT = 84;
 const GUTTER = 56;
 /** Largeur minimale d'une colonne de jour : plus large pour la séance détaillée, dont la matière ne doit pas se couper. */
 const DAY_MIN = 76;
 const DETAILED_DAY_MIN = 136;
+/** Avec la présence : la pastille du statut et le nom du remplaçant doivent tenir sans se couper. */
+const PRESENCE_DAY_MIN = 152;
 const HEAD_HEIGHT = 52;
 
 /** Teinte d'une clé (une classe, ou une matière) dans le thème courant. */
@@ -36,6 +41,8 @@ interface WeekGridProps {
   fitHours?: boolean;
   /** Heure actuelle (heure locale de l'école) : trait posé dans la colonne du jour, s'il est dans la plage affichée. */
   now?: Date;
+  /** Administration : le statut de présence de l'enseignant (pointage, retard, absence) et son remplaçant sur chaque séance. */
+  showPresence?: boolean;
 }
 
 /**
@@ -44,10 +51,10 @@ interface WeekGridProps {
  * clavier avancé, le lecteur d'écran et le téléphone. Une séance annulée reste visible, barrée et dite « Annulée ».
  * La colonne du jour est teintée et, avec `now`, un trait marque l'heure actuelle.
  */
-export function WeekGrid({ days, sessions, selectedId, today, onSelect, detailed = false, tintBy = 'class', fitHours = false, now }: WeekGridProps) {
+export function WeekGrid({ days, sessions, selectedId, today, onSelect, detailed = false, tintBy = 'class', fitHours = false, now, showPresence = false }: WeekGridProps) {
   const { start, end } = hourRange(sessions, fitHours);
-  const hourHeight = detailed ? DETAILED_HOUR_HEIGHT : HOUR_HEIGHT;
-  const dayMin = detailed ? DETAILED_DAY_MIN : DAY_MIN;
+  const hourHeight = detailed ? DETAILED_HOUR_HEIGHT : showPresence ? PRESENCE_HOUR_HEIGHT : HOUR_HEIGHT;
+  const dayMin = detailed ? DETAILED_DAY_MIN : showPresence ? PRESENCE_DAY_MIN : DAY_MIN;
   const hours = Array.from({ length: end - start }, (_v, i) => start + i);
   const bodyHeight = hours.length * hourHeight;
   const nowMinutes = now ? now.getHours() * 60 + now.getMinutes() : null;
@@ -58,7 +65,7 @@ export function WeekGrid({ days, sessions, selectedId, today, onSelect, detailed
       <Box
         role="group"
         aria-label={t('Séances de la semaine')}
-        sx={{ display: 'grid', gridTemplateColumns: `${GUTTER}px repeat(${days.length}, minmax(${dayMin}px, 1fr))`, minWidth: detailed ? GUTTER + days.length * dayMin : 640 }}
+        sx={{ display: 'grid', gridTemplateColumns: `${GUTTER}px repeat(${days.length}, minmax(${dayMin}px, 1fr))`, minWidth: detailed || showPresence ? GUTTER + days.length * dayMin : 640 }}
       >
         <Box />
         {days.map((day, index) => {
@@ -181,13 +188,14 @@ export function WeekGrid({ days, sessions, selectedId, today, onSelect, detailed
                     : cancelled
                       ? t('Séance annulée de {start} à {end}, {class}', { start: s.startTime, end: s.endTime, class: s.class.name })
                       : t('Séance de {start} à {end}, {class}', { start: s.startTime, end: s.endTime, class: s.class.name });
+                  const presence = showPresence ? shownPresence(s) : null;
                   const interactive = Boolean(onSelect);
                   return (
                     <Box
                       key={s.id}
                       component={interactive ? 'button' : 'div'}
                       {...(interactive ? { type: 'button', 'aria-pressed': selected, onClick: () => onSelect!(s) } : { role: 'group' })}
-                      aria-label={label}
+                      aria-label={presence ? `${label}${presenceAria(presence)}` : label}
                       sx={(theme) => {
                         const c = tokensOf(theme);
                         const tint = tintOf(theme, tintBy === 'subject' ? tintKey(s) : s.class.id);
@@ -242,6 +250,16 @@ export function WeekGrid({ days, sessions, selectedId, today, onSelect, detailed
                         {cancelled && (
                           <Box component="span" sx={{ display: 'block', fontWeight: font.regular }}>
                             {t('Annulée')}
+                          </Box>
+                        )}
+                        {presence && (
+                          <Box component="span" sx={{ display: 'block', mt: 0.25 }}>
+                            <PresencePill presence={presence} />
+                          </Box>
+                        )}
+                        {presence?.replacedBy && (
+                          <Box component="span" sx={{ display: 'block', mt: 0.25, fontSize: 11, lineHeight: 1.2, fontWeight: font.semibold, overflowWrap: 'anywhere' }}>
+                            {t('Remplacé(e) par {name}', { name: presence.replacedBy.displayName })}
                           </Box>
                         )}
                       </Box>

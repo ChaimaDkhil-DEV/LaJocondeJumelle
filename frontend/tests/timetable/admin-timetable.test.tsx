@@ -293,6 +293,79 @@ describe('Emplois du temps — grille de la semaine', () => {
     expect(within(detail).queryByRole('button')).toBeNull();
   });
 
+  describe('présence de l’enseignant (pointage, retard, absence, remplaçant)', () => {
+    const BILEL = { id: 't2', displayName: 'Bilel Professeur' };
+    const late = session({
+      id: 'p1',
+      presence: { status: 'LATE', arrivedAt: '2026-11-23T07:12:00.000Z', lateMinutes: 12, lateReason: 'ARRIVAL', requestId: null, replacedBy: null, substitute: null },
+    });
+    const replaced = session({
+      id: 'p2',
+      date: '2026-11-24',
+      weekday: 2,
+      startAt: '2026-11-24T07:00:00.000Z',
+      endAt: '2026-11-24T08:00:00.000Z',
+      presence: {
+        status: 'EXCUSED',
+        arrivedAt: null,
+        lateMinutes: null,
+        lateReason: null,
+        requestId: 'rq1',
+        replacedBy: BILEL,
+        substitute: { teacher: BILEL, status: 'LATE', arrivedAt: '2026-11-24T07:09:00.000Z', lateMinutes: 9 },
+      },
+    });
+    const presenceWeek = (call: Call) => (call.url.startsWith('/api/timetable/sessions?') ? json(200, [late, replaced]) : undefined);
+
+    it('la grille montre le statut et le remplaçant sur chaque séance', async () => {
+      setup('/admin/emplois-du-temps?id=t1&semaine=2026-11-23', presenceWeek);
+      const block = await screen.findByRole('button', { name: /Séance de 08:00 à 09:00, 1ère année Violet, En retard, 12 min/ });
+      expect(within(block).getByText('12 min')).toBeVisible();
+      const other = screen.getByRole('button', { name: /Absence justifiée, remplacé\(e\) par Bilel Professeur/ });
+      expect(within(other).getByText('Remplacé(e) par Bilel Professeur')).toBeVisible();
+    });
+
+    it('le détail d’une séance en retard : titulaire, statut, heure de pointage et durée du retard', async () => {
+      setup('/admin/emplois-du-temps?id=t1&semaine=2026-11-23', presenceWeek);
+      await screen.findByRole('button', { name: /En retard, 12 min/ });
+      const detail = screen.getByRole('region', { name: 'Séance sélectionnée' });
+      expect(within(detail).getByText('Enseignant : Amel Enseignante')).toBeVisible();
+      expect(within(detail).getByText('En retard')).toBeVisible();
+      expect(within(detail).getByText(/^Pointage à \d{2}:\d{2}$/)).toBeVisible();
+      expect(within(detail).getByText('Retard : 12 min')).toBeVisible();
+      expect(within(detail).queryByText(/Remplaçant/)).toBeNull();
+    });
+
+    it('le détail d’une séance remplacée : le titulaire reste affiché, et le remplaçant avec son propre statut', async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      setup('/admin/emplois-du-temps?id=t1&semaine=2026-11-23', presenceWeek);
+      await user.click(await screen.findByRole('button', { name: /Absence justifiée, remplacé\(e\) par Bilel Professeur/ }));
+      const detail = screen.getByRole('region', { name: 'Séance sélectionnée' });
+      expect(within(detail).getByText('Enseignant : Amel Enseignante')).toBeVisible();
+      expect(within(detail).getByText('Absence justifiée')).toBeVisible();
+      expect(within(detail).getByText('Remplacé(e) par Bilel Professeur')).toBeVisible();
+      expect(within(detail).getByText(/^Remplaçant arrivé à \d{2}:\d{2} · 9 min de retard$/)).toBeVisible();
+      // Un titulaire absent n'a pas de pointage à montrer.
+      expect(within(detail).queryByText(/^Pointage à/)).toBeNull();
+    });
+
+    it('la liste jour par jour dit aussi le statut et le remplaçant', async () => {
+      setup('/admin/emplois-du-temps?id=t1&semaine=2026-11-23&affichage=liste', presenceWeek);
+      const items = await screen.findAllByRole('listitem', { name: /Séance de 08:00 à 09:00, 1ère année Violet/ });
+      expect(within(items[0]!).getByText('En retard')).toBeVisible();
+      expect(within(items[0]!).getByText('12 min')).toBeVisible();
+      expect(within(items[1]!).getByText('Remplacé(e) par Bilel Professeur')).toBeVisible();
+    });
+
+    it('sans présence reçue (période longue), rien n’est affiché de plus et rien ne casse', async () => {
+      setup('/admin/emplois-du-temps?id=t1&semaine=2026-11-23', (call) => (call.url.startsWith('/api/timetable/sessions?') ? json(200, [session({ presence: null })]) : undefined));
+      const block = await screen.findByRole('button', { name: 'Séance de 08:00 à 09:00, 1ère année Violet' });
+      expect(block).toBeVisible();
+      const detail = screen.getByRole('region', { name: 'Séance sélectionnée' });
+      expect(within(detail).queryByText(/^Pointage à/)).toBeNull();
+    });
+  });
+
   it('« Classes de la semaine » liste les séances tenues, sans les annulées, et sélectionne au clic', async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     setup('/admin/emplois-du-temps?id=t1&semaine=2026-11-23', week);
