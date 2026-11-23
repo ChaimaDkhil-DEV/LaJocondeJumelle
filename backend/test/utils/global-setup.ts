@@ -47,6 +47,9 @@ export default async function globalSetup(): Promise<void> {
   // L'assistance est désactivée par défaut, quel que soit le backend/.env local (rules, whisper...).
   process.env.ASSIST_SUGGESTION_PROVIDER = 'disabled';
   process.env.ASSIST_TRANSCRIPTION_PROVIDER = 'disabled';
+  // Le CAPTCHA est désactivé, quel que soit le backend/.env local : captcha.spec.ts l'active avec des clés fictives.
+  process.env.TURNSTILE_SITE_KEY = '';
+  process.env.TURNSTILE_SECRET_KEY = '';
   process.env.NODE_ENV = 'test';
   // Complète avec backend/.env (chemins ffmpeg/ffprobe) sans écraser les valeurs ci-dessus.
   loadEnvFile(join(__dirname, '..', '..'));

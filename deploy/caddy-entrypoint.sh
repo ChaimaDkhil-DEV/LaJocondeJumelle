@@ -29,4 +29,12 @@ publish() {
   done
 ) &
 
+# CAPTCHA Cloudflare Turnstile (docs/captcha-turnstile.md) : la politique de sécurité du contenu n'admet
+# Cloudflare que si le CAPTCHA est activé. Valeur fixée ici, jamais reprise de l'environnement.
+TURNSTILE_ORIGIN=''
+if [ -n "${TURNSTILE_SITE_KEY:-}" ]; then
+  TURNSTILE_ORIGIN='https://challenges.cloudflare.com'
+fi
+export TURNSTILE_ORIGIN
+
 exec "$@"

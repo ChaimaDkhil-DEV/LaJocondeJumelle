@@ -90,6 +90,14 @@ export const ERROR_CATALOG = {
     status: 429,
     message: 'Trop de tentatives. Patientez une minute avant de réessayer.',
   },
+  // CAPTCHA de la connexion (Cloudflare Turnstile).
+  CAPTCHA_REQUIRED: { status: 403, message: 'La vérification anti-robot est obligatoire. Rechargez la page puis réessayez.' },
+  CAPTCHA_INVALID: { status: 403, message: 'La vérification anti-robot a échoué. Réessayez.' },
+  CAPTCHA_EXPIRED: { status: 403, message: 'La vérification anti-robot a expiré. Réessayez.' },
+  CAPTCHA_UNAVAILABLE: {
+    status: 503,
+    message: 'La vérification anti-robot est momentanément indisponible. Réessayez dans quelques minutes.',
+  },
   // Assistance IA (009).
   ASSIST_DISABLED: { status: 404, message: 'Les propositions automatiques ne sont pas disponibles.' },
   ASSIST_UNAVAILABLE: {

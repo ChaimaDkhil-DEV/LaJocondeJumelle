@@ -5,11 +5,13 @@ import type { AppConfig } from '../config/config';
 import { APP_CONFIG } from '../config/config.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { CaptchaGuard } from './captcha.guard';
 import { LoginAttemptLimiter } from './login-attempt-limiter';
 import { LoginThrottlerGuard } from './login-throttler.guard';
 import { OriginGuard } from './origin.guard';
 import { SessionGuard } from './session.guard';
 import { SessionService } from './session.service';
+import { TurnstileService } from './turnstile.service';
 import { PushModule } from '../push/push.module';
 
 @Module({
@@ -27,6 +29,8 @@ import { PushModule } from '../push/push.module';
     SessionService,
     LoginAttemptLimiter,
     LoginThrottlerGuard,
+    TurnstileService,
+    CaptchaGuard,
     // Ordre des gardes globales : Origin (CSRF) puis session.
     { provide: APP_GUARD, useClass: OriginGuard },
     { provide: APP_GUARD, useClass: SessionGuard },

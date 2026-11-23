@@ -17,8 +17,9 @@ export function useCurrentUser() {
 export function useLogin() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (credentials: { username: string; password: string }) =>
-      apiFetch<{ user: Me }>('/api/auth/login', { method: 'POST', body: credentials }),
+    /** `captchaToken` attend la fin du CAPTCHA ; sans jeton (CAPTCHA désactivé), le champ n'est pas envoyé. */
+    mutationFn: async ({ captchaToken, ...credentials }: { username: string; password: string; captchaToken: () => Promise<string | undefined> }) =>
+      apiFetch<{ user: Me }>('/api/auth/login', { method: 'POST', body: { ...credentials, captchaToken: await captchaToken() } }),
     onSuccess: ({ user }) => queryClient.setQueryData(ME_QUERY_KEY, user),
   });
 }

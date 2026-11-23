@@ -15,6 +15,8 @@ services:
     environment:
       DOMAIN: ${DOMAIN:?DOMAIN manquant}
       ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL manquant}
+      # CAPTCHA activé : la politique de sécurité du contenu admet Cloudflare (deploy/caddy-entrypoint.sh).
+      TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:-}
     volumes:
       - caddy_data:/data
       - caddy_config:/config
@@ -72,6 +74,9 @@ services:
       N8N_SHARED_SECRET: ${N8N_SHARED_SECRET:-}
       N8N_TIMEOUT_MS: ${N8N_TIMEOUT_MS:-}
       PARENT_COMM_CHANNELS: ${PARENT_COMM_CHANNELS:-}
+      # CAPTCHA de connexion (Cloudflare Turnstile) : les deux ou aucune ; vides = désactivé. Clé secrète jamais commitée.
+      TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:-}
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
     volumes:
       # Vocaux, photos et documents : jamais servis par Caddy, lus uniquement via l'API.
       - files:/data/files

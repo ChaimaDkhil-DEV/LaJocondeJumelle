@@ -1,5 +1,6 @@
 import type { AppConfig } from '../../src/config/config';
 import {
+  CAPTCHA_FAILURES_PER_IP,
   LOGIN_FAILURES_PER_IP,
   LOGIN_FAILURES_PER_USERNAME,
   LOGIN_FAILURE_WINDOW_MS,
@@ -77,5 +78,50 @@ describe('LoginAttemptLimiter', () => {
     const target = limiter(1000);
     fill(target, 1000, () => '127.0.0.1', () => 'admin');
     expect(target.reserve('127.0.0.1', 'admin').allowed).toBe(false);
+  });
+
+  describe('refus du CAPTCHA, par adresse IP', () => {
+    const fillCaptcha = (target: LoginAttemptLimiter, ip: string, count = CAPTCHA_FAILURES_PER_IP) => {
+      for (let i = 0; i < count; i += 1) expect(target.reserveCaptcha(ip).allowed).toBe(true);
+    };
+
+    it('coupe une adresse IP après trop de refus, et le signale une fois', () => {
+      const target = limiter();
+      fillCaptcha(target, '10.0.0.1');
+      expect(target.reserveCaptcha('10.0.0.1')).toEqual({ allowed: false, firstBlock: true });
+      expect(target.reserveCaptcha('10.0.0.1')).toEqual({ allowed: false, firstBlock: false });
+      expect(target.reserveCaptcha('10.0.0.2').allowed).toBe(true);
+      now += LOGIN_FAILURE_WINDOW_MS + 1;
+      expect(target.reserveCaptcha('10.0.0.1').allowed).toBe(true);
+    });
+
+    it('n’entame pas la marge des mots de passe, ni l’inverse : des jetons expirés ne bloquent pas une école', () => {
+      const target = limiter();
+      fillCaptcha(target, '10.0.0.1');
+      expect(target.reserve('10.0.0.1', 'enseignante').allowed).toBe(true);
+
+      fill(target, LOGIN_FAILURES_PER_IP, () => '10.0.0.5', (i) => `compte${i}`);
+      expect(target.reserveCaptcha('10.0.0.5').allowed).toBe(true);
+    });
+
+    it('rendre la place efface la réservation, sans jamais descendre sous zéro', () => {
+      const target = limiter();
+      for (let i = 0; i < CAPTCHA_FAILURES_PER_IP * 2; i += 1) {
+        expect(target.reserveCaptcha('10.0.0.1').allowed).toBe(true);
+        target.releaseCaptcha('10.0.0.1');
+      }
+      target.releaseCaptcha('10.0.0.1');
+      fillCaptcha(target, '10.0.0.1');
+      expect(target.reserveCaptcha('10.0.0.1').allowed).toBe(false);
+    });
+
+    it('une panne n’est signalée qu’une fois par adresse et par fenêtre', () => {
+      const target = limiter();
+      expect(target.firstOutage('10.0.0.1')).toBe(true);
+      expect(target.firstOutage('10.0.0.1')).toBe(false);
+      expect(target.firstOutage('10.0.0.2')).toBe(true);
+      now += LOGIN_FAILURE_WINDOW_MS + 1;
+      expect(target.firstOutage('10.0.0.1')).toBe(true);
+    });
   });
 });

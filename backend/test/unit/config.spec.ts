@@ -394,3 +394,50 @@ describe('loadConfig : n8n et canaux externes (015)', () => {
     expect(loadConfig({ ...valid, PARENT_COMM_CHANNELS: ' whatsapp, EMAIL ,email' }).parentCommunicationChannels).toEqual(['EMAIL', 'WHATSAPP']);
   });
 });
+
+/** CAPTCHA Cloudflare Turnstile : les deux clés ou aucune ; jamais les clés de test en production. */
+describe('loadConfig — CAPTCHA Turnstile', () => {
+  const keys = { TURNSTILE_SITE_KEY: '0x4AAAAAAAsite-fictive', TURNSTILE_SECRET_KEY: '0x4AAAAAAAsecret-fictif' };
+  const testKeys = { TURNSTILE_SITE_KEY: '1x00000000000000000000AA', TURNSTILE_SECRET_KEY: '1x0000000000000000000000000000000AA' };
+
+  it('désactivé par défaut ; une variable vide compte comme absente', () => {
+    expect(loadConfig(valid).turnstile).toBeNull();
+    expect(loadConfig({ ...valid, TURNSTILE_SITE_KEY: '', TURNSTILE_SECRET_KEY: '  ' }).turnstile).toBeNull();
+  });
+
+  it('activé avec les deux clés, en développement comme en production', () => {
+    const expected = { siteKey: keys.TURNSTILE_SITE_KEY, secretKey: keys.TURNSTILE_SECRET_KEY, testKeys: false };
+    expect(loadConfig({ ...valid, ...keys }).turnstile).toEqual(expected);
+    expect(loadConfig({ ...valid, ...keys, NODE_ENV: 'production' }).turnstile).toEqual(expected);
+  });
+
+  it.each(['TURNSTILE_SITE_KEY', 'TURNSTILE_SECRET_KEY'])('refuse de démarrer si seule %s manque, sans citer l’autre clé', (key) => {
+    const load = () => loadConfig({ ...valid, ...keys, [key]: '' });
+    expect(load).toThrow(ConfigError);
+    expect(load).toThrow(key);
+    expect(load).not.toThrow(keys.TURNSTILE_SECRET_KEY);
+  });
+
+  it('clés de test officielles : acceptées hors production, refusées en production', () => {
+    expect(loadConfig({ ...valid, ...testKeys }).turnstile).toMatchObject({ testKeys: true });
+    for (const mixed of [testKeys, { ...keys, TURNSTILE_SITE_KEY: testKeys.TURNSTILE_SITE_KEY }, { ...keys, TURNSTILE_SECRET_KEY: testKeys.TURNSTILE_SECRET_KEY }]) {
+      expect(() => loadConfig({ ...valid, ...mixed, NODE_ENV: 'production' })).toThrow(/clés de test/);
+    }
+  });
+
+  it('refuse un mélange clé de test et vraie clé : aucune connexion ne pourrait aboutir', () => {
+    expect(() => loadConfig({ ...valid, ...keys, TURNSTILE_SITE_KEY: testKeys.TURNSTILE_SITE_KEY })).toThrow(ConfigError);
+    expect(() => loadConfig({ ...valid, ...keys, TURNSTILE_SECRET_KEY: testKeys.TURNSTILE_SECRET_KEY })).toThrow(ConfigError);
+  });
+
+  it.each([
+    ['clé publique illisible', { TURNSTILE_SITE_KEY: 'deux mots' }],
+    ['clé secrète illisible', { TURNSTILE_SECRET_KEY: 'deux mots' }],
+    ['valeur d’exemple', { TURNSTILE_SECRET_KEY: 'remplacer-par-la-cle-secrete' }],
+    ['deux fois la même clé', { TURNSTILE_SITE_KEY: keys.TURNSTILE_SECRET_KEY }],
+  ])('refuse une valeur invalide : %s, sans la citer', (_label, over) => {
+    const load = () => loadConfig({ ...valid, ...keys, ...over });
+    expect(load).toThrow(ConfigError);
+    expect(load).not.toThrow(keys.TURNSTILE_SECRET_KEY);
+  });
+});

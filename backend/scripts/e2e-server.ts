@@ -60,6 +60,10 @@ async function main(): Promise<void> {
       PUSH_VAPID_PUBLIC_KEY: '',
       PUSH_VAPID_PRIVATE_KEY: '',
       PUSH_VAPID_SUBJECT: '',
+      // CAPTCHA (Turnstile) : désactivé en e2e, quelles que soient les clés de backend/.env ; E2E_TURNSTILE_* le
+      // réactive pour une vérification manuelle avec les clés de test de Cloudflare (docs/captcha-turnstile.md).
+      TURNSTILE_SITE_KEY: process.env.E2E_TURNSTILE_SITE_KEY ?? '',
+      TURNSTILE_SECRET_KEY: process.env.E2E_TURNSTILE_SECRET_KEY ?? '',
       NODE_ENV: 'test',
     },
   });

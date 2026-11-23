@@ -51,6 +51,8 @@ Copier `deploy/.env.example` en `deploy/.env`. Ce fichier ne doit jamais être c
 - [ ] `SCHOOL_TIMEZONE=Africa/Tunis`.
 - [ ] Assistance IA (`ASSIST_*`) : `disabled` ou `rules`, sauf décision écrite (section 8).
 - [ ] Notifications push (`PUSH_VAPID_*`) vides et profil `n8n` non lancé, sauf décision écrite (section 8).
+- [ ] CAPTCHA (`TURNSTILE_*`) vide, sauf décision écrite (section 8). S'il est activé : vraies clés (les clés de test
+      sont refusées), widget limité au domaine réel, vérifications de `docs/captcha-turnstile.md`.
 - [ ] Une copie de `deploy/.env` est gardée dans un gestionnaire de secrets, hors du serveur. Aucune
       sauvegarde ne le contient.
 
@@ -110,8 +112,8 @@ Chaque décision est datée, signée et conservée par l'établissement.
 - [ ] **R16** : tout admin lit toutes les demandes directes et entre employés, et toutes les conversations avec
       les parents. Accepté « pour le moment » : décision à confirmer ou à revoir.
 - [ ] Durées de conservation des données personnelles (README, « To decide before going live »).
-- [ ] Assistance IA, notifications push et notifications externes (n8n : e-mail, WhatsApp) : activées seulement
-      après décision, accord de traitement et mise à jour du registre RGPD.
+- [ ] Assistance IA, notifications push, CAPTCHA (Cloudflare Turnstile) et notifications externes (n8n : e-mail,
+      WhatsApp) : activés seulement après décision, accord de traitement et mise à jour du registre RGPD.
 - [ ] Qui reçoit la permission de valider les communications aux parents.
 
 ## 9. Dans le premier mois (P2 de l'audit)
