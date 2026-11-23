@@ -30,10 +30,10 @@ import { font, fontSize, icon, tokensOf } from '../../design/tokens';
 import { isPlural, locale, t } from '../../i18n';
 import { StudentHistoryDrawer } from './StudentHistoryDrawer';
 import { StudentsImportDialog } from './StudentsImportDialog';
+import { isTunisianPhone } from './tunisianPhone';
 import { useLevels, useSaveStudent, useStudents, type GradeLevel, type Student } from './api';
 
 const ROWS_PER_PAGE = [25, 50, 100];
-const PHONE_RE = /^\+?\d[\d ]{6,18}\d$/;
 
 /** Classe choisie, groupée par niveau (ListSubheader : en-têtes non sélectionnables). */
 function classOptions(levels: GradeLevel[]) {
@@ -75,7 +75,7 @@ function StudentFormDialog({
       ...(firstName.trim() ? {} : { firstName: t('Le prénom est obligatoire.') }),
       ...(lastName.trim() ? {} : { lastName: t('Le nom est obligatoire.') }),
       ...(classId ? {} : { classId: t('Choisissez la classe de l’élève.') }),
-      ...(PHONE_RE.test(parentPhone.trim().replace(/\s+/g, ' ')) ? {} : { parentPhone: t('Numéro invalide : chiffres et espaces, « + » possible au début.') }),
+      ...(isTunisianPhone(parentPhone.trim()) ? {} : { parentPhone: t('Numéro de téléphone tunisien invalide : 8 chiffres, avec ou sans « +216 » (par exemple 20 123 456).') }),
     };
     setErrors(next);
     if (Object.keys(next).length > 0) return;
@@ -139,7 +139,7 @@ function StudentFormDialog({
             value={parentPhone}
             onChange={(e) => setParentPhone(e.target.value)}
             error={Boolean(errors.parentPhone)}
-            helperText={errors.parentPhone ?? t('Par exemple : 06 12 34 56 78.')}
+            helperText={errors.parentPhone ?? t('Par exemple : 20 123 456.')}
             slotProps={{ htmlInput: { maxLength: 20, inputMode: 'tel', autoComplete: 'off' } }}
           />
           {student && <FormControlLabel control={<Checkbox checked={active} onChange={(e) => setActive(e.target.checked)} />} label={t('Élève inscrit (actif)')} />}

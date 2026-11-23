@@ -17,7 +17,7 @@ function json(status: number, body?: unknown): Response {
 
 const ADMIN = { id: 'ad', displayName: 'Direction', role: 'SUPER_ADMIN', permissions: [], mustChangePassword: false };
 const LEVELS = [{ id: 'l1', name: '1re primaire', cycle: 'PRIMARY', position: 3, classes: [{ id: 'c1', name: 'CP Violet', room: 'Salle 12', floor: { id: 'f1', name: '1er étage' }, studentCount: 1 }] }];
-const STUDENTS = [{ id: 's1', firstName: 'Aya', lastName: 'Ben Ali', parentPhone: '06 39 98 00 01', active: true, class: { id: 'c1', name: 'CP Violet', level: { id: 'l1', name: '1re primaire', position: 3 } } }];
+const STUDENTS = [{ id: 's1', firstName: 'Aya', lastName: 'Ben Ali', parentPhone: '+216 99 000 001', active: true, class: { id: 'c1', name: 'CP Violet', level: { id: 'l1', name: '1re primaire', position: 3 } } }];
 const entry = (id: string, action: string, details: unknown, at: string) => ({ id, action, actor: { id: 'ad', displayName: 'Direction' }, targetType: 'Student', targetId: 's1', details, ip: '127.0.0.1', createdAt: at });
 const PAGE_1 = { items: [entry('a2', 'STUDENT_SITUATION_VIEWED', { studentId: 's1', at: '2026-11-12T10:42' }, '2026-11-20T10:00:00.000Z')], nextCursor: 'curseur' };
 const PAGE_2 = { items: [entry('a1', 'STUDENT_CHANGED', { action: 'update', fields: ['classId'], before: { classId: 'A' }, after: { classId: 'B' } }, '2026-11-12T08:30:00.000Z')], nextCursor: null };

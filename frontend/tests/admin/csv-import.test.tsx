@@ -279,7 +279,7 @@ describe('Import de comptes', () => {
 });
 
 describe('Import d’élèves', () => {
-  const STUDENTS_CSV = 'prenom;nom;classe;telephone_parent\r\nLina;Hammami;CP Violet;06 12 34 56 78\r\n';
+  const STUDENTS_CSV = 'prenom;nom;classe;telephone_parent\r\nLina;Hammami;CP Violet;20 123 456\r\n';
   const open = async (user: ReturnType<typeof userEvent.setup>) => {
     await user.click(await screen.findByRole('button', { name: 'Importer un fichier' }));
     return screen.findByRole('dialog', { name: 'Importer des élèves' });

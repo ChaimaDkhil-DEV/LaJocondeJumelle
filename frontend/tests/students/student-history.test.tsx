@@ -19,7 +19,7 @@ const LEVELS = [
   { id: 'l1', name: '1re primaire', cycle: 'PRIMARY', position: 3, classes: [{ id: 'c1', name: 'CP Violet', room: 'Salle 12', floor: { id: 'f1', name: '1er étage' }, studentCount: 1 }] },
 ];
 const STUDENTS = [
-  { id: 's1', firstName: 'Aya', lastName: 'Ben Ali', parentPhone: '06 39 98 00 01', active: true, class: { id: 'c1', name: 'CP Violet', level: { id: 'l1', name: '1re primaire', position: 3 } } },
+  { id: 's1', firstName: 'Aya', lastName: 'Ben Ali', parentPhone: '+216 99 000 001', active: true, class: { id: 'c1', name: 'CP Violet', level: { id: 'l1', name: '1re primaire', position: 3 } } },
 ];
 const klass = (name: string) => ({ id: name, name, level: '1re primaire', floor: '1er étage', room: 'Salle 12' });
 const HISTORY = {

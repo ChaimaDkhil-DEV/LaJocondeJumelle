@@ -2,9 +2,9 @@ import { SchoolCycle } from '@prisma/client';
 import { Transform } from 'class-transformer';
 import { IsBoolean, IsEnum, IsInt, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min, MinLength } from 'class-validator';
 
+import { normalizeTunisianPhone, TUNISIAN_PHONE_FORMAT, TUNISIAN_PHONE_MESSAGE } from '../common/tunisian-phone';
+
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
-/** Espaces multiples réduits : « 06  12 34 » → « 06 12 34 ». */
-const phone = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : value);
 
 /** Élève : une classe et un téléphone de parent. */
 export class StudentDto {
@@ -23,9 +23,9 @@ export class StudentDto {
   @IsUUID('all', { message: 'Choisissez la classe de l’élève.' })
   classId!: string;
 
-  @Transform(phone)
+  @Transform(({ value }) => normalizeTunisianPhone(value))
   @IsString()
-  @Matches(/^\+?\d[\d ]{6,18}\d$/, { message: 'Numéro invalide : chiffres et espaces, « + » possible au début (8 à 20 caractères).' })
+  @Matches(TUNISIAN_PHONE_FORMAT, { message: TUNISIAN_PHONE_MESSAGE })
   parentPhone!: string;
 
   @IsOptional()

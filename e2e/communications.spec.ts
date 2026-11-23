@@ -55,7 +55,7 @@ async function prepare(page: Page, marker: number) {
   const created = (await call('post', '/api/admin/students', {
     ...student,
     classId,
-    parentPhone: '06 12 34 56 78',
+    parentPhone: '20 123 456',
   })) as { id: string } | Array<{ id: string; lastName: string }>;
   const studentId = Array.isArray(created)
     ? created.find((s) => s.lastName === student.lastName)!.id

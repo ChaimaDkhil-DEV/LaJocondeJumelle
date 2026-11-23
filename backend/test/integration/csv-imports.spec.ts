@@ -310,20 +310,20 @@ describe('Imports CSV', () => {
       const report = await importStudents(
         excel([
           HEADER,
-          '  Lina ; Hammami ;cp violet;06   12  34 56 78', // espaces, casse de la classe, téléphone espacé
+          '  Lina ; Hammami ;cp violet;20   123  456', // espaces, casse de la classe, téléphone espacé et sans indicatif
           'Yassine;Zribi;CP BLEU;+216 98 765 432',
         ]),
         false,
       );
       expect(report).toMatchObject({ created: true, count: 2 });
       const lina = await prisma.student.findFirstOrThrow({ where: { firstName: 'Lina' }, include: { class: true } });
-      expect(lina).toMatchObject({ lastName: 'Hammami', parentPhone: '06 12 34 56 78', active: true, classId: violet });
+      expect(lina).toMatchObject({ lastName: 'Hammami', parentPhone: '+216 20 123 456', active: true, classId: violet });
       expect(lina.class.name).toBe('CP Violet');
 
       const entry = await prisma.auditLog.findFirstOrThrow({ where: { action: 'STUDENT_CHANGED', targetId: lina.id } });
       expect(entry.details).toMatchObject({ action: 'create', classId: violet, source: 'import' });
       // Le journal ne garde aucune donnée personnelle d'élève.
-      expect(JSON.stringify(entry.details)).not.toMatch(/Lina|Hammami|06 12/);
+      expect(JSON.stringify(entry.details)).not.toMatch(/Lina|Hammami|20 123/);
 
       const list = (await request(app.getHttpServer()).get('/api/admin/students').set('Cookie', cookies.superadmin)).body as Array<{ firstName: string; class: { level: { name: string } } }>;
       expect(list.find((s) => s.firstName === 'Lina')!.class.level.name).toBe('CP import');
@@ -351,7 +351,7 @@ describe('Imports CSV', () => {
       expect(errorsOf(report, 4)).toEqual(['Classe inconnue : « CM9 ».']);
       expect(errorsOf(report, 5).join(' ')).toMatch(/n’a pas de niveau scolaire/);
       expect(errorsOf(report, 6)).toEqual(['La classe « CP Fermée » est désactivée.']);
-      expect(errorsOf(report, 7).join(' ')).toMatch(/Numéro invalide/);
+      expect(errorsOf(report, 7).join(' ')).toMatch(/tunisien invalide/);
       expect(errorsOf(report, 8)).toEqual([]);
       expect(errorsOf(report, 9)).toEqual(['Élève en double dans le fichier (déjà ligne 8).']);
       expect(errorsOf(report, 10).join(' ')).toMatch(/Trop de colonnes/);

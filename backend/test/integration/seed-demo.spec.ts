@@ -76,7 +76,7 @@ describe('Seed de démonstration', () => {
     const students = await prisma.student.findMany({ include: { class: true } });
     expect(students.length).toBeGreaterThan(32 * 20);
     expect(new Set(students.map((s) => s.classId)).size).toBe(32);
-    expect(students.every((s) => /^06 39 98 \d{2} \d{2}$/.test(s.parentPhone))).toBe(true);
+    expect(students.every((s) => /^\+216 99 \d{3} \d{3}$/.test(s.parentPhone))).toBe(true);
   });
 
   it('historique des classes (021) : chaque élève a une période, la dernière est sa classe actuelle (SC-004)', async () => {
@@ -162,7 +162,7 @@ describe('Seed de démonstration', () => {
       .post('/api/admin/students')
       .set('Cookie', direction)
       .set('Origin', TEST_ORIGIN)
-      .send({ firstName: 'Lina', lastName: 'Essai', classId, parentPhone: '06 39 98 99 01' });
+      .send({ firstName: 'Lina', lastName: 'Essai', classId, parentPhone: '+216 99 009 901' });
     expect(created.status).toBe(201);
     const audit = await prisma.auditLog.findFirst({ where: { action: 'STUDENT_CHANGED', targetId: created.body.id } });
     expect(audit?.details).toEqual({ action: 'create', classId });

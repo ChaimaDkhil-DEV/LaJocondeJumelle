@@ -61,7 +61,7 @@ test.describe('Niveaux scolaires', () => {
     await studentDialog.getByLabel(/^Nom/).fill(lastName);
     await studentDialog.getByRole('combobox', { name: /Classe/ }).click();
     await page.getByRole('option', { name: className }).click();
-    await studentDialog.getByLabel(/Téléphone d’un parent/).fill('06 12 34 56 78');
+    await studentDialog.getByLabel(/Téléphone d’un parent/).fill('20 123 456');
     await studentDialog.getByRole('button', { name: 'Enregistrer l’élève' }).click();
     await expect(toast('Élève ajouté.')).toBeVisible();
 

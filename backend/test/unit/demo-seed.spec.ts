@@ -8,6 +8,7 @@ import { DEMO_TIMETABLE_TEACHERS, demoTimetableSeries } from '../../prisma/demo/
 import { ALL_ACCOUNTS, CATEGORIES, CLASSES, FLOORS, GUIDELINES, LEVELS, STAFF, fictionalPhone } from '../../prisma/demo/school-data';
 import { markReadings, simulateDemo, type DemoData, type Directory } from '../../prisma/demo/simulate';
 import { atLocalTime, localDate, localTime } from '../../src/common/school-time';
+import { TUNISIAN_PHONE_FORMAT } from '../../src/common/tunisian-phone';
 import { applyAction, ALL_STATUSES } from '../../src/requests/domain/request-state-machine';
 
 /** Jeu de démonstration : référentiels de l'école et simulation des demandes (sans base). */
@@ -94,9 +95,11 @@ describe('Jeu de démonstration — établissement', () => {
     expect(new Set(STAFF.filter((s) => s.kind === 'teacher').map((s) => s.classKey)).size).toBe(32);
   });
 
-  it('téléphones de parents dans la plage réservée à la fiction', () => {
-    expect(fictionalPhone(1)).toBe('06 39 98 00 01');
-    expect(fictionalPhone(812)).toMatch(/^06 39 98 \d{2} \d{2}$/);
+  it('téléphones de parents de démonstration au format tunisien +216 XX XXX XXX', () => {
+    expect(fictionalPhone(1)).toBe('+216 99 000 001');
+    expect(fictionalPhone(812)).toBe('+216 99 000 812');
+    expect(fictionalPhone(10_001)).toBe('+216 99 000 001');
+    expect(fictionalPhone(9000)).toMatch(TUNISIAN_PHONE_FORMAT);
   });
 });
 
