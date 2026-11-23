@@ -1,15 +1,16 @@
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
-import { Ban } from 'lucide-react';
+import { Ban, BookOpen, CalendarDays, Clock, MapPin, School } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Badge } from '../../components/Badge';
-import { font, fontSize, tokensOf } from '../../design/tokens';
+import { font, fontSize, icon, radius, tokensOf } from '../../design/tokens';
 import { t } from '../../i18n';
+import { KpiCard } from '../admin/KpiCard';
 import { dayLabel, WEEKDAY_LABELS } from './labels';
 import type { TimetableSession } from './types';
 import { tintOf } from './WeekGrid';
-import { formatHours, type WeekStats } from './weekLayout';
+import { formatHours, type NextSession, type WeekStats } from './weekLayout';
 
 /** Les quatre chiffres de la semaine, au-dessus du calendrier. */
 export function StatTiles({ stats }: { stats: WeekStats }) {
@@ -116,6 +117,89 @@ export function WeekClassesCard({ sessions, selectedId, onSelect }: { sessions: 
               <Box component="span" sx={{ flex: 'none', fontSize: fontSize.xs, fontVariantNumeric: 'tabular-nums' }}>
                 {`${WEEKDAY_LABELS[s.weekday]} ${s.startTime}`}
               </Box>
+            </Box>
+          </Box>
+        ))}
+      </Box>
+    </Paper>
+  );
+}
+
+/** Les quatre chiffres de la semaine de l'enseignant : mêmes tuiles teintées que le tableau de bord. */
+export function TeacherStatTiles({ stats }: { stats: WeekStats }) {
+  return (
+    <Box component="section" aria-label={t('Chiffres de la semaine')} sx={{ display: 'grid', gap: 1.5, gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', md: 'repeat(4, minmax(0, 1fr))' }, mb: 2 }}>
+      <KpiCard bar label={t('Séances cette semaine')} value={stats.sessions} icon={CalendarDays} accent="indigo" />
+      <KpiCard bar label={t('Classes')} value={stats.classes} icon={School} accent="cyan" />
+      <KpiCard bar label={t('Heures / semaine')} value={formatHours(stats.minutes)} icon={Clock} accent="green" />
+      <KpiCard bar label={t('Matières')} value={stats.subjects} icon={BookOpen} accent="orange" />
+    </Box>
+  );
+}
+
+/** La séance en cours, sinon la prochaine : jour, heures, matière, classe et salle ; « En cours » quand elle a commencé. */
+export function NextSessionCard({ next }: { next: NextSession | null }) {
+  const session = next?.session;
+  return (
+    <Paper component="section" variant="elevated" aria-labelledby="next-session-title" sx={{ p: 2 }}>
+      <Typography id="next-session-title" component="h2" variant="h6" sx={{ mb: 1.5 }}>
+        {t('Prochaine séance')}
+      </Typography>
+      {!session ? (
+        <Typography variant="body2" color="text.secondary">
+          {t('Aucune séance à venir cette semaine.')}
+        </Typography>
+      ) : (
+        <Box
+          sx={(theme) => {
+            const tint = tintOf(theme, session.subject ?? '');
+            return { display: 'grid', gap: 0.25, p: 1.5, borderRadius: `${radius.control}px`, borderLeft: `3px solid ${tint.bar}`, bgcolor: tint.bg, color: tint.text };
+          }}
+        >
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+            <Typography component="span" variant="body2" sx={{ fontWeight: font.medium, fontVariantNumeric: 'tabular-nums' }}>
+              {`${dayLabel(session.date).replace(/^./, (c) => c.toLocaleUpperCase())} · ${t('{start} – {end}', { start: session.startTime, end: session.endTime })}`}
+            </Typography>
+            {next.inProgress && <Badge tone="success">{t('En cours')}</Badge>}
+          </Box>
+          <Typography component="span" sx={{ fontWeight: font.semibold, fontSize: fontSize.lg, color: 'text.primary', overflowWrap: 'anywhere' }}>
+            {session.subject ?? t('Matière non précisée')}
+          </Typography>
+          <Typography component="span" variant="body2" sx={{ overflowWrap: 'anywhere' }}>
+            {session.class.name}
+          </Typography>
+          {(session.room ?? session.class.room) && (
+            <Typography component="span" variant="body2" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+              <MapPin size={icon.sm - 2} strokeWidth={2} aria-hidden="true" />
+              {session.room ?? session.class.room}
+            </Typography>
+          )}
+        </Box>
+      )}
+    </Paper>
+  );
+}
+
+/** Les matières de la semaine avec leurs heures, la plus longue d'abord ; la pastille reprend la teinte de la grille. */
+export function SubjectsCard({ subjects }: { subjects: Array<{ subject: string | null; minutes: number }> }) {
+  return (
+    <Paper component="section" variant="elevated" aria-labelledby="week-subjects-title" sx={{ p: 2 }}>
+      <Typography id="week-subjects-title" component="h2" variant="h6" sx={{ mb: 1.5 }}>
+        {t('Matières de la semaine')}
+      </Typography>
+      <Box component="ul" sx={(theme) => ({ listStyle: 'none', m: 0, p: 0, '& > li + li': { borderTop: `1px solid ${tokensOf(theme).border}` } })}>
+        {subjects.map((row) => (
+          <Box component="li" key={row.subject ?? ''} sx={{ display: 'flex', alignItems: 'center', gap: 1.25, py: 1 }}>
+            <Box
+              component="span"
+              aria-hidden="true"
+              sx={(theme) => ({ width: 10, height: 10, borderRadius: '3px', flex: 'none', bgcolor: tintOf(theme, row.subject ?? '').bar })}
+            />
+            <Box component="span" sx={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere' }}>
+              {row.subject ?? t('Matière non précisée')}
+            </Box>
+            <Box component="span" sx={{ fontWeight: font.semibold, fontVariantNumeric: 'tabular-nums' }}>
+              {formatHours(row.minutes)}
             </Box>
           </Box>
         ))}
