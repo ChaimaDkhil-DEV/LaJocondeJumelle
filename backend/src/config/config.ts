@@ -46,6 +46,17 @@ export interface AppConfig {
   n8n: N8nConfig | null;
   /** Canaux externes activés pour les communications aux parents (015) ; vide : espace parent seulement. */
   parentCommunicationChannels: CommunicationChannel[];
+  /** CAPTCHA Cloudflare Turnstile de la connexion. null : désactivé (aucune des deux clés). */
+  turnstile: TurnstileConfig | null;
+}
+
+export interface TurnstileConfig {
+  /** Clé publique, transmise au navigateur. */
+  siteKey: string;
+  /** Clé secrète : ne quitte le serveur que vers Siteverify, jamais journalisée. */
+  secretKey: string;
+  /** Clés de test officielles de Cloudflare (jeton factice, aucun domaine) ; refusées en production. */
+  testKeys: boolean;
 }
 
 export interface N8nConfig {
@@ -281,6 +292,38 @@ function parsePush(env: NodeJS.ProcessEnv): PushConfig | null {
   return { publicKey: publicKey!, privateKey: privateKey!, subject: subject! };
 }
 
+const TURNSTILE_VARIABLES = ['TURNSTILE_SITE_KEY', 'TURNSTILE_SECRET_KEY'] as const;
+/** Clés de test publiées par Cloudflare : 1x000…AA, 2x000…AB, 3x000…FF. */
+const TURNSTILE_TEST_KEY = /^[123]x0{20,}[A-F]{2}$/;
+
+/**
+ * CAPTCHA Cloudflare Turnstile : les deux clés ou aucune. Une variable vide compte comme absente. Les clés de test
+ * acceptent (ou refusent) tout le monde : jamais en production. Aucune valeur n'est citée dans une erreur.
+ */
+function parseTurnstile(env: NodeJS.ProcessEnv, isProduction: boolean): TurnstileConfig | null {
+  const [siteKey, secretKey] = TURNSTILE_VARIABLES.map((key) => trimmed(env[key]));
+  if (!siteKey && !secretKey) return null;
+
+  for (const key of TURNSTILE_VARIABLES) {
+    const value = trimmed(env[key]);
+    if (!value) throw new ConfigError(`${key} manquante (renseignez ${TURNSTILE_VARIABLES.join(' et ')}, ou aucune)`);
+    if (!BASE64URL.test(value) || value.startsWith('remplacer-par-')) {
+      throw new ConfigError(`${key} invalide : copiez la clé du widget depuis le tableau de bord Cloudflare`);
+    }
+  }
+  if (siteKey === secretKey) throw new ConfigError('TURNSTILE_SITE_KEY et TURNSTILE_SECRET_KEY doivent être différentes');
+
+  const testKeys = TURNSTILE_TEST_KEY.test(siteKey!);
+  const testSecret = TURNSTILE_TEST_KEY.test(secretKey!);
+  if (isProduction && (testKeys || testSecret)) {
+    throw new ConfigError('Turnstile : les clés de test de Cloudflare sont interdites en production');
+  }
+  if (testKeys !== testSecret) {
+    throw new ConfigError('Turnstile : une clé de test et une vraie clé ne vont pas ensemble');
+  }
+  return { siteKey: siteKey!, secretKey: secretKey!, testKeys };
+}
+
 const CHANNELS: readonly CommunicationChannel[] = ['EMAIL', 'WHATSAPP'];
 
 /**
@@ -418,5 +461,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     push: parsePush(env),
     n8n: parseN8n(env),
     parentCommunicationChannels: parseChannels(env.PARENT_COMM_CHANNELS),
+    turnstile: parseTurnstile(env, env.NODE_ENV === 'production'),
   };
 }

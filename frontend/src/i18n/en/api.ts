@@ -43,6 +43,12 @@ export const api: Record<string, string> = {
   'Le créneau est invalide : la fin doit suivre le début et ne pas être déjà passée.':
     'The time slot is invalid: the end must come after the start and must not already be in the past.',
   'Cette classe est introuvable ou désactivée.': 'This class was not found or is deactivated.',
+  'La vérification anti-robot est obligatoire. Rechargez la page puis réessayez.':
+    'The anti-robot check is required. Reload the page and try again.',
+  'La vérification anti-robot a échoué. Réessayez.': 'The anti-robot check failed. Try again.',
+  'La vérification anti-robot a expiré. Réessayez.': 'The anti-robot check has expired. Try again.',
+  'La vérification anti-robot est momentanément indisponible. Réessayez dans quelques minutes.':
+    'The anti-robot check is temporarily unavailable. Try again in a few minutes.',
   'Trop de tentatives. Patientez une minute avant de réessayer.': 'Too many attempts. Wait a minute before trying again.',
   'Les propositions automatiques ne sont pas disponibles.': 'Automatic suggestions are not available.',
   'Les propositions ne sont pas disponibles pour le moment. Vous pouvez remplir la demande vous-même.':

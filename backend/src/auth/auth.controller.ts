@@ -6,6 +6,7 @@ import { AllowPendingPasswordChange } from './allow-pending-password-change.deco
 import { ChangePasswordDto, LoginDto } from './auth.dto';
 import { AuthService } from './auth.service';
 import { toMeResponse, type AuthContext, type AuthenticatedUser, type MeResponse } from './auth.types';
+import { CaptchaAction, CaptchaGuard } from './captcha.guard';
 import { CurrentAuth, CurrentUser } from './current-user.decorator';
 import { LoginThrottlerGuard } from './login-throttler.guard';
 import { Public } from './public.decorator';
@@ -14,6 +15,7 @@ import { PrismaService } from '../common/prisma.service';
 import { clientIp } from '../common/request-info';
 import { SESSION_COOKIE } from './session.guard';
 import { SessionService } from './session.service';
+import { TurnstileService } from './turnstile.service';
 import { ParentAllowed } from './parent-allowed.decorator';
 import { PasswordChangeRateLimitGuard } from '../common/upload-rate-limit.guard';
 
@@ -25,6 +27,7 @@ export class AuthController {
     private readonly auth: AuthService,
     private readonly sessions: SessionService,
     private readonly prisma: PrismaService,
+    private readonly turnstile: TurnstileService,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
@@ -37,8 +40,16 @@ export class AuthController {
     };
   }
 
+  /** Clé publique du CAPTCHA, lue par la page de connexion ; null : CAPTCHA désactivé. */
   @Public()
-  @UseGuards(LoginThrottlerGuard)
+  @Get('captcha')
+  captcha(): { siteKey: string | null } {
+    return { siteKey: this.turnstile.siteKey };
+  }
+
+  @Public()
+  @CaptchaAction('login')
+  @UseGuards(LoginThrottlerGuard, CaptchaGuard)
   @Post('login')
   @HttpCode(200)
   async login(

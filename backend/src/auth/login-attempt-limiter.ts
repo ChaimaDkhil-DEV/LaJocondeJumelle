@@ -5,6 +5,8 @@ import { APP_CONFIG } from '../config/config.module';
 export const LOGIN_FAILURES_PER_USERNAME = 10;
 /** Large : toute une école peut partager une adresse IP. */
 export const LOGIN_FAILURES_PER_IP = 100;
+/** Refus du CAPTCHA : fenêtre à part, plus large, car un jeton expiré n'est pas une tentative d'intrusion. */
+export const CAPTCHA_FAILURES_PER_IP = 300;
 export const LOGIN_FAILURE_WINDOW_MS = 15 * 60_000;
 const MAX_TRACKED_KEYS = 10_000;
 /** Jeton facultatif : les tests fournissent leur horloge directement au constructeur. */
@@ -28,6 +30,7 @@ export class LoginAttemptLimiter {
   private readonly windows = new Map<string, Window>();
   private readonly perUsername: number;
   private readonly perIp: number;
+  private readonly captchaPerIp: number;
 
   constructor(
     @Inject(APP_CONFIG) config: AppConfig,
@@ -36,6 +39,7 @@ export class LoginAttemptLimiter {
     // Hors production, LOGIN_RATE_LIMIT relève la limite pour les tests de bout en bout.
     this.perUsername = Math.max(LOGIN_FAILURES_PER_USERNAME, config.loginRateLimit);
     this.perIp = Math.max(LOGIN_FAILURES_PER_IP, config.loginRateLimit);
+    this.captchaPerIp = Math.max(CAPTCHA_FAILURES_PER_IP, config.loginRateLimit);
   }
 
   /** Réserve une tentative ; `firstBlock` n'est vrai qu'une fois par fenêtre, pour le journal. */
@@ -60,6 +64,34 @@ export class LoginAttemptLimiter {
     this.windows.delete(`user:${username}`);
     const byIp = this.windows.get(`ip:${ip ?? 'inconnue'}`);
     if (byIp && byIp.count > 0) byIp.count -= 1;
+  }
+
+  /**
+   * Réserve une vérification de CAPTCHA pour l'adresse IP, avant l'appel à Cloudflare ; `releaseCaptcha` rend la place
+   * quand l'adresse n'a rien à se reprocher. Ne compte ni pour un identifiant, ni pour les mots de passe de l'adresse.
+   */
+  reserveCaptcha(ip: string | null): { allowed: boolean; firstBlock: boolean } {
+    const captcha = this.window(`captcha:${ip ?? 'inconnue'}`);
+    if (captcha.count >= this.captchaPerIp) {
+      const firstBlock = !captcha.blockReported;
+      captcha.blockReported = true;
+      return { allowed: false, firstBlock };
+    }
+    captcha.count += 1;
+    return { allowed: true, firstBlock: false };
+  }
+
+  releaseCaptcha(ip: string | null): void {
+    const captcha = this.windows.get(`captcha:${ip ?? 'inconnue'}`);
+    if (captcha && captcha.count > 0) captcha.count -= 1;
+  }
+
+  /** Vrai une fois par adresse IP et par fenêtre : une panne de Cloudflare n'inonde pas le journal d'audit. */
+  firstOutage(ip: string | null): boolean {
+    const outage = this.window(`panne:${ip ?? 'inconnue'}`);
+    const first = !outage.blockReported;
+    outage.blockReported = true;
+    return first;
   }
 
   trackedKeys(): number {

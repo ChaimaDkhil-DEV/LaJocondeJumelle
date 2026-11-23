@@ -58,13 +58,13 @@ describe('LoginPage', () => {
     expect(screen.getByRole('group', { name: 'Langue' })).toBeVisible();
   });
 
-  it('signale les champs vides sans appeler l’API', async () => {
-    const handler = vi.fn(() => json(200, { user: me }));
+  it('signale les champs vides sans appeler l’API de connexion', async () => {
+    const handler = vi.fn((_url: string) => json(200, { user: me }));
     renderAt('/connexion', handler);
     await userEvent.click(screen.getByRole('button', { name: 'Se connecter' }));
     expect(await screen.findByText('Saisissez votre identifiant.')).toBeVisible();
     expect(screen.getByText('Saisissez votre mot de passe.')).toBeVisible();
-    expect(handler).not.toHaveBeenCalled();
+    expect(handler.mock.calls.filter(([url]) => url.endsWith('/login'))).toHaveLength(0);
   });
 
   it('affiche le message d’erreur de l’API dans une alerte', async () => {

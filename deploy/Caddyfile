@@ -17,7 +17,8 @@
 	header {
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		# 'unsafe-inline' pour les styles uniquement : MUI (Emotion) injecte des balises <style>.
-		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; media-src 'self' blob:; connect-src 'self' wss:; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+		# TURNSTILE_ORIGIN : Cloudflare si le CAPTCHA est activé, sinon vide (deploy/caddy-entrypoint.sh).
+		Content-Security-Policy "default-src 'self'; script-src 'self' {$TURNSTILE_ORIGIN}; frame-src 'self' {$TURNSTILE_ORIGIN}; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; media-src 'self' blob:; connect-src 'self' wss:; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
 		# Micro (vocaux) et appareil photo (preuves) autorisés pour l'application elle-même seulement.
 		Permissions-Policy "microphone=(self), camera=(self), geolocation=(), payment=(), usb=()"
 		X-Content-Type-Options "nosniff"

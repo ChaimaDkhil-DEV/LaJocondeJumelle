@@ -118,6 +118,10 @@ Push notifications (spec 014) are off by default: they are enabled only by setti
 `PUSH_VAPID_*` variables, after the school's decision and its entry in the processing register. See
 [docs/notifications-push.md](docs/notifications-push.md) (keys, time zone, iPhone, register entry).
 
+The sign-in CAPTCHA (Cloudflare Turnstile) is off by default: it is enabled only by setting `TURNSTILE_SITE_KEY` and
+`TURNSTILE_SECRET_KEY`, after the school's decision. See [docs/captcha-turnstile.md](docs/captcha-turnstile.md) (widget,
+keys, development, production, emergency, tests).
+
 Communications (specs 015 and 017): the administration is the only bridge between teachers and
 parents. Teachers report to the administration about a student of their classes, by voice and/or text
 (« Communications »); the administration answers them and exchanges with guardians, directly or after

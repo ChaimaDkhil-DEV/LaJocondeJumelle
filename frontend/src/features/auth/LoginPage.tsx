@@ -9,6 +9,7 @@ import { ApiError } from '../../api/client';
 import { fieldIcon } from '../../components/fieldIcon';
 import { t } from '../../i18n';
 import { AuthLayout } from './AuthLayout';
+import { useCaptcha } from './useCaptcha';
 import { useLogin } from './useCurrentUser';
 
 interface FieldErrors {
@@ -20,6 +21,7 @@ export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const login = useLogin();
+  const captcha = useCaptcha('login');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<FieldErrors>({});
@@ -36,8 +38,9 @@ export function LoginPage() {
     if (nextErrors.username || nextErrors.password) return;
 
     login.mutate(
-      { username: username.trim(), password },
+      { username: username.trim(), password, captchaToken: captcha.getToken },
       {
+        onError: captcha.afterFailure,
         onSuccess: ({ user }) =>
           navigate(user.mustChangePassword ? '/mot-de-passe' : from, { replace: true }),
       },
@@ -76,9 +79,12 @@ export function LoginPage() {
             helperText={errors.password}
             slotProps={{ htmlInput: { 'aria-required': true }, input: fieldIcon(KeyRound) }}
           />
-          <Button type="submit" variant="contained" size="large" fullWidth loading={login.isPending} endIcon={<LogIn aria-hidden="true" />}>
-            {t('Se connecter')}
-          </Button>
+          <div>
+            {captcha.widget}
+            <Button type="submit" variant="contained" size="large" fullWidth loading={login.isPending} endIcon={<LogIn aria-hidden="true" />}>
+              {t('Se connecter')}
+            </Button>
+          </div>
         </Stack>
       </form>
     </AuthLayout>

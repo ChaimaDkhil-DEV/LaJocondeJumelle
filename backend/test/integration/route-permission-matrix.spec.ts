@@ -50,6 +50,7 @@ type Access = 'PUBLIC' | 'INTEGRATION' | readonly Profile[];
 const MATRIX: Record<string, Access> = {
   'GET /api/health': 'PUBLIC',
   'POST /api/auth/login': 'PUBLIC',
+  'GET /api/auth/captcha': 'PUBLIC',
   [`GET /api/integrations/n8n/parent-communications/${U}`]: 'INTEGRATION',
   'POST /api/integrations/n8n/deliveries': 'INTEGRATION',
 
