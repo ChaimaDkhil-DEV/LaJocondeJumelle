@@ -58,5 +58,5 @@ export const imports: Record<string, string> = {
   "prénom de l’élève": "student’s first name",
   "nom de famille de l’élève": "student’s last name",
   "nom exact d’une classe rattachée à un niveau scolaire": "exact name of a class attached to a school level",
-  "téléphone d’un parent, par exemple 06 12 34 56 78 ou +216 20 123 456": "a parent’s phone number, for example 06 12 34 56 78 or +216 20 123 456",
+  "téléphone d’un parent, par exemple 20 123 456 ou +216 20 123 456": "a parent’s phone number, for example 20 123 456 or +216 20 123 456",
 };

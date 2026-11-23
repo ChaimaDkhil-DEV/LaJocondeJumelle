@@ -10,21 +10,21 @@ import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Typography from '@mui/material/Typography';
-import { ChevronDown, Hourglass, Info, MessageSquare, Play, SearchX, Timer, type LucideIcon } from 'lucide-react';
+import { ChevronDown, Info, SearchX } from 'lucide-react';
 import { useId, useState } from 'react';
 import { Link as RouterLink } from 'react-router';
 import { loadErrorMessage } from '../../api/client';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
-import { PriorityBadge } from '../../components/PriorityBadge';
+import { Badge } from '../../components/Badge';
+import { PRIORITY_LABELS, PRIORITY_STYLE } from '../../components/PriorityBadge';
 import { SectionCard } from '../../components/SectionCard';
-import { font, fontSize, icon, tokensOf } from '../../design/tokens';
+import { font, fontSize, icon, radius, tokensOf } from '../../design/tokens';
 import { isPlural, t } from '../../i18n';
 import { DashboardSkeleton } from './DashboardSkeleton';
 import { formatDurationMs, useDashboardPerformance, type Compliance, type DashboardPerformance, type DurationStats } from './dashboardApi';
 import { COMPLIANCE_TARGET, LOW_SAMPLE_THRESHOLD, percent } from './delayThresholds';
-import { ComplianceBar, ComplianceGauge, ComplianceIcon, ComplianceStatus, MetricHelp, NoData, SampleSizeBadge } from './DelayMetrics';
-import { KpiCard } from './KpiCard';
+import { ComplianceBar, ComplianceGauge, ComplianceLevelBadge, LowSampleBadge, MetricHelp, NoData } from './DelayMetrics';
 
 /**
  * Définitions des indicateurs, reprises des règles de calcul du serveur
@@ -47,33 +47,47 @@ const DEFINITIONS = {
 /** Tableau défilant (mobile) : atteignable au clavier et nommé pour les lecteurs d'écran. */
 const scrollRegion = (label: string) => ({ tabIndex: 0, role: 'region', 'aria-label': label }) as const;
 
-/** Respect des délais, indicateur clé : anneau, taux, niveau écrit et fraction. */
-function ComplianceHero({ compliance: c }: { compliance: Compliance }) {
+/** Petit libellé de carte : capitales discrètes, comme les titres des cartes de chiffres. */
+const cardLabel = (theme: Parameters<typeof tokensOf>[0]) => ({
+  fontSize: fontSize.xs,
+  fontWeight: font.semibold,
+  letterSpacing: '0.06em',
+  textTransform: 'uppercase',
+  color: tokensOf(theme).textSecondary,
+});
+
+/** Caractère de remplacement du nombre en gras : la phrase reste une seule chaîne traduisible. */
+const COUNT_MARK = '⁣';
+
+/** « Moyenne sur 9 demandes », le nombre en gras. */
+function BoldCount({ text, count }: { text: string; count: number }) {
+  const [before, after = ''] = text.replace('{count}', COUNT_MARK).split(COUNT_MARK);
   return (
-    <Paper
-      variant="elevated"
-      sx={{
-        p: { xs: 2, sm: 2.5 },
-        minWidth: 0,
-        display: 'grid',
-        gap: 1.5,
-        alignContent: 'start',
-        // Tablette : pleine largeur au-dessus des 4 cartes ; grand écran : colonne de gauche, sur 2 rangées.
-        gridColumn: { sm: '1 / -1', md: 'auto' },
-        gridRow: { md: 'span 2' },
-      }}
-    >
-      <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}>
-        <Box sx={{ fontSize: fontSize.sm, fontWeight: font.semibold, lineHeight: 1.35 }}>{t('Respect des délais')}</Box>
-        <MetricHelp label={t('Respect des délais')} text={DEFINITIONS.compliance} />
+    <>
+      {before}
+      <Box component="strong" sx={{ fontWeight: font.semibold, color: 'text.primary' }}>
+        {count}
       </Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0 }}>
-        <ComplianceGauge rate={c.rate} size={104} />
-        <Box sx={{ minWidth: 0 }}>
+      {after}
+    </>
+  );
+}
+
+const averageOver = (count: number) => t(isPlural(count) ? 'Moyenne sur {count} demandes' : 'Moyenne sur {count} demande');
+const overRequests = (count: number) => t(isPlural(count) ? 'sur {count} demandes' : 'sur {count} demande', { count });
+
+/** Respect des délais, indicateur clé : anneau avec son taux, niveau écrit avec la cible, et la fraction. */
+function ComplianceHero({ compliance: c }: { compliance: Compliance }) {
+  const size = 120;
+  return (
+    <Paper variant="elevated" sx={{ p: { xs: 2, sm: 3 }, minWidth: 0, display: 'flex', alignItems: 'center', gap: { xs: 2, sm: 3 }, flexWrap: 'wrap' }}>
+      <Box sx={{ position: 'relative', width: size, height: size, flex: 'none' }}>
+        <ComplianceGauge rate={c.rate} size={size} />
+        <Box sx={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', px: 2 }}>
           <Typography
             component="p"
             sx={{
-              fontSize: c.rate === null ? fontSize.md : fontSize.xxl + 4,
+              fontSize: c.rate === null ? fontSize.sm : fontSize.xl,
               fontWeight: c.rate === null ? font.regular : font.semibold,
               color: c.rate === null ? 'text.secondary' : 'text.primary',
               lineHeight: 1.1,
@@ -85,76 +99,159 @@ function ComplianceHero({ compliance: c }: { compliance: Compliance }) {
           </Typography>
         </Box>
       </Box>
-      <ComplianceStatus rate={c.rate} />
-      <Typography variant="caption" color="text.secondary">
-        {c.evaluated === 0
-          ? t('Aucune demande terminée avec délai sur la période.')
-          : t(isPlural(c.evaluated) ? '{onTime} sur {evaluated} demandes terminées sans retard' : '{onTime} sur {evaluated} demande terminée sans retard', {
-              onTime: c.onTime,
-              evaluated: c.evaluated,
-            })}
-      </Typography>
-      <Box>
-        <SampleSizeBadge count={c.evaluated} />
+      <Box sx={{ display: 'grid', gap: 1, minWidth: 0, justifyItems: 'start' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+          <Box sx={cardLabel}>{t('Respect des délais')}</Box>
+          <MetricHelp label={t('Respect des délais')} text={DEFINITIONS.compliance} />
+        </Box>
+        <ComplianceLevelBadge rate={c.rate} />
+        <Typography component="span" variant="body2" color="text.secondary">
+          {c.evaluated === 0
+            ? t('Aucune demande terminée avec délai sur la période.')
+            : t(isPlural(c.evaluated) ? '{onTime} sur {evaluated} demandes terminées sans retard' : '{onTime} sur {evaluated} demande terminée sans retard', {
+                onTime: c.onTime,
+                evaluated: c.evaluated,
+              })}
+        </Typography>
+        <LowSampleBadge count={c.evaluated} />
       </Box>
     </Paper>
   );
 }
 
-function DurationCard({ label, stats, hint, help, icon: Icon }: { label: string; stats: DurationStats; hint: string; help: string; icon: LucideIcon }) {
-  const none = stats.count === 0;
+/** Respect des délais de chaque priorité : une barre pleine largeur, avec le taux et la fraction. */
+function PriorityCompliance({ rows }: { rows: DashboardPerformance['byPriority'] }) {
+  const titleId = useId();
   return (
-    <KpiCard
-      label={label}
-      value={none ? t('Aucune donnée') : formatDurationMs(stats.avgMs)}
-      muted={none}
-      icon={Icon}
-      tone="neutral"
-      hint={hint}
-      singleLineHint
-      labelExtra={<MetricHelp label={label} text={help} />}
-      meta={<SampleSizeBadge count={stats.count} />}
-    />
+    <Paper component="section" aria-labelledby={titleId} variant="elevated" sx={{ p: { xs: 2, sm: 3 }, minWidth: 0, display: 'grid', gap: 2, alignContent: 'start' }}>
+      <Box id={titleId} sx={cardLabel}>
+        {t('Par priorité · respect des délais')}
+      </Box>
+      <Box component="ul" sx={{ listStyle: 'none', m: 0, p: 0, display: 'grid', gap: 2 }}>
+        {rows.map((p) => {
+          const c = p.compliance;
+          return (
+            <Box component="li" key={p.priority} sx={{ display: 'grid', gap: 0.75 }}>
+              <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 1 }}>
+                <Box component="span" sx={{ fontWeight: font.semibold }}>
+                  {PRIORITY_LABELS[p.priority]}
+                </Box>
+                {c.rate === null ? (
+                  <NoData reason={t('Aucune demande terminée avec délai sur la période.')} />
+                ) : (
+                  <Box component="span" sx={(theme) => ({ color: tokensOf(theme).textSecondary, fontVariantNumeric: 'tabular-nums' })}>
+                    <Box component="strong" sx={{ fontWeight: font.semibold, color: 'text.primary' }}>
+                      {percent(c.rate)}
+                    </Box>
+                    {' · '}
+                    {c.onTime}/{c.evaluated}
+                  </Box>
+                )}
+              </Box>
+              {c.rate !== null && <ComplianceBar rate={c.rate} width="100%" height={8} />}
+            </Box>
+          );
+        })}
+      </Box>
+      <Typography variant="caption" color="text.secondary">
+        {t('Seuil de l’objectif : {target}', { target: percent(COMPLIANCE_TARGET) })}
+      </Typography>
+    </Paper>
   );
 }
 
-/** Durée moyenne d'une cellule : valeur en texte principal, « n » en petit gris dessous. */
+interface Step {
+  label: string;
+  stats: DurationStats;
+  hint: string;
+  help: string;
+}
+
+/** Les quatre étapes du cycle de vie d'une demande, dans l'ordre : une durée moyenne et le nombre de demandes mesurées. */
+function Lifecycle({ steps }: { steps: Step[] }) {
+  const titleId = useId();
+  return (
+    <SectionCard
+      elevated
+      title={t('Cycle de vie d’une demande')}
+      titleId={titleId}
+      description={t('Durée moyenne à chaque étape, avec le nombre de demandes mesurées.')}
+      contentGap={2}
+    >
+      <Box
+        component="ol"
+        aria-labelledby={titleId}
+        sx={{ listStyle: 'none', m: 0, p: 0, display: 'grid', gap: 1.5, gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: 'repeat(2, minmax(0, 1fr))', lg: 'repeat(4, minmax(0, 1fr))' } }}
+      >
+        {steps.map((step, index) => {
+          const none = step.stats.count === 0;
+          return (
+            <Box
+              component="li"
+              key={step.label}
+              sx={(theme) => ({
+                minWidth: 0,
+                display: 'grid',
+                gap: 1,
+                alignContent: 'start',
+                p: 2,
+                border: `1px solid ${tokensOf(theme).border}`,
+                borderRadius: `${radius.card - 4}px`,
+              })}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+                <Box sx={(theme) => ({ ...cardLabel(theme), color: tokensOf(theme).accent.text })}>{`${index + 1} · ${step.label}`}</Box>
+                <MetricHelp label={step.label} text={step.help} />
+              </Box>
+              <Typography
+                component="p"
+                sx={{
+                  fontSize: none ? fontSize.md : fontSize.xl,
+                  fontWeight: none ? font.regular : font.semibold,
+                  color: none ? 'text.secondary' : 'text.primary',
+                  lineHeight: 1.15,
+                  letterSpacing: '-0.02em',
+                  fontVariantNumeric: 'tabular-nums',
+                }}
+              >
+                {none ? t('Aucune donnée') : formatDurationMs(step.stats.avgMs)}
+              </Typography>
+              <Typography component="span" variant="body2" color="text.secondary">
+                {step.hint}
+              </Typography>
+              <Box sx={(theme) => ({ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.75, pt: 1, borderTop: `1px solid ${tokensOf(theme).border}`, fontSize: fontSize.sm, color: tokensOf(theme).textSecondary })}>
+                <span>{none ? t('Aucune demande mesurée') : <BoldCount text={averageOver(step.stats.count)} count={step.stats.count} />}</span>
+                <LowSampleBadge count={step.stats.count} />
+              </Box>
+            </Box>
+          );
+        })}
+      </Box>
+    </SectionCard>
+  );
+}
+
+/** Durée moyenne d'une cellule : valeur en texte principal, « sur n demandes » en petit gris dessous. */
 function DurationCell({ stats }: { stats: DurationStats }) {
   if (stats.count === 0) return <NoData />;
   return (
     <>
-      <Box component="span" sx={{ display: 'block', fontWeight: font.medium, color: 'text.primary' }}>
+      <Box component="span" sx={{ display: 'block', fontWeight: font.semibold, color: 'text.primary' }}>
         {formatDurationMs(stats.avgMs)}
       </Box>
-      <Box component="span" sx={(theme) => ({ display: 'block', fontSize: fontSize.xs, color: tokensOf(theme).textSecondary })}>
-        n = {stats.count}
+      <Box component="span" sx={(theme) => ({ display: 'block', fontSize: fontSize.xs, color: tokensOf(theme).textSecondary, whiteSpace: 'nowrap' })}>
+        {overRequests(stats.count)}
       </Box>
     </>
   );
 }
 
-function ComplianceCell({ compliance: c }: { compliance: Compliance }) {
-  if (c.evaluated === 0 || c.rate === null) return <NoData reason={t('Aucune demande terminée avec délai sur la période.')} />;
-  return (
-    <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 1 }}>
-      <ComplianceBar rate={c.rate} />
-      <ComplianceIcon rate={c.rate} />
-      <Box component="span" sx={{ fontWeight: font.medium, minWidth: 40, textAlign: 'right', color: 'text.primary' }}>
-        {percent(c.rate)}
-      </Box>
-      <Box component="span" sx={(theme) => ({ fontSize: fontSize.xs, color: tokensOf(theme).textSecondary, minWidth: 36, textAlign: 'left' })}>
-        ({c.onTime}/{c.evaluated})
-      </Box>
-    </Box>
-  );
-}
-
-const NUMERIC_COLUMNS = [t('Demandes'), t('Validation'), t('Première réponse'), t('Prise en charge'), t('Traitement net'), t('Respect des délais')] as const;
+const COLUMNS = [t('Demandes'), t('Validation'), t('Première réponse'), t('Prise en charge'), t('Traitement net')] as const;
 
 /**
- * Délais par priorité : colonnes chiffrées alignées à droite (en-têtes compris), chiffres
- * tabulaires, « n » sous la valeur, « Aucune donnée » distinct de zéro, ligne sans demande
- * atténuée. Première colonne figée lors du défilement horizontal (mobile), en-tête collant.
+ * Détail par priorité : colonnes alignées à gauche avec leurs en-têtes, chiffres tabulaires, « sur n demandes » sous
+ * chaque durée, « Aucune donnée » distinct de zéro. Première colonne figée lors du défilement horizontal (mobile),
+ * en-tête collant. Le respect des délais de chaque priorité est dans la carte « Par priorité · respect des délais ».
  */
 function DelaysByPriorityTable({ rows }: { rows: DashboardPerformance['byPriority'] }) {
   return (
@@ -168,9 +265,9 @@ function DelaysByPriorityTable({ rows }: { rows: DashboardPerformance['byPriorit
         sx={(theme) => {
           const t = tokensOf(theme);
           return {
-            minWidth: 820,
-            '& th': { bgcolor: t.surface, color: t.textSecondary, fontWeight: font.medium, borderBottom: `1px solid ${t.border}`, whiteSpace: 'nowrap' },
-            '& td': { borderBottom: `1px solid ${t.border}`, py: 1.25, fontVariantNumeric: 'tabular-nums', bgcolor: t.surface },
+            minWidth: 720,
+            '& th': { bgcolor: t.surface, color: t.textSecondary, fontWeight: font.medium, borderBottom: `1px solid ${t.border}`, whiteSpace: 'nowrap', fontSize: fontSize.sm },
+            '& td': { borderBottom: `1px solid ${t.border}`, py: 1.75, fontVariantNumeric: 'tabular-nums', bgcolor: t.surface },
             '& tbody tr:last-of-type td': { borderBottom: 0 },
             '& tbody tr:hover td': { bgcolor: t.surfaceMuted },
             // Première colonne figée : la priorité reste visible pendant le défilement.
@@ -186,10 +283,8 @@ function DelaysByPriorityTable({ rows }: { rows: DashboardPerformance['byPriorit
         <TableHead>
           <TableRow>
             <TableCell>{t('Priorité')}</TableCell>
-            {NUMERIC_COLUMNS.map((name) => (
-              <TableCell key={name} align="right">
-                {name}
-              </TableCell>
+            {COLUMNS.map((name) => (
+              <TableCell key={name}>{name}</TableCell>
             ))}
           </TableRow>
         </TableHead>
@@ -199,25 +294,20 @@ function DelaysByPriorityTable({ rows }: { rows: DashboardPerformance['byPriorit
             return (
               <TableRow key={p.priority} hover>
                 <TableCell>
-                  <PriorityBadge priority={p.priority} />
+                  <Badge tone={PRIORITY_STYLE[p.priority].tone}>{PRIORITY_LABELS[p.priority]}</Badge>
                 </TableCell>
-                <TableCell align="right" sx={{ fontWeight: font.medium, color: empty ? 'text.secondary' : 'text.primary' }}>
-                  {p.total}
-                </TableCell>
-                <TableCell align="right">
+                <TableCell sx={{ fontWeight: font.semibold, color: empty ? 'text.secondary' : 'text.primary' }}>{p.total}</TableCell>
+                <TableCell>
                   <DurationCell stats={p.validation} />
                 </TableCell>
-                <TableCell align="right">
+                <TableCell>
                   <DurationCell stats={p.firstReply} />
                 </TableCell>
-                <TableCell align="right">
+                <TableCell>
                   <DurationCell stats={p.takeover} />
                 </TableCell>
-                <TableCell align="right">
+                <TableCell>
                   <DurationCell stats={p.resolution} />
-                </TableCell>
-                <TableCell align="right">
-                  <ComplianceCell compliance={p.compliance} />
                 </TableCell>
               </TableRow>
             );
@@ -316,29 +406,27 @@ export function DelaysView({ qs }: { qs: string }) {
     );
   }
   const o = perf.data.overall;
+  const steps: Step[] = [
+    { label: t('Première réponse'), stats: o.firstReply, hint: t('Soumission → premier message'), help: DEFINITIONS.firstReply },
+    { label: t('Prise en charge'), stats: o.takeover, hint: t('Envoi → acceptation'), help: DEFINITIONS.takeover },
+    { label: t('Traitement net'), stats: o.resolution, hint: t('Hors suspensions'), help: DEFINITIONS.resolution },
+    { label: t('Traitement brut'), stats: o.grossResolution, hint: t('Suspensions comprises'), help: DEFINITIONS.grossResolution },
+  ];
   // Colonne en minmax(0, 1fr) : le tableau large défile dans son conteneur, jamais la page.
   return (
     <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 3 }}>
-      {/* Respect des délais en tête : carte principale à gauche (2 rangées) et 4 cartes en 2 × 2 sur
-        grand écran ; pleine largeur puis 2 colonnes en tablette ; 1 colonne en mobile. */}
-      <Box
-        sx={{
-          display: 'grid',
-          gap: 1.5,
-          gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: 'repeat(2, minmax(0, 1fr))', md: 'minmax(0, 1.15fr) repeat(2, minmax(0, 1fr))' },
-        }}
-      >
+      {/* En tête : le respect des délais (anneau) et ce même respect par priorité, côte à côte puis empilés. */}
+      <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'repeat(2, minmax(0, 1fr))' } }}>
         <ComplianceHero compliance={o.compliance} />
-        <DurationCard label={t('Première réponse moyenne')} stats={o.firstReply} hint={t('Soumission → premier message')} help={DEFINITIONS.firstReply} icon={MessageSquare} />
-        <DurationCard label={t('Prise en charge moyenne')} stats={o.takeover} hint={t('Envoi → acceptation')} help={DEFINITIONS.takeover} icon={Timer} />
-        <DurationCard label={t('Traitement net moyen')} stats={o.resolution} hint={t('Hors suspensions')} help={DEFINITIONS.resolution} icon={Play} />
-        <DurationCard label={t('Traitement brut moyen')} stats={o.grossResolution} hint={t('Suspensions comprises')} help={DEFINITIONS.grossResolution} icon={Hourglass} />
+        <PriorityCompliance rows={perf.data.byPriority} />
       </Box>
+
+      <Lifecycle steps={steps} />
 
       <SectionCard
         elevated
         flush
-        title={t('Par priorité')}
+        title={t('Détail par priorité')}
         description={
           <>
             {t('Délais attendus : règles de chaque catégorie (')}

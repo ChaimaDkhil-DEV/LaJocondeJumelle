@@ -7,7 +7,7 @@ import { visuallyHidden } from '../../components/a11y';
 import { Badge } from '../../components/Badge';
 import { font, fontSize, icon, tokensOf, type ToneColors } from '../../design/tokens';
 import { isPlural, t } from '../../i18n';
-import { COMPLIANCE_TARGET, complianceLevel, isLowSample, percent, type ComplianceLevel } from './delayThresholds';
+import { COMPLIANCE_TARGET, complianceLevel, isLowSample, LOW_SAMPLE_THRESHOLD, percent, type ComplianceLevel } from './delayThresholds';
 
 /** Couleurs d'un niveau de respect des délais : vert, orange ou rouge ; gris sans donnée. */
 function levelColors(theme: Theme, level: ComplianceLevel | null): ToneColors {
@@ -52,6 +52,19 @@ export function ComplianceStatus({ rate, compact = false }: { rate: number | nul
         )}
       </span>
     </Box>
+  );
+}
+
+/** Niveau écrit avec son icône et la cible, en pastille : « Objectif atteint · cible 80 % ». */
+export function ComplianceLevelBadge({ rate }: { rate: number | null }) {
+  const level = complianceLevel(rate);
+  if (!level) return null;
+  const { label, icon: Icon } = LEVEL_TEXT[level];
+  const tone = level === 'met' ? 'success' : level === 'near' ? 'warning' : 'error';
+  return (
+    <Badge tone={tone} icon={Icon}>
+      {t('{level} · cible {target}', { level: label, target: percent(COMPLIANCE_TARGET) })}
+    </Badge>
   );
 }
 
@@ -115,15 +128,15 @@ export function ComplianceGauge({ rate, size = 96 }: { rate: number | null; size
   );
 }
 
-/** Barre fine de respect des délais (tableau), nommée pour les lecteurs d'écran. */
-export function ComplianceBar({ rate, width = 64 }: { rate: number; width?: number }) {
+/** Barre de respect des délais, nommée pour les lecteurs d'écran ; largeur en px ou en %, hauteur en px. */
+export function ComplianceBar({ rate, width = 64, height = 6 }: { rate: number; width?: number | string; height?: number }) {
   const level = complianceLevel(rate);
   return (
     <Box
       component="span"
       role="img"
       aria-label={t('{rate} des demandes dans les délais', { rate: percent(rate) })}
-      sx={(theme) => ({ display: 'inline-flex', width, height: 6, borderRadius: 3, overflow: 'hidden', flex: 'none', bgcolor: tokensOf(theme).surfaceMuted })}
+      sx={(theme) => ({ display: 'flex', width, height, borderRadius: `${height / 2}px`, overflow: 'hidden', flex: 'none', bgcolor: tokensOf(theme).surfaceMuted })}
     >
       <Box component="span" sx={(theme) => ({ width: `${Math.min(rate, 1) * 100}%`, bgcolor: levelColors(theme, level).main })} />
     </Box>
@@ -154,6 +167,23 @@ export function SampleSizeBadge({ count }: { count: number }) {
           <Box component="span" sx={visuallyHidden}>
             {t(', échantillon faible')}
           </Box>
+        </Badge>
+      </Box>
+    </Tooltip>
+  );
+}
+
+/**
+ * Avertissement d'échantillon faible : au moins une mesure, mais moins que le seuil. Écrit, avec icône et infobulle
+ * (accessible au clavier) ; rien au-delà du seuil.
+ */
+export function LowSampleBadge({ count }: { count: number }) {
+  if (!isLowSample(count)) return null;
+  return (
+    <Tooltip title={t('Moins de {threshold} demandes mesurées : interpréter avec prudence.', { threshold: LOW_SAMPLE_THRESHOLD })} describeChild>
+      <Box component="span" tabIndex={0} sx={{ display: 'inline-flex', borderRadius: 999 }}>
+        <Badge tone="warning" icon={TriangleAlert}>
+          {t('Échantillon faible')}
         </Badge>
       </Box>
     </Tooltip>

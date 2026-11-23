@@ -16,7 +16,7 @@ export const dashboardKeys = {
   requests: (qs: string, indicator: DashboardIndicator) => ['dashboard', 'requests', indicator, qs] as const,
 };
 
-export type PeriodPreset = '7' | '30' | '90' | 'custom';
+export type PeriodPreset = '1' | '7' | '30' | '90' | 'custom';
 
 export interface DashboardFilters {
   preset: PeriodPreset;
@@ -65,7 +65,7 @@ export type StatusGroup = 'pendingValidation' | 'pendingTakeover' | 'inProgress'
  * Chiffres qui ouvrent la liste de leurs demandes (GET /admin/dashboard/requests) : ceux de la période
  * et ceux de la situation actuelle, toutes périodes confondues.
  */
-export type DashboardIndicator = 'total' | StatusGroup | 'overdueInPeriod' | 'overdueNow' | 'urgentActive' | 'unassigned';
+export type DashboardIndicator = 'total' | StatusGroup | 'overdueInPeriod' | 'overdueNow' | 'urgentActive' | 'unassigned' | 'waiting' | 'toCorrect';
 export const CURRENT_INDICATORS: readonly DashboardIndicator[] = ['overdueNow', 'urgentActive', 'unassigned'];
 const INDICATORS: readonly DashboardIndicator[] = [
   'total',
@@ -77,12 +77,14 @@ const INDICATORS: readonly DashboardIndicator[] = [
   'cancelled',
   'overdueInPeriod',
   ...CURRENT_INDICATORS,
+  'waiting',
+  'toCorrect',
 ];
 
 /** Filtres et indicateur dans l'adresse de la page, pour qu'un lien vers une liste filtrée se garde et se partage. */
 const PARAMS = { preset: 'periode', from: 'du', to: 'au', categoryId: 'categorie', priority: 'priorite', employeeId: 'employe' } as const;
 const INDICATOR_PARAM = 'indicateur';
-const PRESETS: Record<string, PeriodPreset> = { '7': '7', '30': '30', '90': '90', perso: 'custom' };
+const PRESETS: Record<string, PeriodPreset> = { '1': '1', '7': '7', '30': '30', '90': '90', perso: 'custom' };
 const PRIORITIES: readonly string[] = ['URGENT', 'NORMAL'];
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -140,6 +142,13 @@ export function indicatorLink(params: URLSearchParams, indicator: DashboardIndic
   return `?${next.toString()}`;
 }
 
+/** Lien d'une priorité : les demandes de la période (total) de cette priorité, avec les autres filtres en cours. */
+export function priorityLink(params: URLSearchParams, priority: Priority): string {
+  const next = new URLSearchParams(params);
+  next.set(PARAMS.priority, priority);
+  return indicatorLink(next, 'total');
+}
+
 /** Ligne de la liste des demandes d'un chiffre : les champs affichés, sans contenu de demande. */
 export interface DashboardRequestRow {
   id: string;
@@ -191,7 +200,7 @@ export interface DashboardAlert {
 
 export interface DashboardSummary {
   period: { from: string; to: string };
-  counts: Record<StatusGroup, number> & { total: number; overdueInPeriod: number };
+  counts: Record<StatusGroup, number> & { total: number; overdueInPeriod: number; urgent: number; normal: number };
   byStatus: Array<{ status: RequestStatus; count: number }>;
   current: { overdueNow: number; urgentActive: number; unassigned: number };
   byCategory: Array<{ category: { id: string; name: string }; total: number; active: number; done: number; overdue: number }>;

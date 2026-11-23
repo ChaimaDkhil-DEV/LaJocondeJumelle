@@ -142,6 +142,8 @@ describe('Tableau de bord du super administrateur', () => {
         rejected: 0,
         cancelled: 1,
         overdueInPeriod: 1,
+        urgent: 2,
+        normal: 3,
       });
       expect(res.body.current).toEqual({ overdueNow: 1, urgentActive: 1, unassigned: 0 });
       expect(res.body.messages).toEqual({ text: 2, voice: 0 });
@@ -154,6 +156,31 @@ describe('Tableau de bord du super administrateur', () => {
       expect(daily.reduce((s, d) => s + d.completed, 0)).toBe(1);
       expect(res.body.alerts.map((a: { id: string }) => a.id)).toEqual([ids.overdue]);
       expect(res.body.alerts[0]).toMatchObject({ overdueStage: 'TAKEOVER', priority: 'URGENT', assignee: { id: reprographieId } });
+    });
+
+    it('compte les demandes urgentes et normales de la période, avec les mêmes filtres que le total', async () => {
+      const urgent = (await get('summary?priority=URGENT')).body.counts;
+      expect(urgent).toMatchObject({ total: 2, urgent: 2, normal: 0 });
+      const normal = (await get('summary?priority=NORMAL')).body.counts;
+      expect(normal).toMatchObject({ total: 3, urgent: 0, normal: 3 });
+      const past = (await get('summary?from=2020-01-01&to=2020-01-31')).body.counts;
+      expect(past).toMatchObject({ total: 0, urgent: 0, normal: 0 });
+    });
+
+    it('liste aussi parmi les alertes les demandes actives sans employé affecté, et les compte', async () => {
+      const before = await prisma.request.findUniqueOrThrow({ where: { id: ids.sent }, select: { assigneeId: true } });
+      await prisma.request.update({ where: { id: ids.sent }, data: { assigneeId: null } });
+      try {
+        const res = await get('summary');
+        expect(res.body.current.unassigned).toBe(1);
+        const alerts = res.body.alerts as Array<{ id: string; assignee: unknown }>;
+        expect(alerts.map((a) => a.id)).toEqual(expect.arrayContaining([ids.overdue, ids.sent]));
+        expect(alerts.find((a) => a.id === ids.sent)!.assignee).toBeNull();
+        // Les demandes en retard restent en tête de liste.
+        expect(alerts[0].id).toBe(ids.overdue);
+      } finally {
+        await prisma.request.update({ where: { id: ids.sent }, data: { assigneeId: before.assigneeId } });
+      }
     });
 
     it('applique les filtres de priorité, catégorie, employé et période', async () => {

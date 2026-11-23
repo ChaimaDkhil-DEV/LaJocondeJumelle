@@ -368,8 +368,11 @@ export const LAST_NAMES = [
   'Garcia', 'Rossi', 'Petit', 'Lambert', 'Fontaine',
 ] as const;
 
-/** Numéros réservés à la fiction (plage 06 39 98 xx xx de l'ARCEP) : jamais attribués à un abonné. */
+/**
+ * Numéros de démonstration au format tunisien (+216 99 000 xxx). Aucune plage tunisienne n'est réservée à la fiction :
+ * ces numéros sont plausibles, donc à ne jamais utiliser pour envoyer un vrai message (WhatsApp, SMS).
+ */
 export function fictionalPhone(index: number): string {
   const n = String(index % 10_000).padStart(4, '0');
-  return `06 39 98 ${n.slice(0, 2)} ${n.slice(2)}`;
+  return `+216 99 00${n.slice(0, 1)} ${n.slice(1)}`;
 }

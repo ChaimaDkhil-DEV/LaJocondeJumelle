@@ -16,7 +16,7 @@ function json(status: number, body?: unknown): Response {
 
 const ADMIN = { id: 'ad', displayName: 'Direction', role: 'SUPER_ADMIN', permissions: [], mustChangePassword: false };
 const LEVELS = [{ id: 'l1', name: '1re primaire', cycle: 'PRIMARY', position: 3, classes: [{ id: 'c1', name: 'CP Violet', room: 'Salle 12', floor: { id: 'f1', name: '1er étage' }, studentCount: 1 }] }];
-const STUDENTS = [{ id: 's1', firstName: 'Aya', lastName: 'Ben Ali', parentPhone: '06 39 98 00 01', active: true, class: { id: 'c1', name: 'CP Violet', level: { id: 'l1', name: '1re primaire', position: 3 } } }];
+const STUDENTS = [{ id: 's1', firstName: 'Aya', lastName: 'Ben Ali', parentPhone: '+216 99 000 001', active: true, class: { id: 'c1', name: 'CP Violet', level: { id: 'l1', name: '1re primaire', position: 3 } } }];
 const HISTORY = { studentId: 's1', items: [] };
 const teacher = { id: 't1', displayName: 'Mme Titulaire' };
 const none = { availability: 'NONE' };

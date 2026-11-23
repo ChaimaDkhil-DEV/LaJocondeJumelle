@@ -68,15 +68,17 @@ test('le super administrateur supervise les demandes depuis le tableau de bord ;
   expect((await summary).status()).toBe(200);
   await expect(page.getByRole('heading', { name: 'À traiter maintenant' })).toBeVisible();
 
-  // Chiffre cliquable : « Urgentes en cours » ouvre l'onglet Demandes sur ces seules demandes, filtres gardés
-  // dans l'adresse ; « Voir toutes les demandes » revient à la liste habituelle.
+  // Pastille « Urgentes » de « À traiter maintenant », puis son lien « voir toutes » : l'onglet Demandes s'ouvre
+  // sur ces seules demandes, filtres gardés dans l'adresse, avec la pastille « Urgentes » choisie ; « Toutes » revient à la liste habituelle.
+  await page.getByRole('button', { name: /^Urgentes \d+$/ }).click();
   await page.getByRole('link', { name: /^Urgentes en cours : \d+ — voir ces demandes$/ }).click();
   await expect(page.getByRole('tab', { name: 'Demandes' })).toHaveAttribute('aria-selected', 'true');
   await expect(page).toHaveURL(/indicateur=urgentActive/);
   await expect(page).toHaveURL(/priorite=URGENT/);
   await expect(page.getByRole('table', { name: 'Demandes : Urgentes en cours' }).getByRole('link', { name: title })).toBeVisible();
   await expectNoA11yViolations(page);
-  await page.getByRole('button', { name: 'Voir toutes les demandes' }).click();
+  await expect(page.getByRole('button', { name: 'Urgentes', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'Toutes', exact: true }).click();
   await expect(page.getByRole('table', { name: 'Demandes de la période' })).toBeVisible();
   await expect(page).not.toHaveURL(/indicateur=/);
 

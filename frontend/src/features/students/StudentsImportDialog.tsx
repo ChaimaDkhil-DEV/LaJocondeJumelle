@@ -9,7 +9,7 @@ const COLUMNS: readonly ImportColumn[] = [
   { name: 'prenom', required: true, help: t('prénom de l’élève') },
   { name: 'nom', required: true, help: t('nom de famille de l’élève') },
   { name: 'classe', required: true, help: t('nom exact d’une classe rattachée à un niveau scolaire') },
-  { name: 'telephone_parent', required: true, help: t('téléphone d’un parent, par exemple 06 12 34 56 78 ou +216 20 123 456') },
+  { name: 'telephone_parent', required: true, help: t('téléphone d’un parent, par exemple 20 123 456 ou +216 20 123 456') },
 ];
 
 const TEMPLATE = {

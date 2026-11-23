@@ -45,7 +45,7 @@ const student = (id: string, firstName: string, lastName: string, classId: strin
   id,
   firstName,
   lastName,
-  parentPhone: '06 39 98 00 0' + id.slice(1),
+  parentPhone: '+216 99 000 00' + id.slice(1),
   active: true,
   class: { id: classId, name: LEVELS.flatMap((l) => l.classes).find((c) => c.id === classId)!.name, level: level(classId) },
 });
@@ -116,15 +116,34 @@ describe('Élèves (super administrateur)', () => {
     await user.type(within(dialog).getByLabelText(/^Nom/), 'Feki');
     await user.click(within(dialog).getByRole('combobox', { name: /Classe/ }));
     await user.click(screen.getByRole('option', { name: '1re primaire - Marguerite' }));
-    await user.type(within(dialog).getByLabelText(/Téléphone d’un parent/), '06 39 98 12 34');
+    await user.type(within(dialog).getByLabelText(/Téléphone d’un parent/), '99 123 456');
 
     await user.click(within(dialog).getByRole('button', { name: 'Enregistrer l’élève' }));
     await waitFor(() =>
       expect(calls.find((c) => c.method === 'POST')).toMatchObject({
         url: '/api/admin/students',
-        body: { firstName: 'Malak', lastName: 'Feki', classId: 'c9', parentPhone: '06 39 98 12 34' },
+        body: { firstName: 'Malak', lastName: 'Feki', classId: 'c9', parentPhone: '99 123 456' },
       }),
     );
+  });
+
+  it('nouvel élève : un numéro qui n’est pas tunisien est refusé, sans envoi', async () => {
+    const user = userEvent.setup();
+    const { calls } = setup();
+    await user.click(await screen.findByRole('button', { name: 'Nouvel élève' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Nouvel élève' });
+    await user.type(within(dialog).getByLabelText(/Prénom/), 'Malak');
+    await user.type(within(dialog).getByLabelText(/^Nom/), 'Feki');
+    await user.click(within(dialog).getByRole('combobox', { name: /Classe/ }));
+    await user.click(screen.getByRole('option', { name: '1re primaire - Marguerite' }));
+
+    for (const number of ['06 12 34 56 78', '1234567']) {
+      await user.clear(within(dialog).getByLabelText(/Téléphone d’un parent/));
+      await user.type(within(dialog).getByLabelText(/Téléphone d’un parent/), number);
+      await user.click(within(dialog).getByRole('button', { name: 'Enregistrer l’élève' }));
+      expect(within(dialog).getByText(/Numéro de téléphone tunisien invalide : 8 chiffres/)).toBeInTheDocument();
+    }
+    expect(calls.filter((c) => c.method === 'POST')).toHaveLength(0);
   });
 
   it('modification : le prénom est modifiable', async () => {
@@ -157,7 +176,7 @@ describe('Élèves (super administrateur)', () => {
     await user.type(search, 'hammami');
     expect(screen.getByText('1 sur 3 élèves')).toBeInTheDocument();
     await user.clear(search);
-    await user.type(search, '06 39 98 00 02');
+    await user.type(search, '+216 99 000 002');
     expect(within(screen.getByRole('list', { name: 'Élèves' })).getAllByRole('listitem')).toHaveLength(1);
     expect(screen.getByText('ZRIBI Adam')).toBeInTheDocument();
 
@@ -197,7 +216,7 @@ describe('Élèves (super administrateur)', () => {
     setup();
     const item = within(await screen.findByRole('list', { name: 'Élèves' })).getAllByRole('listitem')[0];
     expect(within(item).getByText('Préparatoire 1 - Rose')).toBeInTheDocument();
-    expect(within(item).getByText('06 39 98 00 01')).toBeInTheDocument();
+    expect(within(item).getByText('+216 99 000 001')).toBeInTheDocument();
     expect(within(item).getByText('Historique')).toBeInTheDocument();
     await user.hover(within(item).getByRole('button', { name: /Historique de la classe de l’élève Aya Ben Ali/ }));
     expect(await screen.findByRole('tooltip')).toHaveTextContent('Voir l’historique de classe de Aya Ben Ali');

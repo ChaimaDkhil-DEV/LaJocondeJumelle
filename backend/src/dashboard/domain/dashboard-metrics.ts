@@ -48,11 +48,28 @@ export const CURRENT_INDICATORS = ['overdueNow', 'urgentActive', 'unassigned'] a
 export type CurrentIndicator = (typeof CURRENT_INDICATORS)[number];
 
 /**
- * Chiffres du tableau de bord qui ouvrent la liste de leurs demandes : ceux de la période (date de
- * création dans la période) et ceux de la situation actuelle.
+ * Filtres de statut de l'onglet Demandes qui ne sont pas un groupe de la synthèse : demandes de la période
+ * (date de création dans la période), comme les groupes.
  */
-export type DashboardIndicator = 'total' | StatusGroup | 'overdueInPeriod' | CurrentIndicator;
-export const DASHBOARD_INDICATORS: readonly DashboardIndicator[] = ['total', ...STATUS_GROUP_KEYS, 'overdueInPeriod', ...CURRENT_INDICATORS];
+export const STATUS_FILTERS = {
+  waiting: ['PENDING_ADMIN_VALIDATION', 'SENT'],
+  toCorrect: ['TO_CORRECT'],
+} as const satisfies Record<string, readonly RequestStatus[]>;
+
+export type StatusFilter = keyof typeof STATUS_FILTERS;
+
+/**
+ * Chiffres du tableau de bord qui ouvrent la liste de leurs demandes : ceux de la période (date de
+ * création dans la période), ceux de la situation actuelle, et les filtres de statut de l'onglet Demandes.
+ */
+export type DashboardIndicator = 'total' | StatusGroup | 'overdueInPeriod' | CurrentIndicator | StatusFilter;
+export const DASHBOARD_INDICATORS: readonly DashboardIndicator[] = [
+  'total',
+  ...STATUS_GROUP_KEYS,
+  'overdueInPeriod',
+  ...CURRENT_INDICATORS,
+  ...(Object.keys(STATUS_FILTERS) as StatusFilter[]),
+];
 
 export function isCurrentIndicator(indicator: DashboardIndicator): indicator is CurrentIndicator {
   return (CURRENT_INDICATORS as readonly string[]).includes(indicator);

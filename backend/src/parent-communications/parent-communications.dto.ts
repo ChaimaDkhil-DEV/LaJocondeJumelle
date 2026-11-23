@@ -20,6 +20,8 @@ import {
   ValidateIf,
 } from 'class-validator';
 
+import { normalizeTunisianPhone, TUNISIAN_PHONE_FORMAT, TUNISIAN_PHONE_MESSAGE } from '../common/tunisian-phone';
+
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
 /** Texte facultatif : vide → null. */
 const trimOrNull = ({ value }: { value: unknown }) =>
@@ -240,9 +242,9 @@ export class GuardianDto {
   relationship?: string | null;
 
   @IsOptional()
-  @Transform(trimOrNull)
+  @Transform(({ value }) => normalizeTunisianPhone(trimOrNull({ value })))
   @ValidateIf((_o, v) => v !== null)
-  @Matches(/^\+?[0-9 ().-]{6,20}$/, { message: 'Numéro de téléphone invalide.' })
+  @Matches(TUNISIAN_PHONE_FORMAT, { message: TUNISIAN_PHONE_MESSAGE })
   phone?: string | null;
 
   @IsOptional()
@@ -282,9 +284,9 @@ export class UpdateGuardianDto {
   relationship?: string | null;
 
   @IsOptional()
-  @Transform(trimOrNull)
+  @Transform(({ value }) => normalizeTunisianPhone(trimOrNull({ value })))
   @ValidateIf((_o, v) => v !== null)
-  @Matches(/^\+?[0-9 ().-]{6,20}$/, { message: 'Numéro de téléphone invalide.' })
+  @Matches(TUNISIAN_PHONE_FORMAT, { message: TUNISIAN_PHONE_MESSAGE })
   phone?: string | null;
 
   @IsOptional()
