@@ -24,7 +24,7 @@ export interface ToneColors {
 }
 
 /** Accents décoratifs : tuiles d'indicateurs, séries de graphiques, pastilles. */
-export type AccentName = 'indigo' | 'cyan' | 'orange' | 'green';
+export type AccentName = 'indigo' | 'cyan' | 'orange' | 'green' | 'yellow' | 'red';
 
 export interface ColorTokens {
   /** Fond de page (gris lavande : les cartes blanches s'en détachent). */
@@ -99,6 +99,8 @@ export const colors: Record<ColorMode, ColorTokens> = {
       cyan: { main: '#0e7490', soft: '#dff4f8' },
       orange: { main: '#c2410c', soft: '#fdeee4' },
       green: { main: '#15803d', soft: '#e3f5ea' },
+      yellow: { main: '#a16207', soft: '#fefce8' },
+      red: { main: '#b91c1c', soft: '#fee2e2' },
     },
   },
   // Prêt pour un mode sombre : il suffit de passer « dark » à createAppTheme (app/theme.ts).
@@ -132,6 +134,8 @@ export const colors: Record<ColorMode, ColorTokens> = {
       cyan: { main: '#67e8f9', soft: '#083344' },
       orange: { main: '#fdba74', soft: '#431407' },
       green: { main: '#86efac', soft: '#052e16' },
+      yellow: { main: '#fde047', soft: '#422006' },
+      red: { main: '#fca5a5', soft: '#450a0a' },
     },
   },
 };

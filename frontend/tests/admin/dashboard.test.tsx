@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { HomePage } from '../../src/features/home/HomePage';
-import { filtersFromParams, formatDurationMs, indicatorLink, periodOf, toDashboardQuery, withFilters, DEFAULT_FILTERS } from '../../src/features/admin/dashboardApi';
+import { filtersFromParams, formatDurationMs, indicatorLink, periodOf, priorityLink, toDashboardQuery, withFilters, DEFAULT_FILTERS } from '../../src/features/admin/dashboardApi';
 
 /** Tableau de bord du super administrateur : données de l'API, filtres, états, onglets. */
 
@@ -25,7 +25,7 @@ const CATEGORIES = [
 
 const SUMMARY = {
   period: { from: '2026-09-17T00:00:00.000Z', to: '2026-10-16T23:59:59.999Z' },
-  counts: { total: 12, pendingValidation: 1, pendingTakeover: 3, inProgress: 2, done: 4, rejected: 1, cancelled: 1, overdueInPeriod: 2 },
+  counts: { total: 12, pendingValidation: 1, pendingTakeover: 3, inProgress: 2, done: 4, rejected: 1, cancelled: 1, overdueInPeriod: 2, urgent: 5, normal: 7 },
   byStatus: [],
   current: { overdueNow: 1, urgentActive: 2, unassigned: 0 },
   byCategory: [{ category: { id: 'c1', name: 'Photocopies' }, total: 12, active: 6, done: 4, overdue: 2 }],
@@ -167,12 +167,6 @@ function setup(path = '/', handler: Handler = () => undefined, me: unknown = SUP
   return { urls, router };
 }
 
-/** Chiffre clé sans cadre (« À traiter maintenant », « Échanges ») : élément dd associé au libellé. */
-function figure(label: string): HTMLElement {
-  const term = screen.getByText(label, { selector: 'dt, dt *' }).closest('dt') as HTMLElement;
-  return term.parentElement!.querySelector('dd') as HTMLElement;
-}
-
 /** Carte « Respect des délais » de l'onglet Délais. */
 const heroCard = () => screen.getByText('Respect des délais', { selector: 'div' }).closest('.MuiPaper-root') as HTMLElement;
 
@@ -192,27 +186,42 @@ describe('Tableau de bord', () => {
     expect(urls.some((u) => u.startsWith('/api/admin'))).toBe(false);
   });
 
-  it('affiche les indicateurs, la situation actuelle et les alertes de l’API', async () => {
+  it('affiche 3 tuiles sur une ligne (total, urgentes, normales), la répartition avec son total et ses parts, et les alertes', async () => {
     setup();
     expect(await screen.findByRole('heading', { name: 'Tableau de bord' })).toBeVisible();
     await screen.findByText('Demandes créées sur la période');
+    // Une seule ligne de tuiles : le total, puis sa part urgente et sa part normale.
     expect(kpi('Total')).toBe('12');
-    expect(kpi('En attente de prise en charge')).toBe('3');
-    expect(kpi('Terminées')).toBe('4');
-    expect(kpi('Hors délai')).toBe('2');
-    // « À traiter maintenant » : chiffres sans cadre ; seul un chiffre problématique (> 0) est coloré.
-    expect(figure('En retard')).toHaveTextContent('1');
-    expect(figure('Urgentes en cours')).toHaveTextContent('2');
-    expect(figure('Sans employé affecté')).toHaveTextContent('0');
-    expect(figure('En retard')).toHaveStyle({ color: '#dc2626' });
-    expect(figure('Urgentes en cours')).toHaveStyle({ color: '#b45309' });
-    expect(figure('Sans employé affecté')).toHaveStyle({ color: '#18181b' });
-    expect(screen.queryByText('À traiter')).not.toBeInTheDocument();
-    expect(screen.queryByText('Rien à signaler')).not.toBeInTheDocument();
-    expect(figure('Écrits')).toHaveTextContent('7');
-    expect(figure('Vocaux')).toHaveTextContent('3');
+    expect(kpi('Urgentes')).toBe('5');
+    expect(kpi('Normales')).toBe('7');
+    expect(screen.queryByText('Hors délai', { selector: 'div' })).toBeNull();
+    // Trois tuiles de même style (fond teinté, liseré de 3 px en bas), assorties : rouge, jaune, indigo.
+    const tile = (label: string) => screen.getByText(label, { selector: 'div' }).closest('.MuiPaper-root') as HTMLElement;
+    expect(tile('Urgentes')).toHaveStyle({ backgroundColor: '#fee2e2', borderBottomColor: '#b91c1c', borderBottomWidth: '3px' });
+    expect(tile('Normales')).toHaveStyle({ backgroundColor: '#fefce8', borderBottomColor: '#a16207', borderBottomWidth: '3px' });
+    expect(tile('Total')).toHaveStyle({ backgroundColor: '#e8eafd', borderBottomColor: '#4f46e5', borderBottomWidth: '3px' });
+    // Aucune n'est pleine : le texte garde la couleur normale sur les trois.
+    for (const label of ['Urgentes', 'Normales', 'Total']) expect(tile(label)).not.toHaveStyle({ color: '#ffffff' });
+    // Aucun état n'est une tuile : chacun vit dans la légende de la répartition.
+    for (const state of ['À valider', 'En attente de prise en charge', 'En cours', 'Terminées', 'Refusées', 'Annulées']) {
+      expect(screen.queryByText(state, { selector: 'div' })).toBeNull();
+    }
+    const legend = within(screen.getByRole('list', { name: 'Légende : demandes par état' })).getAllByRole('listitem');
+    expect(legend).toHaveLength(6);
+    // Du plus fréquent au plus rare, avec la part de chaque état.
+    expect(legend[0]).toHaveTextContent(/Terminées.*4.*33 %/);
+    expect(legend[1]).toHaveTextContent(/En attente de prise en charge.*3.*25 %/);
+    expect(legend[2]).toHaveTextContent(/En cours.*2.*17 %/);
+    expect(within(legend[1]).getByRole('link', { name: 'En attente de prise en charge : 3 — voir ces demandes' })).toBeVisible();
+    // Total au centre de l'anneau.
+    expect(screen.getByText('demandes', { selector: 'span' }).parentElement).toHaveTextContent('12demandes');
+    expect(document.querySelector('dl')).toBeNull();
+    expect(document.querySelector('.recharts-area')).toBeNull();
 
-    // Tableau des alertes : 4 colonnes, plus de « Statut » ; retard écrit en texte, numéro au survol.
+    // À traiter maintenant : pastilles-filtres avec leur effectif, tableau à 4 colonnes.
+    const chips = within(screen.getByRole('group', { name: 'Filtrer les demandes à traiter' }));
+    expect(chips.getAllByRole('button').map((b) => b.textContent)).toEqual(['Tout1', 'En retard1', 'Urgentes2', 'Non assignées0']);
+    expect(chips.getByRole('button', { name: 'Tout 1' })).toHaveAttribute('aria-pressed', 'true');
     const alerts = screen.getByRole('table', { name: 'Demandes à traiter en priorité' });
     expect(within(alerts).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['Demande', 'Priorité', 'Échéance', 'Affectée à']);
     expect(within(alerts).getByRole('link', { name: 'Photocopies du contrôle' })).toHaveAttribute('href', '/demandes/r1');
@@ -229,6 +238,97 @@ describe('Tableau de bord', () => {
     expect(await screen.findByRole('tooltip')).toHaveTextContent('12 au total · 6 à traiter · 4 terminées · 2 hors délai');
     // Vue tableau des graphiques (accessibilité).
     expect(screen.getByRole('table', { name: 'Demandes créées et terminées par jour' })).toBeInTheDocument();
+  });
+
+  it('l’ordre de la page : tuiles, puis « À traiter » et la répartition, puis les catégories, puis l’évolution', async () => {
+    setup();
+    await screen.findByText('Demandes créées sur la période');
+    const heading = (name: string) => screen.getByRole('heading', { name });
+    const before = (a: HTMLElement, b: HTMLElement) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+    const order = ['Demandes créées sur la période', 'À traiter maintenant', 'Répartition par état', 'Par catégorie (service)', 'Évolution quotidienne'].map(heading);
+    order.slice(1).forEach((h, i) => expect(before(order[i], h)).toBe(true));
+    // Pas d'aperçu d'activité dans la vue générale : l'onglet Activité a sa propre page.
+    expect(screen.queryByRole('heading', { name: 'Activité récente' })).toBeNull();
+  });
+
+  it('évolution quotidienne : le nombre de messages de la période tient en une phrase, sans lien', async () => {
+    setup();
+    const card = (await screen.findByRole('heading', { name: 'Évolution quotidienne' })).closest('section') as HTMLElement;
+    expect(within(card).getByText('Messages de la période : écrits 7, vocaux 3.')).toBeVisible();
+  });
+
+  describe('À traiter maintenant : pastilles-filtres', () => {
+    const base = SUMMARY.alerts[0];
+    const ALERTS = [
+      { ...base, id: 'a1', title: 'Retard normal', priority: 'NORMAL', overdueStage: 'TAKEOVER' },
+      { ...base, id: 'a2', title: 'Urgente à l’heure', priority: 'URGENT', overdueStage: null },
+      { ...base, id: 'a3', title: 'Urgente en retard', priority: 'URGENT', overdueStage: 'TAKEOVER' },
+      { ...base, id: 'a4', title: 'Sans employé', priority: 'NORMAL', overdueStage: null, assignee: null },
+    ];
+    const withAlerts: Handler = (url) =>
+      url.startsWith('/api/admin/dashboard/summary')
+        ? json(200, { ...SUMMARY, current: { overdueNow: 2, urgentActive: 2, unassigned: 1 }, alerts: ALERTS })
+        : undefined;
+    const titles = () => within(screen.getByRole('table', { name: 'Demandes à traiter en priorité' })).getAllByRole('link').map((l) => l.textContent);
+
+    it('« Tout » liste toutes les alertes ; les autres pastilles les filtrent sans nouvelle requête', async () => {
+      const user = userEvent.setup();
+      const { urls } = setup('/', withAlerts);
+      await screen.findByRole('group', { name: 'Filtrer les demandes à traiter' });
+      expect(titles()).toEqual(['Retard normal', 'Urgente à l’heure', 'Urgente en retard', 'Sans employé']);
+
+      await user.click(screen.getByRole('button', { name: 'En retard 2' }));
+      expect(screen.getByRole('button', { name: 'En retard 2' })).toHaveAttribute('aria-pressed', 'true');
+      expect(screen.getByRole('button', { name: 'Tout 4' })).toHaveAttribute('aria-pressed', 'false');
+      expect(titles()).toEqual(['Retard normal', 'Urgente en retard']);
+
+      await user.click(screen.getByRole('button', { name: 'Urgentes 2' }));
+      expect(titles()).toEqual(['Urgente à l’heure', 'Urgente en retard']);
+
+      await user.click(screen.getByRole('button', { name: 'Non assignées 1' }));
+      expect(titles()).toEqual(['Sans employé']);
+
+      await user.click(screen.getByRole('button', { name: 'Tout 4' }));
+      expect(titles()).toHaveLength(4);
+      expect(urls.filter((u) => u.startsWith('/api/admin/dashboard/summary'))).toHaveLength(1);
+    });
+
+    it('une demande sans employé qui attend la validation n’est pas « non assignée » (le serveur ne la compte pas)', async () => {
+      const user = userEvent.setup();
+      setup('/', (url) =>
+        url.startsWith('/api/admin/dashboard/summary')
+          ? json(200, { ...SUMMARY, current: { overdueNow: 1, urgentActive: 0, unassigned: 0 }, alerts: [{ ...base, status: 'PENDING_ADMIN_VALIDATION', priority: 'NORMAL', assignee: null }] })
+          : undefined,
+      );
+      await user.click(await screen.findByRole('button', { name: 'Non assignées 0' }));
+      expect(screen.getByText('Aucune demande non assignée.')).toBeVisible();
+    });
+
+    it('un seul lien « voir toutes » suit la pastille active', async () => {
+      const user = userEvent.setup();
+      setup('/', withAlerts);
+      await screen.findByRole('group', { name: 'Filtrer les demandes à traiter' });
+      expect(screen.getByRole('link', { name: 'En retard : 2 — voir ces demandes' })).toBeVisible();
+      expect(screen.queryByRole('link', { name: /^Urgentes en cours/ })).toBeNull();
+      await user.click(screen.getByRole('button', { name: 'Urgentes 2' }));
+      expect(screen.getByRole('link', { name: 'Urgentes en cours : 2 — voir ces demandes' })).toBeVisible();
+      expect(screen.queryByRole('link', { name: /^En retard : 2/ })).toBeNull();
+      await user.click(screen.getByRole('button', { name: 'Non assignées 1' }));
+      expect(screen.getByRole('link', { name: 'Sans employé affecté : 1 — voir ces demandes' })).toBeVisible();
+      expect(screen.queryByRole('link', { name: /^Urgentes en cours/ })).toBeNull();
+    });
+
+    it('une pastille sans demande à afficher le dit, au lieu d’un tableau vide', async () => {
+      const user = userEvent.setup();
+      setup('/', (url) =>
+        url.startsWith('/api/admin/dashboard/summary')
+          ? json(200, { ...SUMMARY, current: { overdueNow: 0, urgentActive: 1, unassigned: 0 }, alerts: [{ ...base, overdueStage: null }] })
+          : undefined,
+      );
+      await user.click(await screen.findByRole('button', { name: 'En retard 0' }));
+      expect(screen.getByText('Aucune demande en retard.')).toBeVisible();
+      expect(screen.queryByRole('table', { name: 'Demandes à traiter en priorité' })).toBeNull();
+    });
   });
 
   it('ne propose que les catégories de demandes de travail et relance la requête au changement de filtre', async () => {
@@ -305,7 +405,7 @@ describe('Tableau de bord', () => {
         : undefined,
     );
     expect(await screen.findByText('Aucune demande ne correspond à cette période et à ces filtres.')).toBeVisible();
-    expect(screen.getByText('Aucune alerte : aucune demande en retard ni urgente en cours.')).toBeVisible();
+    expect(screen.getByText('Aucune alerte : aucune demande en retard, urgente ou sans employé affecté.')).toBeVisible();
   });
 
   it('montre l’évolution quand des demandes créées avant la période y sont terminées', async () => {
@@ -323,35 +423,92 @@ describe('Tableau de bord', () => {
     expect(screen.queryByText('Aucune demande ne correspond à cette période et à ces filtres.')).toBeNull();
   });
 
+  /** Les quatre étapes du cycle de vie, dans l'ordre (liste ordonnée nommée par son titre). */
+  const steps = () => within(screen.getByRole('list', { name: 'Cycle de vie d’une demande' })).getAllByRole('listitem');
+  /** Carte « Par priorité · respect des délais » : une barre par priorité. */
+  const priorityCard = () => screen.getByText('Par priorité · respect des délais', { selector: 'div' }).closest('.MuiPaper-root') as HTMLElement;
+
   it('présente les délais et le taux de respect', async () => {
     setup('/?vue=delais');
     expect(await screen.findByRole('table', { name: 'Délais par priorité' })).toBeVisible();
     expect(kpi('Respect des délais')).toBe('75 %');
-    expect(kpi('Première réponse moyenne')).toBe('2 min');
-    expect(kpi('Prise en charge moyenne')).toBe('4 min');
-    expect(kpi('Traitement net moyen')).toBe('1 h 30');
+    const [firstReply, takeover, net, gross] = steps();
+    expect(within(firstReply!).getByRole('paragraph')).toHaveTextContent('2 min');
+    expect(within(takeover!).getByRole('paragraph')).toHaveTextContent('4 min');
+    expect(within(net!).getByRole('paragraph')).toHaveTextContent('1 h 30');
+    expect(within(gross!).getByRole('paragraph')).toHaveTextContent('3 h');
     expect(screen.getByRole('columnheader', { name: 'Première réponse' })).toBeVisible();
-    expect(screen.getByRole('table', { name: 'Délais par priorité' })).toBeVisible();
   });
 
-  it('Délais : respect des délais en tête, niveau écrit, n par carte, aide repliée', async () => {
+  it('Délais : le respect des délais (anneau et par priorité) en tête, puis le cycle de vie, puis le détail', async () => {
+    setup('/?vue=delais');
+    await screen.findByRole('table', { name: 'Délais par priorité' });
+    const before = (a: HTMLElement, b: HTMLElement) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+    const lifecycle = screen.getByRole('heading', { name: 'Cycle de vie d’une demande' });
+    const detail = screen.getByRole('heading', { name: 'Détail par priorité' });
+    expect(before(heroCard(), priorityCard())).toBe(true);
+    expect(before(priorityCard(), lifecycle)).toBe(true);
+    expect(before(lifecycle, detail)).toBe(true);
+    expect(screen.getByText('Durée moyenne à chaque étape, avec le nombre de demandes mesurées.')).toBeVisible();
+  });
+
+  it('Délais : anneau, niveau écrit avec la cible, et la part par priorité', async () => {
+    setup('/?vue=delais');
+    await screen.findByRole('table', { name: 'Délais par priorité' });
+    // 75 % pour un objectif de 80 % : « proche », écrit avec la cible et dans le nom de l'anneau.
+    expect(within(heroCard()).getByText('Proche de l’objectif · cible 80 %')).toBeVisible();
+    expect(screen.getByRole('img', { name: /^Respect des délais : 75 %, objectif 80 %/ })).toBeInTheDocument();
+    expect(screen.getByText('3 sur 4 demandes terminées sans retard')).toBeVisible();
+    // Une ligne par priorité : taux et fraction, barre nommée ; le seuil de l'objectif est rappelé.
+    const card = within(priorityCard());
+    const [urgent, normal] = card.getAllByRole('listitem');
+    expect(urgent).toHaveTextContent('Urgente75 % · 3/4');
+    expect(normal).toHaveTextContent('Normale75 % · 3/4');
+    expect(within(urgent!).getByRole('img', { name: '75 % des demandes dans les délais' })).toBeInTheDocument();
+    expect(card.getByText('Seuil de l’objectif : 80 %')).toBeVisible();
+  });
+
+  it('Délais : quatre étapes numérotées, la durée moyenne, le nombre de demandes mesurées, et l’échantillon faible', async () => {
     const user = userEvent.setup();
     setup('/?vue=delais');
     await screen.findByRole('table', { name: 'Délais par priorité' });
-    // 75 % pour un objectif de 80 % : « proche », écrit et dans le nom de l'anneau.
-    expect(within(heroCard()).getByText('Proche de l’objectif')).toBeVisible();
-    expect(screen.getByRole('img', { name: /^Respect des délais : 75 %, objectif 80 %/ })).toBeInTheDocument();
-    expect(screen.getByText('3 sur 4 demandes terminées sans retard')).toBeVisible();
-    // n = 2 et n = 3 : échantillons faibles signalés sur les cartes.
-    expect(screen.getAllByText(/échantillon faible/).length).toBeGreaterThan(0);
-    // En-têtes chiffrés alignés à droite comme leurs valeurs.
-    expect(screen.getByRole('columnheader', { name: 'Respect des délais' })).toHaveClass('MuiTableCell-alignRight');
+    const items = steps();
+    expect(items).toHaveLength(4);
+    const labels = ['1 · Première réponse', '2 · Prise en charge', '3 · Traitement net', '4 · Traitement brut'];
+    const hints = ['Soumission → premier message', 'Envoi → acceptation', 'Hors suspensions', 'Suspensions comprises'];
+    items.forEach((item, i) => {
+      expect(within(item).getByText(labels[i]!)).toBeVisible();
+      expect(within(item).getByText(hints[i]!)).toBeVisible();
+    });
+    expect(items[0]).toHaveTextContent('Moyenne sur 2 demandes');
+    expect(items[1]).toHaveTextContent('Moyenne sur 3 demandes');
+    // n = 2 et n = 3 : échantillons faibles signalés, écrits.
+    expect(within(items[0]!).getByText('Échantillon faible')).toBeVisible();
+    // Chaque étape garde sa définition à portée.
+    expect(within(items[0]!).getByRole('button', { name: 'Définition : Première réponse' })).toBeVisible();
     // Aide : repliée, puis définitions en liste.
     const help = screen.getByRole('button', { name: 'Comment sont calculés ces indicateurs ?' });
     expect(help).toHaveAttribute('aria-expanded', 'false');
     await user.click(help);
     expect(help).toHaveAttribute('aria-expanded', 'true');
     expect(await screen.findByText(/Une demande encore en cours n’entre pas dans le taux/)).toBeVisible();
+  });
+
+  it('Délais : détail par priorité, sans colonne de respect, chaque durée avec « sur n demandes »', async () => {
+    setup('/?vue=delais');
+    const table = await screen.findByRole('table', { name: 'Délais par priorité' });
+    expect(within(table).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['Priorité', 'Demandes', 'Validation', 'Première réponse', 'Prise en charge', 'Traitement net']);
+    const [, urgent] = within(table).getAllByRole('row');
+    expect(within(urgent!).getByText('Urgente')).toBeVisible();
+    const cells = within(urgent!).getAllByRole('cell');
+    expect(cells[1]).toHaveTextContent(/^3$/);
+    // Première réponse : durée, puis le nombre de demandes mesurées en petit.
+    expect(cells[3]).toHaveTextContent('2 minsur 2 demandes');
+    expect(cells[4]).toHaveTextContent('4 minsur 3 demandes');
+    // Pas de mesure : « Aucune donnée », distinct de zéro.
+    expect(cells[2]).toHaveTextContent('Aucune donnée');
+    // Valeurs alignées à gauche, comme leurs en-têtes.
+    expect(screen.getByRole('columnheader', { name: 'Prise en charge' })).not.toHaveClass('MuiTableCell-alignRight');
   });
 
   it('Délais : valeurs nulles et n = 0 → « Aucune donnée », distinct de zéro ; 100 % et 0 %', async () => {
@@ -371,18 +528,48 @@ describe('Tableau de bord', () => {
     );
     const table = await screen.findByRole('table', { name: 'Délais par priorité' });
     expect(kpi('Respect des délais')).toBe('100 %');
-    expect(within(heroCard()).getByText('Objectif atteint')).toBeVisible();
-    expect(kpi('Première réponse moyenne')).toBe('Aucune donnée');
-    expect(kpi('Prise en charge moyenne')).toBe('1 min');
+    expect(within(heroCard()).getByText('Objectif atteint · cible 80 %')).toBeVisible();
+    // Étapes : « Aucune donnée » sans mesure, la durée avec son singulier sinon.
+    const items = steps();
+    expect(within(items[0]!).getByRole('paragraph')).toHaveTextContent('Aucune donnée');
+    expect(items[0]).toHaveTextContent('Aucune demande mesurée');
+    expect(within(items[1]!).getByRole('paragraph')).toHaveTextContent('1 min');
+    expect(items[1]).toHaveTextContent('Moyenne sur 1 demande');
+    expect(items[1]).not.toHaveTextContent('Moyenne sur 1 demandes');
+    // 016 : deux priorités. Urgente : 100 % (1/1) ; Normale : 0 % (0/2), sous l'objectif.
+    const [urgent, normal] = within(priorityCard()).getAllByRole('listitem');
+    expect(urgent).toHaveTextContent('Urgente100 % · 1/1');
+    expect(within(urgent!).getByRole('img', { name: '100 % des demandes dans les délais' })).toBeInTheDocument();
+    expect(normal).toHaveTextContent('Normale0 % · 0/2');
+    expect(within(normal!).getByRole('img', { name: '0 % des demandes dans les délais' })).toBeInTheDocument();
     const rows = within(table).getAllByRole('row');
-    // 016 : deux priorités. Urgente : 100 % (1/1) ; Normale : 0 % (0/2), sous l'objectif, durées « Aucune donnée ».
     expect(rows).toHaveLength(3);
-    expect(rows[1]).toHaveTextContent('100 %(1/1)');
-    expect(within(rows[1]).getByRole('img', { name: '100 % des demandes dans les délais' })).toBeInTheDocument();
-    expect(rows[2]).toHaveTextContent('Sous l’objectif0 %(0/2)');
-    expect(within(rows[2]).getAllByText('Aucune donnée').length).toBeGreaterThan(0);
-    expect(within(rows[2]).getAllByRole('cell')[1]).toHaveTextContent(/^2$/);
+    expect(rows[1]).toHaveTextContent('1 minsur 1 demande');
+    expect(within(rows[2]!).getAllByText('Aucune donnée').length).toBeGreaterThan(0);
+    expect(within(rows[2]!).getAllByRole('cell')[1]).toHaveTextContent(/^2$/);
     expect(within(table).queryByText('—')).not.toBeInTheDocument();
+  });
+
+  it('Délais : une priorité sans demande terminée avec délai le dit, sans barre trompeuse', async () => {
+    const none = { avgMs: null, count: 0 };
+    const empty = { validation: none, firstReply: none, takeover: none, resolution: none, grossResolution: none, compliance: { evaluated: 0, onTime: 0, rate: null } };
+    setup('/?vue=delais', (url) =>
+      url.startsWith('/api/admin/dashboard/performance')
+        ? json(200, {
+            period: SUMMARY.period,
+            overall: { ...empty, takeover: { avgMs: 60_000, count: 1 }, compliance: { evaluated: 1, onTime: 1, rate: 1 } },
+            byPriority: [
+              { priority: 'URGENT', total: 1, ...empty, takeover: { avgMs: 60_000, count: 1 }, compliance: { evaluated: 1, onTime: 1, rate: 1 } },
+              { priority: 'NORMAL', total: 0, ...empty },
+            ],
+          })
+        : undefined,
+    );
+    await screen.findByRole('table', { name: 'Délais par priorité' });
+    const [, normal] = within(priorityCard()).getAllByRole('listitem');
+    expect(normal).toHaveTextContent('Normale');
+    expect(within(normal!).getByText('Aucune donnée')).toBeVisible();
+    expect(within(normal!).queryByRole('img')).toBeNull();
   });
 
   it('Délais : rien de mesurable → état vide utile ; la période choisie est écrite dans l’en-tête', async () => {
@@ -399,11 +586,111 @@ describe('Tableau de bord', () => {
     expect(screen.getByText(/^\d{1,2} [a-zéû.]+ – \d{1,2} [a-zéû.]+ \d{4}$/)).toBeVisible();
   });
 
-  it('décrit l’activité récente sans contenu de message', async () => {
+  it('décrit l’activité récente sans contenu de message : une phrase, la demande, l’heure et une pastille', async () => {
     setup('/?vue=activite');
-    expect(await screen.findByText('Statut : Envoyée → Acceptée')).toBeVisible();
-    expect(screen.getByText('En retard (prise en charge)')).toBeVisible();
-    expect(screen.getByText('Système', { exact: false })).toBeVisible();
+    const list = await screen.findByRole('region', { name: 'Dernières actions' });
+    const [accepted, overdue] = within(list).getAllByRole('listitem');
+    // Acteur en gras, ce qu'il a fait, puis la demande en gris ; le nouveau statut en pastille.
+    expect(within(accepted!).getByText('Reprographie', { selector: 'strong' })).toBeVisible();
+    expect(accepted).toHaveTextContent(/Reprographie\s*a accepté la demande/);
+    expect(within(accepted!).getByText('Acceptée')).toBeVisible();
+    expect(within(accepted!).getByRole('link', { name: 'D-2026-000001 · Photocopies du contrôle' })).toHaveAttribute('href', '/demandes/r1');
+    // Un retard n'a pas d'auteur : le système.
+    expect(overdue).toHaveTextContent(/Le système\s*a signalé un retard \(prise en charge\)/);
+    expect(within(overdue!).getByText('En retard')).toBeVisible();
+    // Heure locale à gauche, lisible par machine.
+    const time = within(accepted!).getByText(/^\d{2}:\d{2}$/);
+    expect(time.tagName).toBe('TIME');
+    expect(time).toHaveAttribute('datetime', '2026-10-16T09:00:00.000Z');
+    // Jamais de contenu de message.
+    expect(screen.queryByText(/Description confidentielle/)).toBeNull();
+  });
+
+  describe('activité : une phrase et une pastille par type d’événement', () => {
+    const request = (n: number, title: string) => ({ id: `r${n}`, reference: `D-2026-000${n}`, title });
+    const event = (id: string, type: string, actor: string | null, details: Record<string, unknown>, n = 149, at = '2026-10-16T21:24:00.000Z') => ({
+      id,
+      type,
+      createdAt: at,
+      actor: actor ? { id: `u-${actor}`, displayName: actor } : null,
+      request: request(n, `Essai ${n}`),
+      details,
+    });
+    const EVENTS = [
+      event('e1', 'STATUS_CHANGED', 'Mme_Souha', { from: 'SENT', to: 'REJECTED' }, 146),
+      event('e2', 'STATUS_CHANGED', 'Test 018', { from: 'DRAFT', to: 'PENDING_ADMIN_VALIDATION' }),
+      event('e3', 'CREATED', 'Test 018', {}),
+      event('e4', 'ASSIGNED', 'Admin Un', { assignee: { id: 'u2', displayName: 'Test 018' } }, 147),
+      event('e5', 'STATUS_CHANGED', 'Admin Un', { from: 'PENDING_ADMIN_VALIDATION', to: 'SENT' }, 147),
+      event('e6', 'PRIORITY_CHANGED', 'Admin Un', { from: 'NORMAL', to: 'URGENT' }),
+      event('e7', 'MESSAGE_ADDED', 'Test 018', { kind: 'VOICE' }),
+      event('e8', 'MESSAGE_ADDED', 'Test 018', { kind: 'TEXT' }),
+      event('e9', 'REASSIGNED', 'Admin Un', { assignee: { id: 'u3', displayName: 'Mr_Nizar' } }),
+      event('e10', 'STATUS_CHANGED', 'Mr_Nizar', { from: 'ACCEPTED', to: 'IN_PROGRESS' }),
+      event('e11', 'FILE_ADDED', 'Test 018', { kind: 'IMAGE' }),
+      event('e12', 'REMINDER_SENT', null, {}),
+    ];
+    const withEvents: Handler = (url) => (url.startsWith('/api/admin/dashboard/activity') ? json(200, { items: EVENTS, nextCursor: null }) : undefined);
+    const rows = () => within(screen.getByRole('region', { name: 'Dernières actions' })).getAllByRole('listitem');
+
+    it.each([
+      [0, /Mme_Souha\s*a refusé la demande/, 'Refusée'],
+      [1, /Test 018\s*a envoyé en validation/, 'En attente de validation'],
+      [2, /Test 018\s*a créé la demande/, 'Nouvelle'],
+      [3, /Admin Un\s*a affecté à Test 018/, 'Affectée'],
+      [4, /Admin Un\s*a marqué comme envoyée/, 'Envoyée'],
+      [5, /Admin Un\s*a changé la priorité/, 'Urgente'],
+      [6, /Test 018\s*a envoyé un message vocal/, 'Message'],
+      [7, /Test 018\s*a écrit un message/, 'Message'],
+      [8, /Admin Un\s*a réaffecté à Mr_Nizar/, 'Réaffectée'],
+      [9, /Mr_Nizar\s*a commencé le traitement/, 'En cours'],
+      [10, /Test 018\s*a joint un fichier/, 'Fichier'],
+      [11, /Le système\s*a modifié la demande/, 'Mise à jour'],
+    ])('ligne %i : %s, pastille « %s »', async (index, sentence, pill) => {
+      setup('/?vue=activite', withEvents);
+      await screen.findByRole('region', { name: 'Dernières actions' });
+      const row = rows()[index as number]!;
+      expect(row).toHaveTextContent(sentence as RegExp);
+      expect(within(row).getByText(pill as string)).toBeVisible();
+    });
+
+    it('la demande est une seule ligne grise cliquable : référence et titre', async () => {
+      setup('/?vue=activite', withEvents);
+      await screen.findByRole('region', { name: 'Dernières actions' });
+      const link = within(rows()[0]!).getByRole('link', { name: 'D-2026-000146 · Essai 146' });
+      expect(link).toHaveAttribute('href', '/demandes/r146');
+    });
+
+    it('les actions sont regroupées par jour : « Aujourd’hui », « Hier », puis la date', async () => {
+      const day = 24 * 3_600_000;
+      const now = Date.now();
+      setup('/?vue=activite', (url) =>
+        url.startsWith('/api/admin/dashboard/activity')
+          ? json(200, {
+              items: [
+                event('t1', 'CREATED', 'Test 018', {}, 1, new Date(now - 60_000).toISOString()),
+                event('t2', 'CREATED', 'Test 018', {}, 2, new Date(now - 120_000).toISOString()),
+                event('y1', 'CREATED', 'Test 018', {}, 3, new Date(now - day).toISOString()),
+                event('o1', 'CREATED', 'Test 018', {}, 4, '2026-10-15T10:00:00.000Z'),
+              ],
+              nextCursor: null,
+            })
+          : undefined,
+      );
+      await screen.findByRole('region', { name: 'Dernières actions' });
+      const headings = screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent);
+      expect(headings).toHaveLength(3);
+      expect(headings.slice(0, 2)).toEqual(['Aujourd’hui', 'Hier']);
+      expect(headings[2]).toMatch(/15 octobre/);
+      // Chaque jour ne l'écrit qu'une fois, devant ses actions.
+      expect(rows()).toHaveLength(4);
+    });
+
+    it('ne montre jamais le contenu d’un message', async () => {
+      setup('/?vue=activite', withEvents);
+      await screen.findByRole('region', { name: 'Dernières actions' });
+      expect(rows()[6]).not.toHaveTextContent(/confidentielle|contenu/i);
+    });
   });
 
   it('affiche un état vide pour les employés sans activité', async () => {
@@ -417,6 +704,20 @@ describe('Paramètres du tableau de bord', () => {
 
   it('calcule la période des préréglages, aujourd’hui compris', () => {
     expect(periodOf({ ...DEFAULT_FILTERS, preset: '7' }, today)).toEqual({ from: '2026-10-10', to: '2026-10-16' });
+  });
+
+  it('« Aujourd’hui » : la période est le jour même, lue et écrite dans l’adresse', () => {
+    expect(periodOf({ ...DEFAULT_FILTERS, preset: '1' }, today)).toEqual({ from: '2026-10-16', to: '2026-10-16' });
+    expect(filtersFromParams(new URLSearchParams('periode=1')).preset).toBe('1');
+    expect(withFilters(new URLSearchParams(), { ...DEFAULT_FILTERS, preset: '1' }).toString()).toBe('periode=1');
+    const params = new URLSearchParams(toDashboardQuery({ ...DEFAULT_FILTERS, preset: '1' }, today));
+    expect(params.get('from')).toBe(new Date(2026, 9, 16).toISOString());
+    expect(params.get('to')).toBe(new Date(2026, 9, 16, 23, 59, 59, 999).toISOString());
+  });
+
+  it('lien d’une priorité : les demandes de la période (total) filtrées par cette priorité, autres filtres gardés', () => {
+    const link = new URLSearchParams(priorityLink(new URLSearchParams('periode=7&categorie=c1&priorite=NORMAL'), 'URGENT').split('?')[1]);
+    expect(Object.fromEntries(link)).toEqual({ periode: '7', categorie: 'c1', priorite: 'URGENT', vue: 'demandes', indicateur: 'total' });
   });
 
   it('envoie des bornes de journées locales et le fuseau du navigateur', () => {
@@ -457,6 +758,20 @@ describe('Paramètres du tableau de bord', () => {
     expect(formatDurationMs(50 * 3_600_000)).toBe('2 j 2 h');
   });
 
+  it('la période propose « Aujourd’hui » en premier, et la choisir demande le seul jour courant', async () => {
+    const user = userEvent.setup();
+    const { urls, router } = setup('/');
+    await screen.findByText('Demandes créées sur la période');
+    await user.click(screen.getByRole('combobox', { name: 'Période' }));
+    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['Aujourd’hui', '7 derniers jours', '30 derniers jours', '90 derniers jours', 'Personnalisée']);
+    await user.click(screen.getByRole('option', { name: 'Aujourd’hui' }));
+    await waitFor(() => expect(new URLSearchParams(router.state.location.search).get('periode')).toBe('1'));
+    await waitFor(() => {
+      const last = new URLSearchParams(urls.filter((u) => u.startsWith('/api/admin/dashboard/summary')).at(-1)!.split('?')[1]);
+      expect(new Date(last.get('to')!).getTime() - new Date(last.get('from')!).getTime()).toBe(24 * 3_600_000 - 1);
+    });
+  });
+
   it('en-tête allégé : titre, période visible, autres filtres derrière « Filtres », sans fil d’Ariane ni phrase', async () => {
     const user = userEvent.setup();
     setup();
@@ -477,7 +792,7 @@ describe('Paramètres du tableau de bord', () => {
     expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Vue générale', 'Délais', 'Employés', 'Demandes', 'Activité']);
   });
 
-  it('vue Demandes : 5 colonnes, numéro court, retard et urgence en rouge, détails au survol', async () => {
+  it('vue Demandes : 5 colonnes, priorité à point, statut en pastille, avatars demandeur → affecté, détails au survol', async () => {
     const user = userEvent.setup();
     setup('/?vue=demandes');
     const table = await screen.findByRole('table', { name: 'Demandes de la période' });
@@ -490,21 +805,37 @@ describe('Paramètres du tableau de bord', () => {
     expect(headers[3]).toHaveTextContent('Demandeur →');
     const [, late, rejected] = within(table).getAllByRole('row');
 
-    // Titre sur une ligne, numéro court ; « En retard » remplace le statut ; noms fusionnés.
+    // Titre sur une ligne, numéro court ; « En retard » remplace le statut, en pastille.
     expect(within(late!).getByRole('link', { name: /Réparation climatiseur/ })).toHaveAttribute('href', '/demandes/r4');
     expect(within(late!).getByText('#004')).toBeVisible();
     expect(within(late!).getByText('Urgente')).toBeVisible();
     expect(within(late!).getByText('En retard')).toBeVisible();
     expect(within(late!).queryByText('Envoyée')).not.toBeInTheDocument();
-    expect(late).toHaveTextContent(/Super admin\s*→\s*, affectée à Technicien/);
     expect(within(rejected!).getByText('Refusée')).toBeVisible();
-    expect(rejected).toHaveTextContent(/Enseignante\s*→\s*, affectée à —/);
+
+    // Priorité : un point devant le libellé écrit (rouge pour l'urgence, gris sinon), jamais seul.
+    const dot = (row: HTMLElement) => row.querySelector('[data-priority-dot]') as HTMLElement;
+    expect(dot(late!)).toHaveAttribute('aria-hidden', 'true');
+    expect(dot(late!)).toHaveAttribute('data-priority-dot', 'URGENT');
+    expect(dot(rejected!)).toHaveAttribute('data-priority-dot', 'NORMAL');
+
+    // Statut : pastille avec icône et libellé (la couleur n'est qu'un complément).
+    for (const [row, label] of [[late!, 'En retard'], [rejected!, 'Refusée']] as const) {
+      expect(within(row).getByText(label).parentElement!.querySelector('svg')).not.toBeNull();
+    }
+
+    // Demandeur → affecté : deux avatars, le nom de l'affecté écrit ; les deux noms sont lus aux lecteurs d'écran.
+    expect(late).toHaveTextContent('SA');
+    expect(late).toHaveTextContent('TE');
+    expect(within(late!).getByText('Technicien')).toBeVisible();
+    expect(within(late!).getByText('Demandeur : Super admin, affectée à : Technicien')).toBeInTheDocument();
+    // Sans employé affecté : un cercle vide à la place de l'avatar, et « — » pour les lecteurs d'écran.
+    expect(within(rejected!).getByText('Demandeur : Enseignante, affectée à : —')).toBeInTheDocument();
+    expect(rejected!.querySelector('[data-unassigned]')).not.toBeNull();
+
     // Dates sans l'année.
     const created = within(late!).getAllByRole('cell').at(-1)!;
     expect(created.textContent).toMatch(/^\d{1,2} oct\., \d{2}:\d{2}$/);
-
-    // Sans pilule : la priorité et le statut sont du texte simple.
-    expect(late!.querySelector('.MuiBadge-root, [data-testid]')).toBeNull();
 
     // Survol (ou focus) : numéro complet, catégorie et échéance.
     await user.hover(within(late!).getByRole('link', { name: /Réparation climatiseur/ }));
@@ -512,6 +843,33 @@ describe('Paramètres du tableau de bord', () => {
     expect(tip).toHaveTextContent('D-2026-000004');
     expect(tip).toHaveTextContent('Petits travaux');
     expect(tip).toHaveTextContent('Échéance');
+  });
+
+  it('vue Demandes : « En attente de validation » tient dans la pastille, le libellé complet est à l’infobulle', async () => {
+    const user = userEvent.setup();
+    setup('/?vue=demandes', (url) =>
+      url.startsWith('/api/admin/dashboard/requests')
+        ? json(200, { items: [{ ...REQUESTS[1], id: 'r9', status: 'PENDING_ADMIN_VALIDATION', title: 'Cartouches d’encre' }], nextCursor: null })
+        : undefined,
+    );
+    const row = (await screen.findByRole('link', { name: 'Cartouches d’encre' })).closest('tr') as HTMLElement;
+    expect(within(row).getByText('En attente de validation')).toBeVisible();
+    expect(within(row).queryByText('En attente de validation administrative')).toBeNull();
+    await user.hover(within(row).getByRole('link', { name: 'Cartouches d’encre' }));
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Statut : En attente de validation administrative');
+  });
+
+  it('vue Demandes : le pied du tableau tient sur une ligne, l’aide à gauche et « Afficher plus » à droite', async () => {
+    setup('/?vue=demandes', (url) =>
+      url.startsWith('/api/admin/dashboard/requests') ? json(200, { items: REQUESTS, nextCursor: 'suite' }) : undefined,
+    );
+    const more = await screen.findByRole('button', { name: 'Afficher plus de demandes' });
+    const help = screen.getByText('Survol d’une ligne : numéro complet, catégorie et échéance. Historique complet : ouvrir la demande.');
+    expect(more.parentElement).toBe(help.parentElement);
+    const footer = help.parentElement!;
+    expect(footer).toHaveStyle({ display: 'flex' });
+    expect(footer.firstElementChild).toBe(help);
+    expect(footer.lastElementChild).toBe(more);
   });
 
   it('s’ouvre sur « Vue générale » (page d’accueil après connexion), sans changer l’ordre des onglets', async () => {
@@ -550,41 +908,124 @@ describe('Chiffres cliquables du tableau de bord', () => {
     Object.fromEntries(new URLSearchParams(screen.getByRole('link', { name }).getAttribute('href')!.split('?')[1]));
 
   it('chaque chiffre de la période et de la situation actuelle ouvre la liste de ses demandes, filtres compris', async () => {
-    setup('/?priorite=URGENT');
+    const user = userEvent.setup();
+    setup('/?categorie=c1', (url) =>
+      url.startsWith('/api/admin/dashboard/summary') ? json(200, { ...SUMMARY, current: { overdueNow: 1, urgentActive: 2, unassigned: 5 } }) : undefined,
+    );
     await screen.findByText('Demandes créées sur la période');
-    expect(linkParams('Total : 12 — voir ces demandes')).toEqual({ priorite: 'URGENT', vue: 'demandes', indicateur: 'total' });
+    // Tuiles : le total, puis ses urgentes et ses normales (le même total, filtré par priorité).
+    expect(linkParams('Total : 12 — voir ces demandes')).toEqual({ categorie: 'c1', vue: 'demandes', indicateur: 'total' });
+    expect(linkParams('Urgentes : 5 — voir ces demandes')).toEqual({ categorie: 'c1', priorite: 'URGENT', vue: 'demandes', indicateur: 'total' });
+    expect(linkParams('Normales : 7 — voir ces demandes')).toEqual({ categorie: 'c1', priorite: 'NORMAL', vue: 'demandes', indicateur: 'total' });
+    // Légende de la répartition : un lien par état.
+    expect(linkParams('À valider : 1 — voir ces demandes')).toMatchObject({ indicateur: 'pendingValidation' });
     expect(linkParams('En attente de prise en charge : 3 — voir ces demandes')).toMatchObject({ indicateur: 'pendingTakeover' });
+    expect(linkParams('En cours : 2 — voir ces demandes')).toMatchObject({ indicateur: 'inProgress' });
     expect(linkParams('Terminées : 4 — voir ces demandes')).toMatchObject({ indicateur: 'done' });
-    expect(linkParams('Hors délai : 2 — voir ces demandes')).toMatchObject({ indicateur: 'overdueInPeriod' });
+    expect(linkParams('Refusées : 1 — voir ces demandes')).toMatchObject({ indicateur: 'rejected' });
+    expect(linkParams('Annulées : 1 — voir ces demandes')).toMatchObject({ indicateur: 'cancelled' });
+    // Situation actuelle : le lien suit la pastille choisie.
     expect(linkParams('En retard : 1 — voir ces demandes')).toMatchObject({ indicateur: 'overdueNow' });
-    expect(linkParams('Urgentes en cours : 2 — voir ces demandes')).toEqual({ priorite: 'URGENT', vue: 'demandes', indicateur: 'urgentActive' });
-    expect(linkParams('Sans employé affecté : 0 — voir ces demandes')).toMatchObject({ indicateur: 'unassigned' });
-    // Les échanges ne sont pas des demandes : pas de lien.
-    expect(screen.queryByRole('link', { name: /Écrits|Vocaux/ })).toBeNull();
-    // Les valeurs restent lisibles comme avant.
+    await user.click(screen.getByRole('button', { name: 'Urgentes 2' }));
+    expect(linkParams('Urgentes en cours : 2 — voir ces demandes')).toEqual({ categorie: 'c1', vue: 'demandes', indicateur: 'urgentActive' });
+    await user.click(screen.getByRole('button', { name: 'Non assignées 5' }));
+    expect(linkParams('Sans employé affecté : 5 — voir ces demandes')).toMatchObject({ indicateur: 'unassigned' });
+    // Les messages ne sont pas des demandes : pas de lien.
+    expect(screen.queryByRole('link', { name: /écrits|vocaux/i })).toBeNull();
     expect(kpi('Total')).toBe('12');
-    expect(figure('Urgentes en cours')).toHaveTextContent('2');
   });
 
-  it('un clic ouvre l’onglet Demandes sur les demandes du chiffre, puis « Voir toutes les demandes » revient à la liste habituelle', async () => {
+  it('un clic ouvre l’onglet Demandes sur les demandes du chiffre, avec sa pastille choisie ; « Toutes » revient à la liste habituelle', async () => {
     const user = userEvent.setup();
     const { urls, router } = setup('/', indicatorRows);
     await screen.findByText('Demandes créées sur la période');
+    await user.click(screen.getByRole('button', { name: 'Urgentes 2' }));
     await user.click(screen.getByRole('link', { name: 'Urgentes en cours : 2 — voir ces demandes' }));
 
     expect(screen.getByRole('tab', { name: 'Demandes' })).toHaveAttribute('aria-selected', 'true');
     const table = await screen.findByRole('table', { name: 'Demandes : Urgentes en cours' });
     expect(within(table).getByRole('link', { name: /Réparation climatiseur/ })).toHaveAttribute('href', '/demandes/r4');
-    expect(screen.getByText('« Urgentes en cours » : situation actuelle, toutes périodes confondues.')).toBeVisible();
+    // Le chiffre est une pastille du filtre ; sa portée (toutes périodes) reste écrite.
+    expect(screen.getByRole('button', { name: 'Urgentes' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Toutes' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByText('Situation actuelle, toutes périodes confondues.')).toBeVisible();
     const call = urls.find((u) => u.startsWith('/api/admin/dashboard/requests?'))!;
     expect(new URLSearchParams(call.split('?')[1]).get('indicator')).toBe('urgentActive');
 
-    await user.click(screen.getByRole('button', { name: 'Voir toutes les demandes' }));
+    await user.click(screen.getByRole('button', { name: 'Toutes' }));
     expect(await screen.findByRole('table', { name: 'Demandes de la période' })).toBeVisible();
     expect(new URLSearchParams(router.state.location.search).get('indicateur')).toBeNull();
+    expect(screen.queryByText('Situation actuelle, toutes périodes confondues.')).toBeNull();
     const indicators = urls.filter((u) => u.startsWith('/api/admin/dashboard/requests?')).map((u) => new URLSearchParams(u.split('?')[1]).get('indicator'));
     expect(indicators).toEqual(['urgentActive', 'total']);
     expect(urls.some((u) => u.startsWith('/api/requests'))).toBe(false);
+  });
+
+  describe('onglet Demandes : pastilles de filtre', () => {
+    const chips = () => within(screen.getByRole('group', { name: 'Filtrer les demandes' }));
+
+    it('six pastilles, « Toutes » choisie par défaut, sans effectif', async () => {
+      setup('/?vue=demandes', indicatorRows);
+      await screen.findByRole('table', { name: 'Demandes de la période' });
+      expect(chips().getAllByRole('button').map((b) => b.textContent)).toEqual(['Toutes', 'En retard', 'Urgentes', 'En attente', 'À corriger', 'Terminées']);
+      expect(chips().getByRole('button', { name: 'Toutes' })).toHaveAttribute('aria-pressed', 'true');
+      expect(chips().getAllByRole('button').filter((b) => b.getAttribute('aria-pressed') === 'true')).toHaveLength(1);
+    });
+
+    it('chaque pastille demande ses demandes au serveur et s’écrit dans l’adresse', async () => {
+      const user = userEvent.setup();
+      const { urls, router } = setup('/?vue=demandes&priorite=URGENT', indicatorRows);
+      await screen.findByRole('table', { name: 'Demandes de la période' });
+      const indicator = () => new URLSearchParams(urls.filter((u) => u.startsWith('/api/admin/dashboard/requests?')).at(-1)!.split('?')[1]).get('indicator');
+      const expected: Array<[string, string]> = [
+        ['En retard', 'overdueNow'],
+        ['Urgentes', 'urgentActive'],
+        ['En attente', 'waiting'],
+        ['À corriger', 'toCorrect'],
+        ['Terminées', 'done'],
+      ];
+      for (const [label, value] of expected) {
+        await user.click(chips().getByRole('button', { name: label }));
+        await waitFor(() => expect(indicator()).toBe(value));
+        expect(new URLSearchParams(router.state.location.search).get('indicateur')).toBe(value);
+        expect(chips().getByRole('button', { name: label })).toHaveAttribute('aria-pressed', 'true');
+        // Les filtres de la page (ici la priorité) sont gardés.
+        expect(new URLSearchParams(router.state.location.search).get('priorite')).toBe('URGENT');
+      }
+    });
+
+    it('la portée « toutes périodes » n’est écrite que pour la situation actuelle', async () => {
+      const user = userEvent.setup();
+      setup('/?vue=demandes', indicatorRows);
+      await screen.findByRole('table', { name: 'Demandes de la période' });
+      expect(screen.queryByText('Situation actuelle, toutes périodes confondues.')).toBeNull();
+      await user.click(chips().getByRole('button', { name: 'En retard' }));
+      expect(await screen.findByText('Situation actuelle, toutes périodes confondues.')).toBeVisible();
+      await user.click(chips().getByRole('button', { name: 'À corriger' }));
+      await waitFor(() => expect(screen.queryByText('Situation actuelle, toutes périodes confondues.')).toBeNull());
+    });
+
+    it('un chiffre qui n’est pas une pastille garde son bandeau : aucune pastille n’est choisie', async () => {
+      setup('/?vue=demandes&indicateur=rejected', indicatorRows);
+      expect(await screen.findByText('« Refusées » : demandes créées sur la période.')).toBeVisible();
+      expect(screen.getByRole('button', { name: 'Voir toutes les demandes' })).toBeVisible();
+      expect(chips().getAllByRole('button').filter((b) => b.getAttribute('aria-pressed') === 'true')).toHaveLength(0);
+    });
+
+    it('le chiffre « Total » est la liste habituelle : « Toutes » est choisie, sans bandeau', async () => {
+      setup('/?vue=demandes&indicateur=total', indicatorRows);
+      await screen.findByRole('table', { name: 'Demandes : Total' });
+      expect(chips().getByRole('button', { name: 'Toutes' })).toHaveAttribute('aria-pressed', 'true');
+      expect(screen.queryByRole('button', { name: 'Voir toutes les demandes' })).toBeNull();
+    });
+
+    it('une pastille sans demande le dit', async () => {
+      const user = userEvent.setup();
+      setup('/?vue=demandes', (url) => (url.includes('indicator=toCorrect') ? json(200, { items: [], nextCursor: null }) : indicatorRows(url)));
+      await screen.findByRole('table', { name: 'Demandes de la période' });
+      await user.click(chips().getByRole('button', { name: 'À corriger' }));
+      expect(await screen.findByText('Aucune demande ne correspond à ce filtre.')).toBeVisible();
+    });
   });
 
   it('onglet Demandes sans chiffre : les demandes de la carte Total (employé demandeur ou affecté, sans brouillon)', async () => {

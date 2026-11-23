@@ -145,6 +145,26 @@ describe('Tableau de bord : demandes d’un indicateur', () => {
     });
   });
 
+  describe('filtres de statut de l’onglet Demandes', () => {
+    it('en attente : les demandes à valider ou envoyées, qui attendent une prise en charge', async () => {
+      expect(await listIds('indicator=waiting')).toEqual([ids.overdue, ids.sent]);
+      const summary = (await get('summary')).body.counts as Record<string, number>;
+      expect(summary.pendingValidation + summary.pendingTakeover).toBe(2);
+    });
+
+    it('à corriger : les demandes renvoyées pour correction, dans la période', async () => {
+      expect(await listIds('indicator=toCorrect')).toEqual([]);
+      await prisma.request.update({ where: { id: ids.accepted }, data: { status: 'TO_CORRECT' } });
+      try {
+        expect(await listIds('indicator=toCorrect')).toEqual([ids.accepted]);
+        expect(await listIds('indicator=toCorrect&from=2020-01-01&to=2020-01-31')).toEqual([]);
+        expect(await listIds('indicator=toCorrect&priority=URGENT')).toEqual([]);
+      } finally {
+        await prisma.request.update({ where: { id: ids.accepted }, data: { status: 'ACCEPTED' } });
+      }
+    });
+  });
+
   describe('filtres', () => {
     it('applique priorité, catégorie et employé comme la synthèse (employé : demandeur ou affecté)', async () => {
       expect(await listIds('indicator=total&priority=URGENT')).toEqual([ids.overdue, ids.done]);

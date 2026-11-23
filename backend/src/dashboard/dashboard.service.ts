@@ -17,6 +17,7 @@ import {
   hasTrackedDeadline,
   isCurrentIndicator,
   isValidTimeZone,
+  STATUS_FILTERS,
   STATUS_GROUPS,
   summarizePerformance,
   type DashboardIndicator,
@@ -104,6 +105,9 @@ function indicatorCondition(indicator: DashboardIndicator): Prisma.Sql | null {
       return Prisma.sql`${IS_ACTIVE} AND ${URGENT}`;
     case 'unassigned':
       return Prisma.sql`${IS_ACTIVE} AND ${UNASSIGNED}`;
+    case 'waiting':
+    case 'toCorrect':
+      return Prisma.sql`r."status" = ANY(${statusArray(STATUS_FILTERS[indicator])})`;
     default:
       return Prisma.sql`r."status" = ANY(${statusArray(STATUS_GROUPS[indicator])})`;
   }
@@ -202,9 +206,12 @@ export class DashboardService {
     const inPeriod = requestConditions(f, true);
     const now = requestConditions(f, false);
 
-    const [byStatus, current, byCategory, messages, created, completed, alerts] = await Promise.all([
+    const [byStatus, byPriority, current, byCategory, messages, created, completed, alerts] = await Promise.all([
       this.prisma.$queryRaw<Array<{ status: RequestStatus; count: number }>>`
         SELECT r."status", count(*)::int AS "count" FROM "Request" r WHERE ${inPeriod} GROUP BY r."status"`,
+      this.prisma.$queryRaw<Array<{ urgent: number; normal: number }>>`
+        SELECT count(*) FILTER (WHERE ${URGENT})::int AS "urgent", count(*) FILTER (WHERE r."priority" = 'NORMAL')::int AS "normal"
+        FROM "Request" r WHERE ${inPeriod}`,
       this.prisma.$queryRaw<Array<{ overdueNow: number; urgentActive: number; unassigned: number }>>`
         SELECT
           count(*) FILTER (WHERE ${OVERDUE_NOW})::int AS "overdueNow",
@@ -241,7 +248,7 @@ export class DashboardService {
     const overdueInPeriod = byCategory.reduce((sum, c) => sum + c.overdue, 0);
     return {
       period: { from: f.from, to: f.to },
-      counts: { ...countByGroup(byStatus), overdueInPeriod },
+      counts: { ...countByGroup(byStatus), overdueInPeriod, urgent: byPriority[0]?.urgent ?? 0, normal: byPriority[0]?.normal ?? 0 },
       byStatus: byStatus.sort((a, b) => b.count - a.count),
       current: current[0] ?? { overdueNow: 0, urgentActive: 0, unassigned: 0 },
       byCategory: byCategory.map((c) => ({ category: { id: c.id, name: c.name }, total: c.total, active: c.active, done: c.done, overdue: c.overdue })),
@@ -284,12 +291,12 @@ export class DashboardService {
     return { items: page.items.map((r) => byId.get(r.id)).filter((r): r is DashboardRequestRow => r !== undefined), nextCursor: page.nextCursor };
   }
 
-  /** Demandes en retard ou urgentes à traiter maintenant (hors période), les retards d'abord. */
+  /** Demandes en retard, urgentes ou sans employé affecté, à traiter maintenant (hors période), les retards d'abord. */
   private async alerts(now: Prisma.Sql) {
     const rows = await this.prisma.$queryRaw<Array<{ id: string }>>`
       SELECT r."id" FROM "Request" r
       WHERE ${now} AND r."status" = ANY(${statusArray(ACTIVE_STATUSES)})
-        AND (r."overdueStage" IS NOT NULL OR r."priority" = 'URGENT')
+        AND (${OVERDUE_NOW} OR ${URGENT} OR ${UNASSIGNED})
       ORDER BY (r."overdueStage" IS NOT NULL) DESC, r."currentDueAt" ASC NULLS LAST, r."createdAt" ASC
       LIMIT ${ALERT_LIMIT}`;
     const ids = rows.map((r) => r.id);

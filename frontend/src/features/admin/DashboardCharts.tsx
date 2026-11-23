@@ -1,7 +1,8 @@
 import Box from '@mui/material/Box';
 import { useTheme } from '@mui/material/styles';
 import type { ReactNode } from 'react';
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Link as RouterLink } from 'react-router';
+import { CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { font, fontSize, radius, tokensOf } from '../../design/tokens';
 import { locale, t } from '../../i18n';
 
@@ -126,50 +127,38 @@ export function DailyChart({ data }: { data: Array<{ day: string; created: numbe
   );
 }
 
-/**
- * Mini-graphique d'une carte d'indicateur : décoratif (`aria-hidden`), la valeur est écrite dans la
- * carte et le détail jour par jour est dans « Évolution quotidienne ».
- */
-export function Sparkline({ values, color, kind = 'area' }: { values: number[]; color: string; kind?: 'area' | 'bars' }) {
-  const data = values.map((value, index) => ({ index, value }));
-  // Rien à montrer (aucun point, ou une période sans aucune valeur) : pas de trait plat.
-  if (data.length < 2 || values.every((v) => v === 0)) return null;
-  return (
-    // Masqué sous 600 px : la valeur de la carte garde toute la largeur.
-    <Box aria-hidden="true" sx={{ display: { xs: 'none', sm: 'block' }, width: 104, height: 44, flex: 'none' }}>
-      <ResponsiveContainer width="100%" height="100%">
-        {kind === 'bars' ? (
-          // Décoratif : pas de couche clavier Recharts (un élément aria-hidden ne doit pas être focusable).
-          <BarChart data={data} margin={{ top: 2, right: 0, bottom: 0, left: 0 }} accessibilityLayer={false}>
-            <Bar dataKey="value" fill={color} radius={[2, 2, 0, 0]} minPointSize={2} isAnimationActive={false} />
-          </BarChart>
-        ) : (
-          <AreaChart data={data} margin={{ top: 4, right: 2, bottom: 2, left: 2 }} accessibilityLayer={false}>
-            <Area type="monotone" dataKey="value" stroke={color} strokeWidth={2} fill={color} fillOpacity={0.12} dot={false} isAnimationActive={false} />
-          </AreaChart>
-        )}
-      </ResponsiveContainer>
-    </Box>
-  );
+/** Une part de la répartition ; avec `to`, sa ligne de légende ouvre la liste des demandes comptées. */
+export interface DonutSlice {
+  label: string;
+  count: number;
+  to?: string;
+  /** Nom du lien pour les lecteurs d'écran (libellé, valeur et destination). */
+  linkLabel?: string;
 }
 
-/** Répartition par état en anneau, avec légende chiffrée (la couleur n'est jamais seule) et vue tableau. */
-export function StatusDonut({ data }: { data: Array<{ label: string; count: number }> }) {
+/**
+ * Répartition par état en anneau, avec le total au centre. Légende du plus fréquent au plus rare : nom, nombre
+ * et part (la couleur n'est jamais seule), chaque ligne pouvant ouvrir ses demandes ; vue tableau repliée.
+ */
+export function StatusDonut({ data }: { data: DonutSlice[] }) {
   const c = useChartTheme();
   const shown = data.filter((d) => d.count > 0);
   const total = data.reduce((sum, d) => sum + d.count, 0);
-  const colorOf = (index: number) => c.series.series[index % c.series.series.length];
+  // Une couleur par état, quel que soit l'ordre d'affichage de la légende.
+  const colorOf = (slice: DonutSlice) => c.series.series[data.indexOf(slice) % c.series.series.length];
+  const legend = [...data].sort((a, b) => b.count - a.count);
+  const share = (count: number) => (total > 0 ? `${Math.round((count / total) * 100)} %` : '0 %');
   return (
     <Box>
       {/* Anneau puis légende : la carte est étroite (colonne de droite), les libellés restent entiers. */}
       <Box sx={{ display: 'grid', gap: 2 }}>
-        <Box role="img" aria-label={t('Répartition des demandes par état')} sx={{ height: 180, width: '100%', maxWidth: 220, mx: 'auto', position: 'relative' }}>
+        <Box role="img" aria-label={t('Répartition des demandes par état')} sx={{ height: 200, width: '100%', maxWidth: 240, mx: 'auto', position: 'relative' }}>
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Tooltip {...c.tooltip} formatter={(value, name) => [value, name]} />
               <Pie data={shown} dataKey="count" nameKey="label" innerRadius="62%" outerRadius="95%" paddingAngle={shown.length > 1 ? 2 : 0} stroke="none" isAnimationActive={false}>
                 {shown.map((d) => (
-                  <Cell key={d.label} fill={colorOf(data.indexOf(d))} />
+                  <Cell key={d.label} fill={colorOf(d)} />
                 ))}
               </Pie>
             </PieChart>
@@ -186,17 +175,41 @@ export function StatusDonut({ data }: { data: Array<{ label: string; count: numb
             </Box>
           </Box>
         </Box>
-        <Box component="ul" aria-label={t('Légende : demandes par état')} sx={{ listStyle: 'none', m: 0, p: 0, display: 'grid', gap: 1 }}>
-          {data.map((d, index) => (
-            <Box component="li" key={d.label} sx={{ display: 'flex', alignItems: 'center', gap: 1, fontSize: fontSize.sm, minWidth: 0 }}>
-              <Box component="span" sx={{ width: 10, height: 10, borderRadius: '50%', flex: 'none', bgcolor: colorOf(index) }} />
-              <Box component="span" sx={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere' }}>
-                {d.label}
+        <Box component="ul" aria-label={t('Légende : demandes par état')} sx={{ listStyle: 'none', m: 0, p: 0, display: 'grid', gap: 0.5 }}>
+          {legend.map((d) => (
+            <li key={d.label}>
+              <Box
+                {...(d.to ? { component: RouterLink, to: d.to, 'aria-label': d.linkLabel } : {})}
+                sx={(theme) => ({
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                  fontSize: fontSize.sm,
+                  minWidth: 0,
+                  px: 0.75,
+                  py: 0.5,
+                  mx: -0.75,
+                  borderRadius: `${radius.control}px`,
+                  color: 'inherit',
+                  textDecoration: 'none',
+                  ...(d.to && {
+                    '&:hover': { bgcolor: tokensOf(theme).surfaceMuted },
+                    '&:focus-visible': { outline: `2px solid ${theme.palette.primary.main}`, outlineOffset: -2 },
+                  }),
+                })}
+              >
+                <Box component="span" aria-hidden="true" sx={{ width: 10, height: 10, borderRadius: '50%', flex: 'none', bgcolor: colorOf(d) }} />
+                <Box component="span" sx={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere' }}>
+                  {d.label}
+                </Box>
+                <Box component="span" sx={{ fontWeight: font.semibold, fontVariantNumeric: 'tabular-nums' }}>
+                  {d.count}
+                </Box>
+                <Box component="span" sx={(theme) => ({ width: 44, textAlign: 'right', color: tokensOf(theme).textSecondary, fontVariantNumeric: 'tabular-nums' })}>
+                  {share(d.count)}
+                </Box>
               </Box>
-              <Box component="span" sx={{ fontWeight: font.semibold, fontVariantNumeric: 'tabular-nums' }}>
-                {d.count}
-              </Box>
-            </Box>
+            </li>
           ))}
         </Box>
       </Box>

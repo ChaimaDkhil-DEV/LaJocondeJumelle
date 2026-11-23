@@ -32,6 +32,8 @@ interface KpiCardProps {
   singleLineHint?: boolean;
   /** Valeur absente (« Aucune donnée ») : plus petite et grise, distincte d'un zéro. */
   muted?: boolean;
+  /** Tuile teintée avec un liseré de couleur en bas : chiffres de tête du tableau de bord. */
+  bar?: boolean;
   /** Carte cliquable : ouvre la liste des demandes comptées (adresse relative, filtres compris). */
   to?: string;
   /** Nom du lien pour les lecteurs d'écran (libellé, valeur et destination). */
@@ -43,7 +45,7 @@ interface KpiCardProps {
  * Structure stable pour les tests : le libellé est dans une div, la valeur est le seul paragraphe
  * de la carte (.MuiPaper-root).
  */
-export function KpiCard({ label, value, hint, icon: Icon, tone = 'accent', accent, trend, labelExtra, meta, delta, singleLineHint = false, muted = false, to, linkLabel }: KpiCardProps) {
+export function KpiCard({ label, value, hint, icon: Icon, tone = 'accent', accent, trend, labelExtra, meta, delta, singleLineHint = false, muted = false, bar = false, to, linkLabel }: KpiCardProps) {
   const tile = (theme: Theme) => (accent ? tokensOf(theme).accents[accent] : toneColors(theme, tone));
   const link = to ? { component: RouterLink, to, 'aria-label': linkLabel } : {};
   return (
@@ -56,6 +58,7 @@ export function KpiCard({ label, value, hint, icon: Icon, tone = 'accent', accen
         display: 'grid',
         gap: 1.5,
         alignContent: 'start',
+        ...(bar && { bgcolor: tile(theme).soft, borderBottom: `3px solid ${tile(theme).main}` }),
         ...(to && {
           color: 'inherit',
           textDecoration: 'none',
@@ -85,7 +88,7 @@ export function KpiCard({ label, value, hint, icon: Icon, tone = 'accent', accen
             width: 44,
             height: 44,
             borderRadius: `${radius.control + 2}px`,
-            bgcolor: tile(theme).soft,
+            bgcolor: bar ? tokensOf(theme).surface : tile(theme).soft,
             color: tile(theme).main,
           })}
         >

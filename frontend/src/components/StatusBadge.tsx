@@ -46,12 +46,30 @@ const STATUS_STYLE: Record<RequestStatus, { tone: Tone; icon: LucideIcon }> = {
   CANCELLED: { tone: 'neutral', icon: Ban },
 };
 
-/** Statut d'une demande : icône + libellé texte, la couleur n'est qu'un complément. */
-export function StatusBadge({ status }: { status: RequestStatus }) {
+/** Libellés abrégés des listes denses : seul le plus long tient mal dans une pastille. */
+const SHORT_LABELS: Partial<Record<RequestStatus, string>> = {
+  PENDING_ADMIN_VALIDATION: t('En attente de validation'),
+};
+
+/** Libellé d'un statut ; `compact` : abrégé pour les listes denses (le libellé complet reste à portée, en infobulle). */
+export function statusLabel(status: RequestStatus, compact = false): string {
+  return (compact && SHORT_LABELS[status]) || STATUS_LABELS[status];
+}
+
+/** Ton de chaque statut, pour les pastilles qui n'ont pas besoin de l'icône. */
+export function statusTone(status: RequestStatus): Tone {
+  return STATUS_STYLE[status].tone;
+}
+
+/**
+ * Statut d'une demande : icône + libellé texte, la couleur n'est qu'un complément. `compact` : libellé abrégé pour les
+ * listes denses (le libellé complet reste à portée, par exemple dans une infobulle).
+ */
+export function StatusBadge({ status, compact = false }: { status: RequestStatus; compact?: boolean }) {
   const { tone, icon } = STATUS_STYLE[status];
   return (
     <Badge tone={tone} icon={icon}>
-      {STATUS_LABELS[status]}
+      {statusLabel(status, compact)}
     </Badge>
   );
 }
