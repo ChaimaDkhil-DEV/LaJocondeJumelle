@@ -35,6 +35,14 @@ export const timetable: Record<string, string> = {
   // Session list
   'Aucune séance ce jour-là.': 'No session that day.',
   'Séance de {start} à {end}, {class}': 'Session from {start} to {end}, {class}',
+  'Séance de {start} à {end}, {subject}, {class}': 'Session from {start} to {end}, {subject}, {class}',
+  'Séance annulée de {start} à {end}, {subject}, {class}': 'Cancelled session from {start} to {end}, {subject}, {class}',
+  '{first} et {second}': '{first} and {second}',
+  '{days} : aucune séance.': '{days}: no sessions.',
+  'Matières': 'Subjects',
+  'Prochaine séance': 'Next session',
+  'Aucune séance à venir cette semaine.': 'No upcoming session this week.',
+  'Matières de la semaine': 'Subjects this week',
   '{start} – {end}': '{start} – {end}',
   'Matière non précisée': 'Subject not specified',
   'Salle : {room}': 'Room: {room}',
@@ -97,6 +105,12 @@ export const timetable: Record<string, string> = {
   'Retard annoncé par l’enseignant': 'Lateness announced by the teacher',
   'Retard constaté par l’administration': 'Lateness recorded by the administration',
   'Remplacé(e) par {name}': 'Replaced by {name}',
+  'remplacé(e) par {name}': 'replaced by {name}',
+  'Pointage à {time}': 'Clocked in at {time}',
+  'Retard : {minutes} min': 'Late: {minutes} min',
+  'Remplaçant arrivé à {time}': 'Substitute arrived at {time}',
+  'Remplaçant arrivé à {time} · {minutes} min de retard': 'Substitute arrived at {time} · {minutes} min late',
+  'Remplaçant : {status}': 'Substitute: {status}',
   'Tolérance : {tolerance} min ; retard au-delà de {threshold} min. « Non arrivé » n’enregistre aucune absence : il signale qu’aucun pointage n’a été fait.':
     'Tolerance: {tolerance} min; late beyond {threshold} min. “Not arrived” records no absence: it signals that no check-in was made.',
   // Teacher's own timetable

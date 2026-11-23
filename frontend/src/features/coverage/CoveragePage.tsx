@@ -10,6 +10,7 @@ import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
 import { PageHeader } from '../../components/PageHeader';
 import { useCoverageProfile } from './api';
+import { sectionNameFor } from './sectionName';
 import { AttendanceFollowUpTab } from '../attendance/AttendanceFollowUpTab';
 import { ExpectedTeachersTab } from '../attendance/ExpectedTeachersTab';
 import { MyAttendanceTab } from '../attendance/MyAttendanceTab';
@@ -94,6 +95,7 @@ export function CoveragePage() {
 
   const { canManage, isTeacher, isSupervisor } = profile.data;
   const canDeclare = profile.data.capabilities?.declareEmptyClass ?? isSupervisor;
+  const sectionName = sectionNameFor({ canManage, isTeacher, isSupervisor });
   const tabs = [
     ...(canManage ? ADMIN_TABS : []),
     ...(isTeacher ? TEACHER_TABS : []),
@@ -106,7 +108,7 @@ export function CoveragePage() {
   return (
     <>
       <PageHeader
-        title={t('Surveillance')}
+        title={sectionName}
         description={
           canManage
             ? t('Assignez un surveillant aux retards et absences signalés, et suivez chaque affectation en direct.')
@@ -170,7 +172,7 @@ export function CoveragePage() {
               next.set('onglet', key);
               setParams(next, { replace: true });
             }}
-            aria-label={t('Surveillance')}
+            aria-label={sectionName}
             variant="scrollable"
             scrollButtons={false}
             sx={{ mb: 2 }}

@@ -150,6 +150,18 @@ describe('Accueil de l’enseignant', () => {
     expect(mine).not.toHaveAttribute('aria-current');
   });
 
+  it('« Mon emploi du temps » est une section du menu, plus un bouton de l’accueil', async () => {
+    renderAt('/');
+    expect(await screen.findByRole('heading', { level: 1, name: 'Accueil' })).toBeVisible();
+    // Dans le menu de gauche : une entrée, qui mène à la page.
+    const entry = within(mainNav()).getByRole('link', { name: 'Mon emploi du temps' });
+    expect(entry).toHaveAttribute('href', '/emploi-du-temps');
+    expect(entry).not.toHaveAttribute('aria-current');
+    // Sur l'accueil : plus de bouton ni de lien vers l'emploi du temps, hors du menu.
+    const outside = screen.getAllByRole('link', { name: /Mon emploi du temps/ }).filter((link) => !mainNav().contains(link));
+    expect(outside).toHaveLength(0);
+  });
+
   it('action principale : « Scanner un QR code » ouvre aussitôt le scanner de la classe', async () => {
     // Caméra refusée : le scanner existant propose alors la saisie du lien ou du code.
     Object.defineProperty(navigator, 'mediaDevices', {

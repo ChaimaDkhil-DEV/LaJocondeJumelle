@@ -252,6 +252,7 @@ export const coverage: Record<string, string> = {
   'Annulation': 'Cancelled',
   'Durée': 'Duration',
   'Surveillance': 'Supervision',
+  'Mon assiduité': 'My attendance',
   'Absences et retards': 'Absences and lateness',
   'Affectation des surveillants': 'Supervisor assignment',
   'Suivi des interventions': 'Intervention tracking',

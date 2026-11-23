@@ -7,6 +7,7 @@ import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import {
   BriefcaseBusiness,
+  CalendarDays,
   House,
   Inbox,
   LayoutDashboard,
@@ -17,6 +18,7 @@ import {
   School,
   Settings,
   SquarePen,
+  UserCheck,
   type LucideIcon,
 } from 'lucide-react';
 import { useState } from 'react';
@@ -30,6 +32,7 @@ import { Person } from '../components/UserAvatar';
 import { font, fontSize, icon, layout, motion, radius, tokensOf } from '../design/tokens';
 import { canUseAdministrationSpace } from '../features/admin/access';
 import { hasWorkspace } from '../features/admin-workspace/access';
+import { sectionNameFor } from '../features/coverage/sectionName';
 import { hasTeacherHome } from '../features/home/access';
 import { ROLE_LABELS } from '../features/admin/labels';
 import { useCurrentUser, useLogout } from '../features/auth/useCurrentUser';
@@ -104,11 +107,21 @@ export function canSeeCoverage(me: Me | undefined): boolean {
   );
 }
 
-const COVERAGE_ITEM: NavItem = {
-  to: '/gardes',
-  label: t('Surveillance'),
-  icon: School,
-  matches: (p) => p.startsWith('/gardes'),
+/**
+ * « Surveillance » ; « Mon assiduité » pour un enseignant qui n'est ni surveillant ni gestionnaire (il n'y voit que
+ * ses signalements et ses présences). Même adresse dans les deux cas.
+ */
+function coverageItem(me: Me | undefined): NavItem {
+  const label = sectionNameFor({ isTeacher: me?.isTeacher, isSupervisor: me?.isSupervisor, canManage: me?.role === 'ADMIN' || me?.role === 'SUPER_ADMIN' });
+  return { to: '/gardes', label, icon: label === t('Surveillance') ? School : UserCheck, matches: (p) => p.startsWith('/gardes') };
+}
+
+/** « Mon emploi du temps » (020) : séances de l'enseignant (groupe Enseignants), en section du menu. */
+const TIMETABLE_ITEM: NavItem = {
+  to: '/emploi-du-temps',
+  label: t('Mon emploi du temps'),
+  icon: CalendarDays,
+  matches: (p) => p === '/emploi-du-temps' || p.startsWith('/emploi-du-temps/'),
 };
 
 /** Espace de travail de l'administrateur (018) : file commune, demandes dont il est responsable, historique. */
@@ -155,7 +168,8 @@ export function navItemsFor(me: Me | undefined): NavItem[] {
     requestsItem(!superAdmin && !teacherHome),
     ...NAV_ITEMS,
     ...(hasWorkspace(me) ? [WORKSPACE_ITEM] : []),
-    ...(canSeeCoverage(me) ? [COVERAGE_ITEM] : []),
+    ...(me?.isTeacher ? [TIMETABLE_ITEM] : []),
+    ...(canSeeCoverage(me) ? [coverageItem(me)] : []),
     ...(me?.isTeacher || canUseAdministrationSpace(me) ? [COMMUNICATIONS_ITEM] : []),
     ...(canUseAdministrationSpace(me) ? [ADMIN_ITEM] : []),
   ];

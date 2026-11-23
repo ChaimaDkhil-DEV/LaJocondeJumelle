@@ -11,7 +11,7 @@ import { PresenceService } from './presence.service';
   imports: [CoverageModule],
   controllers: [AttendanceController],
   providers: [AttendanceGate, PresenceService, AttendanceService, ExpectedTeachersService],
-  /** La garde des droits sert aussi aux emplois du temps (020). */
-  exports: [AttendanceGate],
+  /** La garde des droits et le statut des séances servent aussi aux emplois du temps (020). */
+  exports: [AttendanceGate, ExpectedTeachersService],
 })
 export class AttendanceModule {}

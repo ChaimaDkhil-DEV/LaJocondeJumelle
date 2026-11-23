@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 import { Badge } from '../../components/Badge';
 import { t } from '../../i18n';
 import { dayLabel } from './labels';
+import { PresencePill, shownPresence } from './presence';
 import type { TimetableSession } from './types';
 
 interface SessionListProps {
@@ -67,6 +68,16 @@ export function SessionList({ days, sessions, showTeacher = false, hideEmptyDays
                           .filter(Boolean)
                           .join(' · ')}
                       </Typography>
+                      {shownPresence(s) && (
+                        <Box sx={{ mt: 0.5, display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
+                          <PresencePill presence={shownPresence(s)!} />
+                          {shownPresence(s)!.replacedBy && (
+                            <Typography variant="body2" color="text.secondary">
+                              {t('Remplacé(e) par {name}', { name: shownPresence(s)!.replacedBy!.displayName })}
+                            </Typography>
+                          )}
+                        </Box>
+                      )}
                       {s.replaces && (
                         <Box sx={{ mt: 0.5 }}>
                           <Badge tone="info" icon={UserRoundCheck}>

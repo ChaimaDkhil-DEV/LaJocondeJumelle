@@ -4,7 +4,6 @@ import IconButton from '@mui/material/IconButton';
 import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
 import Select from '@mui/material/Select';
-import type { Theme } from '@mui/material/styles';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Typography from '@mui/material/Typography';
@@ -17,12 +16,13 @@ import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
 import { PageHeader } from '../../components/PageHeader';
 import { UserAvatar } from '../../components/UserAvatar';
-import { font, fontSize, icon, radius, tokensOf } from '../../design/tokens';
+import { font, fontSize, icon, tokensOf } from '../../design/tokens';
 import { t } from '../../i18n';
 import { useAdminClasses } from '../coverage/adminApi';
 import { useTeacherClasses } from '../parent-communications/api';
 import { useTimetableSessions } from './api';
 import { CancelDialog } from './CancelDialog';
+import { arrowButton, segmented } from './controls';
 import { addDays, dateLabel, todayOf, weekDays, weekStart } from './labels';
 import { SessionList } from './SessionList';
 import { TimetableFormDialog, type FormMode } from './TimetableFormDialog';
@@ -34,35 +34,6 @@ import { weekStats } from './weekLayout';
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 /** Une séance passée s'annule jusqu'à 7 jours en arrière (règle du serveur). */
 const CANCEL_DAYS_BACK = 7;
-
-/** Commutateur de deux choix : piste lavande, choix actuel posé en blanc. */
-const segmented = (theme: Theme) => {
-  const c = tokensOf(theme);
-  return {
-    bgcolor: c.surfaceMuted,
-    p: 0.5,
-    gap: 0.5,
-    borderRadius: '12px',
-    '& .MuiToggleButtonGroup-grouped': {
-      border: 0,
-      borderRadius: '9px !important',
-      px: 1.75,
-      py: 0.75,
-      color: c.textSecondary,
-      fontWeight: font.medium,
-      textTransform: 'none',
-      '&.Mui-selected': { bgcolor: c.surface, color: c.accent.text, fontWeight: font.semibold, boxShadow: '0 1px 2px rgba(35, 42, 89, 0.12)' },
-      '&.Mui-selected:hover': { bgcolor: c.surface },
-    },
-  };
-};
-
-const arrowButton = (theme: Theme) => ({
-  width: 40,
-  height: 40,
-  border: `1px solid ${tokensOf(theme).borderStrong}`,
-  borderRadius: `${radius.control}px`,
-});
 
 /**
  * Emplois du temps (020) : l'administration choisit un enseignant ou une classe et une semaine, voit les séances
@@ -212,7 +183,7 @@ export function TimetableAdminPage() {
               {t('Aucune séance cette semaine.')}
             </Typography>
           ) : (
-            <WeekGrid days={shownDays} sessions={ordered} selectedId={current?.id} today={today} onSelect={(s) => setPickedId(s.id)} />
+            <WeekGrid days={shownDays} sessions={ordered} selectedId={current?.id} today={today} onSelect={(s) => setPickedId(s.id)} showPresence />
           )}
         </Paper>
 

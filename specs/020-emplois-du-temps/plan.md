@@ -118,7 +118,7 @@ frontend/
 │   │   └── api.ts, types.ts                  # + expected query, session in resolve
 │   ├── features/coverage/{surveillanceTabs.ts,CoveragePage.tsx}   # + 'attendus'
 │   ├── features/admin/{adminRoutes.tsx,AdminLayout.tsx,SettingsAdminPage.tsx,api.ts}
-│   ├── features/home/TeacherHomePage.tsx     # + link "Mon emploi du temps"
+│   ├── app/AppLayout.tsx                     # + "Mon emploi du temps" section of the left menu (Teachers group)
 │   ├── features/notifications/SocketProvider.tsx  # + timetable:updated invalidation
 │   ├── app/routes.tsx                        # + /emploi-du-temps
 │   └── i18n/en/{timetable.ts,attendance.ts}

@@ -70,11 +70,11 @@ test.describe('Section « Surveillance » (012)', () => {
     await expect(page).toHaveURL(/\/gardes\?onglet=suivi&filtre=terminee$/);
   });
 
-  test('enseignante : mêmes onglets qu’avant, titre « Surveillance »', async ({ page }) => {
+  test('enseignante : mêmes onglets qu’avant, titre « Mon assiduité »', async ({ page }) => {
     await login(page, 'enseignante');
     await page.goto('/gardes');
-    await expect(page.getByRole('heading', { level: 1, name: 'Surveillance' })).toBeVisible();
-    await expect(page.getByRole('tablist', { name: 'Surveillance' }).getByRole('tab')).toHaveText(['Mes signalements', 'Mes présences']);
+    await expect(page.getByRole('heading', { level: 1, name: 'Mon assiduité' })).toBeVisible();
+    await expect(page.getByRole('tablist', { name: 'Mon assiduité' }).getByRole('tab')).toHaveText(['Mes signalements', 'Mes présences']);
     await expect(page.getByRole('link', { name: 'Signaler un retard ou une absence' })).toBeVisible();
   });
 });

@@ -58,6 +58,17 @@ export function dateLabel(date: string): string {
   return shortDate.format(toDate(date));
 }
 
+const weekdayLong = new Intl.DateTimeFormat(locale(), { weekday: 'long', timeZone: 'UTC' });
+const monthLong = new Intl.DateTimeFormat(locale(), { month: 'long', timeZone: 'UTC' });
+
+/** « Samedi 28 et dimanche 29 novembre » ; les deux mois sont écrits quand le week-end en chevauche deux. */
+export function weekendLabel(saturday: string, sunday: string): string {
+  const cap = (text: string) => text.replace(/^./, (c) => c.toLocaleUpperCase(locale()));
+  const month = (date: string) => monthLong.format(toDate(date));
+  const first = `${cap(weekdayLong.format(toDate(saturday)))} ${dayOfMonth(saturday)}${month(saturday) === month(sunday) ? '' : ` ${month(saturday)}`}`;
+  return t('{first} et {second}', { first, second: `${weekdayLong.format(toDate(sunday))} ${dayOfMonth(sunday)} ${month(sunday)}` });
+}
+
 export const WEEKDAY_LABELS: Record<number, string> = {
   1: t('Lundi'),
   2: t('Mardi'),
