@@ -710,3 +710,33 @@ after that date); when a fixed version is published, update the dependency and r
 ### Reminder
 
 Wait for CI on the latest commit of the pull request, then tick the four checks, before merging.
+
+## 23/11/2026 — pull request #156
+
+| Pull request | Content | Merged at (UTC) | Check not satisfied at merge time |
+|---------|---------|-------------------|-----------------------------------------------|
+| #156 (`securite-turnstile-captcha`) | Sign-in CAPTCHA (Cloudflare Turnstile), off by default | 23:08:41 | **4. Diff review**: `e2e/captcha.spec.ts` was written after the code (stated in the description), which check 4 ("tests written first") does not allow without a documented exception; the box was ticked all the same |
+
+#156 was merged with `gh pr merge --merge --match-head-commit 6a2448a` at the owner's explicit request, after both runs on
+`6a2448a` had finished green on all steps (`push` 45122521867, `pull_request` 45270530490). The four boxes were ticked just
+before. The question put to the owner did not mention the late end-to-end test: box 4 should have stayed unticked, with the
+reason. All other tests of #156 (unit, integration, frontend, deployment) were seen failing before the code.
+
+### Findings after the fact
+
+- `master` after the merge: run 45286198128 on `1b6c92a` **failed** on "Tests d'intégration (backend)", 1 test out of 1456
+  (`idor-matrix.spec.ts`, « Mon emploi du temps »); frontend tests, Docker image build and audit were skipped.
+- **Cause, unrelated to #156**: that test, added on 19/11/2026 (`fde7470`), created a timetable session on the fixed date
+  `2026-11-23`. The API refuses a session in the past. The `pull_request` run ended at 21:46 UTC (23/11 in Paris); the
+  `master` run started at 23:08 UTC, already 24/11 in Paris: 400 instead of 201. From that day on it failed on every branch.
+  Reproduced locally on 24/11 (1 failed, 26 passed). The application was not at fault.
+
+### Fix
+
+No `git revert`. The test now uses the next day in the school time zone (this pull request, branch
+`fix-test-idor-date-fixe`). No other fixed date of the near future was found in the backend tests that create sessions.
+
+### Reminder
+
+A test that deviates from "tests written first" leaves check 4 unticked, with the reason in the description, and the owner is
+told before deciding to merge.
