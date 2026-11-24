@@ -126,6 +126,9 @@ describe('Représentants légaux', () => {
     });
     renderRoutes([route('/admin/representants', <GuardiansAdminPage />)], '/admin/representants');
     const row = await screen.findByRole('row', { name: /Sonia Ben Salah/ });
+    // En-tête masqué : 1 px (`width: 1` vaut 100 % dans `sx`), et contenu dans la zone défilante du tableau.
+    expect(screen.getByText('Actions')).toHaveStyle({ position: 'absolute', width: '1px' });
+    expect(screen.getByText('Actions').closest('.MuiTableContainer-root')).toHaveStyle({ position: 'relative' });
     expect(within(row).getByText(/Lina Ben Salah/)).toBeVisible();
     await user.click(within(row).getByRole('button', { name: 'Créer le compte parent' }));
     const dialog = await screen.findByRole('dialog', { name: 'Compte parent de Sonia Ben Salah' });

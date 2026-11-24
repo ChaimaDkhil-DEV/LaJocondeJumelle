@@ -18,6 +18,7 @@ import Typography from '@mui/material/Typography';
 import { UserPlus, Users } from 'lucide-react';
 import { useId, useState } from 'react';
 import { ApiError, fieldErrors, loadErrorMessage } from '../../api/client';
+import { visuallyHidden } from '../../components/a11y';
 import { Badge } from '../../components/Badge';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
@@ -73,6 +74,8 @@ export function GuardiansAdminPage() {
           variant="elevated"
           tabIndex={0}
           aria-label={t('Représentants légaux')}
+          // L'en-tête masqué (position absolue) reste dans la zone défilante.
+          sx={{ position: 'relative' }}
         >
           <Table size="small" sx={{ minWidth: 640 }}>
             <TableHead>
@@ -81,16 +84,7 @@ export function GuardiansAdminPage() {
                 <TableCell>{t('Élèves')}</TableCell>
                 <TableCell>{t('Compte parent')}</TableCell>
                 <TableCell>
-                  <Box
-                    component="span"
-                    sx={{
-                      position: 'absolute',
-                      width: 1,
-                      height: 1,
-                      overflow: 'hidden',
-                      clip: 'rect(0 0 0 0)',
-                    }}
-                  >
+                  <Box component="span" sx={visuallyHidden}>
                     {t('Actions')}
                   </Box>
                 </TableCell>

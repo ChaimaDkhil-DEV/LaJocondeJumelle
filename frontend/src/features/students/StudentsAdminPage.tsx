@@ -20,6 +20,7 @@ import { CircleOff, FileUp, GraduationCap, History, Pencil, RotateCcw, Search, S
 import { useId, useMemo, useState, type FormEvent } from 'react';
 import { Link as RouterLink } from 'react-router';
 import { ApiError } from '../../api/client';
+import { visuallyHidden } from '../../components/a11y';
 import { Badge } from '../../components/Badge';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
@@ -171,7 +172,7 @@ const SORTS: Record<SortKey, (a: Student, b: Student) => number> = {
 /** Texte lu par les lecteurs d'écran seulement (grand écran) ; visible comme étiquette sur téléphone. */
 const cellLabel = (theme: Theme) => ({
   color: 'text.secondary',
-  [theme.breakpoints.up('md')]: { position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' },
+  [theme.breakpoints.up('md')]: visuallyHidden,
 });
 const ROW_COLUMNS = 'minmax(0, 2fr) minmax(0, 1.5fr) minmax(0, 1.3fr) 212px';
 

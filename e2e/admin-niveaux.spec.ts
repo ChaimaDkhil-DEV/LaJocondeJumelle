@@ -65,7 +65,7 @@ test.describe('Niveaux scolaires', () => {
     await studentDialog.getByRole('button', { name: 'Enregistrer l’élève' }).click();
     await expect(toast('Élève ajouté.')).toBeVisible();
 
-    await page.getByPlaceholder('Rechercher un élève…').fill(lastName);
+    await page.getByRole('searchbox', { name: /^Rechercher un élève/ }).fill(lastName);
     const studentRow = page.getByRole('list', { name: 'Élèves' }).getByRole('listitem').filter({ hasText: lastName });
     await expect(studentRow).toContainText(className);
 

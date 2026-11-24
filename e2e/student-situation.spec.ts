@@ -76,7 +76,7 @@ async function createStudent(page: Page): Promise<Created> {
 
 async function openDrawer(page: Page, created: Created) {
   await page.goto('/admin/eleves');
-  await page.getByPlaceholder('Rechercher un élève…').fill(created.studentName.split(' ')[1]);
+  await page.getByRole('searchbox', { name: /^Rechercher un élève/ }).fill(created.studentName.split(' ')[1]);
   await page.getByRole('button', { name: `Historique de la classe de l’élève ${created.studentName}` }).click();
   const drawer = page.getByRole('dialog', { name: /Historique de classe/ });
   await expect(drawer).toBeVisible();

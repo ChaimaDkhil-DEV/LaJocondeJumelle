@@ -5,6 +5,7 @@ import ButtonBase from '@mui/material/ButtonBase';
 import Typography from '@mui/material/Typography';
 import { keyframes } from '@mui/material/styles';
 import { Mic, RotateCcw, Square, Trash2 } from 'lucide-react';
+import { visuallyHidden } from '../../components/a11y';
 import { font, icon, tokensOf } from '../../design/tokens';
 import { formatDuration } from './recorderFormat';
 import { useVoiceRecorder, type VoiceRecording } from './useVoiceRecorder';
@@ -108,7 +109,7 @@ export function VoiceRecorder({ maxSeconds, value, onChange, disabled = false, v
               id={captionId}
               sx={(theme) => ({ fontWeight: font.medium, color: tokensOf(theme).error.text, fontVariantNumeric: 'tabular-nums' })}
             >
-              <Box component="span" sx={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>
+              <Box component="span" sx={visuallyHidden}>
                 {t('Arrêter l’enregistrement')}{' '}
               </Box>
               <span aria-hidden="true">

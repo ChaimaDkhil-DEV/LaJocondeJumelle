@@ -197,7 +197,7 @@ export function TimetableAdminPage() {
               displayEmpty
               value={pickedPerson ? selected : ''}
               onChange={(e) => update({ id: e.target.value })}
-              inputProps={{ 'aria-labelledby': 'person-title' }}
+              labelId="person-title"
               MenuProps={{ slotProps: { paper: { sx: { maxHeight: 320 } } } }}
               sx={(theme) => ({ bgcolor: tokensOf(theme).accent.soft, borderRadius: '12px', '& .MuiSelect-select': { py: 1.25 } })}
               renderValue={(value) => {
