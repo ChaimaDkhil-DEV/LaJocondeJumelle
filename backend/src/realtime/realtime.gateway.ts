@@ -1,9 +1,12 @@
 import { Inject, Logger } from '@nestjs/common';
+import { HttpAdapterHost } from '@nestjs/core';
 import { WebSocketGateway, type OnGatewayConnection, type OnGatewayInit } from '@nestjs/websockets';
 import { parse } from 'cookie';
+import type { Express } from 'express';
 import type { Server, Socket } from 'socket.io';
 import { AuditService } from '../audit/audit.service';
 import { isAllowedOrigin } from '../common/origin';
+import { forwardedAddress } from '../common/request-info';
 import { SESSION_COOKIE } from '../auth/session.guard';
 import { SessionService } from '../auth/session.service';
 import { canManageAdministration } from '../common/authorization';
@@ -32,6 +35,7 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection {
     private readonly sessions: SessionService,
     private readonly audit: AuditService,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
+    private readonly adapterHost: HttpAdapterHost,
   ) {}
 
   afterInit(server: Server): void {
@@ -58,7 +62,7 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection {
   }
 
   private async authenticate(socket: Socket): Promise<SocketData> {
-    const ip = socket.handshake.address || null;
+    const ip = this.clientAddress(socket);
     if (!isAllowedOrigin(socket.handshake.headers, this.config.allowedOrigins)) {
       await this.denied(ip, 'ORIGIN_MISMATCH');
       throw unauthenticated();
@@ -74,6 +78,14 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection {
       throw unauthenticated();
     }
     return { userId: result.user.id, sessionId: result.session.id, superAdmin: canManageAdministration(result.user) };
+  }
+
+  /** Adresse du client derrière Caddy : règle « trust proxy » d'Express (TRUST_PROXY), déjà compilée. */
+  private clientAddress(socket: Socket): string | null {
+    const express = this.adapterHost.httpAdapter.getInstance<Express>();
+    const trust = express.get('trust proxy fn') as (address: string, hop: number) => boolean;
+    const header = socket.handshake.headers['x-forwarded-for'];
+    return forwardedAddress(socket.handshake.address, Array.isArray(header) ? header.join(',') : header, trust);
   }
 
   private async denied(ip: string | null, reason: string, status?: string): Promise<void> {

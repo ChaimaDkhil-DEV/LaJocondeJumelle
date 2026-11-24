@@ -34,6 +34,12 @@ if [ "${#recipients[@]}" -eq 0 ]; then
   exit 1
 fi
 
+# Entier d'au moins 1 : 0 effacerait toutes les sauvegardes, celle qui vient d'être faite comprise.
+if ! [[ "${RETENTION_DAYS}" =~ ^[1-9][0-9]*$ ]]; then
+  echo "[backup] ÉCHEC : BACKUP_RETENTION_DAYS invalide (${RETENTION_DAYS}) : nombre de jours entier, 1 au minimum. Rien n'est sauvegardé ni supprimé." >&2
+  exit 1
+fi
+
 umask 077
 mkdir -p "${BACKUP_DIR}"
 # Copie de travail en clair de la base, hors du dossier des sauvegardes, effacée dans tous les cas.
@@ -71,6 +77,11 @@ rotate "${BACKUP_DIR}"
 
 # Copie hors du VPS : dossier BACKUP_OFFSITE_DIR de l'hôte (partage réseau, disque distant) monté sur /offsite.
 if [ -n "${OFFSITE_ENABLED:-}" ]; then
+  # Support non monté sur l'hôte : la « copie » resterait sur le disque du serveur, perdue avec lui.
+  if [ "$(stat -c %d "${OFFSITE_DIR}")" = "$(stat -c %d "${BACKUP_DIR}")" ]; then
+    echo "[backup] ÉCHEC de la copie hors du serveur : BACKUP_OFFSITE_DIR est sur le même disque que BACKUP_DIR (support non monté ?). Sauvegarde locale gardée : $(basename "${DB_ARCHIVE}")" >&2
+    exit 1
+  fi
   echo "[backup] copie hors du VPS"
   cp "${DB_ARCHIVE}" "${FILES_ARCHIVE}" "${OFFSITE_DIR}/"
   # Même durée de conservation que le dossier local : les données personnelles n'y restent pas plus longtemps.

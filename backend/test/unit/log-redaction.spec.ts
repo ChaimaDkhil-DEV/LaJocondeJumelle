@@ -10,6 +10,13 @@ describe('redact', () => {
     ['Authorization: Bearer eyJhbGciOi.payload.sig', 'Authorization: [masqué]'],
     ['haché $argon2id$v=19$m=65536,t=3,p=4$c2FsdA$aGFzaA', 'haché [masqué]'],
     ['newPassword: "Nouveau-456"', 'newPassword: "[masqué]"'],
+    ['échec postgresql://app:Secret-123@db:5432/app', 'échec postgresql://app:[masqué]@db:5432/app'],
+    ['clé sk-ant-api03-Ab_c-123 refusée', 'clé [masqué] refusée'],
+    ['x-api-key: Secret-123', 'x-api-key: [masqué]'],
+    ['ANTHROPIC_API_KEY=Secret-123 ok', 'ANTHROPIC_API_KEY=[masqué] ok'],
+    ['PUSH_VAPID_PRIVATE_KEY=Secret-123', 'PUSH_VAPID_PRIVATE_KEY=[masqué]'],
+    ['{"apiKey":"Secret-123"}', '{"apiKey":"[masqué]"}'],
+    ['privateKey: "Secret-123"', 'privateKey: "[masqué]"'],
   ])('masque les secrets dans « %s »', (input, expected) => {
     expect(redact(input)).toBe(expected);
   });
@@ -20,8 +27,19 @@ describe('redact', () => {
     ).toEqual({ username: 'enseignante', password: '[masqué]', currentPassword: '[masqué]', token: '[masqué]', text: '[masqué]', nested: { cookie: '[masqué]', id: 3 } });
   });
 
+  it('retire les clés d’API, clés privées et adresses de base des objets', () => {
+    expect(redact({ apiKey: 'a', privateKey: 'b', databaseUrl: 'c', publicKey: 'd' })).toEqual({
+      apiKey: '[masqué]',
+      privateKey: '[masqué]',
+      databaseUrl: '[masqué]',
+      publicKey: 'd',
+    });
+  });
+
   it('laisse intact un message sans secret', () => {
     expect(redact('3 demande(s) en retard')).toBe('3 demande(s) en retard');
+    expect(redact("Can't reach database server at http://db:5432/app")).toBe("Can't reach database server at http://db:5432/app");
+    expect(redact('https://ecole.fr:8443/profil contact@ecole.fr')).toBe('https://ecole.fr:8443/profil contact@ecole.fr');
   });
 });
 

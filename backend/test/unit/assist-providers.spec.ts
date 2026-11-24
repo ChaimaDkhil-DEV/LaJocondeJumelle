@@ -5,7 +5,7 @@ import { suggestionProviderFor, transcriptionProviderFor, type SuggestionInput }
 /** 011 : le fournisseur rules réutilise le moteur demoSuggest, sans réseau ni fausse transcription. */
 const env = {
   DATABASE_URL: 'postgresql://u:p@localhost:5432/db',
-  SESSION_SECRET: '0123456789abcdef0123456789abcdef',
+  SESSION_SECRET: 'Kq7vR2mX9tLb4WzN8cPd3HsJ6yFgA1eU',
   FILES_DIR: '/tmp/files',
   APP_ORIGIN: 'https://app.example.org',
   NODE_ENV: 'production',

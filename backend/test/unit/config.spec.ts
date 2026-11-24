@@ -3,7 +3,7 @@ import { ConfigError, loadConfig } from '../../src/config/config';
 
 const valid = {
   DATABASE_URL: 'postgresql://u:p@localhost:5432/app',
-  SESSION_SECRET: 'x'.repeat(32),
+  SESSION_SECRET: 'Kq7vR2mX9tLb4WzN8cPd3HsJ6yFgA1eU',
   FILES_DIR: './data/files',
   APP_ORIGIN: 'https://demandes.ecole.fr/',
 };
@@ -22,6 +22,118 @@ describe('loadConfig', () => {
       expect(() => loadConfig({ ...valid, [key]: '' })).toThrow(ConfigError);
     },
   );
+
+  it.each(['Production', 'PRODUCTION', 'prod', 'production ', 'staging'])(
+    'refuse NODE_ENV=« %s » au lieu de démarrer sans les protections de production',
+    (value) => {
+      expect(() => loadConfig({ ...valid, NODE_ENV: value })).toThrow(/NODE_ENV invalide/);
+    },
+  );
+
+  it.each([
+    [undefined, false],
+    ['', false],
+    ['development', false],
+    ['test', false],
+    ['production', true],
+  ])('accepte NODE_ENV=%s (production : %s)', (value, isProduction) => {
+    expect(loadConfig({ ...valid, NODE_ENV: value }).isProduction).toBe(isProduction);
+  });
+
+  describe.each(['SESSION_SECRET', 'QR_SIGNING_SECRET'])('%s faible', (key) => {
+    it.each([
+      'a'.repeat(32),
+      `${'x'.repeat(31)}y`,
+      'abcdefghij'.repeat(4),
+      '0123456789abcdef0123456789abcdef',
+      'e2e-session-secret-0123456789abcdef0123456789',
+      'test-session-secret-0123456789abcdef0123456789',
+      'demo-session-secret-0123456789abcdef0123456789',
+    ])('refusé en production, sans être cité : %s', (secret) => {
+      let message = '';
+      try {
+        loadConfig({ ...valid, NODE_ENV: 'production', [key]: secret });
+      } catch (error) {
+        message = (error as Error).message;
+      }
+      expect(message).toContain(`${key} trop faible`);
+      expect(message).not.toContain(secret);
+    });
+
+    it('accepté hors production (tests, démonstration)', () => {
+      expect(() => loadConfig({ ...valid, NODE_ENV: 'test', [key]: 'a'.repeat(32) })).not.toThrow();
+    });
+
+    it.each(['9f3b1c7e5a0d8246b7e1f9c30d5a8e6249c7b1f0e3d6a85279e4c1b0f8d3a657', 'mP4xT9qZ+r2LwV7/kB1nYc8HsJ0dGf5UaE6iOoXvRtQyWzNbMlKjHgFdSaPqWeRt'])(
+      'valeur aléatoire acceptée en production',
+      (secret) => {
+        expect(() => loadConfig({ ...valid, NODE_ENV: 'production', [key]: secret })).not.toThrow();
+      },
+    );
+
+    it('trop court : refusé', () => {
+      expect(() => loadConfig({ ...valid, [key]: 'court' })).toThrow(new RegExp(`${key} doit contenir au moins 32 caractères`));
+    });
+  });
+
+  it('secret des QR codes : le sien, sinon celui des sessions (QR déjà imprimés)', () => {
+    expect(loadConfig(valid).qrSecret).toBe(valid.SESSION_SECRET);
+    expect(loadConfig({ ...valid, QR_SIGNING_SECRET: '' }).qrSecret).toBe(valid.SESSION_SECRET);
+    const qr = 'Zt5nC8vK1pWx4RbQ7yLm2HsD9fJg3EaU';
+    expect(loadConfig({ ...valid, QR_SIGNING_SECRET: qr })).toMatchObject({ qrSecret: qr, sessionSecret: valid.SESSION_SECRET });
+    // Reprendre l'ancien SESSION_SECRET garde les QR imprimés valides quand celui des sessions change.
+    expect(() => loadConfig({ ...valid, NODE_ENV: 'production', QR_SIGNING_SECRET: valid.SESSION_SECRET })).not.toThrow();
+  });
+
+  it.each([
+    'http://demandes.ecole.fr',
+    'https://localhost',
+    'https://127.0.0.1',
+    'https://[::1]',
+    'https://https://demandes.ecole.fr',
+    'https://serveur',
+    'https://demandes.ecole.example',
+    'https://app.localhost',
+    'https://demandes.ecole.fr/chemin',
+    'https://demandes.ecole.fr/?a=1',
+    'https://u:p@demandes.ecole.fr',
+  ])('production : refuse APP_ORIGIN=%s', (origin) => {
+    expect(() => loadConfig({ ...valid, NODE_ENV: 'production', APP_ORIGIN: origin })).toThrow(/APP_ORIGIN/);
+  });
+
+  it.each([
+    ['https://demandes.ecole.fr/', 'https://demandes.ecole.fr'],
+    ['https://demandes.ecole.tn:8443', 'https://demandes.ecole.tn:8443'],
+  ])('production : accepte APP_ORIGIN=%s', (origin, expected) => {
+    expect(loadConfig({ ...valid, NODE_ENV: 'production', APP_ORIGIN: origin }).appOrigin).toBe(expected);
+  });
+
+  it.each(['mailto:a@b.fr', 'ftp://demandes.ecole.fr', 'javascript:alert(1)'])('refuse partout APP_ORIGIN=%s', (origin) => {
+    expect(() => loadConfig({ ...valid, APP_ORIGIN: origin })).toThrow(/APP_ORIGIN/);
+  });
+
+  it('développement : http://localhost reste accepté', () => {
+    expect(loadConfig({ ...valid, APP_ORIGIN: 'http://localhost:5173' }).appOrigin).toBe('http://localhost:5173');
+  });
+
+  it.each(['true', '3', '10', '0.0.0.0/0', '::/0', '128.0.0.0/1', 'loopback, 0.0.0.0/0', '10.0.0.0/7'])(
+    'production : refuse TRUST_PROXY=%s (adresse IP falsifiable)',
+    (value) => {
+      expect(() => loadConfig({ ...valid, NODE_ENV: 'production', TRUST_PROXY: value })).toThrow(/^TRUST_PROXY trop large/);
+    },
+  );
+
+  it.each(['uniquelocal', 'loopback', 'false', '1', '2', '10.0.0.0/8', '172.30.255.2', 'fd00::/8'])(
+    'production : accepte TRUST_PROXY=%s',
+    (value) => {
+      expect(() => loadConfig({ ...valid, NODE_ENV: 'production', TRUST_PROXY: value })).not.toThrow();
+    },
+  );
+
+  it('production : refuse JOBS_ENABLED=false (clôtures, rappels et anonymisation arrêtés)', () => {
+    expect(() => loadConfig({ ...valid, NODE_ENV: 'production', JOBS_ENABLED: 'false' })).toThrow(/JOBS_ENABLED/);
+    expect(loadConfig({ ...valid, NODE_ENV: 'test', JOBS_ENABLED: 'false' }).jobsEnabled).toBe(false);
+  });
 
   it('refuse la valeur d’exemple de SESSION_SECRET', () => {
     const placeholder = 'remplacer-par-une-valeur-aleatoire-de-32-caracteres-minimum';
@@ -360,6 +472,33 @@ describe('loadConfig — notifications push (014)', () => {
 /** 015 — automatisations externes (n8n) et canaux des communications aux parents : désactivés par défaut. */
 describe('loadConfig : n8n et canaux externes (015)', () => {
   const secret = 's'.repeat(32);
+
+  describe('production', () => {
+    const shared = 'Zt5nC8vK1pWx4RbQ7yLm2HsD9fJg3EaU';
+    const production = { ...valid, NODE_ENV: 'production', N8N_SHARED_SECRET: shared };
+
+    it.each(['http://n8n:5678/webhook/ljj', 'https://n8n.ecole.fr/webhook/ljj'])('accepte le webhook %s', (url) => {
+      expect(loadConfig({ ...production, N8N_WEBHOOK_URL: url }).n8n?.webhookUrl).toBe(url);
+    });
+
+    it.each(['http://n8n.ecole.fr/webhook/ljj', 'http://203.0.113.7/webhook', 'http://[2001:db8::1]/webhook'])(
+      'refuse le webhook non chiffré %s hors du réseau Docker',
+      (url) => {
+        expect(() => loadConfig({ ...production, N8N_WEBHOOK_URL: url })).toThrow(/N8N_WEBHOOK_URL doit utiliser https/);
+      },
+    );
+
+    it('refuse un secret partagé égal à un autre secret, ou faible', () => {
+      const n8n = { ...production, N8N_WEBHOOK_URL: 'http://n8n:5678/webhook/ljj' };
+      expect(() => loadConfig({ ...n8n, N8N_SHARED_SECRET: valid.SESSION_SECRET })).toThrow(/N8N_SHARED_SECRET doit être différent/);
+      expect(() => loadConfig({ ...n8n, QR_SIGNING_SECRET: shared })).toThrow(/N8N_SHARED_SECRET doit être différent/);
+      expect(() => loadConfig({ ...n8n, N8N_SHARED_SECRET: 'a'.repeat(32) })).toThrow(/N8N_SHARED_SECRET trop faible/);
+    });
+
+    it('refuse des canaux externes sans n8n : les messages ne partiraient jamais', () => {
+      expect(() => loadConfig({ ...valid, NODE_ENV: 'production', PARENT_COMM_CHANNELS: 'EMAIL' })).toThrow(/PARENT_COMM_CHANNELS/);
+    });
+  });
 
   it('sans variable : aucun envoi vers n8n, aucun canal externe', () => {
     const config = loadConfig(valid);

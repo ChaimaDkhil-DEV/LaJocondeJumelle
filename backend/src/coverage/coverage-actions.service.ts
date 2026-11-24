@@ -111,7 +111,7 @@ export class CoverageActionsService {
     private readonly settings: SettingsService,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {
-    this.qrKey = qrKeyFrom(config.sessionSecret);
+    this.qrKey = qrKeyFrom(config.qrSecret);
   }
 
   get key(): Buffer {

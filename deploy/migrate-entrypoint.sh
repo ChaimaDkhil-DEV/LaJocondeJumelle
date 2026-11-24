@@ -20,6 +20,11 @@ else
   case "$STATUS" in
     *"have not yet been applied"*)
       printf '%s\n' "$STATUS"
+      # Le conteneur ne tourne pas en root : un BACKUP_DIR fermé (chmod 700) passerait pour un dossier vide.
+      if [ ! -r "$BACKUP_DIR" ] || [ ! -x "$BACKUP_DIR" ]; then
+        echo "Dossier des sauvegardes illisible par le service migrate (BACKUP_DIR sur l'hôte : chmod 755 ; les archives, chiffrées, restent protégées)." >&2
+        exit 1
+      fi
       RECENT="$(find "$BACKUP_DIR" -maxdepth 1 -name 'db-*.dump.age' -mmin -"$MAX_AGE_MINUTES" 2>/dev/null || true)"
       if [ -z "$RECENT" ]; then
         echo "Migration en attente sans sauvegarde récente : lancez deploy/deploy.sh." >&2

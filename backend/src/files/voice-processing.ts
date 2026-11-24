@@ -12,6 +12,13 @@ export const VOICE_TOLERANCE_SECONDS = 2;
 
 const TOOL_TIMEOUT_MS = 60_000;
 
+/** Le nécessaire pour lancer ffmpeg et ffprobe : ils analysent des fichiers reçus et n'héritent d'aucun secret. */
+const TOOL_ENV = ['PATH', 'LD_LIBRARY_PATH', 'HOME', 'TMPDIR', 'TEMP', 'TMP', 'SystemRoot'] as const;
+
+function toolEnv(): NodeJS.ProcessEnv {
+  return Object.fromEntries(TOOL_ENV.filter((name) => process.env[name] !== undefined).map((name) => [name, process.env[name]]));
+}
+
 export interface VoiceProcessingOptions {
   ffmpegPath: string;
   ffprobePath: string;
@@ -34,7 +41,7 @@ async function probe(ffprobePath: string, path: string): Promise<ProbeResult> {
   const { stdout } = await execFileAsync(
     ffprobePath,
     ['-v', 'error', '-print_format', 'json', '-show_streams', '-show_format', path],
-    { timeout: TOOL_TIMEOUT_MS, maxBuffer: 1024 * 1024 },
+    { timeout: TOOL_TIMEOUT_MS, maxBuffer: 1024 * 1024, env: toolEnv() },
   );
   return JSON.parse(stdout) as ProbeResult;
 }
@@ -68,7 +75,7 @@ export async function processVoice(inputPath: string, options: VoiceProcessingOp
           '-movflags', '+faststart', '-f', 'mp4',
           outputPath,
         ],
-        { timeout: TOOL_TIMEOUT_MS },
+        { timeout: TOOL_TIMEOUT_MS, env: toolEnv() },
       );
     } catch {
       throw new AppException('FILE_TYPE_NOT_ALLOWED');

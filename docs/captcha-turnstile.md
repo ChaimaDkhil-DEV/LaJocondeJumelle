@@ -107,8 +107,7 @@ and `example.com`.
    TURNSTILE_SECRET_KEY=<secret key>
    ```
 
-2. Restart: `deploy/deploy.sh --no-pull`, or on a school server
-   `COMPOSE_OVERRIDE_FILE=deploy/docker-compose.school.yml deploy/deploy.sh --no-pull`. The API reads both keys; Caddy
+2. Restart: `deploy/deploy.sh --no-pull`. The API reads both keys; Caddy
    then adds `https://challenges.cloudflare.com` to `script-src` and `frame-src`, and nowhere else. Pages opened
    before the restart keep the old policy: they must be reloaded once (« Relancer la vérification » does it).
 3. Check, **keeping one administrator session open** until it is done:

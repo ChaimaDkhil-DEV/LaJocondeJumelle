@@ -26,6 +26,11 @@
 		-Server
 	}
 
+	# Routes réservées à n8n, qui joint l'API par le réseau Docker (http://api:3000) : jamais depuis Internet.
+	handle /api/integrations/* {
+		respond 404
+	}
+
 	# API REST : corps limité au plafond technique des envois (25 Mo, files.controller) + marge
 	# multipart. Le réglage attachmentMaxBytes (25 Mo au plus) est ensuite appliqué par l'API.
 	handle /api/* {

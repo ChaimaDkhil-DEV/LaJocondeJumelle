@@ -95,7 +95,8 @@ Services: `n8n` (image pinned by digest, 1 CPU / 1 GB), `n8n-db` (dedicated Post
 app, in `BACKUP_DIR/n8n` and `BACKUP_OFFSITE_DIR/n8n`). Volumes `n8n_data`, `n8n_pgdata`. No published port.
 
 1. DNS: an `A`/`AAAA` record for the n8n subdomain (e.g. `n8n.ecole.example`) pointing to the server. Caddy
-   obtains its HTTPS certificate.
+   obtains its HTTPS certificate over HTTP, so this needs a server reachable from the Internet. On a school server
+   (no inbound port), leave `N8N_DOMAIN` empty and reach the editor through an SSH tunnel.
 2. In `deploy/.env` (see `deploy/.env.example`):
 
    ```text

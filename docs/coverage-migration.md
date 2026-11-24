@@ -122,4 +122,6 @@ The up → down → up sequence was verified on a disposable database: after eac
 
 ## QR code key
 
-The classes' QR codes are signed with a key derived from `SESSION_SECRET`. Changing `SESSION_SECRET` invalidates all printed QR codes: they must then be reprinted from Administration › Classes.
+The classes' QR codes are signed with a key derived from `QR_SIGNING_SECRET` or, when it is empty, from `SESSION_SECRET`. Changing that secret invalidates all printed QR codes: they must then be reprinted from Administration › Classes.
+
+To replace `SESSION_SECRET` without reprinting QR codes that were signed with it, first set `QR_SIGNING_SECRET` to the current value of `SESSION_SECRET`, then change `SESSION_SECRET`.
