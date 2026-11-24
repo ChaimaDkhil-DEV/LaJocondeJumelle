@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { expectNoA11yViolations } from './support/axe';
 import { login } from './support/login';
+import { openNavigation } from './support/navigation';
 
 /**
  * 012 — Section « Surveillance » (ex-« Gardes ») : trois onglets pour l'administration, filtres du suivi gardés
@@ -17,8 +18,7 @@ test.describe('Section « Surveillance » (012)', () => {
 
   test('admin : onglets, filtres, ancienne adresse, accessibilité', async ({ page }) => {
     await login(page, 'admin');
-    const menu = page.getByRole('button', { name: 'Ouvrir le menu' });
-    if (await menu.isVisible()) await menu.click();
+    await openNavigation(page);
     await page.getByRole('link', { name: 'Surveillance', exact: true }).click();
 
     await expect(page.getByRole('heading', { level: 1, name: 'Surveillance' })).toBeVisible();
