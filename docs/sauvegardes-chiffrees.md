@@ -47,7 +47,7 @@ Dans `deploy/.env` :
 BACKUP_AGE_RECIPIENT=age1…              # ou : age1…(direction),age1…(prestataire)
 ```
 
-Puis `deploy/deploy.sh` (ou `COMPOSE_OVERRIDE_FILE=deploy/docker-compose.school.yml deploy/deploy.sh`).
+Puis `deploy/deploy.sh`.
 Le script reconstruit l'image de sauvegarde (`deploy/backup.Dockerfile` : `postgres:17` et age), fait
 une sauvegarde chiffrée, puis met à jour l'application. Le journal doit se terminer par
 `[backup] terminé : db-….dump.age files-….tar.gz.age`.

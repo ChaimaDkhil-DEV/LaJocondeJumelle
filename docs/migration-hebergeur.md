@@ -5,7 +5,8 @@ says how to return to the previous server if the move fails. For a normal update
 use `deploy/deploy.sh` (see the [quickstart](../specs/001-demandes-travail-vocales/quickstart.md)).
 
 Below, `DC` stands for `docker compose -f deploy/docker-compose.yml --env-file deploy/.env`, run from
-the repository root. "Old server" and "new server" are the two hosts.
+the repository root. "Old server" and "new server" are the two hosts. On a school server, add
+`-f deploy/docker-compose.school.yml` after the first `-f`: without it, `DC up` restarts Caddy without the school profile.
 
 ## What moves
 
@@ -19,8 +20,9 @@ the repository root. "Old server" and "new server" are the two hosts.
 | Images | Rebuilt on the new server |
 | HTTPS certificates | Issued again by Caddy once the DNS points to the new server |
 
-**Keep the same `SESSION_SECRET`.** Printed class QR codes are signed with a key derived from it: a new
-value invalidates them all, as well as every session. Keep the same `POSTGRES_USER` and `POSTGRES_DB`
+**Keep the same `SESSION_SECRET` and `QR_SIGNING_SECRET`.** Printed class QR codes are signed with a key derived
+from `QR_SIGNING_SECRET` (or from `SESSION_SECRET` when it is empty): a new value invalidates them all. A new
+`SESSION_SECRET` also closes every session. Keep the same `POSTGRES_USER` and `POSTGRES_DB`
 too. `POSTGRES_PASSWORD` and `APP_DB_PASSWORD` can differ: the `migrate` service recreates the API's runtime role
 and its grants on the new server ([roles-base-de-donnees.md](roles-base-de-donnees.md)).
 

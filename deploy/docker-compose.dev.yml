@@ -8,7 +8,8 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: app
     ports:
-      - '5433:5432'
+      # Ce poste seulement : le mot de passe est connu.
+      - '127.0.0.1:5433:5432'
     volumes:
       - pgdata-dev:/var/lib/postgresql/data
       - ./dev/init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql:ro

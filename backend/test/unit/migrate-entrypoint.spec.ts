@@ -77,6 +77,7 @@ function runEntrypoint(
   backupAgeMinutes?: number,
   archiveName = 'db-20260101T000000Z.dump.age',
   rolesFail = false,
+  backupFolder = 'backups',
 ): Run {
   const work = mkdtempSync(join(tmpdir(), 'ljj-entrypoint-'));
   try {
@@ -114,7 +115,7 @@ function runEntrypoint(
       env: {
         ...process.env,
         PATH: `${bin}${delimiter}${process.env.PATH ?? ''}`,
-        PRE_MIGRATION_BACKUP_DIR: posix(backups),
+        PRE_MIGRATION_BACKUP_DIR: posix(join(work, backupFolder)),
         PRE_MIGRATION_BACKUP_MAX_AGE_MINUTES: '60',
       },
     });
@@ -175,6 +176,14 @@ describe('deploy/migrate-entrypoint.sh', () => {
     expect(run.status).toBe(1);
     expect(run.stderr).toContain(REFUSAL);
     expect(deployed(run)).toBe(false);
+  });
+
+  it('(8) dossier des sauvegardes illisible : refus avec la vraie cause', () => {
+    const run = runEntrypoint('pending', 5, 'db-20260101T000000Z.dump.age', false, 'absent');
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('Dossier des sauvegardes illisible');
+    expect(deployed(run)).toBe(false);
+    expect(rolesApplied(run)).toBe(false);
   });
 
   it('(5) base inaccessible : erreur de Prisma recopiée, rien n’est appliqué ni démarré', () => {

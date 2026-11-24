@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { assertNoEnvFileInProduction } from '../config/load-env-file';
 import { applyRuntimeRole } from '../database/runtime-role';
 
 /**
@@ -8,6 +9,7 @@ import { applyRuntimeRole } from '../database/runtime-role';
  * app_runtime), APP_DB_PASSWORD (obligatoire).
  */
 async function main(): Promise<void> {
+  assertNoEnvFileInProduction();
   const prisma = new PrismaClient();
   try {
     const summary = await applyRuntimeRole(prisma, {

@@ -32,7 +32,6 @@ export default async function globalSetup(): Promise<void> {
   globalThis.__TEST_DB__ = db;
   // Les workers Jest héritent de ces variables d'environnement.
   process.env.DATABASE_URL = db.url;
-  process.env.DATABASE_URL_TEST = db.url;
   // Audit de sécurité R02 : l'application des tests tourne avec le rôle d'exécution, comme en production
   // (createTestApp) ; les tests gardent le compte propriétaire pour préparer et vider la base.
   process.env.RUNTIME_DATABASE_URL_TEST = await createRuntimeRole(db.url);

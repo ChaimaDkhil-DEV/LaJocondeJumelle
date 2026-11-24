@@ -13,7 +13,13 @@ Le déploiement VPS existant n'est pas modifié : le profil Caddy par défaut (`
 ## 1. Serveur
 
 Ubuntu Server 24.04 LTS, IP fixe, 4 cœurs, 8 Go de RAM minimum, SSD, onduleur. Installer Docker Engine,
-le plugin Compose et git. Pare-feu : seul SSH (réseau interne) ; aucun port entrant public n'est requis.
+le plugin Compose et git. Aucun port entrant public n'est requis : ne rediriger aucun port du routeur vers le serveur.
+
+**Pare-feu** : les ports 80 et 443 sont publiés par Docker, sans passer par les règles habituelles de UFW. Le personnel
+a besoin du 443 sur le réseau interne ; SSH reste limité à l'administration. Pour limiter 80 et 443 à certaines
+adresses, il faut des règles dans la chaîne `DOCKER-USER` d'iptables (documentation Docker, « Packet filtering and
+firewalls ») : une règle UFW seule ne suffit pas. Vérifier depuis l'extérieur du réseau que 80 et 443 ne répondent pas.
+
 Prévoir un disque ou NAS distinct pour `BACKUP_OFFSITE_DIR`.
 
 ## 2. Cloudflare
@@ -41,24 +47,26 @@ git clone <dépôt> && cd LaJocondeJumelle
 cp deploy/.env.example deploy/.env
 ```
 
-Renseigner dans `deploy/.env` : `DOMAIN`, `ACME_EMAIL`, `POSTGRES_PASSWORD` et `APP_DB_PASSWORD` (chacun
+Renseigner dans `deploy/.env` : `COMPOSE_OVERRIDE_FILE=deploy/docker-compose.school.yml` (profil école, lu par
+`deploy.sh` et `restore.sh`), `DOMAIN`, `ACME_EMAIL`, `POSTGRES_PASSWORD` et `APP_DB_PASSWORD` (chacun
 `openssl rand -hex 32`, voir `docs/roles-base-de-donnees.md`),
-`SESSION_SECRET` (`openssl rand -base64 48`, **à conserver hors du serveur** : le perdre invalide les QR
-codes imprimés), `SCHOOL_TIMEZONE=Africa/Tunis`, `BACKUP_OFFSITE_DIR`, `BACKUP_AGE_RECIPIENT` (clé publique de chiffrement des
+`SESSION_SECRET` et `QR_SIGNING_SECRET` (chacun `openssl rand -base64 48`, **à conserver hors du serveur** : perdre
+le second invalide les QR codes imprimés), `SCHOOL_TIMEZONE=Africa/Tunis`, `BACKUP_OFFSITE_DIR`, `BACKUP_AGE_RECIPIENT` (clé publique de chiffrement des
 sauvegardes, clé privée gardée hors du serveur : `docs/sauvegardes-chiffrees.md`), `CF_API_TOKEN`, `CF_TUNNEL_TOKEN`.
 
 ## 5. Déploiement
 
 ```text
-COMPOSE_OVERRIDE_FILE=deploy/docker-compose.school.yml deploy/deploy.sh
+deploy/deploy.sh
 ```
 
 Le script sauvegarde, reconstruit (la première fois, la compilation de Caddy avec le module Cloudflare
 prend quelques minutes) et redémarre. Vérifier : `docker compose -f deploy/docker-compose.yml -f
 deploy/docker-compose.school.yml --env-file deploy/.env ps` (tous les services démarrés, `api` sain),
 puis les journaux de Caddy : le certificat doit être obtenu (`certificate obtained successfully`).
-Pour `ps` et `logs`, ajouter le même `-f` complémentaire. `restore.sh` n'en a pas besoin (base de
-données et fichiers seulement).
+`deploy.sh` et `restore.sh` lisent `COMPOSE_OVERRIDE_FILE` dans `deploy/.env`. Toute commande Compose tapée à la
+main, en particulier `up`, doit porter les deux `-f` ci-dessus : sans le second, Caddy redémarre sans le profil école
+(plus de certificat DNS-01, plus d'accès des parents). Pour réparer, relancer `deploy/deploy.sh --no-pull`.
 
 ## 6. Vérifications
 

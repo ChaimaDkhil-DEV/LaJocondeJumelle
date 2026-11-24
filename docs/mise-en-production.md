@@ -24,10 +24,13 @@ Profil « école » (serveur local et tunnel Cloudflare) : suivre en plus `docs/
 ## 2. Serveur
 
 - [ ] Pare-feu : seuls les ports 22 (restreint aux adresses de l'administration), 80 et 443 (TCP, et UDP pour
-      HTTP/3) sont ouverts.
+      HTTP/3) sont ouverts. Docker publie 80 et 443 sans passer par UFW : le contrôler depuis une autre machine.
 - [ ] SSH par clés seulement : `PasswordAuthentication no` et `PermitRootLogin no`.
 - [ ] Mises à jour de sécurité automatiques activées (par exemple `unattended-upgrades`).
-- [ ] Rotation des journaux Docker : `log-opts` `max-size` et `max-file` dans `/etc/docker/daemon.json`.
+- [ ] Journaux Docker bornés : `docker inspect -f '{{.HostConfig.LogConfig}}' <conteneur>` montre `max-size` et
+      `max-file` (réglés dans `deploy/docker-compose.yml`).
+- [ ] Groupe `docker` réservé aux administrateurs : ses membres lisent tous les secrets (`docker inspect`) et ont
+      l'équivalent des droits root.
 - [ ] Accès au dépôt GitHub par une clé de déploiement **en lecture seule**.
 - [ ] Heure du serveur synchronisée (NTP).
 
@@ -39,6 +42,7 @@ Copier `deploy/.env.example` en `deploy/.env`. Ce fichier ne doit jamais être c
 - [ ] `DOMAIN` et `ACME_EMAIL` réels ; l'enregistrement DNS pointe vers le serveur.
 - [ ] `POSTGRES_PASSWORD` : `openssl rand -hex 32`.
 - [ ] `SESSION_SECRET` : `openssl rand -base64 48`.
+- [ ] `QR_SIGNING_SECRET` : `openssl rand -base64 48`, une autre valeur, **avant la première impression** des QR codes.
   - Il ne doit **jamais** être perdu ni changé : les QR codes imprimés des classes en dépendent.
 - [ ] `APP_DB_PASSWORD` : `openssl rand -hex 32`. C'est le rôle restreint de l'API
       (`docs/roles-base-de-donnees.md`).
@@ -50,6 +54,9 @@ Copier `deploy/.env.example` en `deploy/.env`. Ce fichier ne doit jamais être c
 - [ ] `BACKUP_ALERT_URL` : une adresse qui prévient réellement quelqu'un.
 - [ ] `SCHOOL_TIMEZONE=Africa/Tunis`.
 - [ ] Assistance IA (`ASSIST_*`) : `disabled` ou `rules`, sauf décision écrite (section 8).
+- [ ] Transcription Whisper, si elle est activée : `COMPOSE_PROFILES=whisper`, modèle téléchargé
+      (`specs/010-assistance-fournisseurs-similaires/quickstart.md`), durée mesurée sur ce serveur avec un vocal de 3 minutes
+      et `ASSIST_TRANSCRIPTION_TIMEOUT_MS` réglé au-dessus (300000 au plus).
 - [ ] Notifications push (`PUSH_VAPID_*`) vides et profil `n8n` non lancé, sauf décision écrite (section 8).
 - [ ] CAPTCHA (`TURNSTILE_*`) vide, sauf décision écrite (section 8). S'il est activé : vraies clés (les clés de test
       sont refusées), widget limité au domaine réel, vérifications de `docs/captcha-turnstile.md`.

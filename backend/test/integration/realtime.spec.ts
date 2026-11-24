@@ -23,13 +23,13 @@ describe('Temps réel (Socket.IO)', () => {
   /** Événements reçus par socket, pour vérifier aussi l'absence d'événement. */
   const received = new Map<Socket, Array<{ event: string; payload: unknown }>>();
 
-  function connect(cookie?: string, origin = TEST_ORIGIN): Promise<Socket> {
+  function connect(cookie?: string, origin = TEST_ORIGIN, headers: Record<string, string> = {}): Promise<Socket> {
     const socket = io(baseUrl, {
       path: '/socket.io',
       transports: ['websocket'],
       reconnection: false,
       forceNew: true,
-      extraHeaders: { ...(cookie ? { Cookie: cookie } : {}), Origin: origin },
+      extraHeaders: { ...(cookie ? { Cookie: cookie } : {}), Origin: origin, ...headers },
     });
     sockets.push(socket);
     received.set(socket, []);
@@ -93,6 +93,14 @@ describe('Temps réel (Socket.IO)', () => {
       await expect(connect()).rejects.toMatchObject({ message: 'UNAUTHENTICATED' });
       const entry = await prisma.auditLog.findFirstOrThrow({ where: { action: 'ACCESS_DENIED' }, orderBy: { createdAt: 'desc' } });
       expect(entry.details).toMatchObject({ reason: 'UNAUTHENTICATED', channel: 'socket' });
+    });
+
+    it('journalise l’adresse du client transmise par le proxy, pas celle du proxy', async () => {
+      await expect(connect(undefined, TEST_ORIGIN, { 'X-Forwarded-For': '1.2.3.4, 203.0.113.7' })).rejects.toMatchObject({
+        message: 'UNAUTHENTICATED',
+      });
+      const entry = await prisma.auditLog.findFirstOrThrow({ where: { action: 'ACCESS_DENIED' }, orderBy: { createdAt: 'desc' } });
+      expect(entry.ip).toBe('203.0.113.7');
     });
 
     it('refuse une Origin étrangère même avec une session valide', async () => {

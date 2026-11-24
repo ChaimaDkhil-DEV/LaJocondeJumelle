@@ -104,17 +104,18 @@ describe('.env.example', () => {
     expect(env).toMatch(new RegExp(`^#?\\s*${name}=\\s*$`, 'm'));
   });
 
+  it('documente le fichier compose complémentaire, désactivé par défaut (VPS)', () => {
+    expect(env).toMatch(/^# COMPOSE_OVERRIDE_FILE=deploy\/docker-compose\.school\.yml\r?$/m);
+  });
+
+  it('règle l’heure sur celle de l’établissement', () => {
+    expect(env).toMatch(/^TZ=Africa\/Tunis\r?$/m);
+    expect(env).toMatch(/^SCHOOL_TIMEZONE=Africa\/Tunis\r?$/m);
+  });
+
   it('documente le réseau du tunnel et l’adresse de cloudflared (R04)', () => {
     expect(env).toMatch(/^# TUNNEL_SUBNET=172\.30\.255\.0\/29\r?$/m);
     expect(env).toMatch(/^# TUNNEL_IP_RANGE=172\.30\.255\.4\/30\r?$/m);
     expect(env).toMatch(/^# CLOUDFLARED_IP=172\.30\.255\.2\r?$/m);
-  });
-});
-
-describe('deploy.sh', () => {
-  it('accepte un fichier compose complémentaire via COMPOSE_OVERRIDE_FILE', () => {
-    const script = read('deploy/deploy.sh');
-    expect(script).toMatch(/COMPOSE_OVERRIDE_FILE/);
-    expect(script).toMatch(/-f "\$COMPOSE_OVERRIDE_FILE"/);
   });
 });

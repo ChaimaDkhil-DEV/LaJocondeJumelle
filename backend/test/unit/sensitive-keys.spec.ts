@@ -11,7 +11,7 @@ describe('Clés sensibles communes', () => {
     },
   );
 
-  it.each(['reason', 'route', 'username', 'messages', 'contentType'])('ne reconnaît pas « %s »', (key) => {
+  it.each(['reason', 'route', 'username', 'messages', 'contentType', 'key', 'changes', 'publicKey'])('ne reconnaît pas « %s »', (key) => {
     expect(SENSITIVE_KEY.test(key)).toBe(false);
   });
 

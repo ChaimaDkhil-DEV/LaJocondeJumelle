@@ -1,6 +1,7 @@
 import { PrismaClient, type Prisma, type Role } from '@prisma/client';
 import { argon2id, hash } from 'argon2';
 import { randomBytes } from 'node:crypto';
+import { assertNoEnvFileInProduction } from '../config/load-env-file';
 import { DEFAULT_PERMISSIONS } from '../settings/default-permissions';
 import { SETTING_DEFAULTS } from '../settings/settings.service';
 
@@ -95,6 +96,7 @@ export async function resetSuperAdminPassword(
  * passe d'un super administrateur.
  */
 async function main(): Promise<void> {
+  assertNoEnvFileInProduction();
   const prisma = new PrismaClient();
   try {
     if (process.argv[2] === '--reset-password') {

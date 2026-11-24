@@ -1,9 +1,16 @@
 # Serveur local d'une école : HTTPS par défi DNS-01 (Cloudflare) et accès des parents par Cloudflare
-# Tunnel (aucun port à ouvrir sur le routeur). À ajouter au fichier de base :
-#   COMPOSE_OVERRIDE_FILE=deploy/docker-compose.school.yml deploy/deploy.sh
-# ou, à la main :
+# Tunnel (aucun port à ouvrir sur le routeur). Ajouté au fichier de base par deploy/deploy.sh et
+# deploy/backup/restore.sh, avec dans deploy/.env : COMPOSE_OVERRIDE_FILE=deploy/docker-compose.school.yml
+# ou, à la main (les deux -f, toujours : sans le second, Caddy perd le profil école) :
 #   docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.school.yml --env-file deploy/.env up -d --build
 # Procédure complète : docs/deploiement-ecole-local.md
+# Journaux bornés : 5 fichiers de 10 Mo par conteneur (sans limite, ils finissent par remplir le disque).
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: '5'
+
 services:
   caddy:
     environment:
@@ -21,6 +28,7 @@ services:
   # Adresse fixe sur un réseau réservé au tunnel : Caddy ne fait confiance qu'à elle ; cloudflared ne
   # joint ni l'API ni la base.
   cloudflared:
+    logging: *logging
     image: cloudflare/cloudflared:2026.11.0
     restart: unless-stopped
     command: tunnel --no-autoupdate run

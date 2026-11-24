@@ -2,8 +2,16 @@
 #   docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build
 name: ljj
 
+# Journaux bornés : 5 fichiers de 10 Mo par conteneur (sans limite, ils finissent par remplir le disque).
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: '5'
+
 services:
   caddy:
+    logging: *logging
     build:
       context: ..
       dockerfile: deploy/web.Dockerfile
@@ -15,6 +23,9 @@ services:
     environment:
       DOMAIN: ${DOMAIN:?DOMAIN manquant}
       ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL manquant}
+      # Éditeur n8n : mêmes défauts que le Caddyfile, qui ne les applique qu'à une variable absente (pas vide).
+      N8N_DOMAIN: ${N8N_DOMAIN:-n8n.localhost}
+      N8N_ALLOWED_IPS: ${N8N_ALLOWED_IPS:-127.0.0.1/32}
       # CAPTCHA activé : la politique de sécurité du contenu admet Cloudflare (deploy/caddy-entrypoint.sh).
       TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:-}
     volumes:
@@ -27,6 +38,7 @@ services:
         condition: service_healthy
 
   api:
+    logging: *logging
     build:
       context: ..
       dockerfile: deploy/api.Dockerfile
@@ -40,6 +52,8 @@ services:
       # service migrate. Jamais le compte propriétaire : l'API refuse alors de démarrer.
       DATABASE_URL: postgresql://${APP_DB_USER:-app_runtime}:${APP_DB_PASSWORD:?APP_DB_PASSWORD manquant (voir deploy/.env.example)}@db:5432/${POSTGRES_DB:-app}
       SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET manquant}
+      # Signature des QR codes imprimés ; vide : clé tirée de SESSION_SECRET (QR imprimés avant ce réglage).
+      QR_SIGNING_SECRET: ${QR_SIGNING_SECRET:-}
       APP_ORIGIN: https://${DOMAIN}
       FILES_DIR: /data/files
       # Adresse IP cliente transmise par Caddy (réseau Docker privé).
@@ -94,6 +108,7 @@ services:
   # propriétaire, que l'API ne voit jamais. Une migration en attente n'est appliquée qu'avec une sauvegarde
   # récente (deploy/deploy.sh) ; voir deploy/migrate-entrypoint.sh.
   migrate:
+    logging: *logging
     build:
       context: ..
       dockerfile: deploy/api.Dockerfile
@@ -120,6 +135,7 @@ services:
   #   docker compose -f deploy/docker-compose.yml --env-file deploy/.env --profile whisper up -d
   # Aucun port publié : l'API le joint en HTTPS par Caddy (https://caddy:8444).
   whisper:
+    logging: *logging
     image: ghcr.io/speaches-ai/speaches:0.8.3-cpu@sha256:21e3df06d842fb7802ab470dd77c25f0e8c0d22950e8d8c6ae886e851af53ef8
     profiles: ['whisper']
     restart: unless-stopped
@@ -136,6 +152,7 @@ services:
   # les événements (outbox) et les renvoie. Base PostgreSQL dédiée, aucun port publié ; l'éditeur
   # est servi par Caddy sur N8N_DOMAIN (HTTPS), aux seules adresses N8N_ALLOWED_IPS.
   n8n:
+    logging: *logging
     image: n8nio/n8n:2.44.7@sha256:942bc274709f27f99f7c6024a785d8e8f75ac06838cabcba448abb8d9127ec7b
     profiles: ['n8n']
     restart: unless-stopped
@@ -209,6 +226,7 @@ services:
 
   # Base dédiée à n8n : séparée de celle de l'application (aucun accès croisé).
   n8n-db:
+    logging: *logging
     image: postgres:17
     profiles: ['n8n']
     restart: unless-stopped
@@ -232,6 +250,7 @@ services:
   # Sauvegarde quotidienne de n8n (base + dossier /home/node/.n8n), mêmes scripts et même rotation
   # que l'application, dans le sous-dossier n8n de BACKUP_DIR (et de BACKUP_OFFSITE_DIR).
   n8n-backup:
+    logging: *logging
     build:
       context: ..
       dockerfile: deploy/backup.Dockerfile
@@ -244,7 +263,7 @@ services:
       PGDATABASE: ${N8N_POSTGRES_DB:-n8n}
       BACKUP_TIME: ${N8N_BACKUP_TIME:-02:45}
       # Clé(s) publique(s) age : archives chiffrées, refus sans clé (audit R03, docs/sauvegardes-chiffrees.md).
-      BACKUP_AGE_RECIPIENT: ${BACKUP_AGE_RECIPIENT:-}
+      BACKUP_AGE_RECIPIENT: ${BACKUP_AGE_RECIPIENT:?BACKUP_AGE_RECIPIENT manquant (voir docs/sauvegardes-chiffrees.md)}
       BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
       OFFSITE_ENABLED: ${BACKUP_OFFSITE_DIR:+1}
       TZ: ${TZ:-Europe/Paris}
@@ -269,6 +288,7 @@ services:
         condition: service_healthy
 
   db:
+    logging: *logging
     image: postgres:17
     restart: unless-stopped
     # Aucun port publié.
@@ -286,6 +306,7 @@ services:
 
   # Sauvegarde quotidienne : pg_dump compressé + archive des fichiers, chiffrés (age), rotation 14 jours.
   backup:
+    logging: *logging
     build:
       context: ..
       dockerfile: deploy/backup.Dockerfile
@@ -297,7 +318,7 @@ services:
       PGDATABASE: ${POSTGRES_DB:-app}
       BACKUP_TIME: ${BACKUP_TIME:-02:30}
       # Clé(s) publique(s) age : archives chiffrées, refus sans clé (audit R03, docs/sauvegardes-chiffrees.md).
-      BACKUP_AGE_RECIPIENT: ${BACKUP_AGE_RECIPIENT:-}
+      BACKUP_AGE_RECIPIENT: ${BACKUP_AGE_RECIPIENT:?BACKUP_AGE_RECIPIENT manquant (voir docs/sauvegardes-chiffrees.md)}
       BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
       # Non vide seulement si BACKUP_OFFSITE_DIR est défini.
       OFFSITE_ENABLED: ${BACKUP_OFFSITE_DIR:+1}

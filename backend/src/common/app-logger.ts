@@ -3,13 +3,19 @@ import { SENSITIVE_KEY } from './sensitive-keys';
 
 const MASK = '[masqué]';
 
+/** Noms de variables ou de champs dont la valeur est un secret. */
+const SECRET_NAME = 'pass(?:word)?|token|secret|api[_-]?key|private[_-]?key';
+
 /** Motifs de secrets dans du texte libre (messages d'erreur, piles d'appel). */
 const PATTERNS: Array<[RegExp, string]> = [
   [/\$argon2(id|i|d)\$\S+/g, MASK],
-  [/((?:cookie|authorization)\s*:\s*)[^\r\n]*/gi, `$1${MASK}`],
-  [/("[\w-]*(?:pass(?:word)?|token|secret)[\w-]*"\s*:\s*")[^"]*(")/gi, `$1${MASK}$2`],
-  [/(\b[\w-]*(?:pass(?:word)?|token|secret)[\w-]*\s*:\s*")[^"]*(")/gi, `$1${MASK}$2`],
-  [/(\b[\w-]*(?:pass(?:word)?|token|secret)[\w-]*=)[^\s&;,]+/gi, `$1${MASK}`],
+  [/((?:cookie|authorization|x-api-key)\s*:\s*)[^\r\n]*/gi, `$1${MASK}`],
+  // Mot de passe dans une adresse (postgresql://compte:mot-de-passe@hôte) et clé d'API Anthropic.
+  [/(\b[a-z][\w+.-]*:\/\/[^\s:/@]*:)[^\s/@]+(@)/gi, `$1${MASK}$2`],
+  [/\bsk-ant-[\w-]+/g, MASK],
+  [new RegExp(`("[\\w-]*(?:${SECRET_NAME})[\\w-]*"\\s*:\\s*")[^"]*(")`, 'gi'), `$1${MASK}$2`],
+  [new RegExp(`(\\b[\\w-]*(?:${SECRET_NAME})[\\w-]*\\s*:\\s*")[^"]*(")`, 'gi'), `$1${MASK}$2`],
+  [new RegExp(`(\\b[\\w-]*(?:${SECRET_NAME})[\\w-]*=)[^\\s&;,]+`, 'gi'), `$1${MASK}`],
   [/(\bsid=)[^\s;,]+/gi, `$1${MASK}`],
 ];
 

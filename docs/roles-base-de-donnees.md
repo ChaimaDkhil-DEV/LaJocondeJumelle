@@ -67,6 +67,15 @@ APP_DB_PASSWORD=          # openssl rand -hex 32 (lettres et chiffres, 32 caract
 Modifier `APP_DB_PASSWORD` dans `deploy/.env`, puis `deploy/deploy.sh` (ou `docker compose … up -d`) :
 `migrate` applique le nouveau mot de passe avant que l'API redémarre avec lui.
 
+## Changer le mot de passe du compte propriétaire
+
+`POSTGRES_PASSWORD` n'est appliqué qu'à la création de la base : le modifier seulement dans `deploy/.env` empêche
+`migrate` et les sauvegardes de se connecter. `deploy/deploy.sh` exige 32 à 128 lettres ou chiffres. Pour le changer :
+
+1. Dans le conteneur `db`, ouvrir `psql -U app -d app` (ou `POSTGRES_USER`, `POSTGRES_DB`), puis `\password app` : la
+   valeur est saisie au clavier, jamais sur la ligne de commande.
+2. Mettre la même valeur dans `deploy/.env`, puis lancer `deploy/deploy.sh`.
+
 ## Restauration et changement de serveur
 
 `deploy/backup/restore.sh` ignore les droits contenus dans la sauvegarde (`--no-privileges`) : sur un

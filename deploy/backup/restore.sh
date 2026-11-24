@@ -11,10 +11,10 @@ set -euo pipefail
 
 USAGE="Usage : deploy/backup/restore.sh <horodatage, ex. 20261013T003000Z> <fichier de clé privée age>"
 STAMP="${1:?${USAGE}}"
-COMPOSE=(docker compose -f deploy/docker-compose.yml --env-file deploy/.env)
+# Tableau COMPOSE, avec le fichier complémentaire éventuel (serveur d'école : COMPOSE_OVERRIDE_FILE dans deploy/.env).
+source deploy/compose-command.sh
 # Dossier des sauvegardes sur l'hôte (BACKUP_DIR est relatif à deploy/).
-# Lecture de la seule variable BACKUP_DIR (le fichier .env n'est pas exécuté).
-BACKUP_DIR_VALUE="$(sed -n 's/^BACKUP_DIR=//p' deploy/.env | tail -n 1)"
+BACKUP_DIR_VALUE="$(env_value BACKUP_DIR)"
 BACKUP_DIR_HOST="$(cd deploy && cd "${BACKUP_DIR_VALUE:-./backups}" && pwd)"
 
 if [ -f "${BACKUP_DIR_HOST}/db-${STAMP}.dump.age" ]; then

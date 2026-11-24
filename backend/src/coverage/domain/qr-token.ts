@@ -10,7 +10,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 const PREFIX = 'c1';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** Clé dédiée, dérivée du secret serveur (une rotation du secret invalide les QR imprimés). */
+/** Clé dédiée, dérivée du secret des QR (AppConfig.qrSecret ; le remplacer invalide les QR imprimés). */
 export function qrKeyFrom(serverSecret: string): Buffer {
   return createHmac('sha256', serverSecret).update('coverage-qr-key/v1').digest();
 }

@@ -96,6 +96,13 @@ function runBackup(ws: Workspace, env: Record<string, string>) {
   });
 }
 
+/** Remplace stat (fonction : le bash de Git for Windows remet /usr/bin en tête du PATH) : numéro de disque des dossiers. */
+function disks(ws: Workspace, offsite: number): Record<string, string> {
+  const fakes = join(ws.dir, 'fakes.sh');
+  writeFileSync(fakes, `stat() { case "$*" in *offsite*) echo ${offsite} ;; *) echo 1 ;; esac; }\n`);
+  return { BASH_ENV: posix(fakes) };
+}
+
 describe('backup.sh : sauvegardes chiffrées (R03)', () => {
   let ws: Workspace;
   afterEach(() => rmSync(ws.dir, { recursive: true, force: true }));
@@ -114,7 +121,7 @@ describe('backup.sh : sauvegardes chiffrées (R03)', () => {
 
   it('base et fichiers chiffrés pour la clé publique, copie hors du serveur chiffrée, aucun fichier en clair', () => {
     ws = workspace();
-    const run = runBackup(ws, { BACKUP_AGE_RECIPIENT: KEY_1, OFFSITE_ENABLED: '1' });
+    const run = runBackup(ws, { BACKUP_AGE_RECIPIENT: KEY_1, OFFSITE_ENABLED: '1', ...disks(ws, 2) });
     expect(run.status).toBe(0);
 
     const names = readdirSync(ws.backups).sort();
@@ -144,6 +151,15 @@ describe('backup.sh : sauvegardes chiffrées (R03)', () => {
     expect(readdirSync(ws.tmp)).toEqual([]);
   });
 
+  it('copie « hors serveur » sur le même disque (support non monté) : échec, sauvegarde locale gardée, rien de copié', () => {
+    ws = workspace();
+    const run = runBackup(ws, { BACKUP_AGE_RECIPIENT: KEY_1, OFFSITE_ENABLED: '1', ...disks(ws, 1) });
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('BACKUP_OFFSITE_DIR');
+    expect(readdirSync(ws.offsite)).toEqual([]);
+    expect(readdirSync(ws.backups)).toHaveLength(2);
+  });
+
   it('plusieurs clés publiques séparées par des virgules : chacune peut déchiffrer', () => {
     ws = workspace();
     const run = runBackup(ws, { BACKUP_AGE_RECIPIENT: `${KEY_1}, ${KEY_2}` });
@@ -171,6 +187,27 @@ describe('backup.sh : sauvegardes chiffrées (R03)', () => {
     const run = runBackup(ws, { BACKUP_AGE_RECIPIENT: KEY_1 });
     expect(run.status).toBe(0);
     expect(readdirSync(ws.backups).filter((n) => stale.includes(n))).toEqual([]);
+    expect(readdirSync(ws.backups)).toHaveLength(2);
+  });
+
+  // 0 effaçait toutes les sauvegardes, celle qui venait d'être faite comprise.
+  it.each(['0', '00', '-1', 'abc', '14d', '1.5'])('BACKUP_RETENTION_DAYS=%s : refus, rien n’est sauvegardé ni supprimé', (days) => {
+    ws = workspace();
+    const previous = 'db-20260101T000000Z.dump.age';
+    const old = new Date(Date.now() - 20 * 86_400_000);
+    writeFileSync(join(ws.backups, previous), 'ancienne');
+    utimesSync(join(ws.backups, previous), old, old);
+    const run = runBackup(ws, { BACKUP_AGE_RECIPIENT: KEY_1, BACKUP_RETENTION_DAYS: days });
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('BACKUP_RETENTION_DAYS invalide');
+    expect(ws.calls()).toEqual([]);
+    expect(readdirSync(ws.backups)).toEqual([previous]);
+  });
+
+  it('BACKUP_RETENTION_DAYS=1 : la sauvegarde du jour est gardée', () => {
+    ws = workspace();
+    const run = runBackup(ws, { BACKUP_AGE_RECIPIENT: KEY_1, BACKUP_RETENTION_DAYS: '1' });
+    expect(run.status).toBe(0);
     expect(readdirSync(ws.backups)).toHaveLength(2);
   });
 });
@@ -216,7 +253,6 @@ describe('configuration des sauvegardes chiffrées (R03)', () => {
     const service = block(name);
     expect(service).toMatch(/dockerfile: deploy\/backup\.Dockerfile/);
     expect(service).not.toMatch(/^\s+image:/m);
-    expect(service).toMatch(/BACKUP_AGE_RECIPIENT: \$\{BACKUP_AGE_RECIPIENT:-\}/);
     expect(service).toMatch(/-name "db-\*\.dump\.age"/);
   });
 

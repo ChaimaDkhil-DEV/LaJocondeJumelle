@@ -9,6 +9,8 @@ import { isIP } from 'node:net';
 export interface AppConfig {
   databaseUrl: string;
   sessionSecret: string;
+  /** Secret des QR codes imprimés : QR_SIGNING_SECRET, sinon sessionSecret (QR imprimés avant ce réglage). */
+  qrSecret: string;
   filesDir: string;
   /** Origine publique de l'application : liens envoyés (QR codes, n8n) et règle d'origine. */
   appOrigin: string;
@@ -328,9 +330,10 @@ const CHANNELS: readonly CommunicationChannel[] = ['EMAIL', 'WHATSAPP'];
 
 /**
  * n8n (spec 015) : URL et secret ensemble, ou aucun. Une variable vide compte comme absente. Le secret
- * n'est jamais cité dans une erreur.
+ * n'est jamais cité dans une erreur. En production : https hors du réseau Docker (nom de service, sans point), et un
+ * secret propre à n8n.
  */
-function parseN8n(env: NodeJS.ProcessEnv): N8nConfig | null {
+function parseN8n(env: NodeJS.ProcessEnv, isProduction: boolean, otherSecrets: readonly string[]): N8nConfig | null {
   const webhookUrl = trimmed(env.N8N_WEBHOOK_URL);
   const secret = trimmed(env.N8N_SHARED_SECRET);
   if (!webhookUrl && !secret) return null;
@@ -343,7 +346,13 @@ function parseN8n(env: NodeJS.ProcessEnv): N8nConfig | null {
     throw new ConfigError('N8N_WEBHOOK_URL doit être une adresse http(s) valide');
   }
   if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new ConfigError('N8N_WEBHOOK_URL doit être une adresse http(s) valide');
-  if (secret.length < MIN_SECRET_LENGTH) throw new ConfigError(`N8N_SHARED_SECRET doit contenir au moins ${MIN_SECRET_LENGTH} caractères`);
+  if (isProduction && url.protocol !== 'https:' && !/^[a-z0-9-]+$/i.test(url.hostname)) {
+    throw new ConfigError('N8N_WEBHOOK_URL doit utiliser https en production, sauf vers un service du réseau Docker (http://n8n:5678/…)');
+  }
+  checkSecret('N8N_SHARED_SECRET', secret, isProduction);
+  if (isProduction && otherSecrets.includes(secret)) {
+    throw new ConfigError('N8N_SHARED_SECRET doit être différent de SESSION_SECRET et de QR_SIGNING_SECRET');
+  }
   const timeoutMs = trimmed(env.N8N_TIMEOUT_MS) ? Number(env.N8N_TIMEOUT_MS) : 10_000;
   if (!Number.isInteger(timeoutMs) || timeoutMs < 1_000 || timeoutMs > 30_000) {
     throw new ConfigError('N8N_TIMEOUT_MS doit être un entier entre 1000 et 30000');
@@ -386,6 +395,17 @@ function parseTrustProxy(raw: string | undefined): boolean | number | string {
   );
 }
 
+const MAX_PROXY_HOPS = 2;
+
+/**
+ * En production, un réglage qui fait confiance à tout le monde laisserait chaque visiteur choisir son adresse IP
+ * (limite de connexion, journal d'audit). Deux proxys au plus : Caddy et le tunnel.
+ */
+function isTooTrusting(value: boolean | number | string): boolean {
+  if (typeof value !== 'string') return value === true || Number(value) > MAX_PROXY_HOPS;
+  return value.split(',').some((entry) => entry.includes('/') && Number(entry.split('/')[1]) < 8);
+}
+
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
 
 /**
@@ -411,7 +431,57 @@ function parseLocalOrigins(value: string | undefined, isProduction: boolean): st
   });
 }
 
+const RESERVED_HOST = /\.(example|invalid|localhost)$/;
+
+/** APP_ORIGIN : adresse http(s) ; en production, https et un vrai nom de domaine, sans chemin ni identifiants. */
+function parseAppOrigin(raw: string, isProduction: boolean): string {
+  let url: URL | null = null;
+  try {
+    url = new URL(raw);
+  } catch {
+    // message ci-dessous
+  }
+  if (!url || (url.protocol !== 'https:' && url.protocol !== 'http:')) {
+    throw new ConfigError('APP_ORIGIN doit être une URL valide (ex. https://demandes.ecole.fr)');
+  }
+  if (isProduction) {
+    if (url.protocol !== 'https:') throw new ConfigError('APP_ORIGIN doit utiliser https en production');
+    const bare = url.pathname === '/' && !url.search && !url.hash && !url.username && !url.password;
+    const realName = url.hostname.includes('.') && !LOOPBACK_HOSTS.has(url.hostname) && !RESERVED_HOST.test(url.hostname);
+    if (!bare || !realName) {
+      throw new ConfigError(
+        'APP_ORIGIN invalide en production : https:// suivi du seul nom de domaine réel (DOMAIN dans deploy/.env, sans https:// ni chemin)',
+      );
+    }
+  }
+  return url.origin;
+}
+
+/** Secrets publiés dans le dépôt (tests, démonstration), répétitions, ou trop peu de caractères différents. */
+function isWeakSecret(value: string): boolean {
+  return new Set(value).size < 8 || /^(.+?)\1+$/.test(value) || /session-secret|0123456789/i.test(value);
+}
+
+/** Secret serveur ; sa valeur n'est jamais citée dans une erreur. */
+function checkSecret(key: string, value: string, isProduction: boolean): void {
+  if (value.length < MIN_SECRET_LENGTH) throw new ConfigError(`${key} doit contenir au moins ${MIN_SECRET_LENGTH} caractères`);
+  if (value.startsWith('remplacer-par-')) {
+    throw new ConfigError(`${key} est la valeur d’exemple de .env.example : générez une valeur aléatoire`);
+  }
+  if (isProduction && isWeakSecret(value)) {
+    throw new ConfigError(`${key} trop faible : générez une valeur aléatoire (openssl rand -base64 48)`);
+  }
+}
+
+const NODE_ENVS: readonly string[] = ['development', 'test', 'production'];
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
+  // « Production », « prod »… démarreraient sans aucune protection de production (cookie Secure, moindre privilège,
+  // documentation de l'API fermée). Absente ou vide : développement.
+  if (env.NODE_ENV && !NODE_ENVS.includes(env.NODE_ENV)) {
+    throw new ConfigError(`NODE_ENV invalide : « ${env.NODE_ENV} ». Valeurs possibles : ${NODE_ENVS.join(', ')}`);
+  }
+
   const missing = ['DATABASE_URL', 'SESSION_SECRET', 'FILES_DIR', 'APP_ORIGIN'].filter(
     (key) => !env[key]?.trim(),
   );
@@ -419,19 +489,28 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     throw new ConfigError(`Variables d'environnement manquantes : ${missing.join(', ')}`);
   }
 
+  const isProduction = env.NODE_ENV === 'production';
+
   const sessionSecret = env.SESSION_SECRET!;
-  if (sessionSecret.length < MIN_SECRET_LENGTH) {
-    throw new ConfigError(`SESSION_SECRET doit contenir au moins ${MIN_SECRET_LENGTH} caractères`);
+  checkSecret('SESSION_SECRET', sessionSecret, isProduction);
+  const qrSecret = trimmed(env.QR_SIGNING_SECRET) ?? sessionSecret;
+  if (qrSecret !== sessionSecret) checkSecret('QR_SIGNING_SECRET', qrSecret, isProduction);
+
+  const appOrigin = parseAppOrigin(env.APP_ORIGIN!, isProduction);
+
+  const trustProxy = parseTrustProxy(env.TRUST_PROXY);
+  if (isProduction && isTooTrusting(trustProxy)) {
+    throw new ConfigError('TRUST_PROXY trop large en production : utilisez uniquelocal, loopback ou l’adresse du proxy');
   }
-  if (sessionSecret.startsWith('remplacer-par-')) {
-    throw new ConfigError('SESSION_SECRET est la valeur d’exemple de .env.example : générez une valeur aléatoire');
+  const jobsEnabled = env.JOBS_ENABLED !== 'false';
+  if (isProduction && !jobsEnabled) {
+    throw new ConfigError('JOBS_ENABLED=false est réservé aux tests : clôtures, rappels et anonymisation seraient arrêtés');
   }
 
-  let appOrigin: string;
-  try {
-    appOrigin = new URL(env.APP_ORIGIN!).origin;
-  } catch {
-    throw new ConfigError('APP_ORIGIN doit être une URL valide (ex. https://demandes.ecole.fr)');
+  const n8n = parseN8n(env, isProduction, [sessionSecret, qrSecret]);
+  const parentCommunicationChannels = parseChannels(env.PARENT_COMM_CHANNELS);
+  if (isProduction && !n8n && parentCommunicationChannels.length > 0) {
+    throw new ConfigError('PARENT_COMM_CHANNELS exige N8N_WEBHOOK_URL et N8N_SHARED_SECRET : sans eux, rien ne serait envoyé');
   }
 
   const port = Number(env.PORT ?? 3002);
@@ -442,25 +521,26 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   return {
     databaseUrl: env.DATABASE_URL!,
     sessionSecret,
+    qrSecret,
     filesDir: env.FILES_DIR!,
     appOrigin,
-    allowedOrigins: [appOrigin, ...parseLocalOrigins(env.APP_LOCAL_ORIGINS, env.NODE_ENV === 'production')],
+    allowedOrigins: [appOrigin, ...parseLocalOrigins(env.APP_LOCAL_ORIGINS, isProduction)],
     port,
     ffmpegPath: env.FFMPEG_PATH?.trim() || 'ffmpeg',
     ffprobePath: env.FFPROBE_PATH?.trim() || 'ffprobe',
-    cookieSecure: env.NODE_ENV === 'production' || env.COOKIE_SECURE !== 'false',
+    cookieSecure: isProduction || env.COOKIE_SECURE !== 'false',
     loginRateLimit:
-      env.NODE_ENV !== 'production' && Number(env.LOGIN_RATE_LIMIT) > 0
+      !isProduction && Number(env.LOGIN_RATE_LIMIT) > 0
         ? Number(env.LOGIN_RATE_LIMIT)
         : DEFAULT_LOGIN_RATE_LIMIT,
-    jobsEnabled: env.JOBS_ENABLED !== 'false',
-    isProduction: env.NODE_ENV === 'production',
-    trustProxy: parseTrustProxy(env.TRUST_PROXY),
+    jobsEnabled,
+    isProduction,
+    trustProxy,
     schoolTimezone: parseSchoolTimezone(env.SCHOOL_TIMEZONE),
-    assist: parseAssist(env, env.NODE_ENV === 'production'),
+    assist: parseAssist(env, isProduction),
     push: parsePush(env),
-    n8n: parseN8n(env),
-    parentCommunicationChannels: parseChannels(env.PARENT_COMM_CHANNELS),
-    turnstile: parseTurnstile(env, env.NODE_ENV === 'production'),
+    n8n,
+    parentCommunicationChannels,
+    turnstile: parseTurnstile(env, isProduction),
   };
 }

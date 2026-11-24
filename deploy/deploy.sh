@@ -29,13 +29,29 @@ if [ "$PULL" = 1 ]; then
   exec bash "$0" --no-pull
 fi
 
-# Fichier compose complémentaire facultatif (serveur d'école : deploy/docker-compose.school.yml).
-COMPOSE=(docker compose -f deploy/docker-compose.yml)
-if [ -n "${COMPOSE_OVERRIDE_FILE:-}" ]; then
-  [ -f "$COMPOSE_OVERRIDE_FILE" ] || { echo "COMPOSE_OVERRIDE_FILE introuvable : $COMPOSE_OVERRIDE_FILE" >&2; exit 1; }
-  COMPOSE+=(-f "$COMPOSE_OVERRIDE_FILE")
+# Tableau COMPOSE, avec le fichier complémentaire éventuel (serveur d'école : COMPOSE_OVERRIDE_FILE dans deploy/.env).
+source deploy/compose-command.sh
+
+# Avant de créer la base : un caractère spécial casserait l'adresse donnée à « migrate », une valeur courte se devine.
+# Le mot de passe n'est appliqué qu'à la création de la base ; le changer ensuite : docs/roles-base-de-donnees.md.
+OWNER_PASSWORD="${POSTGRES_PASSWORD:-$(env_value POSTGRES_PASSWORD)}"
+if ! [[ "${OWNER_PASSWORD}" =~ ^[A-Za-z0-9]{32,128}$ ]]; then
+  echo "[deploy] POSTGRES_PASSWORD invalide : 32 à 128 lettres ou chiffres (générer : openssl rand -hex 32). Aucun conteneur modifié." >&2
+  echo "[deploy] Serveur déjà installé : changez-le d'abord dans la base, voir docs/roles-base-de-donnees.md." >&2
+  exit 1
 fi
-COMPOSE+=(--env-file deploy/.env)
+
+# Transcription locale demandée sans démarrer Whisper : chaque vocal échouerait (relais de Caddy sans serveur).
+if [ "${ASSIST_TRANSCRIPTION_PROVIDER:-$(env_value ASSIST_TRANSCRIPTION_PROVIDER)}" = whisper ] &&
+  [ -z "${ASSIST_WHISPER_URL:-$(env_value ASSIST_WHISPER_URL)}" ]; then
+  case ",${COMPOSE_PROFILES:-$(env_value COMPOSE_PROFILES)}," in
+    *,whisper,*) ;;
+    *)
+      echo "[deploy] ASSIST_TRANSCRIPTION_PROVIDER=whisper exige COMPOSE_PROFILES=whisper dans deploy/.env (ou ASSIST_WHISPER_URL pour un serveur externe). Aucun conteneur modifié." >&2
+      exit 1
+      ;;
+  esac
+fi
 
 echo "[deploy] commit déployé : $(git rev-parse --short HEAD)"
 
