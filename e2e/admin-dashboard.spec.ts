@@ -1,6 +1,7 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { expectNoA11yViolations } from './support/axe';
 import { login } from './support/login';
+import { openNavigation } from './support/navigation';
 
 /**
  * Tableau de bord du super administrateur : une demande créée par une enseignante apparaît dans la
@@ -10,11 +11,6 @@ import { login } from './support/login';
 
 function uniqueTitle(base: string, testInfo: TestInfo): string {
   return `${base} [${testInfo.project.name} ${Date.now()}]`;
-}
-
-async function openNavigation(page: Page): Promise<void> {
-  const menu = page.getByRole('button', { name: 'Ouvrir le menu' });
-  if (await menu.isVisible()) await menu.click();
 }
 
 async function logout(page: Page): Promise<void> {

@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { expectNoA11yViolations } from './support/axe';
 import { login } from './support/login';
+import { openNavigation } from './support/navigation';
 import { manualQrField } from './support/qr-scanner';
 
 /**
@@ -11,8 +12,7 @@ import { manualQrField } from './support/qr-scanner';
 
 async function logout(page: Page): Promise<void> {
   await page.keyboard.press('Escape');
-  const menu = page.getByRole('button', { name: 'Ouvrir le menu' });
-  if (await menu.isVisible()) await menu.click();
+  await openNavigation(page);
   await page.getByRole('button', { name: 'Se déconnecter' }).click();
   await expect(page.getByRole('button', { name: 'Se connecter' })).toBeVisible();
 }

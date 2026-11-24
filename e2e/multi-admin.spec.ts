@@ -2,6 +2,7 @@ import { expect, test, type Browser, type BrowserContextOptions, type Page, type
 import type { AccountName } from './support/accounts';
 import { expectNoA11yViolations } from './support/axe';
 import { login } from './support/login';
+import { openNavigation } from './support/navigation';
 
 /**
  * 018 — Gestion multi-administrateurs (specs/018-multi-admin-transferts). Lot 1 : file commune et prise
@@ -97,11 +98,6 @@ async function submit(teacher: Page, categoryId: string, title: string): Promise
   });
   expect(res.status()).toBe(201);
   return (await res.json()) as { id: string; version: number };
-}
-
-async function openNavigation(page: Page): Promise<void> {
-  const menu = page.getByRole('button', { name: 'Ouvrir le menu' });
-  if (await menu.isVisible()) await menu.click();
 }
 
 test('018 lot 1 — file commune : le premier administrateur prend la demande, le second ne peut plus la prendre ni la modifier', async ({

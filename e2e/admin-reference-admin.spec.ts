@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { expectNoA11yViolations } from './support/axe';
 import { login } from './support/login';
+import { openNavigation } from './support/navigation';
 
 /**
  * 011 — l'admin gère les données de référence (étages, niveaux, classes et QR, élèves) et consulte la liste
@@ -25,8 +26,7 @@ test.describe('Espace Administrateur de l’admin (011)', () => {
     const toast = (text: string) => page.getByRole('status').filter({ hasText: text });
 
     await login(page, 'admin');
-    const menu = page.getByRole('button', { name: 'Ouvrir le menu' });
-    if (await menu.isVisible()) await menu.click();
+    await openNavigation(page);
     await page.getByRole('link', { name: 'Administrateur', exact: true }).click();
 
     // --- Arrivée sur « Étages » : seules les sections de l'admin sont proposées.

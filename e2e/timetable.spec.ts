@@ -2,6 +2,7 @@ import { expect, test, type Browser, type BrowserContext, type Page } from '@pla
 import type { AccountName } from './support/accounts';
 import { expectNoA11yViolations } from './support/axe';
 import { login } from './support/login';
+import { openNavigation } from './support/navigation';
 
 /**
  * Emplois du temps (020) : l'administration saisit une séance (conflit refusé et expliqué), l'enseignante la voit
@@ -97,6 +98,18 @@ async function dedicatedTeacher(browser: Browser, superadmin: Page, viewport: { 
 }
 
 test.describe('Emplois du temps', () => {
+  let teacherId: string | null = null;
+
+  // Après le test, même s'il a dépassé son délai (ses pages sont alors fermées) : une séance laissée occuperait la classe
+  // et ferait refuser celles des lancements suivants.
+  test.afterEach(async ({ browser }) => {
+    if (!teacherId) return;
+    const admin = await open(browser, 'admin', DESKTOP);
+    await cancelToday(admin.page, teacherId, schoolClock(0).date);
+    teacherId = null;
+    await admin.context.close();
+  });
+
   // eslint-disable-next-line no-empty-pattern
   test.beforeEach(({}, testInfo) => {
     test.skip(testInfo.project.name !== 'chromium', 'Largeurs pilotées par le scénario (Chromium)');
@@ -110,6 +123,7 @@ test.describe('Emplois du temps', () => {
     const supervisor = await open(browser, 'surveillant', PHONE);
     const superadmin = await open(browser, 'superadmin', DESKTOP);
     const { session: teacher, me } = await dedicatedTeacher(browser, superadmin.page, PHONE);
+    teacherId = me.id;
     try {
       const start = schoolClock(-15);
       const end = schoolClock(25);
@@ -148,8 +162,7 @@ test.describe('Emplois du temps', () => {
       // --- Enseignante : la séance figure dans son emploi du temps du jour.
       await teacher.page.goto('/');
       // Section du menu de gauche (replié derrière le bouton « Ouvrir le menu » sur petit écran), plus un bouton de l'accueil.
-      const menu = teacher.page.getByRole('button', { name: 'Ouvrir le menu' });
-      if (await menu.isVisible()) await menu.click();
+      await openNavigation(teacher.page);
       await teacher.page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('link', { name: 'Mon emploi du temps' }).click();
       await expect(teacher.page.getByRole('heading', { name: 'Mon emploi du temps' })).toBeVisible();
       await teacher.page.getByRole('button', { name: 'Jour', exact: true }).click();
@@ -193,7 +206,6 @@ test.describe('Emplois du temps', () => {
       const refused = await supervisor.page.request.get(`/api/timetable/sessions?from=${start.date}&to=${start.date}`);
       expect(refused.status()).toBe(404);
     } finally {
-      await cancelToday(admin.page, me.id, schoolClock(0).date);
       for (const s of [admin, teacher, supervisor, superadmin]) await s.context.close();
     }
   });
