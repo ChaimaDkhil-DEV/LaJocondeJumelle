@@ -1,16 +1,12 @@
 import { expect, test, type Page } from '@playwright/test';
 import { expectNoA11yViolations } from './support/axe';
 import { login } from './support/login';
+import { openNavigation } from './support/navigation';
 
 /**
  * T102 — US8 : administration (V16). Chaque projet crée son propre compte et sa propre catégorie :
  * aucune modification des données partagées (catégories de démonstration, réglages, permissions).
  */
-
-async function openNavigation(page: Page): Promise<void> {
-  const menu = page.getByRole('button', { name: 'Ouvrir le menu' });
-  if (await menu.isVisible()) await menu.click();
-}
 
 async function logout(page: Page): Promise<void> {
   await page.keyboard.press('Escape');
