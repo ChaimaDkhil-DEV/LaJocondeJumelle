@@ -134,7 +134,8 @@ test.describe('Emplois du temps', () => {
       };
       const first = await create(CLASS_NAME);
       await expect(first).toBeHidden();
-      await expect(admin.page.getByRole('listitem', { name: new RegExp(`Séance de ${start.time} à ${end.time}, ${CLASS_NAME}`) })).toBeVisible();
+      // Grille de la semaine : un bouton par séance, dont le nom se termine par le statut de présence.
+      await expect(admin.page.getByRole('button', { name: new RegExp(`^Séance de ${start.time} à ${end.time}, ${CLASS_NAME}`) })).toBeVisible();
 
       // Même enseignante, même moment, autre classe : refusé, le conflit est expliqué.
       const second = await create(OTHER_CLASS);

@@ -5,6 +5,7 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { Mic, Send, Square, Trash2 } from 'lucide-react';
 import { useRef, useState } from 'react';
+import { visuallyHidden } from '../../components/a11y';
 import { font, tokensOf } from '../../design/tokens';
 import { t } from '../../i18n';
 import { useClientSettings } from '../../api/settings';
@@ -138,7 +139,7 @@ export function ChatComposer({
           </IconButton>
         </Box>
       )}
-      <Typography role="status" aria-live="polite" sx={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>
+      <Typography role="status" aria-live="polite" sx={visuallyHidden}>
         {recorder.notice}
       </Typography>
 

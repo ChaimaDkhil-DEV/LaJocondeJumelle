@@ -1,5 +1,6 @@
 import Box from '@mui/material/Box';
 import { useId, type ChangeEvent, type ReactNode } from 'react';
+import { visuallyHidden } from '../../components/a11y';
 import { font, fontSize, motion, tokensOf } from '../../design/tokens';
 
 interface FilePickerButtonProps {
@@ -35,15 +36,7 @@ export function FilePickerButton({ label, icon, accept, capture, disabled, onCha
         capture={capture}
         disabled={disabled}
         onChange={onChange}
-        sx={{
-          position: 'absolute',
-          width: 1,
-          height: 1,
-          opacity: 0,
-          overflow: 'hidden',
-          clip: 'rect(0 0 0 0)',
-          whiteSpace: 'nowrap',
-        }}
+        sx={{ ...visuallyHidden, opacity: 0 }}
       />
       <Box
         component="label"

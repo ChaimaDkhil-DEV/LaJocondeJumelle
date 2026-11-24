@@ -105,9 +105,10 @@ function scrollRegion(label: string) {
 
 /**
  * Longs tableaux : hauteur bornée à partir de md pour que l'en-tête collant reste visible ; sur
- * mobile, la page défile normalement (pas de zone défilante imbriquée).
+ * mobile, la page défile normalement (pas de zone défilante imbriquée). `relative` : les libellés masqués (position
+ * absolue) restent dans la zone défilante ; sinon ils élargissent la page sur mobile.
  */
-const stickyArea = { maxHeight: { md: 560 } } as const;
+const stickyArea = { position: 'relative', maxHeight: { md: 560 } } as const;
 
 const SUBJECT = t('le tableau de bord');
 

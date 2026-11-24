@@ -96,6 +96,17 @@ describe('Emplois du temps — administration', () => {
     expect(screen.getByText('Choisissez un enseignant')).toBeInTheDocument();
   });
 
+  it('la liste de choix a un nom accessible : « Enseignant », puis « Classe », et garde son choix', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    setup('/admin/emplois-du-temps');
+    await user.click(await screen.findByRole('combobox', { name: 'Enseignant' }));
+    await user.click(await screen.findByRole('option', { name: 'Amel Enseignante' }));
+    expect(screen.getByRole('combobox', { name: 'Enseignant' })).toHaveTextContent('Amel Enseignante');
+
+    await user.click(screen.getByRole('button', { name: 'Par classe' }));
+    expect(screen.getByRole('combobox', { name: 'Classe' })).toBeInTheDocument();
+  });
+
   it('liste les séances de l’enseignant choisi, groupées par jour, et change de semaine', async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     const { calls } = setup('/admin/emplois-du-temps?id=t1&semaine=2026-11-23&affichage=liste', (call) =>

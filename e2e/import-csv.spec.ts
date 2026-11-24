@@ -111,7 +111,7 @@ test.describe('Import CSV', () => {
     await expect(students.getByText('2 élèves créés.')).toBeVisible();
     await students.getByRole('button', { name: 'Fermer' }).click();
 
-    await page.getByPlaceholder('Rechercher un élève…').fill(lastName);
+    await page.getByRole('searchbox', { name: /^Rechercher un élève/ }).fill(lastName);
     const list = page.getByRole('list', { name: 'Élèves' }).getByRole('listitem').filter({ hasText: lastName });
     await expect(list).toHaveCount(2);
     await expect(list.first()).toContainText(className);

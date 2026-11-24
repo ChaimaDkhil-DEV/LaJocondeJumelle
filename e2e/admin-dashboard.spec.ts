@@ -117,7 +117,8 @@ test('le super administrateur supervise les demandes depuis le tableau de bord ;
 
   // Onglet Activité : la création de la demande figure dans le fil, sans son contenu.
   await page.goto('/?vue=activite');
-  const activity = page.getByRole('list', { name: 'Dernières actions' });
+  // Région « Dernières actions » : une liste par jour.
+  const activity = page.getByRole('region', { name: 'Dernières actions' });
   await expect(activity.getByRole('listitem').filter({ hasText: title }).first()).toBeVisible();
   await expect(activity).not.toContainText('Demande du tableau de bord');
   await expectNoA11yViolations(page);
