@@ -60,9 +60,8 @@ jobs:
         run: |
           mkdir -p ~/apt-ffmpeg/partial
           echo "before=$(ls ~/apt-ffmpeg/*.deb 2>/dev/null | sort | md5sum | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
-          printf 'Dir::Cache::Archives "%s";
-APT::Keep-Downloaded-Packages "true";
-' "$HOME/apt-ffmpeg" | sudo tee /etc/apt/apt.conf.d/80e2e
+          echo "Dir::Cache::Archives \"$HOME/apt-ffmpeg\";" | sudo tee /etc/apt/apt.conf.d/80e2e
+          echo 'APT::Keep-Downloaded-Packages "true";' | sudo tee -a /etc/apt/apt.conf.d/80e2e
           sudo apt-get update
           sudo apt-get install -y ffmpeg
 
