@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { createECDH, randomBytes } from 'node:crypto';
 import { join } from 'node:path';
 import request from 'supertest';
+import { addDays, localDate } from '../../src/common/school-time';
+import { schoolTimezoneFromEnv } from '../../src/config/config';
 import { categoryId, CATEGORIES, loginAs, userId } from '../utils/auth-helpers';
 import { setupCommunications, type Fixture } from '../utils/communications-fixture';
 import { createSecondAdmin } from '../utils/second-admin';
@@ -372,7 +374,8 @@ describe('IDOR : ressource d’un autre utilisateur (audit G.2)', () => {
 
   describe('séances d’emploi du temps', () => {
     it('« Mon emploi du temps » : l’enseignante voit sa séance, sa collègue de la même classe ne la voit pas', async () => {
-      const day = '2026-11-23';
+      // Demain à l'école : une séance ne se crée pas dans le passé, une date fixe finirait par expirer.
+      const day = addDays(localDate(new Date(), schoolTimezoneFromEnv()), 1);
       const created = await call(f.cookies.admin, {
         verb: 'post',
         path: '/api/timetable/sessions',
