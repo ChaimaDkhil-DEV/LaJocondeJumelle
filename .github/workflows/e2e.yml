@@ -1,0 +1,74 @@
+# Tests de bout en bout, un profil par machine : chacun a sa base et ses comptes jetables, la suite complète dure donc
+# le temps du profil le plus long. Lancement à la main (onglet Actions, ou `gh workflow run E2E --ref <branche>`) : la
+# suite ne bloque aucune fusion (docs/procedure-fusion.md). Elle se lance aussi quand ce fichier change, pour l'essayer.
+name: E2E
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/e2e.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: E2E (${{ matrix.project }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      # Un profil en échec n'arrête pas les autres : le bilan doit être complet.
+      fail-fast: false
+      matrix:
+        include:
+          - { project: chromium, browser: chromium }
+          - { project: firefox, browser: firefox }
+          - { project: webkit, browser: webkit }
+          - { project: iPhone 13, browser: webkit }
+          - { project: iPhone 17 Pro Max, browser: webkit }
+          - { project: Pixel 7, browser: chromium }
+          - { project: mobile-320, browser: chromium }
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      # Miroir apt parfois lent (voir ci.yml) : échec rapide, puis relance manuelle.
+      - name: Installer ffmpeg (conversion des vocaux)
+        timeout-minutes: 10
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      - name: Générer le client Prisma
+        run: npm run -w backend prisma:generate
+
+      - name: Installer le navigateur
+        timeout-minutes: 15
+        run: npx playwright install --with-deps ${{ matrix.browser }}
+
+      # Sans nouvel essai, comme en local : un échec intermittent doit se voir.
+      - name: Tests de bout en bout
+        env:
+          PLAYWRIGHT_PROJECT: ${{ matrix.project }}
+        run: npx playwright test -c e2e/playwright.config.ts --project="$PLAYWRIGHT_PROJECT" --retries=0
+
+      - name: Conserver le rapport
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-${{ matrix.project }}
+          path: |
+            e2e/playwright-report
+            e2e/test-results
+          retention-days: 7
+          if-no-files-found: ignore
