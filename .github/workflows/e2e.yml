@@ -41,21 +41,30 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
 
-      # Paquets gardés en cache par ci.yml (miroir apt parfois très lent : deux profils sur sept arrêtés au premier
-      # essai, le 2026-11-24). Lecture seule ; même clé, à changer dans les deux fichiers.
-      - name: Restaurer les paquets ffmpeg
+      # Paquets apt (ffmpeg, bibliothèques du navigateur) gardés en cache, comme dans ci.yml : le miroir est parfois très
+      # lent (trois tâches sur quatorze arrêtées avant tout test, le 2026-11-24). Par navigateur, à défaut ceux de ci.yml ;
+      # changer -v1 pour le vider. Clé par tâche, sauvegardée même après un échec : la suivante reprend où elle s'est arrêtée.
+      - name: Restaurer les paquets apt
+        id: apt-cache
         uses: actions/cache/restore@v4
         with:
           path: ~/apt-ffmpeg
-          key: apt-ffmpeg-${{ runner.os }}-${{ runner.arch }}-v1-e2e
-          restore-keys: apt-ffmpeg-${{ runner.os }}-${{ runner.arch }}-v1-
+          key: apt-e2e-${{ runner.os }}-${{ runner.arch }}-${{ matrix.browser }}-v1-${{ github.run_id }}-${{ github.run_attempt }}-${{ strategy.job-index }}
+          restore-keys: |
+            apt-e2e-${{ runner.os }}-${{ runner.arch }}-${{ matrix.browser }}-v1-
+            apt-ffmpeg-${{ runner.os }}-${{ runner.arch }}-v1-
 
       - name: Installer ffmpeg (conversion des vocaux)
-        timeout-minutes: 10
+        id: apt
+        timeout-minutes: 15
         run: |
           mkdir -p ~/apt-ffmpeg/partial
+          echo "before=$(ls ~/apt-ffmpeg/*.deb 2>/dev/null | sort | md5sum | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          printf 'Dir::Cache::Archives "%s";
+APT::Keep-Downloaded-Packages "true";
+' "$HOME/apt-ffmpeg" | sudo tee /etc/apt/apt.conf.d/80e2e
           sudo apt-get update
-          sudo apt-get install -y -o Dir::Cache::Archives="$HOME/apt-ffmpeg" ffmpeg
+          sudo apt-get install -y ffmpeg
 
       - name: Installer les dépendances
         run: npm ci
@@ -64,8 +73,23 @@ jobs:
         run: npm run -w backend prisma:generate
 
       - name: Installer le navigateur
-        timeout-minutes: 15
+        timeout-minutes: 20
         run: npx playwright install --with-deps ${{ matrix.browser }}
+
+      - name: Préparer le cache des paquets apt
+        id: apt-after
+        if: ${{ always() && steps.apt.outputs.before != '' }}
+        run: |
+          sudo rm -rf ~/apt-ffmpeg/partial ~/apt-ffmpeg/lock
+          sudo chown -R "$USER" ~/apt-ffmpeg
+          [ "$(ls ~/apt-ffmpeg/*.deb 2>/dev/null | sort | md5sum | cut -d' ' -f1)" = "${{ steps.apt.outputs.before }}" ] || echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Sauvegarder les paquets apt
+        if: ${{ always() && steps.apt-after.outputs.changed == 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: ~/apt-ffmpeg
+          key: ${{ steps.apt-cache.outputs.cache-primary-key }}
 
       # Sans nouvel essai, comme en local : un échec intermittent doit se voir.
       - name: Tests de bout en bout
