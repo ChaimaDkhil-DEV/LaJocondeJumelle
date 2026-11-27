@@ -148,6 +148,8 @@ export const requests: Record<string, string> = {
   'Titre': 'Title',
   'Par exemple : « Photocopies du contrôle de maths »': 'For example: “Photocopies for the maths test”',
   'Cette demande sera d’abord validée par un admin, qui choisira la personne chargée de la réaliser.': 'This request will first be validated by an admin, who will choose the person in charge of carrying it out.',
+  'La garde se crée dans Gardes : classe, créneau et surveillant y sont choisis. Les saisies de ce formulaire n’y sont pas reprises.': 'The coverage is created in Coverage: class, time slot and supervisor are chosen there. What you entered in this form is not carried over.',
+  'Continuer dans Gardes': 'Continue in Coverage',
   'Enseignant destinataire': 'Recipient teacher',
   'Destinataire (service)': 'Recipient (department)',
   'Choisissez d’abord une catégorie.': 'Choose a category first.',

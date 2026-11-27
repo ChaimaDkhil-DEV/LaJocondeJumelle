@@ -40,6 +40,11 @@ export function useCategories() {
 }
 
 /** Sans cache prolongé : un destinataire ajouté par le super administrateur apparaît dès la prochaine ouverture. */
+/** Catégories de demande de travail : filtres des listes et brouillons (une garde n'est jamais une demande de travail). */
+export function workCategories(categories: CategoryOption[]): CategoryOption[] {
+  return categories.filter((c) => c.kind === 'WORK');
+}
+
 export function useRecipients(categoryId: string | null) {
   return useQuery({
     queryKey: ['categories', categoryId, 'recipients'],

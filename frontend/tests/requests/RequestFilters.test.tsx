@@ -26,7 +26,11 @@ function setup(initial = '/?onglet=envoyees') {
     vi.fn(async (url: string) => {
       urls.push(url);
       if (url === '/api/auth/me') return json(200, { id: 'u1', displayName: 'Enseignante', role: 'EMPLOYEE', permissions: [], mustChangePassword: false });
-      if (url === '/api/categories') return json(200, [{ id: 'cat-a', name: 'Photocopies', circuit: 'A_DIRECT', photoRequired: false }]);
+      if (url === '/api/categories')
+        return json(200, [
+          { id: 'cat-a', name: 'Photocopies', circuit: 'A_DIRECT', photoRequired: false, kind: 'WORK' },
+          { id: 'cat-g', name: 'Garde de classe', circuit: 'A_DIRECT', photoRequired: false, kind: 'COVERAGE' },
+        ]);
       if (url === '/api/categories/cat-a/recipients') return json(200, [{ id: 'repro', displayName: 'Reprographie', jobTitle: null }]);
       if (url.startsWith('/api/requests?')) return json(200, { items: [], nextCursor: null });
       return json(404);
@@ -79,6 +83,15 @@ describe('RequestFilters', () => {
     await choose('Catégorie', 'Photocopies');
     await choose('Destinataire', 'Reprographie');
     await waitFor(() => expect(lastList()).toBe('/api/requests?scope=mine&categoryId=cat-a&assigneeId=repro&limit=100'));
+  });
+
+  it('ne propose que les catégories de travail (les gardes ne sont pas des demandes de travail)', async () => {
+    setup();
+    await openFilters();
+    await userEvent.click(screen.getByRole('combobox', { name: 'Catégorie' }));
+    const names = within(await screen.findByRole('listbox')).getAllByRole('option').map((o) => o.textContent);
+    expect(names).toContain('Photocopies');
+    expect(names).not.toContain('Garde de classe');
   });
 
   it('filtre par période et par retard', async () => {

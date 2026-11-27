@@ -93,9 +93,9 @@ describe('Demandes de travail inchangées par le module de couverture', () => {
     expect(res.status).toBe(404);
   });
 
-  it('la catégorie de couverture n’est pas proposée pour une demande de travail et y est refusée', async () => {
+  it('la catégorie de couverture est listée pour un admin (renvoi vers Gardes) mais refusée pour une demande de travail', async () => {
     const categories = await api().get('/api/categories').set('Cookie', cookies.admin);
-    expect(categories.body.map((c: { name: string }) => c.name)).not.toContain('Garde de classe');
+    expect(categories.body).toContainEqual(expect.objectContaining({ id: coverageCategoryId, kind: 'COVERAGE' }));
     const res = await api()
       .post('/api/requests')
       .set('Cookie', cookies.admin)

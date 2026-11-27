@@ -81,7 +81,9 @@ export function useRequestForm(categories: CategoryOption[], initial: RequestFor
   }, []);
 
   const category = categories.find((c) => c.id === categoryId) ?? null;
-  const isCircuitA = category?.circuit === 'A_DIRECT';
+  // Garde : rien n'est créé ici (renvoi vers Gardes) ; ni destinataire, ni titre, ni priorité requis.
+  const isCoverage = category?.kind === 'COVERAGE';
+  const isCircuitA = category?.circuit === 'A_DIRECT' && !isCoverage;
   const recipients = useRecipients(isCircuitA ? categoryId : null);
   const mode = category?.routingMode;
   // Mode direct : le service, s'il est seul, est choisi d'office (le serveur applique la même règle).
@@ -165,12 +167,15 @@ export function useRequestForm(categories: CategoryOption[], initial: RequestFor
   }
 
   /**
-   * Contrôles avant l'appel : complets pour l'envoi ; pour un brouillon, catégorie et titre seuls.
+   * Contrôles avant l'appel : complets pour l'envoi ; pour un brouillon, catégorie et titre seuls ;
+   * pour une garde (renvoi vers Gardes, rien n'est envoyé), la catégorie seule.
    * `hasContent` : message vocal ou description (un vocal déjà enregistré compte pour un brouillon).
    */
   function validate(kind: 'send' | 'draft', hasContent: boolean): boolean {
     const next: RequestFormErrors =
-      kind === 'draft'
+      kind === 'send' && isCoverage
+        ? { categoryId: categoryId ? undefined : t('Choisissez une catégorie.') }
+        : kind === 'draft'
         ? {
             categoryId: categoryId ? undefined : t('Choisissez une catégorie.'),
             title: title.trim() ? undefined : t('Saisissez un titre.'),
@@ -237,6 +242,7 @@ export function useRequestForm(categories: CategoryOption[], initial: RequestFor
     errors,
     category,
     isCircuitA,
+    isCoverage,
     mode,
     recipientAbsent,
     validate,
@@ -301,6 +307,28 @@ function toConfirmStyle(theme: Theme, on: boolean): CSSObject {
     : {};
 }
 
+/** Information à la place du champ Destinataire (circuit B, garde). */
+function FieldNote({ children }: { children: ReactNode }) {
+  return (
+    <Box
+      sx={(theme) => ({
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: 1,
+        p: 1.5,
+        mt: { sm: 3.5 },
+        borderRadius: 1,
+        border: `1px solid ${tokensOf(theme).info.border}`,
+        color: tokensOf(theme).info.text,
+        fontSize: fontSize.sm,
+      })}
+    >
+      <Info size={icon.sm} aria-hidden="true" style={{ flex: 'none', marginTop: 2 }} />
+      {children}
+    </Box>
+  );
+}
+
 /** Liens repliables (« + Ajouter une description », demandes similaires) : cible tactile ≥ 44 px. */
 const toggleSx = { minHeight: 44, px: 1, ml: -1, fontWeight: font.medium, justifyContent: 'flex-start', textAlign: 'left' } as const;
 
@@ -335,7 +363,7 @@ export function RequestFields({
   assist?: AssistSlots;
   footer?: ReactNode;
 }) {
-  const { errors, category, isCircuitA, mode, suggested } = form;
+  const { errors, category, isCircuitA, isCoverage, mode, suggested } = form;
   const on = (field: SuggestableField) => suggested.has(field);
   const descriptionId = useId();
   const similarId = useId();
@@ -418,28 +446,24 @@ export function RequestFields({
             {form.categories.map((c) => (
               <MenuItem key={c.id} value={c.id}>
                 {c.name}
+                {c.kind === 'COVERAGE' && (
+                  <Box component="span" sx={{ ml: 1, display: 'inline-flex' }}>
+                    <Badge tone="info">{t('Garde')}</Badge>
+                  </Box>
+                )}
               </MenuItem>
             ))}
           </TextField>
         </Box>
 
-        {category && !isCircuitA ? (
-          <Box
-            sx={(theme) => ({
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: 1,
-              p: 1.5,
-              mt: { sm: 3.5 },
-              borderRadius: 1,
-              border: `1px solid ${tokensOf(theme).info.border}`,
-              color: tokensOf(theme).info.text,
-              fontSize: fontSize.sm,
-            })}
-          >
-            <Info size={icon.sm} aria-hidden="true" style={{ flex: 'none', marginTop: 2 }} />
+        {category && isCoverage ? (
+          <FieldNote>
+            {t('La garde se crée dans Gardes : classe, créneau et surveillant y sont choisis. Les saisies de ce formulaire n’y sont pas reprises.')}
+          </FieldNote>
+        ) : category && !isCircuitA ? (
+          <FieldNote>
             {t('Cette demande sera d’abord validée par un admin, qui choisira la personne chargée de la réaliser.')}
-          </Box>
+          </FieldNote>
         ) : (
           <Box sx={{ position: 'relative' }}>
             <SuggestedBadge on={on('recipientId')} />

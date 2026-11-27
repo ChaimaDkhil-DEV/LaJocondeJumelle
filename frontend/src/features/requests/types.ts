@@ -5,12 +5,16 @@ export type Circuit = 'A_DIRECT' | 'B_ADMIN_VALIDATION';
 export type RoutingMode = 'VIA_ADMIN' | 'DIRECT' | 'PEER';
 export type DeadlineStage = 'VALIDATION' | 'TAKEOVER' | 'COMPLETION';
 
+/** WORK : demande de travail ; COVERAGE : garde, créée dans Gardes › « Nouvelle affectation ». */
+export type CategoryKind = 'WORK' | 'COVERAGE';
+
 export interface CategoryOption {
   id: string;
   name: string;
   circuit: Circuit;
   routingMode: RoutingMode;
   photoRequired: boolean;
+  kind: CategoryKind;
 }
 
 export interface RecipientOption {

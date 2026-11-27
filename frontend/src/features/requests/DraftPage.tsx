@@ -24,6 +24,7 @@ import {
   updateDraft,
   useCategories,
   useRequest,
+  workCategories,
   type DraftChanges,
 } from './api';
 import { RequestFields, useRequestForm } from './RequestForm';
@@ -63,7 +64,7 @@ export function DraftPage() {
   }
   // Envoyée entre-temps (autre onglet, autre appareil) : sa page habituelle.
   if (request.data.status !== 'DRAFT') return <Navigate to={`/demandes/${id}`} replace />;
-  return <DraftForm draft={request.data} categories={categories.data} />;
+  return <DraftForm draft={request.data} categories={workCategories(categories.data)} />;
 }
 
 /** Message vocal du brouillon : conservé, en cours de remplacement, ou retiré. */

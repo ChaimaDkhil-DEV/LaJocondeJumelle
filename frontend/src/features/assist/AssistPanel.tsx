@@ -149,7 +149,9 @@ export function useAssist(form: RequestFormState, onToken: (token: string | null
   /** Catégorie choisie à la main après une analyse : nouvelle proposition de destinataire. */
   const onCategoryChange = (categoryId: string) => {
     if (state.kind !== 'done' || !categoryId || categoryId === basis?.categoryId) return;
-    if (formRef.current.categories.find((c) => c.id === categoryId)?.circuit !== 'A_DIRECT') return;
+    const chosen = formRef.current.categories.find((c) => c.id === categoryId);
+    // Garde : rien n'est créé dans ce formulaire (renvoi vers Gardes), pas de nouvelle analyse.
+    if (chosen?.circuit !== 'A_DIRECT' || chosen.kind === 'COVERAGE') return;
     void propose({ categoryId });
   };
 
