@@ -1,5 +1,5 @@
 import { Controller, Get, Param } from '@nestjs/common';
-import type { Availability, Circuit, RoutingMode } from '@prisma/client';
+import type { Availability, Circuit, RequestKind, RoutingMode } from '@prisma/client';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { CategoriesService } from './categories.service';
@@ -10,6 +10,8 @@ export interface CategoryOption {
   circuit: Circuit;
   routingMode: RoutingMode;
   photoRequired: boolean;
+  /** WORK : demande de travail ; COVERAGE : garde, à créer dans « Nouvelle affectation ». */
+  kind: RequestKind;
 }
 
 export interface RecipientOption {

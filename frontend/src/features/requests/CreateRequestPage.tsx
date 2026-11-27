@@ -2,7 +2,7 @@ import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import GlobalStyles from '@mui/material/GlobalStyles';
-import { FilePen, Send } from 'lucide-react';
+import { ArrowRight, FilePen, Send } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRef, useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
@@ -100,6 +100,11 @@ function CreateRequestForm({ categories, presetPriority }: { categories: Categor
     event.preventDefault();
     setSubmitError(null);
     const { category, priority, voice, description } = form;
+    // Garde : aucune création ici, ni appel API ni boîte d'envoi ; l'affectation se crée dans Gardes.
+    if (form.isCoverage) {
+      if (form.validate('send', true)) navigate('/gardes/nouvelle');
+      return;
+    }
     if (!form.validate('send', Boolean(voice || description.trim())) || !priority || !category) return;
 
     const input: NewRequestInput = {
@@ -223,13 +228,13 @@ function CreateRequestForm({ categories, presetPriority }: { categories: Categor
                   fullWidth
                   loading={submitting === 'send'}
                   disabled={submitting === 'draft'}
-                  startIcon={<Send aria-hidden="true" />}
+                  startIcon={form.isCoverage ? <ArrowRight aria-hidden="true" /> : <Send aria-hidden="true" />}
                   sx={{ minHeight: 52 }}
                 >
-                  {t('Envoyer la demande')}
+                  {form.isCoverage ? t('Continuer dans Gardes') : t('Envoyer la demande')}
                 </Button>
               </Box>
-              {draftsEnabled && (
+              {draftsEnabled && !form.isCoverage && (
                 <Button
                   variant="text"
                   color="inherit"

@@ -22,8 +22,9 @@ vi.mock('idb-keyval', () => ({
 }));
 
 const CATEGORIES = [
-  { id: 'cat-a', name: 'Photocopies', circuit: 'A_DIRECT', routingMode: 'DIRECT', photoRequired: false },
-  { id: 'cat-b', name: 'Intervention technique', circuit: 'B_ADMIN_VALIDATION', routingMode: 'VIA_ADMIN', photoRequired: true },
+  { id: 'cat-a', name: 'Photocopies', circuit: 'A_DIRECT', routingMode: 'DIRECT', photoRequired: false, kind: 'WORK' },
+  { id: 'cat-b', name: 'Intervention technique', circuit: 'B_ADMIN_VALIDATION', routingMode: 'VIA_ADMIN', photoRequired: true, kind: 'WORK' },
+  { id: 'cat-g', name: 'Garde de classe', circuit: 'A_DIRECT', routingMode: 'DIRECT', photoRequired: false, kind: 'COVERAGE' },
 ];
 const RECIPIENTS = [
   { id: 'repro', displayName: 'Reprographie', jobTitle: 'Reprographie' },
@@ -270,6 +271,13 @@ describe('page brouillon (US2)', () => {
     expect(screen.getByRole('radio', { name: 'Urgente' })).toBeChecked();
     expect(screen.getByLabelText('Titre')).toHaveValue('Photocopies du contrôle');
     expect(screen.getByLabelText('Description (facultative)')).toHaveValue('Deux copies');
+  });
+
+  it('ne propose que les catégories de travail (un brouillon n’est jamais une garde)', async () => {
+    draftSetup(draft());
+    await userEvent.click(await screen.findByRole('combobox', { name: 'Catégorie' }));
+    const names = within(await screen.findByRole('listbox')).getAllByRole('option').map((o) => o.textContent);
+    expect(names).toEqual(['Photocopies', 'Intervention technique']);
   });
 
   it('propose de remplacer ou supprimer le message vocal existant ; le supprimer envoie voiceFileId: null', async () => {

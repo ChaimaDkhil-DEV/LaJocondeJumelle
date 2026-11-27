@@ -63,8 +63,8 @@ describe('Création de demandes', () => {
       expect(res.status).toBe(200);
       expect(res.body).toEqual(
         expect.arrayContaining([
-          { id: photocopies, name: 'Photocopies', circuit: 'A_DIRECT', routingMode: 'DIRECT', photoRequired: false },
-          expect.objectContaining({ id: circuitB, circuit: 'B_ADMIN_VALIDATION', routingMode: 'VIA_ADMIN', photoRequired: true }),
+          { id: photocopies, name: 'Photocopies', circuit: 'A_DIRECT', routingMode: 'DIRECT', photoRequired: false, kind: 'WORK' },
+          expect.objectContaining({ id: circuitB, circuit: 'B_ADMIN_VALIDATION', routingMode: 'VIA_ADMIN', photoRequired: true, kind: 'WORK' }),
         ]),
       );
     });

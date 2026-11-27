@@ -15,7 +15,7 @@ import { PRIORITY_LABELS } from '../../components/PriorityBadge';
 import { STATUS_LABELS } from '../../components/StatusBadge';
 import { icon } from '../../design/tokens';
 import { isPlural, t } from '../../i18n';
-import { useCategories, useRecipients } from './api';
+import { useCategories, useRecipients, workCategories } from './api';
 import { activeFilterCount, type RequestFilters as Filters } from './filters';
 
 interface RequestFiltersProps {
@@ -144,7 +144,7 @@ export function RequestFilters({ value, onChange }: RequestFiltersProps) {
               slotProps={{ input: fieldIcon(Tag) }}
             >
               <MenuItem value="">{t('Toutes')}</MenuItem>
-              {(categories.data ?? []).map((c) => (
+              {workCategories(categories.data ?? []).map((c) => (
                 <MenuItem key={c.id} value={c.id}>
                   {c.name}
                 </MenuItem>
