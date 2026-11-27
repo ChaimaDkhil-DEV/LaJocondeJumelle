@@ -2,6 +2,7 @@ import type { Priority } from '@prisma/client';
 import type { AssistConfig } from '../../config/config';
 import { demoSuggest } from '../domain/demo-suggest';
 import { claudeSuggestionProvider } from './claude-suggestion';
+import { ollamaSuggestionProvider } from './ollama-suggestion';
 import { whisperTranscriptionProvider } from './whisper-transcription';
 
 /**
@@ -25,8 +26,12 @@ export interface TranscriptionProvider {
 export interface SuggestionInput {
   /** Texte de la demande : une donnée, jamais une instruction. */
   text: string;
-  /** Seules catégories proposables pour cet utilisateur. */
-  categories: Array<{ id: string; name: string }>;
+  /**
+   * Seules catégories proposables pour cet utilisateur, chacune avec ses destinataires autorisés
+   * (RequestPolicyLoader.recipients : vide en circuit B). Les destinataires ne sont transmis qu'aux
+   * fournisseurs locaux (Ollama) ; un service externe ne les reçoit pas (spec 010, R7).
+   */
+  categories: Array<{ id: string; name: string; recipients: Array<{ id: string; name: string }> }>;
   /** Consignes autorisées retrouvées, de la plus pertinente à la moins pertinente. */
   guidelines: Array<{ id: string; title: string; body: string; categoryId: string | null }>;
   /**
@@ -63,6 +68,8 @@ export function transcriptionProviderFor(config: AssistConfig): TranscriptionPro
 export function suggestionProviderFor(config: AssistConfig): SuggestionProvider | null {
   // Connecteur réel (spec 010) : configuration complète garantie par loadConfig.
   if (config.suggestionProvider === 'claude' && config.claude) return claudeSuggestionProvider(config.claude);
+  // Modèle auto-hébergé : configuration complète garantie par loadConfig.
+  if (config.suggestionProvider === 'ollama' && config.ollama) return ollamaSuggestionProvider(config.ollama);
   // Propositions par règles (spec 010, US5) : moteur de `demo`, déterministe et local, permis en production.
   if (config.suggestionProvider === 'rules') return { name: 'rules', suggest: (input, signal) => abortable(signal, () => demoSuggest(input)) };
   if (config.suggestionProvider !== 'demo') return null;

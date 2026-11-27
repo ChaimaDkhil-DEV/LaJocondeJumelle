@@ -203,7 +203,12 @@ export function AssistNote({ assist }: { assist: Assist }) {
   else if (state.kind === 'error') sentence = state.message;
   else if (result && !suggestion) sentence = t('Aucune suggestion fiable : remplissez les champs vous-même.');
   else if (suggestion && form.suggested.size > 0) sentence = SUGGESTED_HINT;
-  const why = [suggestion?.reason, suggestion?.recipientReason && t('Destinataire : {reason}', { reason: suggestion.recipientReason })].filter(Boolean);
+  // Résumé proposé : information à lire, jamais recopiée dans la description saisie.
+  const why = [
+    suggestion?.summary && t('Résumé proposé : {summary}', { summary: suggestion.summary }),
+    suggestion?.reason,
+    suggestion?.recipientReason && t('Destinataire : {reason}', { reason: suggestion.recipientReason }),
+  ].filter(Boolean);
   // Description seule, sans vocal : rien ne se déclenche tout seul, l'analyse se demande ici.
   const action = assist.hasBasis || state.kind === 'error' ? t('Relancer l’analyse') : t('Proposer une catégorie et une priorité');
   if (!sentence && !assist.canPropose && !assist.hasBasis) return null;

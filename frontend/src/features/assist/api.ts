@@ -12,6 +12,8 @@ export interface Suggestion {
   categoryId?: string;
   priority?: Priority;
   reason?: string;
+  /** Résumé informatif du besoin : affiché dans l'assistance, jamais reporté dans la description. */
+  summary?: string;
   /** Destinataire autorisé pour `categoryId`, d'après les règles d'affectation ; absent : à confirmer. */
   recipientId?: string;
   recipientName?: string;

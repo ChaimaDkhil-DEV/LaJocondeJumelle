@@ -13,7 +13,7 @@ const env = {
 
 const INPUT: SuggestionInput = {
   text: 'La photocopieuse du premier étage est en panne, c’est urgent.',
-  categories: [{ id: 'c1', name: 'Photocopies' }],
+  categories: [{ id: 'c1', name: 'Photocopies', recipients: [] }],
   guidelines: [{ id: 'g1', title: 'Pannes de reprographie', body: 'Priorité : Urgente.', categoryId: 'c1' }],
   similar: [],
 };
@@ -31,6 +31,13 @@ describe('fournisseurs de l’assistance', () => {
     const controller = new AbortController();
     controller.abort();
     await expect(provider.suggest(INPUT, controller.signal)).rejects.toBeDefined();
+  });
+
+  it('ollama : connecteur local nommé « ollama », utilisable en production avec une adresse https', () => {
+    const config = loadConfig({ ...env, ASSIST_SUGGESTION_PROVIDER: 'ollama', ASSIST_OLLAMA_URL: 'https://ollama.ecole.fr' });
+    expect(suggestionProviderFor(config.assist)?.name).toBe('ollama');
+    // La transcription reste celle configurée à part (Whisper ou rien) : aucune transcription liée à Ollama.
+    expect(transcriptionProviderFor(config.assist)).toBeNull();
   });
 
   it('rules ne fournit aucune transcription', () => {

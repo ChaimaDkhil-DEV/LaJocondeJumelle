@@ -250,6 +250,7 @@ describe('loadConfig — assistance IA (009, FR-019, FR-020)', () => {
       rateLimit: 10,
       demoTranscript: null,
       claude: null,
+      ollama: null,
       whisper: null,
     });
   });
@@ -294,6 +295,25 @@ describe('loadConfig — assistance IA (009, FR-019, FR-020)', () => {
     expect(() => loadConfig({ ...valid, ASSIST_SUGGESTION_PROVIDER: 'claude', ANTHROPIC_API_KEY: '  ' })).toThrow(ConfigError);
     // Sans le connecteur choisi, la clé éventuelle n'est pas retenue.
     expect(loadConfig({ ...valid, ANTHROPIC_API_KEY: 'k' }).assist.claude).toBeNull();
+  });
+
+  it('connecteur Ollama : adresse et modèle par défaut, adresse http(s) valide, https en production', () => {
+    const base = { ...valid, ASSIST_SUGGESTION_PROVIDER: 'ollama' };
+    expect(loadConfig(base).assist.suggestionProvider).toBe('ollama');
+    expect(loadConfig(base).assist.ollama).toEqual({ url: 'http://ljj-ollama:11434', model: 'qwen3:4b' });
+    expect(loadConfig({ ...base, ASSIST_OLLAMA_URL: '  ', ASSIST_OLLAMA_MODEL: '  ' }).assist.ollama).toEqual({ url: 'http://ljj-ollama:11434', model: 'qwen3:4b' });
+    expect(loadConfig({ ...base, ASSIST_OLLAMA_URL: ' http://localhost:11434/ ', ASSIST_OLLAMA_MODEL: ' qwen3:8b ' }).assist.ollama).toEqual({
+      url: 'http://localhost:11434',
+      model: 'qwen3:8b',
+    });
+    for (const url of ['pas une url', 'ftp://ollama.ecole.fr']) {
+      expect(() => loadConfig({ ...base, ASSIST_OLLAMA_URL: url })).toThrow(/ASSIST_OLLAMA_URL/);
+    }
+    // Échanges chiffrés exigés en production (constitution, principe IV) : l'adresse par défaut ne suffit pas.
+    expect(() => loadConfig({ ...base, NODE_ENV: 'production' })).toThrow(/https/);
+    expect(loadConfig({ ...base, NODE_ENV: 'production', ASSIST_OLLAMA_URL: 'https://ollama.ecole.fr' }).assist.ollama?.url).toBe('https://ollama.ecole.fr');
+    // Sans le connecteur choisi, la configuration éventuelle n'est pas retenue.
+    expect(loadConfig({ ...valid, ASSIST_OLLAMA_URL: 'http://localhost:11434' }).assist.ollama).toBeNull();
   });
 
   it('langue de transcription Whisper : français par défaut, code de langue ou « auto » (détection)', () => {

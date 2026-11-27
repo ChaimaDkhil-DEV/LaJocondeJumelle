@@ -76,4 +76,48 @@ describe('sanitizeSuggestion', () => {
     expect(suggestion).toEqual({ title: 'Photocopieuse en panne', missing: [], sourceIds: ['g2'] });
     expect(discarded).toBe(3);
   });
+
+  // Ollama : résumé informatif et destinataire proposé, contrôlés comme le reste.
+  describe('résumé et destinataire proposés par le fournisseur', () => {
+    const withRecipients = { ...allowed, recipientIds: { 'cat-a': ['u1', 'u2'], 'cat-b': [] } };
+
+    it('garde un résumé valide (espaces normalisés) ; écarte un résumé vide, trop long ou non textuel', () => {
+      expect(sanitizeSuggestion({ ...valid, summary: '  La photocopieuse   ne marche plus. ' }, allowed).suggestion?.summary).toBe('La photocopieuse ne marche plus.');
+      for (const summary of ['   ', 'x'.repeat(1001), 42]) {
+        const result = sanitizeSuggestion({ ...valid, summary }, allowed);
+        expect(result.suggestion).not.toHaveProperty('summary');
+        expect(result.discarded).toBe(1);
+      }
+    });
+
+    it('un résumé seul ne fait pas une proposition fiable', () => {
+      expect(sanitizeSuggestion({ summary: 'Résumé.' }, allowed).suggestion).toBeNull();
+    });
+
+    it('garde un destinataire autorisé pour la catégorie proposée', () => {
+      expect(sanitizeSuggestion({ ...valid, recipientId: 'u2' }, withRecipients)).toMatchObject({ suggestion: { categoryId: 'cat-a', recipientId: 'u2' }, discarded: 0 });
+    });
+
+    it.each([
+      ['identifiant inconnu', { recipientId: 'u9' }],
+      ['identifiant non textuel', { recipientId: 7 }],
+      ['destinataire d’une autre catégorie', { categoryId: 'cat-b', recipientId: 'u1' }],
+      ['sans catégorie retenue', { categoryId: 'cat-x', recipientId: 'u1' }],
+    ])('écarte un destinataire non autorisé (%s)', (_label, patch) => {
+      const result = sanitizeSuggestion({ ...valid, ...patch }, withRecipients);
+      expect(result.suggestion).not.toHaveProperty('recipientId');
+      expect(result.discarded).toBeGreaterThanOrEqual(1);
+    });
+
+    it('sans liste de destinataires transmise, aucun destinataire n’est retenu', () => {
+      expect(sanitizeSuggestion({ ...valid, recipientId: 'u1' }, allowed).suggestion).not.toHaveProperty('recipientId');
+    });
+
+    it('catégorie choisie par l’utilisateur : le destinataire est contrôlé pour elle, même sans catégorie renvoyée', () => {
+      const chosen = { ...withRecipients, categoryIds: ['cat-a'], chosenCategoryId: 'cat-a' };
+      const withoutCategory = { ...valid, categoryId: undefined };
+      expect(sanitizeSuggestion({ ...withoutCategory, recipientId: 'u1' }, chosen).suggestion?.recipientId).toBe('u1');
+      expect(sanitizeSuggestion({ ...withoutCategory, recipientId: 'u9' }, chosen).suggestion).not.toHaveProperty('recipientId');
+    });
+  });
 });

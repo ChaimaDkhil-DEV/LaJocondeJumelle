@@ -83,9 +83,10 @@ export interface PushConfig {
  * `disabled` : aucune assistance ; `demo` : fournisseur local déterministe, refusé en production ;
  * `rules` : propositions par règles (même moteur que `demo`, consignes et mots-clés), sans service
  * externe, autorisé en production (spec 010, US5) ; `claude` / `whisper` : connecteurs réels
- * (spec 010), à n'activer qu'après la décision de l'établissement (accord de traitement, conservation).
+ * (spec 010), à n'activer qu'après la décision de l'établissement (accord de traitement, conservation) ;
+ * `ollama` : modèle de langage auto-hébergé (analyse locale, aucun service externe).
  */
-export type SuggestionProviderName = 'disabled' | 'demo' | 'rules' | 'claude';
+export type SuggestionProviderName = 'disabled' | 'demo' | 'rules' | 'claude' | 'ollama';
 export type TranscriptionProviderName = 'disabled' | 'demo' | 'whisper';
 
 export interface AssistConfig {
@@ -104,6 +105,8 @@ export interface AssistConfig {
   demoTranscript: string | null;
   /** Connecteur Claude (`claude` seulement) : clé secrète et modèle. */
   claude: { apiKey: string; model: string } | null;
+  /** Connecteur Ollama auto-hébergé (`ollama` seulement) : adresse du serveur et modèle. */
+  ollama: { url: string; model: string } | null;
   /**
    * Connecteur Whisper auto-hébergé (`whisper` seulement) : adresse, modèle, clé facultative et
    * certificat d'autorité supplémentaire (autorité interne de Caddy, spec 010 R11), lu à chaque appel.
@@ -141,13 +144,16 @@ export function schoolTimezoneFromEnv(env: NodeJS.ProcessEnv = process.env): str
   return cachedTimezone.value;
 }
 
-const SUGGESTION_PROVIDERS: readonly SuggestionProviderName[] = ['disabled', 'demo', 'rules', 'claude'];
+const SUGGESTION_PROVIDERS: readonly SuggestionProviderName[] = ['disabled', 'demo', 'rules', 'claude', 'ollama'];
 const TRANSCRIPTION_PROVIDERS: readonly TranscriptionProviderName[] = ['disabled', 'demo', 'whisper'];
 const DEFAULT_ASSIST_TIMEOUT_MS = 15_000;
 // Valeur provisoire, à calibrer sur une mesure réelle (docs/validation/verification-011.md).
 const DEFAULT_TRANSCRIPTION_TIMEOUT_MS = 120_000;
 const DEFAULT_ASSIST_RATE_LIMIT = 10;
 const DEFAULT_CLAUDE_MODEL = 'claude-opus-5-5';
+/** Service Ollama du réseau interne (nom de service) et modèle par défaut. */
+const DEFAULT_OLLAMA_URL = 'http://ljj-ollama:11434';
+const DEFAULT_OLLAMA_MODEL = 'qwen3:4b';
 const DEFAULT_WHISPER_MODEL = 'Systran/faster-whisper-small';
 /** Langue des vocaux par défaut (comportement historique) ; `auto` laisse Whisper la détecter. */
 const DEFAULT_WHISPER_LANGUAGE = 'fr';
@@ -173,6 +179,24 @@ function parseClaude(env: NodeJS.ProcessEnv): AssistConfig['claude'] {
   const apiKey = trimmed(env.ANTHROPIC_API_KEY);
   if (!apiKey) throw new ConfigError('ANTHROPIC_API_KEY est obligatoire avec ASSIST_SUGGESTION_PROVIDER=claude');
   return { apiKey, model: trimmed(env.ASSIST_CLAUDE_MODEL) ?? DEFAULT_CLAUDE_MODEL };
+}
+
+function parseOllama(env: NodeJS.ProcessEnv, isProduction: boolean): AssistConfig['ollama'] {
+  const raw = trimmed(env.ASSIST_OLLAMA_URL) ?? DEFAULT_OLLAMA_URL;
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new ConfigError('ASSIST_OLLAMA_URL doit être une adresse http(s) valide avec ASSIST_SUGGESTION_PROVIDER=ollama');
+  }
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+    throw new ConfigError('ASSIST_OLLAMA_URL doit être une adresse http(s) valide avec ASSIST_SUGGESTION_PROVIDER=ollama');
+  }
+  // Échanges chiffrés exigés en production (constitution, principe IV), comme pour Whisper.
+  if (isProduction && url.protocol !== 'https:') {
+    throw new ConfigError('ASSIST_OLLAMA_URL doit utiliser https en production');
+  }
+  return { url: raw.replace(/\/+$/, ''), model: trimmed(env.ASSIST_OLLAMA_MODEL) ?? DEFAULT_OLLAMA_MODEL };
 }
 
 /** Langue de transcription : code ISO 639-1 (`fr`, `ar`, `en`…) ou `auto` (détection, renvoyé `null`). */
@@ -242,6 +266,7 @@ function parseAssist(env: NodeJS.ProcessEnv, isProduction: boolean): AssistConfi
     demoTranscript: env.ASSIST_DEMO_TRANSCRIPT?.trim() || null,
     // Configuration retenue seulement pour le connecteur choisi, et complète dès le démarrage.
     claude: suggestionProvider === 'claude' ? parseClaude(env) : null,
+    ollama: suggestionProvider === 'ollama' ? parseOllama(env, isProduction) : null,
     whisper: transcriptionProvider === 'whisper' ? parseWhisper(env, isProduction) : null,
   };
 }

@@ -13,7 +13,7 @@ import { RequestPolicyLoader, toPolicyCategory, type CategoryWithMembers } from 
 import type { RequestContext } from '../requests/requests.service';
 import { AssistRateLimiter } from './assist-rate-limiter';
 import { sanitizeSuggestion, type CleanSuggestion } from './domain/sanitize-suggestion';
-import { suggestRecipient, type RecipientSuggestion } from './domain/suggest-recipient';
+import { suggestRecipient, type RecipientCandidate, type RecipientSuggestion } from './domain/suggest-recipient';
 import { GuidelinesService } from './guidelines.service';
 import { SimilarRequestsService, type SimilarRequest } from './similar-requests.service';
 import {
@@ -32,6 +32,8 @@ export interface SuggestionResult {
     categoryId?: string;
     priority?: Priority;
     reason?: string;
+    /** Résumé informatif du besoin (fournisseur Ollama) : affiché, jamais reporté dans la description. */
+    summary?: string;
     /**
      * Destinataire autorisé pour la catégorie proposée (ou choisie), d'après les règles
      * d'affectation ; absent : à confirmer par l'utilisateur, ou choisi par l'administration.
@@ -49,6 +51,21 @@ export interface SuggestionResult {
   token: string | null;
   /** Demandes similaires visibles par l'utilisateur (spec 010), 3 au plus. */
   similar: SimilarRequest[];
+}
+
+/**
+ * Destinataire proposé, seulement parmi ceux que les règles d'affectation autorisent pour cette
+ * catégorie et ce demandeur (mêmes règles que le formulaire et que l'envoi) ; circuit B : aucun.
+ * La règle du serveur (spec 009, FR-027 : seul destinataire, ou seul nom cité) l'emporte ; à défaut,
+ * le destinataire proposé par le fournisseur, déjà contrôlé par sanitizeSuggestion, s'il est dans la liste.
+ */
+function recipientFor(text: string, candidates: readonly RecipientCandidate[], proposed: string | undefined): RecipientSuggestion | null {
+  const byRule = suggestRecipient(text, candidates);
+  if (byRule) return byRule;
+  const chosen = proposed ? candidates.find((c) => c.id === proposed) : undefined;
+  return chosen
+    ? { recipientId: chosen.id, recipientName: chosen.displayName, recipientReason: 'Proposé par l’analyse parmi les destinataires autorisés de la catégorie.' }
+    : null;
 }
 
 /**
@@ -82,7 +99,16 @@ export class AssistService {
     const creatable = await this.creatableCategories(user, ctx);
     await this.consume(user, ctx);
     const chosen = creatable.find((c) => c.id === chosenCategoryId);
-    const categories = (chosen ? [chosen] : creatable).map((c) => ({ id: c.id, name: c.name }));
+    const offered = chosen ? [chosen] : creatable;
+    // Destinataires autorisés de chaque catégorie : mêmes règles que le formulaire (vide en circuit B).
+    const recipientsOf = new Map(
+      await Promise.all(offered.map(async (c) => [c.id, await this.policies.recipients(c, user.id)] as const)),
+    );
+    const categories = offered.map((c) => ({
+      id: c.id,
+      name: c.name,
+      recipients: (recipientsOf.get(c.id) ?? []).map((r) => ({ id: r.id, name: r.displayName })),
+    }));
 
     const [found, similar] = await Promise.all([
       this.guidelines.search(
@@ -107,6 +133,8 @@ export class AssistService {
     const sanitized = sanitizeSuggestion(raw, {
       categoryIds: categories.map((c) => c.id),
       sourceIds: found.map((g) => g.id),
+      recipientIds: Object.fromEntries(categories.map((c) => [c.id, c.recipients.map((r) => r.id)])),
+      ...(chosen ? { chosenCategoryId: chosen.id } : {}),
     });
     const { discarded } = sanitized;
     let suggestion: CleanSuggestion | null = sanitized.suggestion;
@@ -121,14 +149,15 @@ export class AssistService {
     if (!suggestion) return { suggestion: null, sources, noGuideline: found.length === 0, token: null, similar };
 
     // Les consignes citées sont renvoyées dans `sources`, pas dans la proposition.
-    const { title, categoryId, priority, reason, missing } = suggestion;
-    const category = categoryId ? creatable.find((c) => c.id === categoryId) : undefined;
-    const recipient = category ? await this.recipientFor(user, category, text) : null;
+    const { title, categoryId, priority, reason, summary, missing } = suggestion;
+    const candidates = categoryId ? (recipientsOf.get(categoryId) ?? []) : [];
+    const recipient = categoryId ? recipientFor(text, candidates, suggestion.recipientId) : null;
     const fields = {
       ...(title !== undefined ? { title } : {}),
       ...(categoryId !== undefined ? { categoryId } : {}),
       ...(priority !== undefined ? { priority } : {}),
       ...(reason !== undefined ? { reason } : {}),
+      ...(summary !== undefined ? { summary } : {}),
       ...(recipient ?? {}),
       missing,
     };
@@ -201,14 +230,6 @@ export class AssistService {
       // Le rejet tardif du délai ne doit pas devenir une promesse rejetée non gérée.
       aborted.catch(() => undefined);
     }
-  }
-
-  /**
-   * Destinataire proposé : seulement parmi ceux que les règles d'affectation autorisent pour cette
-   * catégorie et ce demandeur (mêmes règles que le formulaire et que l'envoi) ; circuit B : aucun.
-   */
-  private async recipientFor(user: AuthenticatedUser, category: CategoryWithMembers, text: string): Promise<RecipientSuggestion | null> {
-    return suggestRecipient(text, await this.policies.recipients(category, user.id));
   }
 
   /** Catégories de demande de travail où l'utilisateur peut créer ; aucune : refus journalisé. */
