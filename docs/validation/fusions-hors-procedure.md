@@ -740,3 +740,38 @@ No `git revert`. The test now uses the next day in the school time zone (this pu
 
 A test that deviates from "tests written first" leaves check 4 unticked, with the reason in the description, and the owner is
 told before deciding to merge.
+
+## 27/11/2026 — pull requests #163 and #164
+
+| Pull request | Content | Merged at (UTC) | Check not satisfied at merge time |
+|---------|---------|-------------------|-----------------------------------------------|
+| #163 (`categories-garde-nouvelle-demande`) | Coverage categories offered in « Nouvelle demande », hand-over to « Nouvelle affectation » without creating anything | 10:56:27 | **All four checkboxes unticked**. CI was green: both runs on `8e03bc0` had finished before the merge (`push` 45980418703 at 10:27:04, `pull_request` 45980463406 at 10:30:29) |
+| #164 (`assist-ollama`) | Local Ollama suggestion provider for the AI assistance (`ASSIST_SUGGESTION_PROVIDER=ollama`) | 12:12:14 | **1. CI**: both runs on `07b46ef` were in progress (opened 12:11:25, merged 49 s later); **4. Diff review**: integration tests not seen failing before the code (see below); **all four checkboxes unticked** |
+
+Both pull requests were merged by the owner from their account.
+
+### Findings after the fact
+
+- #163: no failure. The diff had been reviewed in the session before the merge (16 expected files, no secret, one existing
+  expectation changed and stated in the description: `kind: 'WORK'` in `requests-create.spec.ts`). Tests were written first
+  and seen failing. `master` after the merge: run 45986300787 on `cca8eb9` **green on all steps** at 11:07:53.
+- #164: both runs finished **green on all steps** after the merge: `pull_request` 45996567122 at 12:24:00 and `push`
+  45996492348 at 12:27:46. `master` after the merge: run 45996677560 on `c5a490e` **green on all steps** at 12:24:35.
+  Verified locally on `07b46ef`: lint, typechecks, `npm run audit:check`, both builds (written outside `dist`), backend unit
+  tests, full backend integration suite (1465 passed, 2 skipped), 1067 frontend tests (`dashboard.test.tsx` did not load in
+  the full run and passed alone, 65/65). Not verified: the end-to-end suite.
+- #164, check 4: the unit and frontend tests were seen failing before the code. The 7 new integration tests in
+  `assist-suggestions.spec.ts` were written before the service change, but could not fail on behaviour: the new
+  `SuggestionInput` contract broke compilation until the service was adapted. Stated in the description; box 4 was left
+  unticked.
+- Neither pull request followed the Spec Kit cycle (specification, plan, tasks); both were carried out directly at the
+  owner's request, as stated in their descriptions. #164 relaxes FR-027 of spec 009 (recipient never taken from the provider's
+  response): the server rule still comes first, then the provider's recipient if it is allowed for the category.
+
+### Fix needed
+
+No `git revert`: `master` is green. One follow-up: record the FR-027 change in `specs/009-assistance-ia-demandes/spec.md`.
+
+### Reminder
+
+Wait for CI on the latest commit of the pull request, then tick the four checks, before merging.
