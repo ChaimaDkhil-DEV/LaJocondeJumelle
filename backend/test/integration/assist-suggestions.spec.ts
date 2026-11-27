@@ -298,6 +298,104 @@ describe('Propositions : droits et réponses non fiables', () => {
     expect(otherOrigin.status).toBe(403);
     expect(received).toBeNull();
   });
+
+  // Destinataires autorisés transmis au fournisseur (Ollama) ; sa proposition n'est retenue qu'après contrôle.
+  describe('destinataires autorisés et résumé', () => {
+    let multiId: string;
+    let reprographieId: string;
+    let autreId: string;
+
+    const suggestIn = (text: string, chosen?: string) =>
+      request(app.getHttpServer())
+        .post('/api/assist/suggestions')
+        .set('Cookie', enseignante)
+        .set('Origin', TEST_ORIGIN)
+        .send(chosen ? { text, categoryId: chosen } : { text });
+    const tokenOf = (token: string) => readAssistToken(process.env.SESSION_SECRET!, token, enseignanteId, new Date());
+
+    beforeAll(async () => {
+      const superadmin = await loginAs(app, 'superadmin');
+      reprographieId = await userId(prisma, 'reprographie');
+      autreId = await userId(prisma, 'autre');
+      const created = await request(app.getHttpServer())
+        .post('/api/admin/categories')
+        .set('Cookie', superadmin)
+        .set('Origin', TEST_ORIGIN)
+        .send({ name: 'Entretien des salles', circuit: 'A_DIRECT', creatorRoles: ['EMPLOYEE', 'ADMIN'], closureMode: 'REQUESTER', autoCloseAfterMinutes: 0 });
+      expect(created.status).toBe(201);
+      multiId = created.body.id;
+      const recipients = await request(app.getHttpServer())
+        .put(`/api/admin/categories/${multiId}/recipients`)
+        .set('Cookie', superadmin)
+        .set('Origin', TEST_ORIGIN)
+        .send({ userIds: [reprographieId, autreId] });
+      expect(recipients.status).toBe(200);
+    });
+
+    it('transmet à chaque catégorie ses destinataires autorisés (aucun en circuit B)', async () => {
+      expect((await suggestIn('La salle 12 est sale.')).status).toBe(200);
+      const byId = new Map(received!.categories.map((c) => [c.id, c.recipients]));
+      expect(byId.get(await categoryId(prisma, CATEGORIES.photocopies))).toEqual([{ id: reprographieId, name: 'Reprographie' }]);
+      expect(byId.get(await categoryId(prisma, CATEGORIES.circuitB))).toEqual([]);
+      expect(byId.get(multiId)).toEqual([
+        { id: autreId, name: 'Autre employé' },
+        { id: reprographieId, name: 'Reprographie' },
+      ]);
+    });
+
+    it('retient le destinataire du modèle s’il est autorisé et que la règle du serveur n’en désigne aucun', async () => {
+      reply = () => ({ categoryId: multiId, recipientId: autreId, priority: 'NORMAL', title: 'Ménage de la salle 12' });
+      const res = await suggestIn('La salle 12 est sale.');
+      expect(res.status).toBe(200);
+      expect(res.body.suggestion).toMatchObject({ categoryId: multiId, recipientId: autreId, recipientName: 'Autre employé', recipientReason: expect.any(String) });
+      expect(tokenOf(res.body.token)).toMatchObject({ categoryId: multiId, recipientId: autreId });
+    });
+
+    it('ne retient jamais un identifiant inventé ou un destinataire non autorisé pour la catégorie', async () => {
+      for (const recipientId of [randomUUID(), enseignanteId, await userId(prisma, 'nouveau')]) {
+        reply = () => ({ categoryId: multiId, recipientId, priority: 'NORMAL', title: 'Ménage de la salle 12' });
+        const res = await suggestIn('La salle 12 est sale.');
+        expect(res.status).toBe(200);
+        expect(res.body.suggestion).toMatchObject({ categoryId: multiId, priority: 'NORMAL' });
+        expect(res.body.suggestion).not.toHaveProperty('recipientId');
+        expect(tokenOf(res.body.token)).not.toHaveProperty('recipientId');
+      }
+    });
+
+    it('la règle du serveur l’emporte sur le modèle (nom cité dans le message)', async () => {
+      reply = () => ({ categoryId: multiId, recipientId: autreId, priority: 'NORMAL', title: 'Ménage de la salle 12' });
+      const res = await suggestIn('Pour Reprographie : la salle 12 est sale.');
+      expect(res.body.suggestion).toMatchObject({ categoryId: multiId, recipientId: reprographieId });
+    });
+
+    it('catégorie choisie à la main : elle seule est transmise ; le destinataire est contrôlé pour elle', async () => {
+      reply = () => ({ recipientId: autreId, priority: 'NORMAL' });
+      const res = await suggestIn('La salle 12 est sale.', multiId);
+      expect(received!.categories.map((c) => c.id)).toEqual([multiId]);
+      expect(res.body.suggestion).toMatchObject({ categoryId: multiId, recipientId: autreId });
+
+      reply = () => ({ recipientId: enseignanteId, priority: 'NORMAL' });
+      const refused = await suggestIn('La salle 12 est sale.', multiId);
+      expect(refused.body.suggestion).toMatchObject({ categoryId: multiId });
+      expect(refused.body.suggestion).not.toHaveProperty('recipientId');
+    });
+
+    it('renvoie le résumé comme information, hors du jeton (il n’est pas une valeur enregistrée)', async () => {
+      reply = () => ({ categoryId: multiId, priority: 'NORMAL', summary: '  La salle 12   est sale depuis hier. ' });
+      const res = await suggestIn('La salle 12 est sale depuis hier.');
+      expect(res.body.suggestion.summary).toBe('La salle 12 est sale depuis hier.');
+      expect(tokenOf(res.body.token)).not.toHaveProperty('summary');
+    });
+
+    it('écarte une priorité hors de NORMAL et URGENT', async () => {
+      for (const priority of ['HIGH', 'urgent', 'BASSE', 3]) {
+        reply = () => ({ categoryId: multiId, priority });
+        const res = await suggestIn('La salle 12 est sale.');
+        expect(res.body.suggestion).toMatchObject({ categoryId: multiId });
+        expect(res.body.suggestion).not.toHaveProperty('priority');
+      }
+    });
+  });
 });
 
 /** Applique des variables d'environnement le temps d'un bloc (la configuration est lue au démarrage). */

@@ -10,6 +10,10 @@ export interface CleanSuggestion {
   categoryId?: string;
   priority?: Priority;
   reason?: string;
+  /** Résumé informatif du besoin : affiché, jamais reporté dans la description. */
+  summary?: string;
+  /** Destinataire proposé par le fournisseur, autorisé pour la catégorie retenue. */
+  recipientId?: string;
   missing: string[];
   sourceIds: string[];
 }
@@ -21,7 +25,7 @@ export interface SanitizeResult {
   discarded: number;
 }
 
-export const SUGGESTION_LIMITS = { title: 120, reason: 500, missing: 3, missingItem: 200 } as const;
+export const SUGGESTION_LIMITS = { title: 120, reason: 500, summary: 1000, missing: 3, missingItem: 200 } as const;
 const PRIORITIES: readonly Priority[] = ['NORMAL', 'URGENT'];
 
 function cleanText(value: unknown, max: number): string | null {
@@ -30,10 +34,16 @@ function cleanText(value: unknown, max: number): string | null {
   return text.length > 0 && text.length <= max ? text : null;
 }
 
-export function sanitizeSuggestion(
-  raw: unknown,
-  allowed: { categoryIds: readonly string[]; sourceIds: readonly string[] },
-): SanitizeResult {
+export interface AllowedValues {
+  categoryIds: readonly string[];
+  sourceIds: readonly string[];
+  /** Destinataires autorisés par catégorie ; absent : aucun destinataire proposé n'est retenu. */
+  recipientIds?: Readonly<Record<string, readonly string[]>>;
+  /** Catégorie choisie par l'utilisateur : le destinataire est contrôlé pour elle si le fournisseur n'en renvoie pas. */
+  chosenCategoryId?: string;
+}
+
+export function sanitizeSuggestion(raw: unknown, allowed: AllowedValues): SanitizeResult {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { suggestion: null, discarded: 0 };
   const input = raw as Record<string, unknown>;
   let discarded = 0;
@@ -57,6 +67,18 @@ export function sanitizeSuggestion(
   if (input.reason !== undefined) {
     const reason = cleanText(input.reason, SUGGESTION_LIMITS.reason);
     if (reason) out.reason = reason;
+    else discarded++;
+  }
+  if (input.summary !== undefined) {
+    const summary = cleanText(input.summary, SUGGESTION_LIMITS.summary);
+    if (summary) out.summary = summary;
+    else discarded++;
+  }
+  if (input.recipientId !== undefined) {
+    // Seulement un destinataire autorisé pour la catégorie retenue (ou choisie) : jamais un identifiant inventé.
+    const category = out.categoryId ?? allowed.chosenCategoryId;
+    const permitted = category ? (allowed.recipientIds?.[category] ?? []) : [];
+    if (typeof input.recipientId === 'string' && permitted.includes(input.recipientId)) out.recipientId = input.recipientId;
     else discarded++;
   }
   if (input.missing !== undefined) {

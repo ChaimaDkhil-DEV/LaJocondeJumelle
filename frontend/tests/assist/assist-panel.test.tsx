@@ -208,6 +208,30 @@ describe('Propositions automatiques', () => {
     expect(screen.getAllByText('Suggéré')).toHaveLength(1);
   });
 
+  it('résumé proposé : affiché comme information avec la justification, sans toucher à la description saisie', async () => {
+    const summary = 'La photocopieuse du premier étage ne fonctionne plus depuis ce matin.';
+    setup(() => json(200, { ...RESULT, suggestion: { ...RESULT.suggestion, summary } }));
+    await describeNeed('La photocopieuse du premier étage est en panne.');
+    await userEvent.click(proposeButton());
+    await analysisDone();
+
+    expect(screen.getByLabelText('Description (facultative)')).toHaveValue('La photocopieuse du premier étage est en panne.');
+    expect(screen.getByText(`Résumé proposé : ${summary}`)).not.toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Voir pourquoi' }));
+    await waitFor(() => expect(screen.getByText(`Résumé proposé : ${summary}`)).toBeVisible());
+    expect(screen.getByLabelText('Description (facultative)')).toHaveValue('La photocopieuse du premier étage est en panne.');
+  });
+
+  it('résumé seul (sans justification) : « Voir pourquoi » le donne aussi à lire', async () => {
+    const summary = 'Photocopieuse du premier étage en panne.';
+    setup(() => json(200, { ...RESULT, suggestion: { ...RESULT.suggestion, reason: undefined, summary } }));
+    await describeNeed();
+    await userEvent.click(proposeButton());
+    await analysisDone();
+    await userEvent.click(screen.getByRole('button', { name: 'Voir pourquoi' }));
+    await waitFor(() => expect(screen.getByText(`Résumé proposé : ${summary}`)).toBeVisible());
+  });
+
   it('propose un destinataire autorisé, modifiable, et l’envoie avec la demande', async () => {
     const calls = setup(() => json(200, PEER_RESULT));
     await describeNeed('Copies du contrôle pour Paul Martin, merci.');

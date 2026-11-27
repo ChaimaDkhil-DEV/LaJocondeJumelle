@@ -15,8 +15,8 @@ jest.mock('@anthropic-ai/sdk', () => ({
 const INPUT: SuggestionInput = {
   text: 'La photocopieuse est en panne.',
   categories: [
-    { id: 'c1', name: 'Photocopies' },
-    { id: 'c2', name: 'Petits travaux' },
+    { id: 'c1', name: 'Photocopies', recipients: [{ id: 'u-repro', name: 'Agnès Reprographie' }] },
+    { id: 'c2', name: 'Petits travaux', recipients: [] },
   ],
   guidelines: [{ id: 'g1', title: 'Pannes de reprographie', body: 'Priorité : Urgente.', categoryId: 'c1' }],
   similar: [{ title: 'Photocopieuse du 1er en panne', categoryName: 'Photocopies', priority: 'URGENT' }],
@@ -76,6 +76,14 @@ describe('claudeSuggestionProvider', () => {
     expect(content).toContain('<demande>\nLa photocopieuse est en panne.\n</demande>');
     expect(content).toContain('Pannes de reprographie');
     expect(content).toContain('Photocopieuse du 1er en panne');
+  });
+
+  it('service externe : ni le nom ni l’identifiant des destinataires ne sont envoyés (010, R7)', async () => {
+    create.mockResolvedValueOnce(answer({ title: null, categoryId: null, priority: null, reason: null, missing: [], sourceIds: [] }));
+    await claudeSuggestionProvider({ apiKey: 'k', model: 'm' }).suggest(INPUT, new AbortController().signal);
+    const params = JSON.stringify(create.mock.calls[0][0]);
+    expect(params).not.toContain('Agnès Reprographie');
+    expect(params).not.toContain('u-repro');
   });
 
   it('ne laisse pas le texte fermer la balise de délimitation', async () => {

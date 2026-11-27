@@ -9,6 +9,7 @@ export const assist: Record<string, string> = {
   'Relancer l’analyse': 'Run the analysis again',
   'Proposer une catégorie et une priorité': 'Suggest a category and a priority',
   'Voir pourquoi': 'See why',
+  'Résumé proposé : {summary}': 'Suggested summary: {summary}',
   '1 demande similaire': '1 similar request',
   '{n} demandes similaires': '{n} similar requests',
   'Demandes similaires': 'Similar requests',
